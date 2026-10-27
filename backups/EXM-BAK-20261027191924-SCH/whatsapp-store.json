@@ -1,0 +1,99 @@
+[
+  {
+    "id": "wa-1793128764337-9067",
+    "recipientPhone": "+919846011223",
+    "recipientName": "Kerala Grand Villas",
+    "documentType": "QUOTATION",
+    "documentId": "QT-MSTR-701",
+    "templateName": "exmark_quotation_estimate",
+    "language": "en",
+    "providerMsgId": "wamid.HBgM1793128764337Exmark",
+    "status": "DELIVERED",
+    "payload": {
+      "quoteNumber": "QT-MSTR-701",
+      "amount": "₹3,40,000"
+    },
+    "sentAt": "2026-10-27T19:19:24.337Z",
+    "createdAt": "2026-10-27T19:19:24.337Z"
+  },
+  {
+    "id": "wa-1793128652240-2684",
+    "recipientPhone": "+919846011223",
+    "recipientName": "Kerala Grand Villas",
+    "documentType": "QUOTATION",
+    "documentId": "QT-MSTR-701",
+    "templateName": "exmark_quotation_estimate",
+    "language": "en",
+    "providerMsgId": "wamid.HBgM1793128652240Exmark",
+    "status": "DELIVERED",
+    "payload": {
+      "quoteNumber": "QT-MSTR-701",
+      "amount": "₹3,40,000"
+    },
+    "sentAt": "2026-10-27T19:17:32.240Z",
+    "createdAt": "2026-10-27T19:17:32.240Z"
+  },
+  {
+    "id": "wa-1793128612547-6174",
+    "recipientPhone": "+919846011223",
+    "recipientName": "Kerala Grand Villas",
+    "documentType": "QUOTATION",
+    "documentId": "QT-MSTR-701",
+    "templateName": "exmark_quotation_estimate",
+    "language": "en",
+    "providerMsgId": "wamid.HBgM1793128612547Exmark",
+    "status": "DELIVERED",
+    "payload": {
+      "quoteNumber": "QT-MSTR-701",
+      "amount": "₹3,40,000"
+    },
+    "sentAt": "2026-10-27T19:16:52.547Z",
+    "createdAt": "2026-10-27T19:16:52.547Z"
+  },
+  {
+    "id": "wa-1793128535020-4631",
+    "recipientPhone": "+919846011223",
+    "recipientName": "Kerala Grand Villas",
+    "documentType": "QUOTATION",
+    "documentId": "QT-MSTR-701",
+    "templateName": "exmark_quotation_estimate",
+    "language": "en",
+    "providerMsgId": "wamid.HBgM1793128535020Exmark",
+    "status": "DELIVERED",
+    "sentAt": "2026-10-27T19:15:35.020Z",
+    "createdAt": "2026-10-27T19:15:35.020Z"
+  },
+  {
+    "id": "wa-1793126915307-4310",
+    "recipientPhone": "+919847099887",
+    "recipientName": "M. K. Basheer",
+    "documentType": "MEASUREMENT_CONFIRMATION",
+    "documentId": "MSR-2026-001",
+    "templateName": "exmark_msr_confirm_ml",
+    "language": "ml",
+    "providerMsgId": "wamid.HBgM1793126915307Exmark",
+    "status": "DELIVERED",
+    "payload": {
+      "refNumber": "MSR-2026-001"
+    },
+    "sentAt": "2026-10-27T18:48:35.307Z",
+    "createdAt": "2026-10-27T18:48:35.307Z"
+  },
+  {
+    "id": "wa-1793126915302-89",
+    "recipientPhone": "+919447012345",
+    "recipientName": "Ar. Ananya Nair",
+    "documentType": "QUOTATION",
+    "documentId": "QTN-2026-444",
+    "templateName": "exmark_quotation_estimate",
+    "language": "en",
+    "providerMsgId": "wamid.HBgM1793126915302Exmark",
+    "status": "DELIVERED",
+    "payload": {
+      "quoteNumber": "QTN-2026-444",
+      "amount": "₹1,95,000"
+    },
+    "sentAt": "2026-10-27T18:48:35.302Z",
+    "createdAt": "2026-10-27T18:48:35.304Z"
+  }
+]

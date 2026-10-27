@@ -1,0 +1,67 @@
+{
+  "backupId": "EXM-BAK-20261027191732-SCH",
+  "timestamp": "2026-10-27T19:17:32.267Z",
+  "filesCount": 11,
+  "totalSizeBytes": 79836,
+  "sha256Checksum": "05b4451f899579db9332bcb00434be550d1795cc918e393481a803dd406de83f",
+  "status": "VERIFIED",
+  "storesIncluded": [
+    "boq-store.json",
+    "concurrency-store.json",
+    "customers-store.json",
+    "finance-store.json",
+    "fulfillment-store.json",
+    "leads-store.json",
+    "measurements-store.json",
+    "product-categories.json",
+    "production-store.json",
+    "quotations-store.json",
+    "whatsapp-store.json"
+  ],
+  "manifest": {
+    "boq-store.json": {
+      "size": 7986,
+      "sha256": "86457ec17bd59543f47532222feda9099656f6259e2e4a88c0cdfa68d25de461"
+    },
+    "concurrency-store.json": {
+      "size": 644,
+      "sha256": "bcde6f723200c6501912ffdc8bb0e1def224f5493d5a2fbff6f76f94a753dadd"
+    },
+    "customers-store.json": {
+      "size": 4674,
+      "sha256": "87f2037225c97a716f5c0ccf6301e5c12a6efa37c487a9d97ed4ff507b34b55f"
+    },
+    "finance-store.json": {
+      "size": 8271,
+      "sha256": "944bf7b3023b848e5f98b23f6a1416fb8310a7402ffd5eed0f46d9acf2f9c08c"
+    },
+    "fulfillment-store.json": {
+      "size": 12503,
+      "sha256": "e4c1150f8095ed0ee72a59206cbae1d3a495ce8120781af5f38b2a307abd1ace"
+    },
+    "leads-store.json": {
+      "size": 5405,
+      "sha256": "400c8e483a614267ef4daf96e82b18ef9f0ecc675c4b3c46705da72c6e3c0acc"
+    },
+    "measurements-store.json": {
+      "size": 15906,
+      "sha256": "02931a103a2e76511bd5d1c6042611dcd8e9ef6c44b42edd4bcfaad068a081ec"
+    },
+    "product-categories.json": {
+      "size": 2977,
+      "sha256": "1eea1ef0435ea68921c0d01bbdf7330833b41c33a0d24b803fb72c31149d0999"
+    },
+    "production-store.json": {
+      "size": 10116,
+      "sha256": "8cb44bc67c9f8ad1bb80070d196422d828ccb422fdd59997233b6eb744ea1017"
+    },
+    "quotations-store.json": {
+      "size": 8867,
+      "sha256": "2a5d6c3dc90ac46ebc3eb1644c083448ec1bed2a75c35c7480ee5f310c3944c4"
+    },
+    "whatsapp-store.json": {
+      "size": 2487,
+      "sha256": "d68eb1422267b679db80498127fda1114643491cc6cf459ebf3dfc3ff2a09cb1"
+    }
+  }
+}
