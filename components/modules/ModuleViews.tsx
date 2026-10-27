@@ -29,6 +29,7 @@ import {
   Edit2,
   Printer,
   TrendingUp,
+  Share2,
 } from 'lucide-react';
 import {
   DEMO_INVENTORY,
@@ -45,11 +46,14 @@ import { JobCardModal } from './production/JobCardModal';
 import { StickerPrintModal } from './production/StickerPrintModal';
 import { PaymentReceiptModal } from './finance/PaymentReceiptModal';
 import { FinancialStrategistModal } from './finance/FinancialStrategistModal';
+import { WhatsAppSendModal } from './communication/WhatsAppSendModal';
+import { CustomerConfirmationModal } from './communication/CustomerConfirmationModal';
 import { Customer } from '@/lib/services/customerService';
 import { Lead } from '@/lib/services/crmService';
 import { Quotation } from '@/lib/services/quotationService';
 import { ProductionOrder, ProductionStage } from '@/lib/services/productionService';
 import { Invoice, Payment, FinancialTarget } from '@/types/finance';
+import { ReportExecutionResult, WhatsAppDocumentType } from '@/types/communication';
 
 /* -------------------------------------------------------------
  * 1. CUSTOMERS VIEW
@@ -511,6 +515,8 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [selectedConfirmRecord, setSelectedConfirmRecord] = useState<SiteMeasurementRecord | null>(null);
+  const [selectedWhatsAppRecord, setSelectedWhatsAppRecord] = useState<SiteMeasurementRecord | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -904,8 +910,24 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
               </div>
 
               {/* Card Footer Actions */}
-              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-800/80 mt-2">
-                <span>Date: {m.date}</span>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-800/80 mt-2 gap-2">
+                <div className="flex items-center gap-2">
+                  <span>Date: {m.date}</span>
+                  <button
+                    onClick={() => setSelectedWhatsAppRecord(m)}
+                    className="text-emerald-500 hover:text-emerald-400 font-semibold cursor-pointer"
+                    title="Send via WhatsApp"
+                  >
+                    WhatsApp
+                  </button>
+                  <button
+                    onClick={() => setSelectedConfirmRecord(m)}
+                    className="text-blue-500 hover:text-blue-400 font-semibold cursor-pointer"
+                    title="Customer Confirmation Portal"
+                  >
+                    Confirm Portal
+                  </button>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleOpenRecord(m)}
@@ -936,6 +958,28 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
         onSaved={handleSaved}
         initialRecord={selectedMeasurement}
         userRole={userRole}
+      />
+
+      <CustomerConfirmationModal
+        isOpen={!!selectedConfirmRecord}
+        onClose={() => setSelectedConfirmRecord(null)}
+        measurement={selectedConfirmRecord}
+        onConfirmed={() => {
+          handleRefresh();
+          setToastMessage({ type: 'success', text: 'Customer confirmation status recorded.' });
+        }}
+      />
+
+      <WhatsAppSendModal
+        isOpen={!!selectedWhatsAppRecord}
+        onClose={() => setSelectedWhatsAppRecord(null)}
+        initialRecipientPhone={selectedWhatsAppRecord?.district || '+91 94470 12345'}
+        initialRecipientName={selectedWhatsAppRecord?.customerName || 'Client'}
+        initialDocumentType={'MEASUREMENT_CONFIRMATION' as WhatsAppDocumentType}
+        initialDocumentId={selectedWhatsAppRecord?.refNumber}
+        onSent={() => {
+          setToastMessage({ type: 'success', text: 'Measurement confirmation sent via WhatsApp.' });
+        }}
       />
     </div>
   );
@@ -1741,37 +1785,180 @@ export function MarketingView() {
  * 13. REPORTS VIEW
  * ------------------------------------------------------------- */
 export function ReportsView() {
+  const [selectedReportCode, setSelectedReportCode] = useState<string>('SALES_BY_DISTRICT');
+  const [reportResult, setReportResult] = useState<ReportExecutionResult | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isWhatsAppOpen, setIsWhatsAppOpen] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/reports?code=${selectedReportCode}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (active && json.success && json.data) {
+          setReportResult(json.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedReportCode]);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const REPORT_OPTIONS = [
+    { code: 'SALES_BY_DISTRICT', title: 'District Sales & Dealer Volume' },
+    { code: 'PRODUCTION_EFFICIENCY', title: 'Plant Line Output & QC Yield' },
+    { code: 'OUTSTANDING_RECEIVABLES_AGING', title: 'Receivables Aging (>30, >60, >90 Days)' },
+    { code: 'FRP_MODEL_MARGINS', title: 'FRP Door Model Profitability' },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {toastMessage && (
+        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Header & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-red-500" />
             Executive Business Reports & Analytics
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            FRP vs WPC manufacturing margins, dealer sales ranking and district growth
+            FRP door sales, production capacity, receivables aging & dealer performance across Kerala
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsWhatsAppOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+          >
+            <Share2 className="w-3.5 h-3.5" /> Share via WhatsApp
+          </button>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5 text-red-500" /> Print / Export PDF
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-          <span className="text-xs text-slate-400">Gross Production Margin</span>
-          <p className="text-2xl font-bold text-emerald-500">32.4%</p>
-          <p className="text-xs text-slate-400">Higher margin on CNC custom carved FRP doors</p>
-        </div>
-        <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-          <span className="text-xs text-slate-400">Zero-Defect QA Pass Rate</span>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">99.2%</p>
-          <p className="text-xs text-slate-400">Only 4 doors sent for re-polish this month</p>
-        </div>
-        <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-          <span className="text-xs text-slate-400">Top Growth District</span>
-          <p className="text-2xl font-bold text-red-500">Ernakulam (+24%)</p>
-          <p className="text-xs text-slate-400">High demand in Kakkanad & Marine Drive apartments</p>
-        </div>
+      {/* Report Selector Tabs */}
+      <div className="flex flex-wrap gap-2 print:hidden">
+        {REPORT_OPTIONS.map((opt) => (
+          <button
+            key={opt.code}
+            onClick={() => {
+              setIsLoading(true);
+              setSelectedReportCode(opt.code);
+            }}
+            className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+              selectedReportCode === opt.code
+                ? 'bg-red-600 text-white shadow-xs'
+                : 'bg-white dark:bg-[#0B132B] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            {opt.title}
+          </button>
+        ))}
       </div>
+
+      {/* Report Output Content */}
+      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 print:border-none print:shadow-none print:p-0">
+        <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="text-xs uppercase font-mono font-bold text-red-500 tracking-wider block">
+                EXMARK DOORS ERP • OFFICIAL AUDIT REPORT
+              </span>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                {reportResult?.title || 'Business Intelligence Report'}
+              </h3>
+            </div>
+            <span className="text-[11px] text-slate-400 font-mono">
+              Generated: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </span>
+          </div>
+        </div>
+
+        {/* Summary Metrics */}
+        {reportResult && reportResult.summaryMetrics && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+            {Object.entries(reportResult.summaryMetrics).map(([key, val]) => (
+              <div key={key}>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                  {key.replace(/([A-Z])/g, ' $1')}
+                </span>
+                <span className="text-sm font-black font-mono text-slate-900 dark:text-white">{val}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Dynamic Table */}
+        {isLoading ? (
+          <div className="p-8 text-center text-xs text-slate-400">Compiling report data...</div>
+        ) : !reportResult || reportResult.rows.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400">No data found for this report period.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+              <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase text-[10px]">
+                <tr>
+                  {Object.keys(reportResult.rows[0]).map((colKey) => (
+                    <th key={colKey} className="p-3">
+                      {colKey.replace(/([A-Z])/g, ' $1')}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {reportResult.rows.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
+                    {Object.values(row).map((cellVal, cIdx) => (
+                      <td
+                        key={cIdx}
+                        className={`p-3 ${
+                          typeof cellVal === 'number'
+                            ? 'font-mono font-bold text-slate-900 dark:text-white'
+                            : ''
+                        }`}
+                      >
+                        {typeof cellVal === 'number' && cellVal > 1000
+                          ? `₹${cellVal.toLocaleString('en-IN')}`
+                          : cellVal}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <WhatsAppSendModal
+        isOpen={isWhatsAppOpen}
+        onClose={() => setIsWhatsAppOpen(false)}
+        initialDocumentType={'QUOTATION' as WhatsAppDocumentType}
+        onSent={() => {
+          setToastMessage('Report summary transmitted via WhatsApp Cloud API.');
+          setTimeout(() => setToastMessage(null), 3000);
+        }}
+      />
     </div>
   );
 }

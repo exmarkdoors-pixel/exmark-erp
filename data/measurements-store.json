@@ -11,8 +11,8 @@
     "date": "2026-10-27",
     "rebateDepthMm": "38mm",
     "wallThicknessMm": "150mm",
-    "notes": "",
-    "status": "VERIFIED",
+    "notes": "[Customer Decision: CORRECTION_REQUESTED] Please re-check Kitchen door height.",
+    "status": "DRAFT",
     "doors": [
       {
         "doorNumber": "D1 - Main Entrance",
@@ -51,7 +51,7 @@
     ],
     "id": "dm-1793125940485",
     "createdAt": "2026-10-27T18:32:20.485Z",
-    "updatedAt": "2026-10-27T18:32:31.796Z"
+    "updatedAt": "2026-10-27T18:48:35.317Z"
   },
   {
     "refNumber": "MSR-2026-9294",
