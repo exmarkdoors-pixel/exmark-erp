@@ -27,6 +27,7 @@ import {
   AlertCircle,
   Filter,
   Edit2,
+  Printer,
 } from 'lucide-react';
 import {
   DEMO_INVENTORY,
@@ -39,9 +40,12 @@ import ProductCategoriesSettings from '@/components/settings/ProductCategoriesSe
 import { CustomerFormModal } from './customers/CustomerFormModal';
 import { LeadFormModal } from './crm/LeadFormModal';
 import { QuotationBuilder } from './quotations/QuotationBuilder';
+import { JobCardModal } from './production/JobCardModal';
+import { StickerPrintModal } from './production/StickerPrintModal';
 import { Customer } from '@/lib/services/customerService';
 import { Lead } from '@/lib/services/crmService';
 import { Quotation } from '@/lib/services/quotationService';
+import { ProductionOrder, ProductionStage } from '@/lib/services/productionService';
 
 /* -------------------------------------------------------------
  * 1. CUSTOMERS VIEW
@@ -981,8 +985,76 @@ export function SalesOrdersView() {
  * 6. PRODUCTION VIEW
  * ------------------------------------------------------------- */
 export function ProductionView() {
+  const [orders, setOrders] = useState<ProductionOrder[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isJobCardModalOpen, setIsJobCardModalOpen] = useState<boolean>(false);
+  const [selectedStickerOrder, setSelectedStickerOrder] = useState<ProductionOrder | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/production')
+      .then((res) => res.json())
+      .then((json) => {
+        if (active && json.success && Array.isArray(json.data)) {
+          setOrders(json.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleJobCardSaved = (saved: ProductionOrder) => {
+    setOrders((prev) => [saved, ...prev]);
+    setToastMessage(`Job Card "${saved.jobCardNumber}" issued to plant floor.`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleAdvanceStage = async (orderId: string, currentStage: ProductionStage) => {
+    const STAGE_ORDER: ProductionStage[] = [
+      'QUEUED',
+      'MOLDING',
+      'CNC_ROUTING',
+      'PU_COATING',
+      'QA_INSPECTION',
+      'COMPLETED',
+    ];
+    const currentIndex = STAGE_ORDER.indexOf(currentStage);
+    if (currentIndex >= STAGE_ORDER.length - 1) return;
+
+    const nextStage = STAGE_ORDER[currentIndex + 1];
+
+    try {
+      const res = await fetch(`/api/production/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: nextStage }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? json.data : o)));
+        setToastMessage(`Order advanced to: ${nextStage.replace('_', ' ')}`);
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -990,11 +1062,18 @@ export function ProductionView() {
             Manufacturing Operations & Plant Floor
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Real-time shop floor control, hydraulic press cycles, extruder feeds and CNC carving
+            FRP 300-ton hydraulic compression press lines, CNC carving, PU coating and barcode labeling
           </p>
         </div>
+        <button
+          onClick={() => setIsJobCardModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+        >
+          <Plus className="w-4 h-4" /> Issue Production Job Card
+        </button>
       </div>
 
+      {/* Production Lines Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {DEMO_PRODUCTION_LINES.map((line) => (
           <div
@@ -1024,6 +1103,154 @@ export function ProductionView() {
           </div>
         ))}
       </div>
+
+      {/* Active Production Orders & Job Cards */}
+      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Active Shop Floor Job Cards</h3>
+            <p className="text-[11px] text-slate-400">
+              Door-wise unique identification, finished cutting calculations & QR stickers
+            </p>
+          </div>
+          <span className="text-xs font-mono font-bold text-red-500">
+            {orders.length} Active Orders
+          </span>
+        </div>
+
+        {isLoading ? (
+          <div className="p-8 text-center text-xs text-slate-400">Loading plant floor queue...</div>
+        ) : orders.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+            No active production job cards found. Click &quot;Issue Production Job Card&quot; to release orders.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {orders.map((order) => (
+              <div
+                key={order.id}
+                className="p-4 bg-slate-50/70 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3"
+              >
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-black text-red-600 dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
+                      {order.jobCardNumber}
+                    </span>
+                    <span className="font-bold text-xs text-slate-900 dark:text-white">
+                      {order.customerName} — {order.siteName} ({order.district})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        order.status === 'COMPLETED'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          : order.status === 'QUEUED'
+                          ? 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
+                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                      }`}
+                    >
+                      {order.status.replace('_', ' ')}
+                    </span>
+                    <button
+                      onClick={() => setSelectedStickerOrder(order)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-red-500" />
+                      <span>Print A4 Stickers</span>
+                    </button>
+                    {order.status !== 'COMPLETED' && (
+                      <button
+                        onClick={() => handleAdvanceStage(order.id, order.status)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Advance Stage &rarr;
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800/80">
+                  <div>
+                    <span className="block text-[10px] text-slate-400">Plant Line:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">{order.lineAssigned}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-slate-400">Total Doors:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{order.quantity} Doors</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-slate-400">Batch Code:</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">{order.batchNumber}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-slate-400">Tolerances Applied:</span>
+                    <span className="font-mono text-red-500">
+                      -{order.tolerancesApplied?.heightDeductionMm || 10}mm H / -{order.tolerancesApplied?.widthDeductionMm || 10}mm W
+                    </span>
+                  </div>
+                </div>
+
+                {/* Door preview items */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[11px] text-slate-600 dark:text-slate-300">
+                    <thead className="text-[9px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                      <tr>
+                        <th className="py-1">Door Serial ID</th>
+                        <th className="py-1">Location</th>
+                        <th className="py-1">Model</th>
+                        <th className="py-1">Raw Size</th>
+                        <th className="py-1 font-bold text-red-500">Cut Size</th>
+                        <th className="py-1">Handing</th>
+                        <th className="py-1">Lock</th>
+                        <th className="py-1">QC</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
+                      {order.doors.map((door) => (
+                        <tr key={door.id}>
+                          <td className="py-1.5 font-mono text-slate-900 dark:text-white font-bold">{door.doorId}</td>
+                          <td className="py-1.5">{door.doorNumber}</td>
+                          <td className="py-1.5">{door.model}</td>
+                          <td className="py-1.5 font-mono text-slate-400">{door.rawHeightMm}x{door.rawWidthMm}mm</td>
+                          <td className="py-1.5 font-mono font-bold text-red-600 dark:text-red-400">
+                            {door.finishedHeightMm}x{door.finishedWidthMm}mm
+                          </td>
+                          <td className="py-1.5 font-bold">{door.handing}</td>
+                          <td className="py-1.5 text-slate-400">{door.lockType}</td>
+                          <td className="py-1.5">
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                door.qcStatus === 'PASSED'
+                                  ? 'bg-emerald-500/15 text-emerald-400'
+                                  : 'bg-amber-500/15 text-amber-400'
+                              }`}
+                            >
+                              {door.qcStatus}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <JobCardModal
+        isOpen={isJobCardModalOpen}
+        onClose={() => setIsJobCardModalOpen(false)}
+        onSaved={handleJobCardSaved}
+      />
+
+      <StickerPrintModal
+        isOpen={!!selectedStickerOrder}
+        onClose={() => setSelectedStickerOrder(null)}
+        order={selectedStickerOrder}
+      />
     </div>
   );
 }

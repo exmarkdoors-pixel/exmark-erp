@@ -163,5 +163,36 @@
     "notes": "FRP door rate includes packaging and loading at factory gate",
     "createdAt": "2026-10-27T18:16:36.503Z",
     "updatedAt": "2026-10-27T18:16:36.555Z"
+  },
+  {
+    "id": "qtn-api-1793125914823-2562",
+    "quoteNumber": "QTN-2026-005",
+    "customerId": "cust-1793125877455-7734",
+    "leadId": null,
+    "date": "2026-10-27",
+    "validUntil": "2026-11-26",
+    "items": [
+      {
+        "doorCategory": "FRP_DOORS",
+        "doorModel": "32mm Molded Teak FRP Door",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "thicknessMm": 32,
+        "quantity": 10,
+        "unitPrice": 8500,
+        "gstRate": 18,
+        "totalPrice": 85000,
+        "id": "qitem-1793125914823-0",
+        "quotationId": "qtn-api-1793125914823-2562"
+      }
+    ],
+    "subtotal": 85000,
+    "discount": 0,
+    "gstRate": 18,
+    "gstAmount": 15300,
+    "totalAmount": 100300,
+    "status": "DRAFT",
+    "createdAt": "2026-10-27T18:31:54.824Z",
+    "updatedAt": "2026-10-27T18:31:54.824Z"
   }
 ]

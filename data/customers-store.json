@@ -89,5 +89,21 @@
     "customerCode": "EXM-CUST-1005",
     "createdAt": "2026-10-27T18:16:36.257Z",
     "updatedAt": "2026-10-27T18:16:36.382Z"
+  },
+  {
+    "name": "nazer",
+    "type": "DEALER",
+    "district": "Kozhikode",
+    "town": "manjeri",
+    "gstin": null,
+    "phone": "9447928866",
+    "email": null,
+    "creditLimit": 100000,
+    "outstandingBalance": 0,
+    "status": "ACTIVE",
+    "id": "cust-1793125877455-7734",
+    "customerCode": "EXM-CUST-1006",
+    "createdAt": "2026-10-27T18:31:17.457Z",
+    "updatedAt": "2026-10-27T18:31:17.457Z"
   }
 ]
