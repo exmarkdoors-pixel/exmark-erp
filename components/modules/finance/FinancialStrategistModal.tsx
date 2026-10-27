@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, TrendingUp, Calculator, Target, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, TrendingUp, Calculator, Target, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { FinancialTarget, BreakEvenAnalysis, calculateBreakEven } from '@/types/finance';
+import { AiFinancialStrategistPanel } from './AiFinancialStrategistPanel';
 
 interface FinancialStrategistModalProps {
   isOpen: boolean;
@@ -11,7 +12,7 @@ interface FinancialStrategistModalProps {
 }
 
 export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: FinancialStrategistModalProps) {
-  const [activeTab, setActiveTab] = useState<'BREAK_EVEN' | 'TARGET_PLANNER'>('BREAK_EVEN');
+  const [activeTab, setActiveTab] = useState<'AI_STRATEGIST' | 'BREAK_EVEN' | 'TARGET_PLANNER'>('AI_STRATEGIST');
 
   // Break-even simulation inputs
   const [fixedOverhead, setFixedOverhead] = useState<number>(450000);
@@ -95,6 +96,17 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
             <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 text-xs font-semibold">
               <button
                 type="button"
+                onClick={() => setActiveTab('AI_STRATEGIST')}
+                className={`inline-flex items-center gap-1 px-3 py-1 rounded-md transition-all ${
+                  activeTab === 'AI_STRATEGIST'
+                    ? 'bg-red-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" /> AI Strategist
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('BREAK_EVEN')}
                 className={`px-3 py-1 rounded-md transition-all ${
                   activeTab === 'BREAK_EVEN'
@@ -132,7 +144,9 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
           </div>
         )}
 
-        {activeTab === 'BREAK_EVEN' ? (
+        {activeTab === 'AI_STRATEGIST' ? (
+          <AiFinancialStrategistPanel />
+        ) : activeTab === 'BREAK_EVEN' ? (
           <div className="space-y-5">
             {/* Simulation Input Controls */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
