@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "desktop:dev": "electron electron/main.js",
-    "desktop:build": "electron-builder"
+    "desktop:build": "electron-builder",
+    "test:master": "tsx scripts/test-master.ts",
+    "backup": "tsx scripts/backup-agent.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
