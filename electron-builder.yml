@@ -1,0 +1,22 @@
+appId: com.exmark.erp
+productName: EXMARK ERP
+directories:
+  output: dist
+files:
+  - electron/**/*
+  - public/**/*
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: public/icons/icon-512.svg
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: EXMARK ERP

@@ -1,0 +1,36 @@
+{
+  "versions": [
+    {
+      "entityType": "QUOTATION",
+      "entityId": "QT-TEST-1793128021484",
+      "version": 3,
+      "lastModifiedAt": "2026-10-27T19:07:01.511Z",
+      "lastModifiedBy": "Kochi Branch Desk"
+    },
+    {
+      "entityType": "QUOTATION",
+      "entityId": "QT-TEST-1793128045741",
+      "version": 3,
+      "lastModifiedAt": "2026-10-27T19:07:25.766Z",
+      "lastModifiedBy": "Kochi Branch Desk"
+    }
+  ],
+  "leases": [
+    {
+      "entityType": "QUOTATION",
+      "entityId": "QT-TEST-1793128021484",
+      "userId": "usr-kochi-2",
+      "userName": "Kochi Branch Desk",
+      "leaseAcquiredAt": "2026-10-27T19:07:01.500Z",
+      "expiresAt": "2026-10-27T19:12:01.500Z"
+    },
+    {
+      "entityType": "QUOTATION",
+      "entityId": "QT-TEST-1793128045741",
+      "userId": "usr-kochi-2",
+      "userName": "Kochi Branch Desk",
+      "leaseAcquiredAt": "2026-10-27T19:07:25.761Z",
+      "expiresAt": "2026-10-27T19:12:25.761Z"
+    }
+  ]
+}

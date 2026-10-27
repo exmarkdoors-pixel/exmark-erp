@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "desktop:dev": "electron electron/main.js",
+    "desktop:build": "electron-builder"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",

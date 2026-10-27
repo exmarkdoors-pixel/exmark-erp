@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ProductCategoryProvider } from "@/lib/context/ProductCategoryContext";
+import { PwaRegister } from "@/components/pwa/PwaRegister";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +17,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "EXMARK ERP | Kerala FRP Architectural Doors Business Management",
   description: "Enterprise Operations and Manufacturing Platform for EXMARK Doors, Kerala.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "EXMARK ERP",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0B132B",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -25,7 +39,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ProductCategoryProvider>{children}</ProductCategoryProvider>
+        <ProductCategoryProvider>
+          {children}
+          <PwaRegister />
+        </ProductCategoryProvider>
       </body>
     </html>
   );

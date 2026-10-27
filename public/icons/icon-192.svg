@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="36" fill="#0B132B" />
+  <rect x="24" y="24" width="144" height="144" rx="20" fill="#1C2541" stroke="#E63946" stroke-width="4" />
+  <!-- Door outline -->
+  <rect x="52" y="44" width="88" height="104" rx="6" fill="#0B132B" stroke="#E63946" stroke-width="3" />
+  <!-- Door panels -->
+  <rect x="62" y="56" width="30" height="38" rx="3" fill="#E63946" opacity="0.85" />
+  <rect x="100" y="56" width="30" height="38" rx="3" fill="#E63946" opacity="0.85" />
+  <rect x="62" y="102" width="30" height="36" rx="3" fill="#E63946" opacity="0.85" />
+  <rect x="100" y="102" width="30" height="36" rx="3" fill="#E63946" opacity="0.85" />
+  <!-- Door handle -->
+  <circle cx="124" cy="98" r="3" fill="#FFFFFF" />
+  <!-- Brand text -->
+  <text x="96" y="174" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="14" font-weight="900" text-anchor="middle" letter-spacing="2">EXMARK</text>
+</svg>

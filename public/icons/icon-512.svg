@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#0B132B" />
+  <rect x="64" y="64" width="384" height="384" rx="48" fill="#1C2541" stroke="#E63946" stroke-width="8" />
+  <!-- Door outline -->
+  <rect x="138" y="118" width="236" height="276" rx="16" fill="#0B132B" stroke="#E63946" stroke-width="8" />
+  <!-- Door panels -->
+  <rect x="164" y="148" width="82" height="102" rx="8" fill="#E63946" opacity="0.85" />
+  <rect x="266" y="148" width="82" height="102" rx="8" fill="#E63946" opacity="0.85" />
+  <rect x="164" y="270" width="82" height="98" rx="8" fill="#E63946" opacity="0.85" />
+  <rect x="266" y="270" width="82" height="98" rx="8" fill="#E63946" opacity="0.85" />
+  <!-- Door handle -->
+  <circle cx="330" cy="260" r="8" fill="#FFFFFF" />
+  <!-- Brand text -->
+  <text x="256" y="462" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="36" font-weight="900" text-anchor="middle" letter-spacing="4">EXMARK ERP</text>
+</svg>
