@@ -28,6 +28,7 @@ import {
   Filter,
   Edit2,
   Printer,
+  TrendingUp,
 } from 'lucide-react';
 import {
   DEMO_INVENTORY,
@@ -42,10 +43,13 @@ import { LeadFormModal } from './crm/LeadFormModal';
 import { QuotationBuilder } from './quotations/QuotationBuilder';
 import { JobCardModal } from './production/JobCardModal';
 import { StickerPrintModal } from './production/StickerPrintModal';
+import { PaymentReceiptModal } from './finance/PaymentReceiptModal';
+import { FinancialStrategistModal } from './finance/FinancialStrategistModal';
 import { Customer } from '@/lib/services/customerService';
 import { Lead } from '@/lib/services/crmService';
 import { Quotation } from '@/lib/services/quotationService';
 import { ProductionOrder, ProductionStage } from '@/lib/services/productionService';
+import { Invoice, Payment, FinancialTarget } from '@/types/finance';
 
 /* -------------------------------------------------------------
  * 1. CUSTOMERS VIEW
@@ -1360,54 +1364,245 @@ export function PurchasesView() {
  * 9. ACCOUNTS & GST VIEW
  * ------------------------------------------------------------- */
 export function AccountsGstView() {
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [targets, setTargets] = useState<FinancialTarget[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
+  const [isStrategistOpen, setIsStrategistOpen] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      fetch('/api/finance/invoices').then((r) => r.json()),
+      fetch('/api/finance/payments').then((r) => r.json()),
+      fetch('/api/finance/targets').then((r) => r.json()),
+    ])
+      .then(([invData, payData, tgtData]) => {
+        if (active) {
+          if (invData.success && Array.isArray(invData.data)) setInvoices(invData.data);
+          if (payData.success && Array.isArray(payData.data)) setPayments(payData.data);
+          if (tgtData.success && Array.isArray(tgtData.data)) setTargets(tgtData.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handlePaymentSaved = (saved: Payment) => {
+    setPayments((prev) => [saved, ...prev]);
+    // Refresh invoices to reflect updated balances
+    fetch('/api/finance/invoices')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) setInvoices(json.data);
+      })
+      .catch(() => {});
+    setToastMessage(`Payment receipt "${saved.receiptNumber}" (₹${saved.amount.toLocaleString('en-IN')}) successfully generated.`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleTargetSaved = (saved: FinancialTarget) => {
+    setTargets((prev) => [saved, ...prev]);
+    setToastMessage(`Financial Target for ${saved.targetPeriod} locked and approved.`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  // Calculations
+  const totalBilled = invoices.reduce((sum, i) => sum + i.totalAmount, 0);
+  const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalCgst = invoices.reduce((sum, i) => sum + i.cgst, 0);
+  const totalSgst = invoices.reduce((sum, i) => sum + i.sgst, 0);
+  const totalReceivables = invoices.reduce((sum, i) => sum + i.balanceAmount, 0);
+
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <ReceiptIndianRupee className="w-6 h-6 text-red-500" />
-            Accounts & GST Compliance
+            Accounts, GST Compliance & Financial Governance
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            HSN 3925 door tax reconciliation, e-Way bills, dealer credits & cashflow
+            HSN 3925.20.00 tax reconciliation, 18% GST (CGST 9% + SGST 9%), bank receipts & strategist
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsStrategistOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <TrendingUp className="w-4 h-4 text-red-500" /> Financial Strategist
+          </button>
+          <button
+            onClick={() => setIsPaymentModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Record Payment Receipt
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-          <h3 className="font-bold text-sm text-slate-900 dark:text-white">GST Summary (October 2026)</h3>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-slate-400">Outward Taxable Sales (HSN 3925):</span>
-              <span className="font-bold text-slate-900 dark:text-white">₹41,22,881</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-slate-400">CGST (9%):</span>
-              <span className="font-bold text-slate-900 dark:text-white">₹3,71,059</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-slate-400">SGST (9% Kerala):</span>
-              <span className="font-bold text-slate-900 dark:text-white">₹3,71,059</span>
-            </div>
-            <div className="flex justify-between py-1 text-emerald-500 font-bold">
-              <span>Total GST Collected:</span>
-              <span>₹7,42,118</span>
-            </div>
-          </div>
+      {/* Financial Metrics Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+        <div className="p-4 bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Invoiced Sales</span>
+          <p className="text-xl font-black text-slate-900 dark:text-white font-mono">
+            ₹{totalBilled.toLocaleString('en-IN')}
+          </p>
+          <span className="text-[10px] text-slate-400">{invoices.length} Tax Invoices</span>
         </div>
 
-        <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-          <h3 className="font-bold text-sm text-slate-900 dark:text-white">e-Way Bill Generation & Inward Logistics</h3>
-          <p className="text-xs text-slate-400">
-            Automated e-Way bills generated for Kerala interstate and intra-state transports &gt; ₹50,000 threshold.
+        <div className="p-4 bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Collections Realized</span>
+          <p className="text-xl font-black text-emerald-500 font-mono">
+            ₹{totalCollected.toLocaleString('en-IN')}
           </p>
-          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 text-xs text-slate-300">
-            <p className="font-mono text-emerald-400">e-Way Bill #2119-0941-8842</p>
-            <p className="text-[11px] text-slate-400 mt-1">Vehicle: KL-09-AH-4122 • Destination: Kakkanad, Kochi (36 WPC Doors)</p>
-          </div>
+          <span className="text-[10px] text-emerald-600">{payments.length} Bank Receipts</span>
+        </div>
+
+        <div className="p-4 bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Outstanding Receivables</span>
+          <p className="text-xl font-black text-red-500 font-mono">
+            ₹{totalReceivables.toLocaleString('en-IN')}
+          </p>
+          <span className="text-[10px] text-slate-400">Aging &gt; 30 Days</span>
+        </div>
+
+        <div className="p-4 bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">GST Liability (18%)</span>
+          <p className="text-xl font-black text-blue-500 font-mono">
+            ₹{(totalCgst + totalSgst).toLocaleString('en-IN')}
+          </p>
+          <span className="text-[10px] text-slate-400">CGST 9% + SGST 9%</span>
         </div>
       </div>
+
+      {/* Active Financial Target Banner */}
+      {targets.length > 0 && (
+        <div className="p-3 bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-red-500 shrink-0" />
+            <span className="font-bold text-slate-900 dark:text-white">Active Target ({targets[0].targetPeriod}):</span>
+            <span className="text-slate-600 dark:text-slate-300">Sales: ₹{targets[0].salesRevenueTarget.toLocaleString('en-IN')}</span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-600 dark:text-slate-300">Collections: ₹{targets[0].collectionsTarget.toLocaleString('en-IN')}</span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-600 dark:text-slate-300 font-bold text-red-600 dark:text-red-400">{targets[0].frpDoorQuantityTarget} FRP Doors</span>
+          </div>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-500 shrink-0">
+            {targets[0].status}
+          </span>
+        </div>
+      )}
+
+      {/* Tax Invoices Section */}
+      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-3">
+        <h3 className="font-bold text-sm text-slate-900 dark:text-white">GST Tax Invoices Register</h3>
+        {isLoading ? (
+          <div className="p-8 text-center text-xs text-slate-400">Loading invoice ledger...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+              <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase text-[10px]">
+                <tr>
+                  <th className="p-3">Invoice #</th>
+                  <th className="p-3">Customer</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3 font-mono">Taxable Base</th>
+                  <th className="p-3 font-mono">CGST (9%)</th>
+                  <th className="p-3 font-mono">SGST (9%)</th>
+                  <th className="p-3 font-mono">Grand Total</th>
+                  <th className="p-3 font-mono">Balance Due</th>
+                  <th className="p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {invoices.map((inv) => (
+                  <tr key={inv.id}>
+                    <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">{inv.invoiceNumber}</td>
+                    <td className="p-3">{inv.customerName}</td>
+                    <td className="p-3 text-slate-400">{inv.invoiceDate}</td>
+                    <td className="p-3 font-mono">₹{inv.subtotal.toLocaleString('en-IN')}</td>
+                    <td className="p-3 font-mono">₹{inv.cgst.toLocaleString('en-IN')}</td>
+                    <td className="p-3 font-mono">₹{inv.sgst.toLocaleString('en-IN')}</td>
+                    <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">₹{inv.totalAmount.toLocaleString('en-IN')}</td>
+                    <td className="p-3 font-mono font-bold text-red-500">₹{inv.balanceAmount.toLocaleString('en-IN')}</td>
+                    <td className="p-3">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          inv.status === 'PAID'
+                            ? 'bg-emerald-500/15 text-emerald-500'
+                            : 'bg-blue-500/15 text-blue-500'
+                        }`}
+                      >
+                        {inv.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Payments Register */}
+      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-3">
+        <h3 className="font-bold text-sm text-slate-900 dark:text-white">Customer Payment Receipts</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase text-[10px]">
+              <tr>
+                <th className="p-3">Receipt #</th>
+                <th className="p-3">Customer</th>
+                <th className="p-3">Date</th>
+                <th className="p-3">Payment Mode</th>
+                <th className="p-3 font-mono">Amount (INR)</th>
+                <th className="p-3">UTR / Ref #</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {payments.map((p) => (
+                <tr key={p.id}>
+                  <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">{p.receiptNumber}</td>
+                  <td className="p-3">{p.customerName}</td>
+                  <td className="p-3 text-slate-400">{p.paymentDate}</td>
+                  <td className="p-3 font-semibold">{p.paymentMode}</td>
+                  <td className="p-3 font-mono font-bold text-emerald-500">₹{p.amount.toLocaleString('en-IN')}</td>
+                  <td className="p-3 font-mono text-slate-400">{p.referenceNumber || 'Counter Cash'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <PaymentReceiptModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        onSaved={handlePaymentSaved}
+        invoices={invoices}
+      />
+
+      <FinancialStrategistModal
+        isOpen={isStrategistOpen}
+        onClose={() => setIsStrategistOpen(false)}
+        onTargetCreated={handleTargetSaved}
+      />
     </div>
   );
 }
