@@ -1,0 +1,683 @@
+// EXMARK ERP - Prisma Database Architecture
+// Kerala FRP & WPC Door Manufacturing Business Management System
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// 1. AUTHENTICATION & ACCESS CONTROL (RBAC)
+// ==========================================
+
+model User {
+  id            String       @id @default(uuid())
+  email         String       @unique
+  passwordHash  String
+  name          String
+  roleId        String
+  employeeId    String?      @unique
+  isActive      Boolean      @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  role          Role         @relation(fields: [roleId], references: [id])
+  employee      Employee?    @relation(fields: [employeeId], references: [id])
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  quotations    Quotation[]  @relation("QuotationCreator")
+  purchases     Purchase[]   @relation("PurchaseCreator")
+  payments      Payment[]    @relation("PaymentRecorder")
+  leadsAssigned Lead[]       @relation("LeadAssignee")
+
+  @@index([email])
+  @@index([roleId])
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique // Super Admin, Management, Sales, Accounts, Production, Inventory, Purchase, HR, Installation
+  description String?
+  isSystem    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  module      String           // USERS, CUSTOMERS, LEADS, QUOTATIONS, MEASUREMENTS, ORDERS, PRODUCTION, INVENTORY, PURCHASES, ACCOUNTS, EMPLOYEES, DISPATCH, REPORTS, SETTINGS
+  action      String           // CREATE, READ, UPDATE, DELETE, APPROVE
+  description String?
+
+  roles       RolePermission[]
+
+  @@unique([module, action])
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String   // LOGIN, LOGOUT, CREATE, UPDATE, DELETE, STATUS_CHANGE, APPROVAL
+  entityType String   // USER, ORDER, QUOTATION, PRODUCTION, INVENTORY, PAYMENT
+  entityId   String?
+  details    String?  // JSON stringified metadata
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// ==========================================
+// 2. HUMAN RESOURCES & FACTORY PERSONNEL
+// ==========================================
+
+model Employee {
+  id            String             @id @default(uuid())
+  employeeCode  String             @unique // EXM-EMP-001
+  firstName     String
+  lastName      String
+  email         String             @unique
+  phone         String
+  department    String             // Executive, Production Line 1, Extrusion, CNC, Finishing, QA, Site Operations, Accounts, Sales
+  designation   String             // Plant Director, Senior CNC Operator, Site Measurement Engineer, etc.
+  dateOfJoining DateTime
+  status        String             @default("ACTIVE") // ACTIVE, ON_LEAVE, RESIGNED
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  user          User?
+  measurements  DoorMeasurement[]  @relation("MeasurementSupervisor")
+  installations Installation[]     @relation("InstallationSupervisor")
+
+  @@index([department])
+  @@index([status])
+}
+
+// ==========================================
+// 3. CUSTOMERS, DEALERS & CRM LEADS
+// ==========================================
+
+model Customer {
+  id                 String            @id @default(uuid())
+  customerCode       String            @unique // EXM-CUST-1001
+  name               String
+  firmName           String?
+  type               String            // DEALER, BUILDER, ARCHITECT, RETAIL
+  district           String            // Kozhikode, Ernakulam, Thrissur, Kannur, etc.
+  town               String
+  address            String?
+  gstin              String?
+  phone              String
+  email              String?
+  creditLimit        Decimal           @default(0) @db.Decimal(12, 2)
+  outstandingBalance Decimal           @default(0) @db.Decimal(12, 2)
+  status             String            @default("ACTIVE") // ACTIVE, UNDER_REVIEW, VIP, SUSPENDED
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  leads              Lead[]
+  quotations         Quotation[]
+  measurements       DoorMeasurement[]
+  salesOrders        SalesOrder[]
+  invoices           Invoice[]
+  payments           Payment[]
+  boqs               BoqMaster[]
+
+  @@index([district])
+  @@index([type])
+  @@index([status])
+}
+
+model Lead {
+  id             String      @id @default(uuid())
+  leadCode       String      @unique // LEAD-2026-001
+  customerId     String?
+  title          String
+  contactPerson  String
+  phone          String
+  district       String
+  stage          String      @default("NEW") // NEW, MEASUREMENT_SCHEDULED, QUOTE_SENT, NEGOTIATION, WON, LOST
+  estimatedValue Decimal?    @db.Decimal(12, 2)
+  assignedToId   String?
+  notes          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  customer       Customer?   @relation(fields: [customerId], references: [id])
+  assignedTo     User?       @relation("LeadAssignee", fields: [assignedToId], references: [id])
+  quotations     Quotation[]
+
+  @@index([stage])
+  @@index([district])
+}
+
+// ==========================================
+// 4. QUOTATIONS & SITE MEASUREMENTS
+// ==========================================
+
+model Quotation {
+  id           String          @id @default(uuid())
+  quoteNumber  String          @unique // QTN-2026-001
+  customerId   String
+  leadId       String?
+  date         DateTime        @default(now())
+  validUntil   DateTime
+  subtotal     Decimal         @db.Decimal(12, 2)
+  discount     Decimal         @default(0) @db.Decimal(12, 2)
+  gstRate      Decimal         @default(18.0) @db.Decimal(5, 2)
+  gstAmount    Decimal         @db.Decimal(12, 2)
+  totalAmount  Decimal         @db.Decimal(12, 2)
+  status       String          @default("DRAFT") // DRAFT, SENT, APPROVED, REJECTED, CONVERTED
+  createdById  String
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  customer     Customer        @relation(fields: [customerId], references: [id])
+  lead         Lead?           @relation(fields: [leadId], references: [id])
+  createdBy    User            @relation("QuotationCreator", fields: [createdById], references: [id])
+  items        QuotationItem[]
+  salesOrders  SalesOrder[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model QuotationItem {
+  id           String    @id @default(uuid())
+  quotationId  String
+  doorCategory String    // FRP_DOORS, WPC_DOORS, WPC_FRAMES, SOLID_HYBRID
+  doorModel    String    // 32mm Molded Teak, 30mm Waterproof Solid, etc.
+  heightMm     Int
+  widthMm      Int
+  thicknessMm  Int
+  coreType     String?   // Honeycomb, Solid Polymer, Acoustic Foam
+  finishColor  String?   // Teak, Walnut, Rosewood, Frost White
+  quantity     Int
+  unitPrice    Decimal   @db.Decimal(10, 2)
+  gstRate      Decimal   @default(18.0) @db.Decimal(5, 2)
+  totalPrice   Decimal   @db.Decimal(12, 2)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+}
+
+model DoorMeasurement {
+  id               String                 @id @default(uuid())
+  refNumber        String                 @unique // MSR-2026-001
+  customerId       String?
+  customerName     String?
+  orderRef         String?
+  siteName         String
+  siteAddress      String?
+  district         String
+  totalOpenings    Int
+  measuredById     String?
+  engineerName     String?
+  date             DateTime               @default(now())
+  rebateDepthMm    String?
+  wallThicknessMm  String?
+  notes            String?
+  status           String                 @default("DRAFT") // DRAFT, VERIFIED, APPROVED, SENT_TO_PRODUCTION
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  customer         Customer?              @relation(fields: [customerId], references: [id])
+  measuredBy       Employee?              @relation("MeasurementSupervisor", fields: [measuredById], references: [id])
+  doors            DoorMeasurementItem[]
+
+  @@index([customerId])
+  @@index([district])
+  @@index([status])
+}
+
+model DoorMeasurementItem {
+  id               String           @id @default(uuid())
+  measurementId    String
+  doorNumber       String           // D1, Toilet 1, Kitchen, etc.
+  model            String           // FRP Molded Teak (32mm), WPC Solid Waterproof (30mm), etc.
+  frameType        String           // WPC 100x65, FRP Wrap, Granite subframe, etc.
+  colour           String           // Burma Teak, Frost White, Walnut, etc.
+  hingeSide        String           // Left Hand (LH), Right Hand (RH)
+  lockType         String           // Mortise Lock 60mm, Baby Latch, Cylindrical, etc.
+  measurementUnit  String           @default("MM") // MM, CM, INCH
+  heightLeft       Decimal          @db.Decimal(10, 2)
+  heightRight      Decimal          @db.Decimal(10, 2)
+  widthTop         Decimal          @db.Decimal(10, 2)
+  widthBottom      Decimal          @db.Decimal(10, 2)
+  wallThickness    String?
+  rebateDepth      String?
+  remarks          String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  measurement      DoorMeasurement  @relation(fields: [measurementId], references: [id], onDelete: Cascade)
+
+  @@index([measurementId])
+}
+
+// ==========================================
+// 5. SALES ORDERS & FACTORY PRODUCTION
+// ==========================================
+
+model SalesOrder {
+  id                 String            @id @default(uuid())
+  orderNumber        String            @unique // EXM-2026-1001
+  quotationId        String?
+  customerId         String
+  orderDate          DateTime          @default(now())
+  targetDeliveryDate DateTime
+  totalAmount        Decimal           @db.Decimal(12, 2)
+  advanceAmount      Decimal           @default(0) @db.Decimal(12, 2)
+  balanceAmount      Decimal           @db.Decimal(12, 2)
+  paymentStatus      String            @default("PENDING") // PENDING, PARTIAL, PAID
+  orderStatus        String            @default("CONFIRMED") // CONFIRMED, IN_PRODUCTION, READY_TO_DISPATCH, DISPATCHED, DELIVERED, CANCELLED
+  hsnCode            String            @default("3925.20.00")
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  quotation          Quotation?        @relation(fields: [quotationId], references: [id])
+  customer           Customer          @relation(fields: [customerId], references: [id])
+  productionOrders   ProductionOrder[]
+  invoices           Invoice[]
+  dispatches         Dispatch[]
+  installations      Installation[]
+
+  @@index([customerId])
+  @@index([orderStatus])
+  @@index([paymentStatus])
+}
+
+model ProductionOrder {
+  id              String      @id @default(uuid())
+  prodOrderNumber String      @unique // PRD-2026-001
+  salesOrderId    String
+  doorCategory    String      // FRP_DOORS, WPC_DOORS, WPC_FRAMES, SOLID_HYBRID
+  specifications  String
+  quantity        Int
+  lineAssigned    String      // Line 1: FRP Hydraulic Press, Line 2: WPC Extrusion, etc.
+  status          String      @default("QUEUED") // QUEUED, MOLDING, CNC_ROUTING, PU_COATING, QA_INSPECTION, COMPLETED
+  batchNumber     String
+  priority        String      @default("NORMAL") // NORMAL, HIGH, URGENT
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  salesOrder      SalesOrder  @relation(fields: [salesOrderId], references: [id])
+
+  @@index([salesOrderId])
+  @@index([status])
+  @@index([lineAssigned])
+}
+
+// ==========================================
+// 6. INVENTORY & PROCUREMENT
+// ==========================================
+
+model InventoryItem {
+  id                String         @id @default(uuid())
+  itemCode          String         @unique // RM-FRP-RES01
+  name              String
+  category          String         // RESIN_CHEMICALS, FIBERGLASS_MAT, WPC_GRANULES, HARDWARE_LOCKS, PAINTS_FINISHES
+  currentStock      Decimal        @db.Decimal(12, 2)
+  unit              String         // Kilograms, Rolls, Litres, Pairs, Sets
+  minThreshold      Decimal        @db.Decimal(12, 2)
+  reorderQuantity   Decimal        @db.Decimal(12, 2)
+  unitCost          Decimal        @db.Decimal(10, 2)
+  warehouseLocation String
+  status            String         @default("IN_STOCK") // IN_STOCK, LOW_STOCK, CRITICAL
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  purchaseItems     PurchaseItem[]
+
+  @@index([category])
+  @@index([status])
+}
+
+model Purchase {
+  id                   String         @id @default(uuid())
+  poNumber             String         @unique // PO-2026-001
+  supplierName         String
+  supplierGstin        String?
+  orderDate            DateTime       @default(now())
+  expectedDeliveryDate DateTime?
+  subtotal             Decimal        @db.Decimal(12, 2)
+  gstAmount            Decimal        @db.Decimal(12, 2)
+  totalAmount          Decimal        @db.Decimal(12, 2)
+  status               String         @default("DRAFT") // DRAFT, ISSUED, PARTIAL, RECEIVED, CANCELLED
+  createdById          String
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  createdBy            User           @relation("PurchaseCreator", fields: [createdById], references: [id])
+  items                PurchaseItem[]
+
+  @@index([status])
+}
+
+model PurchaseItem {
+  id              String        @id @default(uuid())
+  purchaseId      String
+  inventoryItemId String
+  quantity        Decimal       @db.Decimal(10, 2)
+  unitCost        Decimal       @db.Decimal(10, 2)
+  totalPrice      Decimal       @db.Decimal(12, 2)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  purchase        Purchase      @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([purchaseId])
+  @@index([inventoryItemId])
+}
+
+// ==========================================
+// 7. INVOICING, GST & PAYMENTS
+// ==========================================
+
+model Invoice {
+  id             String      @id @default(uuid())
+  invoiceNumber  String      @unique // INV-2026-001
+  salesOrderId   String
+  customerId     String
+  invoiceDate    DateTime    @default(now())
+  dueDate        DateTime
+  subtotal       Decimal     @db.Decimal(12, 2)
+  cgst           Decimal     @default(0) @db.Decimal(12, 2)
+  sgst           Decimal     @default(0) @db.Decimal(12, 2)
+  igst           Decimal     @default(0) @db.Decimal(12, 2)
+  totalAmount    Decimal     @db.Decimal(12, 2)
+  eWayBillNumber String?
+  status         String      @default("ISSUED") // DRAFT, ISSUED, PAID, OVERDUE, CANCELLED
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  salesOrder     SalesOrder  @relation(fields: [salesOrderId], references: [id])
+  customer       Customer    @relation(fields: [customerId], references: [id])
+  payments       Payment[]
+  dispatches     Dispatch[]
+
+  @@index([salesOrderId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model Payment {
+  id              String      @id @default(uuid())
+  receiptNumber   String      @unique // RCT-2026-001
+  invoiceId       String?
+  customerId      String
+  paymentDate     DateTime    @default(now())
+  amount          Decimal     @db.Decimal(12, 2)
+  paymentMode     String      // NEFT, RTGS, UPI, CHEQUE, CASH
+  referenceNumber String?
+  notes           String?
+  recordedById    String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  invoice         Invoice?    @relation(fields: [invoiceId], references: [id])
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  recordedBy      User        @relation("PaymentRecorder", fields: [recordedById], references: [id])
+
+  @@index([customerId])
+  @@index([invoiceId])
+}
+
+// ==========================================
+// 8. LOGISTICS, DISPATCH & INSTALLATION
+// ==========================================
+
+model Dispatch {
+  id                 String      @id @default(uuid())
+  dispatchNumber     String      @unique // DSP-2026-001
+  salesOrderId       String
+  invoiceId          String?
+  vehicleNumber      String      // KL-09-AH-4122
+  driverName         String
+  driverPhone        String
+  dispatchDate       DateTime    @default(now())
+  estimatedArrival   DateTime?
+  deliveryDistrict   String
+  destinationAddress String
+  eWayBillNo         String?
+  status             String      @default("SCHEDULED") // SCHEDULED, LOADED, IN_TRANSIT, DELIVERED
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  salesOrder         SalesOrder  @relation(fields: [salesOrderId], references: [id])
+  invoice            Invoice?    @relation(fields: [invoiceId], references: [id])
+
+  @@index([salesOrderId])
+  @@index([status])
+  @@index([deliveryDistrict])
+}
+
+model Installation {
+  id                 String      @id @default(uuid())
+  installationNumber String      @unique // INS-2026-001
+  salesOrderId       String
+  siteAddress        String
+  district           String
+  supervisorId       String
+  scheduledDate      DateTime
+  completedDate      DateTime?
+  status             String      @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, QUALITY_APPROVED
+  clientSignoffName  String?
+  clientFeedback     String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  salesOrder         SalesOrder  @relation(fields: [salesOrderId], references: [id])
+  supervisor         Employee    @relation("InstallationSupervisor", fields: [supervisorId], references: [id])
+
+  @@index([salesOrderId])
+  @@index([status])
+  @@index([district])
+}
+
+// ==========================================
+// 8. PRODUCT CATEGORIES & SYSTEM SETTINGS
+// ==========================================
+
+model ProductCategory {
+  id                  String    @id @default(uuid())
+  code                String    @unique // FRP, WPC, HYBRID, etc.
+  name                String
+  enabled             Boolean   @default(true)
+  isPrimary           Boolean   @default(false)
+  description         String?
+  fieldsConfig        String?   // JSON array of category-specific field names
+  pricingConfig       String?   // JSON object with base rate, GST %, HSN code
+  productionConfig    String?   // JSON object with line code, cycle time, QC checklist
+  reportingVisibility Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model SystemSetting {
+  id          String    @id @default(uuid())
+  key         String    @unique // product_categories, company_profile, tolerances, etc.
+  value       String    // JSON string
+  category    String    // PRODUCT, FINANCE, MANUFACTURING, COMMUNICATION
+  updatedBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([key])
+  @@index([category])
+}
+
+// ==========================================
+// 9. BOQ (BILL OF QUANTITIES) ARCHITECTURE
+// ==========================================
+
+model BoqMaster {
+  id               String       @id @default(uuid())
+  boqNumber        String       @unique // BOQ-2026-001
+  customerId       String?
+  customerName     String
+  projectName      String
+  siteAddress      String?
+  district         String
+  revisionNumber   Int          @default(1)
+  status           String       @default("DRAFT") // DRAFT, UNDER_REVIEW, APPROVED, CONVERTED_TO_QUOTATION, ARCHIVED
+  totalDoors       Int          @default(0)
+  totalAmount      Decimal      @default(0) @db.Decimal(12, 2)
+  notes            String?
+  originalImport   String?      // Preserved original CSV/Excel raw payload
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  customer         Customer?    @relation(fields: [customerId], references: [id])
+  items            BoqItem[]
+
+  @@index([customerId])
+  @@index([boqNumber])
+  @@index([status])
+}
+
+model BoqItem {
+  id               String       @id @default(uuid())
+  boqId            String
+  itemCode         String       // e.g. BOQ-ITM-01
+  productCategory  String       @default("FRP") // FRP, WPC
+  model            String
+  description      String?
+  frameDetails     String?
+  heightMm         Float
+  widthMm          Float
+  quantity         Int          @default(1)
+  areaSqFt         Float
+  unitRate         Decimal      @db.Decimal(10, 2)
+  amount           Decimal      @db.Decimal(12, 2)
+  taxRate          Decimal      @default(18.0) @db.Decimal(5, 2)
+  transportRate    Decimal      @default(0) @db.Decimal(10, 2)
+  installationRate Decimal      @default(0) @db.Decimal(10, 2)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  boq              BoqMaster    @relation(fields: [boqId], references: [id], onDelete: Cascade)
+
+  @@index([boqId])
+}
+
+// ==========================================
+// 10. FINANCIAL STRATEGIST & TARGET ARCHITECTURE
+// ==========================================
+
+model FinancialTarget {
+  id                    String    @id @default(uuid())
+  targetPeriod          String    // e.g. "2026-10" (Monthly), "2026-Q4" (Quarterly), "2026-11" (Next Month)
+  periodType            String    @default("MONTHLY") // MONTHLY, NEXT_MONTH, QUARTERLY, ANNUAL
+  targetDimension       String    @default("COMPANY") // COMPANY, SALESPERSON, DISTRICT, RETAIL, DEALER, PROJECT_B2B, FRP_MODEL
+  dimensionValue        String?   // e.g. "Ernakulam" or "Salesperson ID" or "FRP Molded Teak"
+  salesRevenueTarget    Decimal   @db.Decimal(14, 2)
+  orderBookingTarget    Decimal   @db.Decimal(14, 2)
+  collectionsTarget     Decimal   @db.Decimal(14, 2)
+  frpDoorQuantityTarget Int
+  grossProfitTarget     Decimal?  @db.Decimal(14, 2)
+  operatingProfitTarget Decimal?  @db.Decimal(14, 2)
+  netProfitTarget       Decimal?  @db.Decimal(14, 2)
+  expenseBudget         Decimal?  @db.Decimal(14, 2)
+  status                String    @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, LOCKED, REVISED
+  baselineSnapshot      String?   // JSON snapshot of locked baseline
+  approvedBy            String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([targetPeriod])
+  @@index([periodType])
+  @@index([status])
+}
+
+// ==========================================
+// 11. WHATSAPP & CUSTOMER COMMUNICATION ARCHITECTURE
+// ==========================================
+
+model WhatsAppMessage {
+  id              String    @id @default(uuid())
+  recipientPhone  String
+  recipientName   String?
+  documentType    String    // QUOTATION, INVOICE, RECEIPT, MEASUREMENT_PDF, BOQ_PDF, WARRANTY_CERT
+  documentId      String?
+  templateName    String
+  language        String    @default("en") // en, ml (Malayalam)
+  providerMsgId   String?   // Meta / Cloud API Message ID
+  status          String    @default("QUEUED") // QUEUED, SENT, DELIVERED, READ, FAILED
+  payload         String?   // JSON variables passed to template
+  errorMessage    String?
+  sentByUserId    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([recipientPhone])
+  @@index([documentType])
+  @@index([status])
+}
+
+// ==========================================
+// 12. UNIVERSAL REPORT TEMPLATES ARCHITECTURE
+// ==========================================
+
+model ReportTemplate {
+  id              String    @id @default(uuid())
+  reportCode      String    @unique // e.g. "FRP_PRODUCTION_EFFICIENCY", "CUSTOMER_OUTSTANDING_AGING"
+  title           String
+  module          String    // SALES, PRODUCTION, INVENTORY, FINANCE, WARRANTY
+  columnsConfig   String    // JSON array of column definitions
+  defaultFilters  String?   // JSON object of default filter parameters
+  pdfLayout       String?   // JSON formatting options (margins, orientation, branding)
+  rolePermissions String    // JSON array of role names allowed to view
+  isSystem        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([module])
+  @@index([reportCode])
+}
+
