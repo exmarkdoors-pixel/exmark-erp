@@ -29,7 +29,6 @@ import {
   Edit2,
 } from 'lucide-react';
 import {
-  DEMO_CUSTOMERS,
   DEMO_INVENTORY,
   DEMO_PRODUCTION_LINES,
   DEMO_COMPANY_INFO,
@@ -37,24 +36,76 @@ import {
 import { DoorMeasurementModal } from './DoorMeasurementModal';
 import { SiteMeasurementRecord } from '@/types/measurements';
 import ProductCategoriesSettings from '@/components/settings/ProductCategoriesSettings';
+import { CustomerFormModal } from './customers/CustomerFormModal';
+import { LeadFormModal } from './crm/LeadFormModal';
+import { QuotationBuilder } from './quotations/QuotationBuilder';
+import { Customer } from '@/lib/services/customerService';
+import { Lead } from '@/lib/services/crmService';
+import { Quotation } from '@/lib/services/quotationService';
 
 /* -------------------------------------------------------------
  * 1. CUSTOMERS VIEW
  * ------------------------------------------------------------- */
 export function CustomersView() {
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const filtered = DEMO_CUSTOMERS.filter((c) => {
+  useEffect(() => {
+    let active = true;
+    fetch('/api/customers')
+      .then((res) => res.json())
+      .then((json) => {
+        if (active && json.success && Array.isArray(json.data)) {
+          setCustomers(json.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleCustomerSaved = (saved: Customer) => {
+    setCustomers((prev) => {
+      const idx = prev.findIndex((c) => c.id === saved.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = saved;
+        return copy;
+      }
+      return [saved, ...prev];
+    });
+    setToastMessage(`Customer "${saved.name}" (${saved.town}) successfully saved.`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const filtered = customers.filter((c) => {
+    const q = searchTerm.toLowerCase();
     const matchesSearch =
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.district.toLowerCase().includes(searchTerm.toLowerCase());
+      c.name.toLowerCase().includes(q) ||
+      c.district.toLowerCase().includes(q) ||
+      c.town.toLowerCase().includes(q) ||
+      (c.firmName && c.firmName.toLowerCase().includes(q));
     const matchesType = typeFilter === 'All' || c.type === typeFilter;
     return matchesSearch && matchesType;
   });
 
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -65,7 +116,10 @@ export function CustomersView() {
             Kerala Authorized Dealers, Commercial Builders, Architects & Direct Contractors
           </p>
         </div>
-        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500 transition-colors self-start sm:self-auto">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500 transition-colors self-start sm:self-auto cursor-pointer"
+        >
           <Plus className="w-4 h-4" /> Add New Customer
         </button>
       </div>
@@ -75,7 +129,7 @@ export function CustomersView() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search dealer name or Kerala district..."
+            placeholder="Search dealer name, town or Kerala district..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-white dark:bg-[#0B132B] rounded-lg border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200"
@@ -87,57 +141,74 @@ export function CustomersView() {
           className="px-3 py-2 bg-white dark:bg-[#0B132B] rounded-lg border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200"
         >
           <option value="All">All Customer Types</option>
-          <option value="Dealer">Authorized Dealers</option>
-          <option value="Builder">Direct Builders</option>
-          <option value="Architect">Architects & Designers</option>
+          <option value="DEALER">Authorized Dealers</option>
+          <option value="BUILDER">Direct Builders</option>
+          <option value="ARCHITECT">Architects & Designers</option>
+          <option value="RETAIL">Retail Customers</option>
         </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((customer) => (
-          <div
-            key={customer.id}
-            className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-red-500/50 transition-all space-y-3"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  {customer.type}
+      {isLoading ? (
+        <div className="p-8 text-center text-xs text-slate-400">Loading customer directory...</div>
+      ) : filtered.length === 0 ? (
+        <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+          No customers found matching your criteria.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((customer) => (
+            <div
+              key={customer.id}
+              className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-red-500/50 transition-all space-y-3"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {customer.type}
+                  </span>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white mt-1">
+                    {customer.name}
+                  </h3>
+                  {customer.firmName && (
+                    <p className="text-xs text-slate-400">{customer.firmName}</p>
+                  )}
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                  {customer.status}
                 </span>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white mt-1">
-                  {customer.name}
-                </h3>
-                <p className="text-xs text-slate-400">{customer.firmName}</p>
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-                {customer.status}
-              </span>
-            </div>
 
-            <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-red-500" />
-                <span>{customer.town}, {customer.district}</span>
+              <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-red-500" />
+                  <span>{customer.town}, {customer.district}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{customer.phone}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-slate-400" />
-                <span>{customer.phone}</span>
-              </div>
-            </div>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-center text-xs">
-              <div className="p-2 rounded bg-slate-50 dark:bg-slate-900/60">
-                <span className="text-[10px] text-slate-400 block">Total Orders</span>
-                <span className="font-bold text-slate-900 dark:text-white">{customer.ordersCount} ({customer.totalVolume})</span>
-              </div>
-              <div className="p-2 rounded bg-slate-50 dark:bg-slate-900/60">
-                <span className="text-[10px] text-slate-400 block">Outstanding</span>
-                <span className="font-bold text-red-500">{customer.outstandingBalance}</span>
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-center text-xs">
+                <div className="p-2 rounded bg-slate-50 dark:bg-slate-900/60">
+                  <span className="text-[10px] text-slate-400 block">Credit Limit</span>
+                  <span className="font-bold text-slate-900 dark:text-white">₹{customer.creditLimit?.toLocaleString('en-IN') || 0}</span>
+                </div>
+                <div className="p-2 rounded bg-slate-50 dark:bg-slate-900/60">
+                  <span className="text-[10px] text-slate-400 block">Outstanding</span>
+                  <span className="font-bold text-red-500">₹{customer.outstandingBalance?.toLocaleString('en-IN') || 0}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+
+      <CustomerFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSaved={handleCustomerSaved}
+      />
     </div>
   );
 }
@@ -146,42 +217,70 @@ export function CustomersView() {
  * 2. CRM & LEADS VIEW
  * ------------------------------------------------------------- */
 export function CrmLeadsView() {
-  const stages = [
-    {
-      title: 'New Inquiries',
-      count: '6 Leads',
-      leads: [
-        { name: 'Kochi Waterfront Apartments', contact: 'Er. Jacob Roy', units: '48 FRP Doors', district: 'Ernakulam', est: '₹4.2L' },
-        { name: 'Calicut Heritage Villa', contact: 'M. K. Basheer', units: '14 WPC Doors', district: 'Kozhikode', est: '₹1.8L' },
-      ],
-    },
-    {
-      title: 'Measurement Scheduled',
-      count: '4 Sites',
-      leads: [
-        { name: 'Green Meadows Luxury', contact: 'Ar. Ananya Nair', units: '30 Solid Hybrid', district: 'Thrissur', est: '₹3.6L' },
-        { name: 'Kannur Seashore Hotel', contact: 'Ashraf K.', units: '22 Fire Retardant', district: 'Kannur', est: '₹2.9L' },
-      ],
-    },
-    {
-      title: 'Quotation Submitted',
-      count: '5 Quotes',
-      leads: [
-        { name: 'Skyline Palms Kakkanad', contact: 'Varghese Mathew', units: '36 WPC Frames', district: 'Ernakulam', est: '₹2.16L' },
-        { name: 'Perinthalmanna Clinic', contact: 'Dr. Faizal', units: '18 Antibacterial FRP', district: 'Malappuram', est: '₹1.9L' },
-      ],
-    },
-    {
-      title: 'Final Negotiation',
-      count: '3 Tenders',
-      leads: [
-        { name: 'Malabar Luxury Builders', contact: 'Shabeer Ali', units: '24 Molded Teak', district: 'Kozhikode', est: '₹2.88L' },
-      ],
-    },
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/crm/leads')
+      .then((res) => res.json())
+      .then((json) => {
+        if (active && json.success && Array.isArray(json.data)) {
+          setLeads(json.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleLeadSaved = (saved: Lead) => {
+    setLeads((prev) => [saved, ...prev]);
+    setToastMessage(`Lead "${saved.title}" added to pipeline.`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleFollowUp = async (leadId: string) => {
+    try {
+      const res = await fetch(`/api/crm/leads/${leadId}/follow-ups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'CALL',
+          notes: 'Routine progress follow-up with client.',
+        }),
+      });
+      if (res.ok) {
+        setToastMessage('Follow-up logged successfully.');
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const STAGES = [
+    { key: 'NEW', title: 'New Inquiries' },
+    { key: 'MEASUREMENT_SCHEDULED', title: 'Measurement Scheduled' },
+    { key: 'QUOTE_SENT', title: 'Quotation Submitted' },
+    { key: 'NEGOTIATION', title: 'Final Negotiation' },
   ];
 
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -192,44 +291,75 @@ export function CrmLeadsView() {
             Track Kerala architect visits, contractor leads, and site negotiations
           </p>
         </div>
-        <button className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500 transition-colors">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500 transition-colors cursor-pointer"
+        >
           + New CRM Lead
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stages.map((stage) => (
-          <div
-            key={stage.title}
-            className="bg-slate-100/70 dark:bg-[#070D1E] rounded-xl p-3.5 border border-slate-200 dark:border-slate-800"
-          >
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
-              <span className="font-bold text-xs text-slate-900 dark:text-white">{stage.title}</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-600/10 text-red-500">
-                {stage.count}
-              </span>
-            </div>
-            <div className="space-y-2.5">
-              {stage.leads.map((lead, idx) => (
-                <div
-                  key={idx}
-                  className="bg-white dark:bg-[#0B132B] p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-xs space-y-1.5"
-                >
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">{lead.name}</h4>
-                    <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400">{lead.est}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">{lead.contact} • {lead.district}</p>
-                  <div className="pt-1.5 flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100 dark:border-slate-800/80">
-                    <span className="font-medium text-red-500">{lead.units}</span>
-                    <span className="hover:text-white cursor-pointer">Follow up &rarr;</span>
-                  </div>
+      {isLoading ? (
+        <div className="p-8 text-center text-xs text-slate-400">Loading CRM pipeline...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {STAGES.map((col) => {
+            const colLeads = leads.filter((l) => l.stage === col.key);
+            return (
+              <div
+                key={col.key}
+                className="bg-slate-100/70 dark:bg-[#070D1E] rounded-xl p-3.5 border border-slate-200 dark:border-slate-800"
+              >
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">{col.title}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-600/10 text-red-500">
+                    {colLeads.length} Leads
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+                <div className="space-y-2.5">
+                  {colLeads.map((lead) => (
+                    <div
+                      key={lead.id}
+                      className="bg-white dark:bg-[#0B132B] p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-xs space-y-1.5"
+                    >
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-xs text-slate-900 dark:text-white">{lead.title}</h4>
+                        {lead.estimatedValue && (
+                          <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                            ₹{(lead.estimatedValue / 100000).toFixed(1)}L
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {lead.contactPerson} • {lead.district}
+                      </p>
+                      <div className="pt-1.5 flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100 dark:border-slate-800/80">
+                        <span className="font-mono text-[10px] text-slate-500">{lead.leadCode}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleFollowUp(lead.id)}
+                          className="hover:text-red-500 text-slate-400 transition-colors cursor-pointer"
+                        >
+                          Follow up &rarr;
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {colLeads.length === 0 && (
+                    <div className="p-4 text-center text-[11px] text-slate-400 italic">No leads in this stage</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <LeadFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSaved={handleLeadSaved}
+      />
     </div>
   );
 }
@@ -238,8 +368,44 @@ export function CrmLeadsView() {
  * 3. QUOTATIONS VIEW
  * ------------------------------------------------------------- */
 export function QuotationsView() {
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/quotations')
+      .then((res) => res.json())
+      .then((json) => {
+        if (active && json.success && Array.isArray(json.data)) {
+          setQuotations(json.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleQuotationSaved = (saved: Quotation) => {
+    setQuotations((prev) => [saved, ...prev]);
+    setToastMessage(`Quotation "${saved.quoteNumber}" created successfully.`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -250,62 +416,77 @@ export function QuotationsView() {
             FRP door skin, core filler, frame rebate & 18% GST estimate builder
           </p>
         </div>
-        <button className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500">
+        <button
+          onClick={() => setIsBuilderOpen(true)}
+          className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500 cursor-pointer"
+        >
           + Create New Quote
         </button>
       </div>
 
       <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
         <h3 className="font-bold text-sm text-slate-900 dark:text-white">Active Quotations Pipeline</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
-            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase text-[10px]">
-              <tr>
-                <th className="p-3">Quote #</th>
-                <th className="p-3">Client</th>
-                <th className="p-3">Door Model & Specs</th>
-                <th className="p-3 text-center">Doors</th>
-                <th className="p-3">Base Price</th>
-                <th className="p-3">GST (18%)</th>
-                <th className="p-3">Total (INR)</th>
-                <th className="p-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              <tr>
-                <td className="p-3 font-bold text-slate-900 dark:text-white">QTN-2026-442</td>
-                <td className="p-3">Malabar Builders (Kozhikode)</td>
-                <td className="p-3">FRP 32mm Molded Teak with Honeycomb Core</td>
-                <td className="p-3 text-center font-bold">24</td>
-                <td className="p-3">₹2,44,067</td>
-                <td className="p-3">₹43,933</td>
-                <td className="p-3 font-bold text-slate-900 dark:text-white">₹2,88,000</td>
-                <td className="p-3"><span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-500 font-bold">Approved</span></td>
-              </tr>
-              <tr>
-                <td className="p-3 font-bold text-slate-900 dark:text-white">QTN-2026-443</td>
-                <td className="p-3">Skyline Kakkanad Tower B</td>
-                <td className="p-3">WPC 30mm Waterproof Solid Bathroom Doors</td>
-                <td className="p-3 text-center font-bold">36</td>
-                <td className="p-3">₹1,83,050</td>
-                <td className="p-3">₹32,950</td>
-                <td className="p-3 font-bold text-slate-900 dark:text-white">₹2,16,000</td>
-                <td className="p-3"><span className="px-2 py-0.5 rounded text-[10px] bg-blue-500/15 text-blue-500 font-bold">Sent to Client</span></td>
-              </tr>
-              <tr>
-                <td className="p-3 font-bold text-slate-900 dark:text-white">QTN-2026-444</td>
-                <td className="p-3">Thrissur Elite Architect Studio</td>
-                <td className="p-3">FRP 35mm CNC Carved Rosewood with Brass Beading</td>
-                <td className="p-3 text-center font-bold">12</td>
-                <td className="p-3">₹1,65,254</td>
-                <td className="p-3">₹29,746</td>
-                <td className="p-3 font-bold text-slate-900 dark:text-white">₹1,95,000</td>
-                <td className="p-3"><span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-500 font-bold">Converted</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        
+        {isLoading ? (
+          <div className="p-8 text-center text-xs text-slate-400">Loading quotations...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+              <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase text-[10px]">
+                <tr>
+                  <th className="p-3">Quote #</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Door Items</th>
+                  <th className="p-3 text-center">Total Doors</th>
+                  <th className="p-3">Base Price</th>
+                  <th className="p-3">GST (18%)</th>
+                  <th className="p-3">Total (INR)</th>
+                  <th className="p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {quotations.map((q) => {
+                  const totalQty = q.items.reduce((sum, item) => sum + item.quantity, 0);
+                  const firstModel = q.items[0]?.doorModel || 'FRP Door';
+                  const extraCount = q.items.length > 1 ? ` (+${q.items.length - 1} more)` : '';
+                  return (
+                    <tr key={q.id}>
+                      <td className="p-3 font-bold text-slate-900 dark:text-white font-mono">{q.quoteNumber}</td>
+                      <td className="p-3 text-slate-400">{q.date}</td>
+                      <td className="p-3">{firstModel}{extraCount}</td>
+                      <td className="p-3 text-center font-bold">{totalQty}</td>
+                      <td className="p-3 font-mono">₹{q.subtotal?.toLocaleString('en-IN')}</td>
+                      <td className="p-3 font-mono">₹{q.gstAmount?.toLocaleString('en-IN')}</td>
+                      <td className="p-3 font-bold text-slate-900 dark:text-white font-mono">
+                        ₹{q.totalAmount?.toLocaleString('en-IN')}
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            q.status === 'APPROVED'
+                              ? 'bg-amber-500/15 text-amber-500'
+                              : q.status === 'CONVERTED'
+                              ? 'bg-emerald-500/15 text-emerald-500'
+                              : 'bg-blue-500/15 text-blue-500'
+                          }`}
+                        >
+                          {q.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      <QuotationBuilder
+        isOpen={isBuilderOpen}
+        onClose={() => setIsBuilderOpen(false)}
+        onSaved={handleQuotationSaved}
+      />
     </div>
   );
 }
