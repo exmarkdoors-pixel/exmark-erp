@@ -71,7 +71,7 @@ async function runPhase1Tests() {
   let frpDisableBlocked = false;
   try {
     await toggleCategoryEnabled('FRP', false);
-  } catch (err) {
+  } catch {
     frpDisableBlocked = true;
   }
   assert(frpDisableBlocked, 'Primary FRP product category CANNOT be disabled (integrity preserved)');

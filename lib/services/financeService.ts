@@ -7,8 +7,6 @@ import {
   FinanceStore,
   InvoiceStatus,
   PaymentMode,
-  BreakEvenAnalysis,
-  calculateBreakEven,
 } from '@/types/finance';
 
 export * from '@/types/finance';

@@ -1,7 +1,6 @@
 import {
   listInvoices,
   createInvoice,
-  listPayments,
   recordPayment,
   listFinancialTargets,
   createFinancialTarget,

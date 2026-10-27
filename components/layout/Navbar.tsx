@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Menu,
   Search,
@@ -15,7 +16,6 @@ import {
   Shield,
   LogOut,
   ChevronDown,
-  User,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/erp';
 import { UserRole } from '@/lib/auth/roles';
@@ -37,6 +37,7 @@ export default function Navbar({
   userRole = 'Super Admin',
   userName = 'Nazer Karumban',
 }: NavbarProps) {
+  const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [notificationsRead, setNotificationsRead] = useState(false);
@@ -44,9 +45,9 @@ export default function Navbar({
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/login';
+      router.push('/login');
     } catch {
-      window.location.href = '/login';
+      router.push('/login');
     }
   };
 

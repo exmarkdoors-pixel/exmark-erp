@@ -30,6 +30,8 @@ import {
   Printer,
   TrendingUp,
   Share2,
+  Award,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   DEMO_INVENTORY,
@@ -48,6 +50,10 @@ import { PaymentReceiptModal } from './finance/PaymentReceiptModal';
 import { FinancialStrategistModal } from './finance/FinancialStrategistModal';
 import { WhatsAppSendModal } from './communication/WhatsAppSendModal';
 import { CustomerConfirmationModal } from './communication/CustomerConfirmationModal';
+import { DispatchScheduleModal } from './fulfillment/DispatchScheduleModal';
+import { InstallationSignoffModal } from './fulfillment/InstallationSignoffModal';
+import { WarrantyCertificateModal } from './fulfillment/WarrantyCertificateModal';
+import { DispatchRecord, InstallationRecord, WarrantyCertificate } from '@/types/fulfillment';
 import { Customer } from '@/lib/services/customerService';
 import { Lead } from '@/lib/services/crmService';
 import { Quotation } from '@/lib/services/quotationService';
@@ -1705,42 +1711,452 @@ export function EmployeesView() {
  * 11. DISPATCH & INSTALLATION VIEW
  * ------------------------------------------------------------- */
 export function DispatchInstallationView() {
+  const [activeTab, setActiveTab] = useState<'dispatches' | 'installations' | 'warranties'>('dispatches');
+  const [dispatches, setDispatches] = useState<DispatchRecord[]>([]);
+  const [installations, setInstallations] = useState<InstallationRecord[]>([]);
+  const [warranties, setWarranties] = useState<WarrantyCertificate[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Modals state
+  const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
+  const [selectedInstallation, setSelectedInstallation] = useState<InstallationRecord | null>(null);
+  const [isWarrantyModalOpen, setIsWarrantyModalOpen] = useState(false);
+  const [selectedWarranty, setSelectedWarranty] = useState<WarrantyCertificate | null>(null);
+
+  const loadData = () => {
+    setIsLoading(true);
+    Promise.all([
+      fetch('/api/fulfillment/dispatch').then((r) => r.json()),
+      fetch('/api/fulfillment/installation').then((r) => r.json()),
+      fetch('/api/fulfillment/warranty').then((r) => r.json()),
+    ])
+      .then(([dRes, iRes, wRes]) => {
+        if (dRes.success) setDispatches(dRes.data);
+        if (iRes.success) setInstallations(iRes.data);
+        if (wRes.success) setWarranties(wRes.data);
+      })
+      .catch((err) => console.error('Failed to load fulfillment data:', err))
+      .finally(() => setIsLoading(false));
+  };
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/fulfillment/dispatch').then((r) => r.json()),
+      fetch('/api/fulfillment/installation').then((r) => r.json()),
+      fetch('/api/fulfillment/warranty').then((r) => r.json()),
+    ])
+      .then(([dRes, iRes, wRes]) => {
+        if (dRes.success) setDispatches(dRes.data);
+        if (iRes.success) setInstallations(iRes.data);
+        if (wRes.success) setWarranties(wRes.data);
+      })
+      .catch((err) => console.error('Failed to load fulfillment data:', err));
+  }, []);
+
   return (
     <div className="space-y-6">
+      {/* Header & Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Truck className="w-6 h-6 text-red-500" />
-            Dispatch Logistics & Site Installation
+            Dispatch Logistics, Installation &amp; FRP Warranty
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Dedicated delivery fleet covering all 14 Kerala districts from Palakkad / Calicut plant
+            Dedicated delivery fleet across all 14 Kerala districts • Site installation sign-offs • Official 10/15 year FRP material warranty
           </p>
         </div>
+
+        <div className="flex items-center gap-2">
+          {activeTab === 'dispatches' && (
+            <button
+              onClick={() => setIsDispatchModalOpen(true)}
+              className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 flex items-center gap-1.5 shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Schedule Dispatch
+            </button>
+          )}
+          {activeTab === 'warranties' && (
+            <button
+              onClick={() => {
+                setSelectedWarranty(null);
+                setIsWarrantyModalOpen(true);
+              }}
+              className="px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 flex items-center gap-1.5 shadow-sm"
+            >
+              <Award className="w-3.5 h-3.5" />
+              Issue Warranty Certificate
+            </button>
+          )}
+          <button
+            onClick={loadData}
+            title="Refresh records"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-          <span className="text-[10px] font-bold uppercase text-red-500">Route 1: Malabar Region</span>
-          <h3 className="font-bold text-sm text-slate-900 dark:text-white">Palakkad &rarr; Malappuram &rarr; Kozhikode &rarr; Kannur</h3>
-          <p className="text-xs text-slate-400">Truck KL-09-AW-8210 • 48 Door Units loaded • Departed 08:30 AM</p>
-          <span className="inline-block mt-2 px-2 py-0.5 rounded text-[10px] bg-blue-500/15 text-blue-500 font-semibold">En Route to Calicut</span>
-        </div>
-
-        <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-          <span className="text-[10px] font-bold uppercase text-red-500">Route 2: Central Kerala</span>
-          <h3 className="font-bold text-sm text-slate-900 dark:text-white">Palakkad &rarr; Thrissur &rarr; Ernakulam / Kochi</h3>
-          <p className="text-xs text-slate-400">Truck KL-09-AH-4122 • 36 Bathroom Doors • Delivery Kakkanad Site</p>
-          <span className="inline-block mt-2 px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-500 font-semibold">Delivered at Kakkanad</span>
-        </div>
-
-        <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-          <span className="text-[10px] font-bold uppercase text-red-500">Route 3: South Kerala</span>
-          <h3 className="font-bold text-sm text-slate-900 dark:text-white">Palakkad &rarr; Alappuzha &rarr; Kollam &rarr; Trivandrum</h3>
-          <p className="text-xs text-slate-400">Truck KL-09-BK-1102 • 28 Custom Main Doors • Loading in Progress</p>
-          <span className="inline-block mt-2 px-2 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-500 font-semibold">Loading at Bay 3</span>
-        </div>
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800">
+        <button
+          onClick={() => setActiveTab('dispatches')}
+          className={`pb-2.5 px-3 text-xs font-bold transition-colors border-b-2 ${
+            activeTab === 'dispatches'
+              ? 'border-red-500 text-red-500'
+              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          Fleet Logistics &amp; Dispatches ({dispatches.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('installations')}
+          className={`pb-2.5 px-3 text-xs font-bold transition-colors border-b-2 ${
+            activeTab === 'installations'
+              ? 'border-red-500 text-red-500'
+              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          Site Installations &amp; Handover ({installations.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('warranties')}
+          className={`pb-2.5 px-3 text-xs font-bold transition-colors border-b-2 ${
+            activeTab === 'warranties'
+              ? 'border-red-500 text-red-500'
+              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          FRP Warranty Certificates ({warranties.length})
+        </button>
       </div>
+
+      {/* TAB 1: DISPATCHES */}
+      {activeTab === 'dispatches' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-bold uppercase text-slate-400">Total Active Dispatches</span>
+              <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">{dispatches.length} Trips</p>
+              <p className="text-[11px] text-slate-400">Palakkad central plant distribution</p>
+            </div>
+            <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-bold uppercase text-blue-500">Doors In Transit</span>
+              <p className="text-xl font-bold text-blue-500 mt-1">
+                {dispatches.filter((d) => d.status === 'IN_TRANSIT').reduce((a, b) => a + b.doorCount, 0)} Units
+              </p>
+              <p className="text-[11px] text-slate-400">On road to North/South Kerala hubs</p>
+            </div>
+            <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-bold uppercase text-emerald-500">Delivered Successfully</span>
+              <p className="text-xl font-bold text-emerald-500 mt-1">
+                {dispatches.filter((d) => d.status === 'DELIVERED').length} Sites
+              </p>
+              <p className="text-[11px] text-slate-400">Received &amp; verified at site warehouse</p>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="px-4 py-3">Dispatch #</th>
+                    <th className="px-4 py-3">Customer &amp; Destination</th>
+                    <th className="px-4 py-3">District</th>
+                    <th className="px-4 py-3">Vehicle &amp; Driver</th>
+                    <th className="px-4 py-3">Doors</th>
+                    <th className="px-4 py-3">e-Way Bill</th>
+                    <th className="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {dispatches.map((d) => (
+                    <tr key={d.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30">
+                      <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-white">
+                        {d.dispatchNumber}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-900 dark:text-white">{d.customerName}</div>
+                        <div className="text-[11px] text-slate-400 truncate max-w-xs">{d.destinationAddress}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          {d.deliveryDistrict}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-mono text-slate-800 dark:text-slate-200">{d.vehicleNumber}</div>
+                        <div className="text-[11px] text-slate-400">{d.driverName} {d.driverPhone ? `• ${d.driverPhone}` : ''}</div>
+                      </td>
+                      <td className="px-4 py-3 font-bold text-red-500">
+                        {d.doorCount} Units
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[11px] text-slate-500">
+                        {d.eWayBillNo || '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            d.status === 'DELIVERED'
+                              ? 'bg-emerald-500/15 text-emerald-500'
+                              : d.status === 'IN_TRANSIT'
+                              ? 'bg-blue-500/15 text-blue-500'
+                              : 'bg-amber-500/15 text-amber-500'
+                          }`}
+                        >
+                          {d.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {dispatches.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-xs">
+                        No dispatches found. Click &quot;Schedule Dispatch&quot; to register fleet transport.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: INSTALLATIONS */}
+      {activeTab === 'installations' && (
+        <div className="space-y-4">
+          <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="px-4 py-3">Installation #</th>
+                    <th className="px-4 py-3">Site / Customer</th>
+                    <th className="px-4 py-3">District</th>
+                    <th className="px-4 py-3">Supervisor</th>
+                    <th className="px-4 py-3">Doors</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Rating &amp; Sign-Off</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {installations.map((inst) => (
+                    <tr key={inst.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30">
+                      <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-white">
+                        {inst.installationNumber}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-900 dark:text-white">{inst.customerName}</div>
+                        <div className="text-[11px] text-slate-400 truncate max-w-xs">{inst.siteAddress}</div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                        {inst.district}
+                      </td>
+                      <td className="px-4 py-3 text-slate-800 dark:text-slate-200">
+                        {inst.supervisorName}
+                      </td>
+                      <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">
+                        {inst.doorCount}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            inst.status === 'QUALITY_APPROVED'
+                              ? 'bg-emerald-500/15 text-emerald-500'
+                              : inst.status === 'IN_PROGRESS'
+                              ? 'bg-blue-500/15 text-blue-500'
+                              : 'bg-amber-500/15 text-amber-500'
+                          }`}
+                        >
+                          {inst.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {inst.clientSignoffName ? (
+                          <div className="space-y-0.5">
+                            <span className="font-semibold text-emerald-600 text-[11px]">
+                              Signed by {inst.clientSignoffName}
+                            </span>
+                            <div className="text-[11px] text-amber-500">
+                              {'★'.repeat(inst.clientFeedbackRating || 5)} ({inst.clientFeedbackRating}/5)
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">Pending Handover</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {inst.status !== 'QUALITY_APPROVED' ? (
+                          <button
+                            onClick={() => setSelectedInstallation(inst)}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20 rounded border border-emerald-500/30"
+                          >
+                            Sign-Off
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setSelectedWarranty({
+                                certificateNumber: `EXM-WRN-${inst.installationNumber}`,
+                                salesOrderId: inst.salesOrderId,
+                                customerName: inst.customerName,
+                                siteAddress: inst.siteAddress,
+                                district: inst.district,
+                                warrantyPeriodYears: 15,
+                                validFrom: new Date().toISOString().split('T')[0],
+                                validUntil: '2041-10-27',
+                                coveredDoors: [
+                                  {
+                                    doorId: `EXM-DR-${inst.installationNumber}-01`,
+                                    model: 'EXM-FRP-TL101',
+                                    sizeMm: '2085 x 888 mm',
+                                  },
+                                ],
+                                coverageScope: 'FRP DOOR MATERIAL ONLY (100% Water, Termite & Borer Proof Body)',
+                                explicitExclusions: [
+                                  'SS Hinges, Tower Bolts, Handles, and Lock Hardware sets',
+                                  'Surface PU Paints, Foiling, and Cosmetic finish weathering',
+                                  'Damage arising from civil structure settlement or accidental mechanical impact',
+                                  'Unapproved modifications, thermal burns, or acidic chemical washing',
+                                ],
+                                bilingualCareInstructions: {
+                                  english: [
+                                    'Clean door surfaces with mild soapy water and a soft cotton cloth only.',
+                                    'Never use acidic floor cleaners, wire brushes, or harsh solvents on FRP doors.',
+                                  ],
+                                  malayalam: [
+                                    'ഡോർ വൃത്തിയാക്കാൻ വീര്യം കുറഞ്ഞ സോപ്പ് വെള്ളവും കോട്ടൺ തുണിയും മാത്രം ഉപയോഗിക്കുക.',
+                                    'ആസിഡ്, ഫിനോയിൽ അല്ലെങ്കിൽ കഠിനമായ കെമിക്കലുകൾ ഡോറിൽ ഒഴിക്കരുത്.',
+                                  ],
+                                },
+                                issuedAt: new Date().toISOString(),
+                              });
+                              setIsWarrantyModalOpen(true);
+                            }}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-amber-600 bg-amber-500/10 hover:bg-amber-500/20 rounded border border-amber-500/30 flex items-center gap-1 ml-auto"
+                          >
+                            <Award className="w-3 h-3" />
+                            View Warranty
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: WARRANTIES */}
+      {activeTab === 'warranties' && (
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-6 h-6 text-amber-500 shrink-0" />
+              <div>
+                <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                  Official EXMARK FRP Door Material Warranty Standard
+                </h4>
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  Strictly protects <strong>FRP Door Material</strong> against water rot, termites &amp; swelling. Hinges, locks, and handles are explicitly excluded from warranty liability.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedWarranty(null);
+                setIsWarrantyModalOpen(true);
+              }}
+              className="px-3 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shrink-0 shadow-sm"
+            >
+              Issue New Warranty
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {warranties.map((w) => (
+              <div
+                key={w.certificateNumber}
+                className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm hover:border-amber-500/50 transition-colors cursor-pointer"
+                onClick={() => {
+                  setSelectedWarranty(w);
+                  setIsWarrantyModalOpen(true);
+                }}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-amber-500 uppercase">
+                      {w.certificateNumber}
+                    </span>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
+                      {w.customerName}
+                    </h3>
+                    <p className="text-xs text-slate-500">{w.siteAddress}, {w.district}</p>
+                  </div>
+                  <span className="px-2 py-1 rounded text-xs font-black bg-amber-500/15 text-amber-600 border border-amber-500/30">
+                    {w.warrantyPeriodYears} YEARS
+                  </span>
+                </div>
+
+                <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                  <div className="text-[11px] font-semibold text-emerald-600">
+                    Scope: {w.coverageScope}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    Valid: {w.validFrom} to {w.validUntil}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs text-slate-400">
+                  <span>Covered Doors: {w.coveredDoors?.length || 1} units</span>
+                  <span className="text-amber-500 font-semibold hover:underline">
+                    View &amp; Print Certificate &rarr;
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      <DispatchScheduleModal
+        isOpen={isDispatchModalOpen}
+        onClose={() => setIsDispatchModalOpen(false)}
+        onSuccess={(rec) => {
+          setDispatches((prev) => [rec, ...prev]);
+        }}
+      />
+
+      <InstallationSignoffModal
+        isOpen={Boolean(selectedInstallation)}
+        installation={selectedInstallation}
+        onClose={() => setSelectedInstallation(null)}
+        onSuccess={(updated) => {
+          setInstallations((prev) =>
+            prev.map((i) => (i.id === updated.id ? updated : i))
+          );
+        }}
+      />
+
+      <WarrantyCertificateModal
+        isOpen={isWarrantyModalOpen}
+        initialCertificate={selectedWarranty}
+        onClose={() => {
+          setIsWarrantyModalOpen(false);
+          setSelectedWarranty(null);
+        }}
+        onSuccess={(cert) => {
+          setWarranties((prev) => [cert, ...prev]);
+        }}
+      />
     </div>
   );
 }

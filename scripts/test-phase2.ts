@@ -1,7 +1,7 @@
 import { listCustomers, createCustomer, getCustomer, updateCustomer } from '../lib/services/customerService';
 import { listLeads, createLead, getLead, addFollowUp } from '../lib/services/crmService';
-import { listQuotations, createQuotation, getQuotation, convertToOrder } from '../lib/services/quotationService';
-import { listBoqs, createBoq, getBoq, addBoqItem, convertToQuotation } from '../lib/services/boqService';
+import { listQuotations, createQuotation, convertToOrder } from '../lib/services/quotationService';
+import { listBoqs, createBoq, addBoqItem, convertToQuotation } from '../lib/services/boqService';
 
 let passed = 0;
 let failed = 0;
