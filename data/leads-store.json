@@ -29,9 +29,19 @@
     "estimatedValue": 360000,
     "assignedToId": null,
     "notes": "30 solid hybrid doors. Site measurement scheduled for Nov 3rd.",
-    "followUps": [],
+    "followUps": [
+      {
+        "followUpDate": "2026-10-28T03:13:24.860Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157204864-1852",
+        "leadId": "lead-api-002",
+        "createdAt": "2026-10-28T03:13:24.864Z"
+      }
+    ],
     "createdAt": "2026-10-05T09:30:00.000Z",
-    "updatedAt": "2026-10-15T14:00:00.000Z"
+    "updatedAt": "2026-10-28T03:13:24.864Z"
   },
   {
     "_demo": true,
@@ -46,9 +56,28 @@
     "estimatedValue": 216000,
     "assignedToId": null,
     "notes": "36 WPC waterproof bathroom doors. Quotation sent 22 Oct. Follow-up due.",
-    "followUps": [],
+    "followUps": [
+      {
+        "followUpDate": "2026-10-28T03:13:13.664Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157193665-1512",
+        "leadId": "lead-api-003",
+        "createdAt": "2026-10-28T03:13:13.665Z"
+      },
+      {
+        "followUpDate": "2026-10-28T03:13:19.906Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157199908-3061",
+        "leadId": "lead-api-003",
+        "createdAt": "2026-10-28T03:13:19.908Z"
+      }
+    ],
     "createdAt": "2026-10-08T10:00:00.000Z",
-    "updatedAt": "2026-10-22T11:00:00.000Z"
+    "updatedAt": "2026-10-28T03:13:19.908Z"
   },
   {
     "_demo": true,
@@ -63,9 +92,19 @@
     "estimatedValue": 288000,
     "assignedToId": null,
     "notes": "24 molded teak FRP doors. Price negotiation ongoing. High priority.",
-    "followUps": [],
+    "followUps": [
+      {
+        "followUpDate": "2026-10-28T03:13:27.165Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157207184-5102",
+        "leadId": "lead-api-004",
+        "createdAt": "2026-10-28T03:13:27.185Z"
+      }
+    ],
     "createdAt": "2026-09-20T11:00:00.000Z",
-    "updatedAt": "2026-10-25T15:00:00.000Z"
+    "updatedAt": "2026-10-28T03:13:27.185Z"
   },
   {
     "_demo": true,
@@ -186,9 +225,19 @@
     "notes": "Architect referral for 40 luxury villas",
     "id": "lead-api-1793128956203-2935",
     "leadCode": "LEAD-2026-012",
-    "followUps": [],
+    "followUps": [
+      {
+        "followUpDate": "2026-10-28T03:13:07.333Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157187339-1840",
+        "leadId": "lead-api-1793128956203-2935",
+        "createdAt": "2026-10-28T03:13:07.340Z"
+      }
+    ],
     "createdAt": "2026-10-27T19:22:36.203Z",
-    "updatedAt": "2026-10-27T19:22:36.203Z"
+    "updatedAt": "2026-10-28T03:13:07.340Z"
   },
   {
     "title": "Waterfront Villas FRP Schedule",
@@ -315,5 +364,157 @@
     "followUps": [],
     "createdAt": "2026-10-28T02:54:42.090Z",
     "updatedAt": "2026-10-28T02:54:42.090Z"
+  },
+  {
+    "clientName": "Skyline Horizon Builders (Test-1793156745795)",
+    "phone": "+91 98470 12345",
+    "email": "skyline.1793156745795@example.com",
+    "district": "Ernakulam",
+    "source": "ARCHITECT_REFERRAL",
+    "estimatedDoors": 8,
+    "budgetEstimate": 185000,
+    "notes": "Premium 32mm FRP Molded Teak doors for luxury villa project in Kakkanad.",
+    "id": "lead-api-1793156745907-7753",
+    "leadCode": "LEAD-2026-022",
+    "followUps": [],
+    "createdAt": "2026-10-28T03:05:45.914Z",
+    "updatedAt": "2026-10-28T03:05:45.928Z"
+  },
+  {
+    "clientName": "Skyline Horizon Builders (Test-1793156964720)",
+    "phone": "+91 98470 12345",
+    "email": "skyline.1793156964720@example.com",
+    "district": "Ernakulam",
+    "source": "ARCHITECT_REFERRAL",
+    "estimatedDoors": 8,
+    "budgetEstimate": 185000,
+    "notes": "Premium 32mm FRP Molded Teak doors for luxury villa project in Kakkanad.",
+    "id": "lead-api-1793156964760-7544",
+    "leadCode": "LEAD-2026-023",
+    "followUps": [],
+    "createdAt": "2026-10-28T03:09:24.760Z",
+    "updatedAt": "2026-10-28T03:09:24.809Z"
+  },
+  {
+    "clientName": "Skyline Horizon Builders (Test-1793157094759)",
+    "phone": "+91 98470 12345",
+    "email": "skyline.1793157094759@example.com",
+    "district": "Ernakulam",
+    "source": "ARCHITECT_REFERRAL",
+    "estimatedDoors": 8,
+    "budgetEstimate": 185000,
+    "notes": "Premium 32mm FRP Molded Teak doors for luxury villa project in Kakkanad.",
+    "id": "lead-api-1793157094786-7665",
+    "leadCode": "LEAD-2026-024",
+    "followUps": [],
+    "createdAt": "2026-10-28T03:11:34.786Z",
+    "updatedAt": "2026-10-28T03:11:34.891Z"
+  },
+  {
+    "title": "Waterfront Villas FRP Schedule",
+    "contactPerson": "Kerala Grand Villas",
+    "phone": "9846011223",
+    "district": "Ernakulam",
+    "stage": "NEW",
+    "estimatedValue": 340000,
+    "notes": "Architect referral for 40 luxury villas",
+    "id": "lead-api-1793157110899-8049",
+    "leadCode": "LEAD-2026-025",
+    "followUps": [],
+    "createdAt": "2026-10-28T03:11:50.899Z",
+    "updatedAt": "2026-10-28T03:11:50.899Z"
+  },
+  {
+    "customerId": null,
+    "title": "nazer",
+    "contactPerson": "nazer",
+    "phone": "8891759676",
+    "district": "Ernakulam",
+    "stage": "NEW",
+    "estimatedValue": null,
+    "assignedToId": null,
+    "id": "lead-api-1793157154575-945",
+    "leadCode": "LEAD-2026-026",
+    "followUps": [
+      {
+        "followUpDate": "2026-10-28T03:12:47.809Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157167813-1841",
+        "leadId": "lead-api-1793157154575-945",
+        "createdAt": "2026-10-28T03:12:47.813Z"
+      },
+      {
+        "followUpDate": "2026-10-28T03:12:47.817Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157167819-785",
+        "leadId": "lead-api-1793157154575-945",
+        "createdAt": "2026-10-28T03:12:47.819Z"
+      },
+      {
+        "followUpDate": "2026-10-28T03:12:51.941Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157171943-1767",
+        "leadId": "lead-api-1793157154575-945",
+        "createdAt": "2026-10-28T03:12:51.943Z"
+      },
+      {
+        "followUpDate": "2026-10-28T03:13:01.410Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157181413-6798",
+        "leadId": "lead-api-1793157154575-945",
+        "createdAt": "2026-10-28T03:13:01.413Z"
+      },
+      {
+        "followUpDate": "2026-10-28T03:13:02.842Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157182849-6132",
+        "leadId": "lead-api-1793157154575-945",
+        "createdAt": "2026-10-28T03:13:02.849Z"
+      },
+      {
+        "followUpDate": "2026-10-28T03:13:03.449Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157183451-9734",
+        "leadId": "lead-api-1793157154575-945",
+        "createdAt": "2026-10-28T03:13:03.451Z"
+      },
+      {
+        "followUpDate": "2026-10-28T03:13:03.743Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793157183750-4900",
+        "leadId": "lead-api-1793157154575-945",
+        "createdAt": "2026-10-28T03:13:03.750Z"
+      }
+    ],
+    "createdAt": "2026-10-28T03:12:34.580Z",
+    "updatedAt": "2026-10-28T03:13:03.750Z"
+  },
+  {
+    "title": "Skyline Horizon Builders (Test-1793157317784)",
+    "contactPerson": "K. R. Varma (Chief Project Architect)",
+    "phone": "+91 98470 12345",
+    "district": "Ernakulam",
+    "stage": "NEW",
+    "estimatedValue": 185000,
+    "notes": "Premium 32mm FRP Molded Teak doors for luxury villa project in Kakkanad.",
+    "id": "lead-api-1793157317785-4439",
+    "leadCode": "LEAD-2026-027",
+    "followUps": [],
+    "createdAt": "2026-10-28T03:15:17.785Z",
+    "updatedAt": "2026-10-28T03:15:17.794Z"
   }
 ]

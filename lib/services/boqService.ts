@@ -176,8 +176,10 @@ export async function addBoqItem(boqId: string, itemData: BoqItemCreateInput): P
   if (idx === -1) throw new Error(`BOQ ${boqId} not found`);
 
   const areaSqFt = calcAreaSqFt(itemData.heightMm, itemData.widthMm, itemData.quantity);
+  const amount = itemData.amount ?? Math.round(itemData.quantity * (itemData.unitRate || 0));
   const newItem: BoqItem = {
     ...itemData,
+    amount,
     id: generateId('boqitem'),
     boqId,
     areaSqFt,

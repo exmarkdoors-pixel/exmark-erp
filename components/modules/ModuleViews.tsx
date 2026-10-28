@@ -1032,8 +1032,10 @@ export function SalesOrdersView() {
     orderStatus: string;
   }>>([]);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchOrders = () => {
     fetch('/api/orders')
       .then((res) => res.json())
       .then((json) => {
@@ -1042,7 +1044,34 @@ export function SalesOrdersView() {
         }
       })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchOrders();
   }, []);
+
+  const handleAction = async (orderId: string, action: 'VERIFY_ADVANCE' | 'RELEASE_TO_PRODUCTION') => {
+    setIsProcessing(orderId);
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, action }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || 'Failed to process order action');
+      } else {
+        setToastMessage(data.message || 'Order updated successfully.');
+        setTimeout(() => setToastMessage(null), 4000);
+        fetchOrders();
+      }
+    } catch {
+      alert('Error updating sales order.');
+    } finally {
+      setIsProcessing(null);
+    }
+  };
 
   const filteredOrders = filterStatus === 'ALL'
     ? orders
@@ -1055,6 +1084,13 @@ export function SalesOrdersView() {
 
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1123,6 +1159,7 @@ export function SalesOrdersView() {
                 <th className="p-3">Total Value</th>
                 <th className="p-3">Advance Status</th>
                 <th className="p-3">Production Status</th>
+                <th className="p-3 text-right">Factory Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1156,6 +1193,40 @@ export function SalesOrdersView() {
                     >
                       {ord.orderStatus.replace(/_/g, ' ')}
                     </span>
+                  </td>
+                  <td className="p-3 text-right">
+                    {ord.orderStatus === 'CONFIRMED' && ord.advanceVerified && (
+                      <button
+                        onClick={() => handleAction(ord.id, 'RELEASE_TO_PRODUCTION')}
+                        disabled={isProcessing === ord.id}
+                        className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 ml-auto cursor-pointer"
+                      >
+                        <Factory className="w-3 h-3" />
+                        Release to Press
+                      </button>
+                    )}
+                    {ord.orderStatus === 'CONFIRMED' && !ord.advanceVerified && (
+                      <button
+                        onClick={() => handleAction(ord.id, 'VERIFY_ADVANCE')}
+                        disabled={isProcessing === ord.id}
+                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 ml-auto cursor-pointer"
+                      >
+                        <ReceiptIndianRupee className="w-3 h-3" />
+                        Verify Advance
+                      </button>
+                    )}
+                    {ord.orderStatus === 'IN_PRODUCTION' && (
+                      <span className="text-[11px] font-semibold text-blue-400 inline-flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                        In Fabrication
+                      </span>
+                    )}
+                    {ord.orderStatus === 'READY_TO_DISPATCH' && (
+                      <span className="text-[11px] font-semibold text-emerald-400 inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Ready to Ship
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

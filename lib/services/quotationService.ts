@@ -101,8 +101,11 @@ function generateId(prefix: string): string {
 }
 
 function calcTotals(items: Omit<QuotationItem, 'id' | 'quotationId'>[], discount: number, gstRate: number) {
-  const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
-  const discounted = subtotal - discount;
+  const subtotal = items.reduce((sum, item) => {
+    const itemTotal = item.totalPrice ?? ((item.unitPrice || 0) * (item.quantity || 1));
+    return sum + itemTotal;
+  }, 0);
+  const discounted = Math.max(0, subtotal - discount);
   const gstAmount = Math.round((discounted * gstRate) / 100);
   const totalAmount = discounted + gstAmount;
   return { subtotal, gstAmount, totalAmount };
@@ -133,6 +136,13 @@ export async function createQuotation(data: QuotationCreateInput): Promise<Quota
   const quotationId = generateId('qtn-api');
   const builtItems: QuotationItem[] = data.items.map((item, idx) => ({
     ...item,
+    doorCategory: item.doorCategory || 'FRP_DOORS',
+    heightMm: item.heightMm || 2100,
+    widthMm: item.widthMm || 900,
+    thicknessMm: item.thicknessMm || 32,
+    unitPrice: item.unitPrice || 7800,
+    gstRate: item.gstRate || 18,
+    totalPrice: item.totalPrice ?? Math.round((item.unitPrice || 7800) * (item.quantity || 1)),
     id: `qitem-${Date.now()}-${idx}`,
     quotationId,
   }));

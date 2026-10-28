@@ -669,5 +669,171 @@
     "notes": "FRP door quote",
     "createdAt": "2026-10-28T02:54:42.220Z",
     "updatedAt": "2026-10-28T02:54:42.220Z"
+  },
+  {
+    "id": "qtn-api-1793156746370-272",
+    "quoteNumber": "QTN-2026-021",
+    "customerId": "cust-1793156746061-8873",
+    "leadId": null,
+    "validUntil": "2026-11-12",
+    "items": [
+      {
+        "doorModel": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "frameType": "WPC Solid Extruded 100x65mm Frame",
+        "color": "Burma Teak (Woodgrain PU)",
+        "height": 2100,
+        "width": 900,
+        "quantity": 2,
+        "sqftArea": 40.7,
+        "ratePerSqft": 191.6,
+        "amount": 15600,
+        "id": "qitem-1793156746370-0",
+        "quotationId": "qtn-api-1793156746370-272"
+      }
+    ],
+    "subtotal": null,
+    "discount": 0,
+    "gstRate": 18,
+    "gstAmount": null,
+    "totalAmount": null,
+    "status": "IN_PRODUCTION",
+    "createdAt": "2026-10-28T03:05:46.370Z",
+    "updatedAt": "2026-10-28T03:05:46.407Z",
+    "advanceVerified": true,
+    "productionOrderId": "prd-1793156766675-3123"
+  },
+  {
+    "id": "qtn-api-1793156964997-158",
+    "quoteNumber": "QTN-2026-022",
+    "customerId": "cust-1793156964822-5252",
+    "leadId": null,
+    "validUntil": "2026-11-12",
+    "items": [
+      {
+        "doorModel": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "frameType": "WPC Solid Extruded 100x65mm Frame",
+        "color": "Burma Teak (Woodgrain PU)",
+        "height": 2100,
+        "width": 900,
+        "quantity": 2,
+        "sqftArea": 40.7,
+        "ratePerSqft": 191.6,
+        "amount": 15600,
+        "id": "qitem-1793156965008-0",
+        "quotationId": "qtn-api-1793156964997-158"
+      }
+    ],
+    "subtotal": null,
+    "discount": 0,
+    "gstRate": 18,
+    "gstAmount": null,
+    "totalAmount": null,
+    "status": "IN_PRODUCTION",
+    "createdAt": "2026-10-28T03:09:25.009Z",
+    "updatedAt": "2026-10-28T03:09:25.074Z",
+    "advanceVerified": true,
+    "productionOrderId": "prd-1793156965494-161"
+  },
+  {
+    "id": "qtn-api-1793157095053-5902",
+    "quoteNumber": "QTN-2026-023",
+    "customerId": "cust-1793157094926-6953",
+    "leadId": null,
+    "date": "2026-10-28",
+    "validUntil": "2026-11-12",
+    "items": [
+      {
+        "doorCategory": "FRP_DOORS",
+        "doorModel": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "finishColor": "Burma Teak (Woodgrain PU)",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "thicknessMm": 32,
+        "quantity": 2,
+        "unitPrice": 7800,
+        "gstRate": 18,
+        "totalPrice": 15600,
+        "id": "qitem-1793157095054-0",
+        "quotationId": "qtn-api-1793157095053-5902"
+      }
+    ],
+    "subtotal": 15600,
+    "discount": 0,
+    "gstRate": 18,
+    "gstAmount": 2808,
+    "totalAmount": 18408,
+    "status": "IN_PRODUCTION",
+    "notes": "40% advance required before production release. Balance against delivery challan.",
+    "createdAt": "2026-10-28T03:11:35.054Z",
+    "updatedAt": "2026-10-28T03:11:35.085Z",
+    "advanceVerified": true,
+    "productionOrderId": "prd-1793157095281-8243"
+  },
+  {
+    "id": "qtn-api-1793157111009-5253",
+    "quoteNumber": "QTN-2026-024",
+    "customerId": "cust-1793157110888-4624",
+    "leadId": "lead-api-1793157110899-8049",
+    "date": "2026-10-27",
+    "validUntil": "2026-11-27",
+    "items": [
+      {
+        "doorCategory": "FRP_DOORS",
+        "doorModel": "EXM-FRP-TL101",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "thicknessMm": 35,
+        "quantity": 40,
+        "unitPrice": 8500,
+        "gstRate": 18,
+        "totalPrice": 340000,
+        "id": "qitem-1793157111009-0",
+        "quotationId": "qtn-api-1793157111009-5253"
+      }
+    ],
+    "subtotal": 340000,
+    "discount": 10000,
+    "gstRate": 18,
+    "gstAmount": 59400,
+    "totalAmount": 389400,
+    "status": "DRAFT",
+    "notes": "FRP door quote",
+    "createdAt": "2026-10-28T03:11:51.009Z",
+    "updatedAt": "2026-10-28T03:11:51.009Z"
+  },
+  {
+    "id": "qtn-api-1793157317825-5463",
+    "quoteNumber": "QTN-2026-025",
+    "customerId": "cust-1793157317797-1006",
+    "leadId": null,
+    "date": "2026-10-28",
+    "validUntil": "2026-11-12",
+    "items": [
+      {
+        "doorCategory": "FRP_DOORS",
+        "doorModel": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "finishColor": "Burma Teak (Woodgrain PU)",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "thicknessMm": 32,
+        "quantity": 2,
+        "unitPrice": 7800,
+        "gstRate": 18,
+        "totalPrice": 15600,
+        "id": "qitem-1793157317825-0",
+        "quotationId": "qtn-api-1793157317825-5463"
+      }
+    ],
+    "subtotal": 15600,
+    "discount": 0,
+    "gstRate": 18,
+    "gstAmount": 2808,
+    "totalAmount": 18408,
+    "status": "IN_PRODUCTION",
+    "notes": "40% advance required before production release. Balance against delivery challan.",
+    "createdAt": "2026-10-28T03:15:17.825Z",
+    "updatedAt": "2026-10-28T03:15:17.830Z",
+    "advanceVerified": true,
+    "productionOrderId": "prd-1793157317873-1039"
   }
 ]
