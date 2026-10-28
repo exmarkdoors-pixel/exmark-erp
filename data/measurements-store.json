@@ -1,5 +1,58 @@
 [
   {
+    "refNumber": "MSR-2026-1900",
+    "customerName": "Malabar Luxury Builders, Kozhikode",
+    "orderRef": "EXM-2026-1082",
+    "siteName": "Skyline Villa Project, Kakkanad",
+    "siteAddress": "Near Infopark Expressway, Kochi",
+    "district": "Ernakulam",
+    "totalOpenings": 2,
+    "engineerName": "Anoop Krishnan (Sr. Site Engineer)",
+    "date": "2026-10-28",
+    "rebateDepthMm": "38mm",
+    "wallThicknessMm": "150mm",
+    "status": "APPROVED",
+    "doors": [
+      {
+        "doorNumber": "D1 - Main Entrance",
+        "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "frameType": "WPC Solid Extruded 100x65mm Frame",
+        "colour": "Burma Teak (Woodgrain PU)",
+        "hingeSide": "Left Hand (LH) - Inward",
+        "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+        "measurementUnit": "MM",
+        "heightLeft": 2100,
+        "heightRight": 2100,
+        "widthTop": 900,
+        "widthBottom": 900,
+        "wallThickness": "150mm",
+        "rebateDepth": "38mm",
+        "remarks": "",
+        "id": "door-1793148166950-1"
+      },
+      {
+        "doorNumber": "D2 - Master Bed",
+        "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "frameType": "WPC Solid Extruded 100x65mm Frame",
+        "colour": "Burma Teak (Woodgrain PU)",
+        "hingeSide": "Left Hand (LH) - Inward",
+        "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+        "measurementUnit": "MM",
+        "heightLeft": 2095,
+        "heightRight": 2095,
+        "widthTop": 850,
+        "widthBottom": 850,
+        "wallThickness": "150mm",
+        "rebateDepth": "38mm",
+        "remarks": "",
+        "id": "door-1793148166958-2"
+      }
+    ],
+    "id": "dm-1793148166943",
+    "createdAt": "2026-10-28T00:42:46.943Z",
+    "updatedAt": "2026-10-28T00:43:14.603Z"
+  },
+  {
     "refNumber": "MSR-2026-6860",
     "customerName": "Malabar Luxury Builders, Kozhikode",
     "orderRef": "EXM-2026-1082",
@@ -11,8 +64,8 @@
     "date": "2026-10-27",
     "rebateDepthMm": "38mm",
     "wallThicknessMm": "150mm",
-    "notes": "[Customer Decision: CORRECTION_REQUESTED] Please re-check Kitchen door height.",
-    "status": "DRAFT",
+    "notes": "",
+    "status": "VERIFIED",
     "doors": [
       {
         "doorNumber": "D1 - Main Entrance",
@@ -51,7 +104,7 @@
     ],
     "id": "dm-1793125940485",
     "createdAt": "2026-10-27T18:32:20.485Z",
-    "updatedAt": "2026-10-27T18:48:35.317Z"
+    "updatedAt": "2026-10-27T18:32:31.796Z"
   },
   {
     "refNumber": "MSR-2026-9294",
