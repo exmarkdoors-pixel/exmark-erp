@@ -203,5 +203,19 @@
     "followUps": [],
     "createdAt": "2026-10-28T00:42:17.104Z",
     "updatedAt": "2026-10-28T00:42:17.104Z"
+  },
+  {
+    "title": "Waterfront Villas FRP Schedule",
+    "contactPerson": "Kerala Grand Villas",
+    "phone": "9846011223",
+    "district": "Ernakulam",
+    "stage": "NEW",
+    "estimatedValue": 340000,
+    "notes": "Architect referral for 40 luxury villas",
+    "id": "lead-api-1793148317051-4647",
+    "leadCode": "LEAD-2026-014",
+    "followUps": [],
+    "createdAt": "2026-10-28T00:45:17.052Z",
+    "updatedAt": "2026-10-28T00:45:17.052Z"
   }
 ]

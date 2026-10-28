@@ -35,7 +35,6 @@ import {
   Download,
 } from 'lucide-react';
 import {
-  DEMO_INVENTORY,
   DEMO_PRODUCTION_LINES,
   DEMO_COMPANY_INFO,
 } from '@/data/demoData';

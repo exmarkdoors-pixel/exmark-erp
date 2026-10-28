@@ -1,5 +1,40 @@
 [
   {
+    "id": "wa-1793148317242-5162",
+    "recipientPhone": "+919846011223",
+    "recipientName": "Kerala Grand Villas",
+    "documentType": "QUOTATION",
+    "documentId": "QT-MSTR-701",
+    "templateName": "exmark_quotation_estimate",
+    "language": "en",
+    "providerMsgId": "wamid.HBgM1793148317242Exmark",
+    "status": "DELIVERED",
+    "payload": {
+      "quoteNumber": "QT-MSTR-701",
+      "amount": "₹3,40,000"
+    },
+    "sentAt": "2026-10-28T00:45:17.242Z",
+    "createdAt": "2026-10-28T00:45:17.242Z"
+  },
+  {
+    "id": "wa-1793148240432-7317",
+    "recipientPhone": "+919447928866",
+    "recipientName": "Client",
+    "documentType": "MEASUREMENT_CONFIRMATION",
+    "documentId": "MSR-2026-1900",
+    "templateName": "exmark_msr_confirm_en",
+    "language": "en",
+    "providerMsgId": "wamid.HBgM1793148240434Exmark",
+    "status": "DELIVERED",
+    "payload": {
+      "customerName": "Client",
+      "documentId": "MSR-2026-1900",
+      "company": "EXMARK DOORS"
+    },
+    "sentAt": "2026-10-28T00:44:00.434Z",
+    "createdAt": "2026-10-28T00:44:00.434Z"
+  },
+  {
     "id": "wa-1793148137195-5822",
     "recipientPhone": "+919846011223",
     "recipientName": "Kerala Grand Villas",

@@ -11,7 +11,8 @@
     "date": "2026-10-28",
     "rebateDepthMm": "38mm",
     "wallThicknessMm": "150mm",
-    "status": "APPROVED",
+    "notes": "",
+    "status": "VERIFIED",
     "doors": [
       {
         "doorNumber": "D1 - Main Entrance",
@@ -50,7 +51,7 @@
     ],
     "id": "dm-1793148166943",
     "createdAt": "2026-10-28T00:42:46.943Z",
-    "updatedAt": "2026-10-28T00:43:14.603Z"
+    "updatedAt": "2026-10-28T00:44:41.341Z"
   },
   {
     "refNumber": "MSR-2026-6860",
