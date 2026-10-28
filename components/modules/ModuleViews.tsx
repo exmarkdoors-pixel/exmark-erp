@@ -532,8 +532,13 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
         return res.json();
       })
       .then((json) => {
-        if (active && json && Array.isArray(json.data)) {
-          setMeasurements(json.data);
+        if (active && json) {
+          const list = Array.isArray(json.data)
+            ? json.data
+            : Array.isArray(json.measurements)
+            ? json.measurements
+            : [];
+          setMeasurements(list);
         }
       })
       .catch((err) => {
@@ -558,9 +563,12 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
       const res = await fetch('/api/measurements');
       if (!res.ok) throw new Error(`Status ${res.status}`);
       const json = await res.json();
-      if (json && Array.isArray(json.data)) {
-        setMeasurements(json.data);
-      }
+      const list = Array.isArray(json.data)
+        ? json.data
+        : Array.isArray(json.measurements)
+        ? json.measurements
+        : [];
+      setMeasurements(list);
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : 'Unable to connect to measurements service');
     } finally {
@@ -588,6 +596,21 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
       }
       return [savedRecord, ...prev];
     });
+
+    // Re-sync from server to guarantee database persistence state
+    fetch('/api/measurements')
+      .then((res) => res.json())
+      .then((json) => {
+        const list = Array.isArray(json.data)
+          ? json.data
+          : Array.isArray(json.measurements)
+          ? json.measurements
+          : [];
+        if (list.length > 0) {
+          setMeasurements(list);
+        }
+      })
+      .catch(() => {});
 
     setToastMessage({
       type: 'success',

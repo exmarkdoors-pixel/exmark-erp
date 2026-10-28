@@ -298,7 +298,8 @@ function DoorMeasurementModalContent({
         throw new Error(data.error || 'Failed to save site measurement.');
       }
 
-      onSaved(data.measurement);
+      const saved = data.data || data.measurement;
+      onSaved(saved);
       onClose();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error saving record';

@@ -6,7 +6,12 @@ import { canAccessModule } from '@/lib/auth/roles';
 export async function GET() {
   try {
     const measurements = await getAllMeasurements();
-    return NextResponse.json({ success: true, measurements });
+    return NextResponse.json({
+      success: true,
+      count: measurements.length,
+      data: measurements,
+      measurements,
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to fetch measurements';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
@@ -99,6 +104,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      data: created,
       measurement: created,
       message: `Site measurement ${created.refNumber} saved successfully as ${created.status}.`,
     });

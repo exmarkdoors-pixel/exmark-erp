@@ -232,8 +232,6 @@ const INITIAL_RECORDS: SiteMeasurementRecord[] = [
 let cachedRecords: SiteMeasurementRecord[] | null = null;
 
 function ensureFileStore(): SiteMeasurementRecord[] {
-  if (cachedRecords) return cachedRecords;
-
   try {
     const dir = path.dirname(STORE_PATH);
     if (!fs.existsSync(dir)) {
@@ -247,11 +245,15 @@ function ensureFileStore(): SiteMeasurementRecord[] {
     }
 
     const raw = fs.readFileSync(STORE_PATH, 'utf8');
-    cachedRecords = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      cachedRecords = parsed;
+      return parsed;
+    }
+    return INITIAL_RECORDS;
+  } catch (err) {
+    console.error('[MeasurementService] Failed to read store:', err);
     return cachedRecords || INITIAL_RECORDS;
-  } catch {
-    cachedRecords = INITIAL_RECORDS;
-    return cachedRecords;
   }
 }
 

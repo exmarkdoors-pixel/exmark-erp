@@ -18,7 +18,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, measurement });
+    return NextResponse.json({ success: true, data: measurement, measurement });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to retrieve measurement';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
@@ -46,6 +46,7 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
+      data: updated,
       measurement: updated,
       message: `Site measurement ${updated.refNumber} updated successfully.`,
     });

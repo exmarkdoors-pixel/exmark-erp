@@ -66,8 +66,13 @@ export function JobCardModal({ isOpen, onClose, onSaved }: JobCardModalProps) {
     fetch('/api/measurements')
       .then((res) => res.json())
       .then((json) => {
-        if (active && json && Array.isArray(json.data)) {
-          setMeasurements(json.data);
+        if (active && json) {
+          const list = Array.isArray(json.data)
+            ? json.data
+            : Array.isArray(json.measurements)
+            ? json.measurements
+            : [];
+          setMeasurements(list);
         }
       })
       .catch(() => {});
