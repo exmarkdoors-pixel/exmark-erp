@@ -475,5 +475,68 @@
     },
     "status": "PENDING",
     "createdAt": "2026-10-28T17:33:52.052Z"
+  },
+  {
+    "id": "outbox-1793211284210-468",
+    "entityType": "DOOR_MEASUREMENT",
+    "entityId": "dm-1793211284209",
+    "operation": "CREATE",
+    "payload": {
+      "refNumber": "MSR-2026-TEST-4201",
+      "customerId": "cust-1793211284208-3910",
+      "customerName": "Skyline Horizon Builders (Test-1793211284201)",
+      "orderRef": "EXM-SO-TEST-4201",
+      "siteName": "Horizon Villa Block A",
+      "siteAddress": "Infopark Expressway, Kakkanad",
+      "district": "Ernakulam",
+      "totalOpenings": 2,
+      "engineerName": "Anoop Krishnan (Sr. Site Engineer)",
+      "date": "2026-10-28",
+      "rebateDepthMm": "38mm standard Kerala frame rebate",
+      "wallThicknessMm": "150mm RCC",
+      "notes": "4-point plumb verified. 12mm floor tile offset accounted.",
+      "status": "VERIFIED",
+      "doors": [
+        {
+          "id": "door-t1-1793211284201",
+          "doorNumber": "D1 - Master Bed",
+          "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+          "frameType": "WPC Solid Extruded 100x65mm Frame",
+          "colour": "Burma Teak (Woodgrain PU)",
+          "hingeSide": "Left Hand (LH) - Inward",
+          "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+          "measurementUnit": "MM",
+          "heightLeft": 2100,
+          "heightRight": 2100,
+          "widthTop": 900,
+          "widthBottom": 900,
+          "wallThickness": "150mm",
+          "rebateDepth": "38mm",
+          "remarks": "Zero out-of-square plumb variance."
+        },
+        {
+          "id": "door-t2-1793211284201",
+          "doorNumber": "D2 - Guest Bedroom",
+          "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+          "frameType": "WPC Solid Extruded 100x65mm Frame",
+          "colour": "Burma Teak (Woodgrain PU)",
+          "hingeSide": "Right Hand (RH) - Inward",
+          "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+          "measurementUnit": "MM",
+          "heightLeft": 2095,
+          "heightRight": 2095,
+          "widthTop": 850,
+          "widthBottom": 850,
+          "wallThickness": "150mm",
+          "rebateDepth": "38mm",
+          "remarks": "Direct factory cutting tolerance ready."
+        }
+      ],
+      "id": "dm-1793211284209",
+      "createdAt": "2026-10-28T18:14:44.209Z",
+      "updatedAt": "2026-10-28T18:14:44.209Z"
+    },
+    "status": "PENDING",
+    "createdAt": "2026-10-28T18:14:44.210Z"
   }
 ]

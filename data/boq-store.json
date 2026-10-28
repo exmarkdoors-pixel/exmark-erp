@@ -910,5 +910,39 @@
     "totalAmount": 15600,
     "createdAt": "2026-10-28T17:33:40.344Z",
     "updatedAt": "2026-10-28T17:33:40.355Z"
+  },
+  {
+    "projectName": "Horizon Villa Block A",
+    "customerId": "cust-1793211284208-3910",
+    "customerName": "Skyline Horizon Builders (Test-1793211284201)",
+    "district": "Ernakulam",
+    "status": "DRAFT",
+    "notes": "18% GST applicable (HSN 3925.20.00).",
+    "revisionNumber": 1,
+    "id": "boq-api-1793211284227-4917",
+    "boqNumber": "BOQ-2026-028",
+    "items": [
+      {
+        "itemCode": "FRP-MLD-32",
+        "model": "FRP Molded Teak Architectural Door 2100x900mm",
+        "description": "FRP Molded Teak Architectural Door 2100x900mm",
+        "productCategory": "FRP",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "quantity": 2,
+        "unitRate": 7800,
+        "amount": 15600,
+        "taxRate": 18,
+        "transportRate": 0,
+        "installationRate": 0,
+        "id": "boqitem-1793211284232-5314",
+        "boqId": "boq-api-1793211284227-4917",
+        "areaSqFt": 40.69
+      }
+    ],
+    "totalDoors": 2,
+    "totalAmount": 15600,
+    "createdAt": "2026-10-28T18:14:44.227Z",
+    "updatedAt": "2026-10-28T18:14:44.232Z"
   }
 ]

@@ -1164,5 +1164,46 @@
     "completedAt": null,
     "createdAt": "2026-10-28T17:33:40.431Z",
     "updatedAt": "2026-10-28T17:33:40.431Z"
+  },
+  {
+    "id": "prd-1793211284274-5496",
+    "prodOrderNumber": "PRD-2026-028",
+    "jobCardNumber": "JC-2026-028",
+    "salesOrderId": "qtn-api-1793211284235-6888",
+    "measurementRef": "MSR-2026-088",
+    "customerName": "Skyline Horizon Builders (Test-1793211284201)",
+    "siteName": "Skyline Horizon Builders (Test-1793211284201) Project Site",
+    "district": "Ernakulam",
+    "doorCategory": "FRP_DOORS",
+    "quantity": 1,
+    "lineAssigned": "Line 1: FRP Hydraulic Press (300 Ton)",
+    "batchNumber": "BTH-202610-28",
+    "priority": "NORMAL",
+    "status": "QUEUED",
+    "tolerancesApplied": {
+      "heightDeductionMm": 10,
+      "widthDeductionMm": 10
+    },
+    "doors": [
+      {
+        "id": "dr-1793211284274-4199",
+        "doorId": "EXM-DR-2026-0032",
+        "doorNumber": "D1 - Opening",
+        "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "rawHeightMm": 2100,
+        "rawWidthMm": 900,
+        "finishedHeightMm": 2090,
+        "finishedWidthMm": 890,
+        "handing": "RH",
+        "lockType": "Mortise Lock 60mm",
+        "finishColor": "Burma Teak",
+        "qcStatus": "PENDING",
+        "qrPayload": "{\"doorId\":\"EXM-DR-2026-0032\",\"jobCard\":\"JC-2026-028\",\"client\":\"Skyline Horizon Builders (Test-1793211284201)\",\"location\":\"D1 - Opening\",\"finishedSize\":\"2090x890mm\",\"handing\":\"RH\"}"
+      }
+    ],
+    "startedAt": null,
+    "completedAt": null,
+    "createdAt": "2026-10-28T18:14:44.274Z",
+    "updatedAt": "2026-10-28T18:14:44.274Z"
   }
 ]
