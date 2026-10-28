@@ -637,5 +637,37 @@
     "notes": "FRP door quote",
     "createdAt": "2026-10-28T02:44:01.106Z",
     "updatedAt": "2026-10-28T02:44:01.106Z"
+  },
+  {
+    "id": "qtn-api-1793156082220-7302",
+    "quoteNumber": "QTN-2026-020",
+    "customerId": "cust-1793156082052-9713",
+    "leadId": "lead-api-1793156082089-6363",
+    "date": "2026-10-27",
+    "validUntil": "2026-11-27",
+    "items": [
+      {
+        "doorCategory": "FRP_DOORS",
+        "doorModel": "EXM-FRP-TL101",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "thicknessMm": 35,
+        "quantity": 40,
+        "unitPrice": 8500,
+        "gstRate": 18,
+        "totalPrice": 340000,
+        "id": "qitem-1793156082220-0",
+        "quotationId": "qtn-api-1793156082220-7302"
+      }
+    ],
+    "subtotal": 340000,
+    "discount": 10000,
+    "gstRate": 18,
+    "gstAmount": 59400,
+    "totalAmount": 389400,
+    "status": "DRAFT",
+    "notes": "FRP door quote",
+    "createdAt": "2026-10-28T02:54:42.220Z",
+    "updatedAt": "2026-10-28T02:54:42.220Z"
   }
 ]

@@ -754,5 +754,46 @@
     "completedAt": null,
     "createdAt": "2026-10-28T02:44:01.109Z",
     "updatedAt": "2026-10-28T02:44:01.109Z"
+  },
+  {
+    "id": "prd-1793156082263-5216",
+    "prodOrderNumber": "PRD-2026-018",
+    "jobCardNumber": "JC-2026-018",
+    "salesOrderId": null,
+    "measurementRef": null,
+    "customerName": "Kerala Grand Villas",
+    "siteName": "Grand Villas Waterfront",
+    "district": "Ernakulam",
+    "doorCategory": "FRP_DOORS",
+    "quantity": 1,
+    "lineAssigned": "Line 1: FRP Hydraulic Press (300 Ton)",
+    "batchNumber": "BTH-202610-18",
+    "priority": "HIGH",
+    "status": "QUEUED",
+    "tolerancesApplied": {
+      "heightDeductionMm": 10,
+      "widthDeductionMm": 12
+    },
+    "doors": [
+      {
+        "id": "dr-1793156082263-2372",
+        "doorId": "EXM-DR-2026-0022",
+        "doorNumber": "D-01",
+        "model": "EXM-FRP-TL101",
+        "rawHeightMm": 2100,
+        "rawWidthMm": 900,
+        "finishedHeightMm": 2090,
+        "finishedWidthMm": 888,
+        "handing": "LH",
+        "lockType": "Mortise Cylinder",
+        "finishColor": "Teak Brown",
+        "qcStatus": "PENDING",
+        "qrPayload": "{\"doorId\":\"EXM-DR-2026-0022\",\"jobCard\":\"JC-2026-018\",\"client\":\"Kerala Grand Villas\",\"location\":\"D-01\",\"finishedSize\":\"2090x888mm\",\"handing\":\"LH\"}"
+      }
+    ],
+    "startedAt": null,
+    "completedAt": null,
+    "createdAt": "2026-10-28T02:54:42.263Z",
+    "updatedAt": "2026-10-28T02:54:42.264Z"
   }
 ]

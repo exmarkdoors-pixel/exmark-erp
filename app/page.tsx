@@ -10,7 +10,7 @@ import ProductionStatus from '@/components/dashboard/ProductionStatus';
 import RecentOrdersTable from '@/components/dashboard/RecentOrdersTable';
 import FollowUpReminders from '@/components/dashboard/FollowUpReminders';
 import QuickActionsModal from '@/components/dashboard/QuickActionsModal';
-import CorporateModulesHub from '@/components/dashboard/CorporateModulesHub';
+import CorporateControlCenter from '@/components/dashboard/CorporateControlCenter';
 import { UserRole } from '@/lib/auth/roles';
 
 import {
@@ -51,6 +51,7 @@ export default function Home() {
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('Super Admin');
   const [userName, setUserName] = useState<string>('Nazer Karumban');
+  const [dashboardSubView, setDashboardSubView] = useState<'control-center' | 'overview'>('control-center');
   const [liveKpiMetrics, setLiveKpiMetrics] = useState<KpiMetric[]>([]);
   const [liveRecentOrders, setLiveRecentOrders] = useState<OrderItem[]>([]);
   const [liveSidebarBadges, setLiveSidebarBadges] = useState<Record<string, string>>({});
@@ -235,47 +236,80 @@ export default function Home() {
                   />
                 </section>
 
-                {/* EXMARK Corporate Modules Hub (Folder-Based Departmental Directory) */}
-                <section aria-label="Corporate Modules Hub">
-                  <CorporateModulesHub
+                {/* Dashboard Sub-View Switcher Bar */}
+                <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setDashboardSubView('control-center')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                        dashboardSubView === 'control-center'
+                          ? 'bg-red-600 text-white shadow-md shadow-red-950/40'
+                          : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
+                      }`}
+                    >
+                      <span>🗂️ Corporate Control Center</span>
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30">10 Folders</span>
+                    </button>
+
+                    <button
+                      onClick={() => setDashboardSubView('overview')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                        dashboardSubView === 'overview'
+                          ? 'bg-red-600 text-white shadow-md shadow-red-950/40'
+                          : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
+                      }`}
+                    >
+                      <span>📊 Plant &amp; Sales Floor Charts</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-View 1: EXMARK Corporate Control Center (10 Enterprise Folders) */}
+                {dashboardSubView === 'control-center' && (
+                  <CorporateControlCenter
                     onNavigateTab={(tab) => setCurrentTab(tab)}
                     userRole={userRole}
                   />
-                </section>
+                )}
 
-                {/* 2. Middle Row: Sales Chart & Production Status */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  {/* Sales Chart (7 Cols) */}
-                  <div className="lg:col-span-7">
-                    <SalesChart data={DEMO_SALES_CHART_DATA} />
-                  </div>
+                {/* Sub-View 2: Executive Charts & Floor Load Overview */}
+                {dashboardSubView === 'overview' && (
+                  <>
+                    {/* Middle Row: Sales Chart & Production Status */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                      {/* Sales Chart (7 Cols) */}
+                      <div className="lg:col-span-7">
+                        <SalesChart data={DEMO_SALES_CHART_DATA} />
+                      </div>
 
-                  {/* Production Status (5 Cols) */}
-                  <div className="lg:col-span-5">
-                    <ProductionStatus
-                      lines={DEMO_PRODUCTION_LINES}
-                      onViewAllProduction={() => setCurrentTab('production')}
-                    />
-                  </div>
-                </div>
+                      {/* Production Status (5 Cols) */}
+                      <div className="lg:col-span-5">
+                        <ProductionStatus
+                          lines={DEMO_PRODUCTION_LINES}
+                          onViewAllProduction={() => setCurrentTab('production')}
+                        />
+                      </div>
+                    </div>
 
-                {/* 3. Bottom Row: Recent Orders Table & Follow-up Reminders */}
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                  {/* Recent Orders Table (8 Cols) */}
-                  <div className="xl:col-span-8">
-                    <RecentOrdersTable
-                      orders={liveRecentOrders.length > 0 ? liveRecentOrders : DEMO_RECENT_ORDERS}
-                      onViewAllOrders={() => setCurrentTab('sales-orders')}
-                    />
-                  </div>
+                    {/* Bottom Row: Recent Orders Table & Follow-up Reminders */}
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                      {/* Recent Orders Table (8 Cols) */}
+                      <div className="xl:col-span-8">
+                        <RecentOrdersTable
+                          orders={liveRecentOrders.length > 0 ? liveRecentOrders : DEMO_RECENT_ORDERS}
+                          onViewAllOrders={() => setCurrentTab('sales-orders')}
+                        />
+                      </div>
 
-                  {/* Follow-up Reminders (4 Cols) */}
-                  <div className="xl:col-span-4">
-                    <FollowUpReminders
-                      initialReminders={DEMO_FOLLOW_UP_REMINDERS}
-                    />
-                  </div>
-                </div>
+                      {/* Follow-up Reminders (4 Cols) */}
+                      <div className="xl:col-span-4">
+                        <FollowUpReminders
+                          initialReminders={DEMO_FOLLOW_UP_REMINDERS}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
