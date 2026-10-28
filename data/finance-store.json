@@ -298,6 +298,26 @@
       "status": "ISSUED",
       "createdAt": "2026-10-28T02:35:09.021Z",
       "updatedAt": "2026-10-28T02:35:09.031Z"
+    },
+    {
+      "id": "inv-1793155441119-6574",
+      "invoiceNumber": "INV-2026-016",
+      "salesOrderId": "QTN-2026-019",
+      "customerId": "cust-1793155441089-9508",
+      "customerName": "Kerala Grand Villas",
+      "invoiceDate": "2026-10-28",
+      "dueDate": "2026-11-28",
+      "subtotal": 340000,
+      "cgst": 30600,
+      "sgst": 30600,
+      "igst": 0,
+      "totalAmount": 401200,
+      "paidAmount": 200000,
+      "balanceAmount": 201200,
+      "eWayBillNumber": null,
+      "status": "ISSUED",
+      "createdAt": "2026-10-28T02:44:01.119Z",
+      "updatedAt": "2026-10-28T02:44:01.122Z"
     }
   ],
   "payments": [
@@ -493,6 +513,18 @@
       "paymentMode": "NEFT",
       "referenceNumber": "NEFT-KL-987654321",
       "createdAt": "2026-10-28T02:35:09.031Z"
+    },
+    {
+      "id": "pay-1793155441122-6062",
+      "receiptNumber": "RCT-2026-017",
+      "invoiceId": "inv-1793155441119-6574",
+      "customerId": "cust-1793155441089-9508",
+      "customerName": "Kerala Grand Villas",
+      "paymentDate": "2026-10-28",
+      "amount": 200000,
+      "paymentMode": "NEFT",
+      "referenceNumber": "NEFT-KL-987654321",
+      "createdAt": "2026-10-28T02:44:01.122Z"
     }
   ],
   "targets": [
@@ -674,6 +706,19 @@
       "status": "APPROVED",
       "createdAt": "2026-10-28T02:35:09.033Z",
       "updatedAt": "2026-10-28T02:35:09.033Z"
+    },
+    {
+      "id": "tgt-1793155441124-6786",
+      "targetPeriod": "2026-11",
+      "periodType": "MONTHLY",
+      "salesRevenueTarget": 5000000,
+      "collectionsTarget": 4500000,
+      "frpDoorQuantityTarget": 600,
+      "grossProfitTarget": 1750000,
+      "expenseBudget": 900000,
+      "status": "APPROVED",
+      "createdAt": "2026-10-28T02:44:01.124Z",
+      "updatedAt": "2026-10-28T02:44:01.124Z"
     }
   ]
 }

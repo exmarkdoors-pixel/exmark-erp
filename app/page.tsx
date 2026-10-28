@@ -38,7 +38,7 @@ import {
   DEMO_FOLLOW_UP_REMINDERS,
 } from '@/data/demoData';
 
-import { NavigationTab } from '@/types/erp';
+import { NavigationTab, KpiMetric, OrderItem } from '@/types/erp';
 import {
   Sparkles,
   CalendarCheck,
@@ -51,6 +51,9 @@ export default function Home() {
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('Super Admin');
   const [userName, setUserName] = useState<string>('Nazer Karumban');
+  const [liveKpiMetrics, setLiveKpiMetrics] = useState<KpiMetric[]>([]);
+  const [liveRecentOrders, setLiveRecentOrders] = useState<OrderItem[]>([]);
+  const [liveSidebarBadges, setLiveSidebarBadges] = useState<Record<string, string>>({});
 
   // Verify and load active session user
   useEffect(() => {
@@ -64,6 +67,20 @@ export default function Home() {
       })
       .catch(() => {
         // Fallback to default
+      });
+
+    // Load verified live metrics from database store
+    fetch('/api/dashboard/metrics')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          if (Array.isArray(data.kpiMetrics)) setLiveKpiMetrics(data.kpiMetrics);
+          if (Array.isArray(data.recentOrders)) setLiveRecentOrders(data.recentOrders);
+          if (data.sidebarBadges) setLiveSidebarBadges(data.sidebarBadges);
+        }
+      })
+      .catch((err) => {
+        console.warn('Dashboard live metrics deferred:', err);
       });
   }, []);
 
@@ -139,6 +156,7 @@ export default function Home() {
           isMobileOpen={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
           userRole={userRole}
+          liveBadges={liveSidebarBadges}
         />
 
         {/* Main Content Area */}
@@ -209,10 +227,10 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* 1. Demo KPI Cards */}
+                {/* 1. Live Database KPI Cards */}
                 <section aria-label="Key Performance Indicators">
                   <KpiCards
-                    metrics={DEMO_KPI_METRICS}
+                    metrics={liveKpiMetrics.length > 0 ? liveKpiMetrics : DEMO_KPI_METRICS}
                     onCardClick={handleKpiCardClick}
                   />
                 </section>
@@ -246,7 +264,7 @@ export default function Home() {
                   {/* Recent Orders Table (8 Cols) */}
                   <div className="xl:col-span-8">
                     <RecentOrdersTable
-                      orders={DEMO_RECENT_ORDERS}
+                      orders={liveRecentOrders.length > 0 ? liveRecentOrders : DEMO_RECENT_ORDERS}
                       onViewAllOrders={() => setCurrentTab('sales-orders')}
                     />
                   </div>

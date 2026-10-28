@@ -35,6 +35,7 @@ interface SidebarProps {
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   userRole?: UserRole;
+  liveBadges?: Record<string, string>;
 }
 
 interface NavItemConfig {
@@ -72,6 +73,7 @@ export default function Sidebar({
   isMobileOpen,
   onCloseMobile,
   userRole = 'Super Admin',
+  liveBadges,
 }: SidebarProps) {
   const handleItemClick = (tabId: NavigationTab) => {
     if (!canAccessModule(userRole, tabId)) {
@@ -212,13 +214,13 @@ export default function Sidebar({
                   </div>
 
                   {/* Badge */}
-                  {(!isCollapsed || isMobileOpen) && item.badge && (
+                  {(!isCollapsed || isMobileOpen) && (liveBadges?.[item.id] || item.badge) && (
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full border border-current/20 flex-shrink-0 ${
                         item.badgeColor || 'bg-slate-800 text-slate-300'
                       }`}
                     >
-                      {item.badge}
+                      {liveBadges?.[item.id] || item.badge}
                     </span>
                   )}
 
@@ -226,9 +228,9 @@ export default function Sidebar({
                   {isCollapsed && !isMobileOpen && (
                     <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 text-white text-xs rounded-md shadow-xl border border-slate-700 whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
                       {item.label}
-                      {item.badge && (
+                      {(liveBadges?.[item.id] || item.badge) && (
                         <span className="ml-1.5 text-[10px] text-red-400 font-bold">
-                          ({item.badge})
+                          ({liveBadges?.[item.id] || item.badge})
                         </span>
                       )}
                     </div>

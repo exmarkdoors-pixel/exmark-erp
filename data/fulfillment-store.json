@@ -243,6 +243,23 @@
       "status": "SCHEDULED",
       "createdAt": "2026-10-28T02:35:09.080Z",
       "updatedAt": "2026-10-28T02:35:09.080Z"
+    },
+    {
+      "id": "dsp-1793155441221-6959",
+      "dispatchNumber": "DSP-2026-015",
+      "salesOrderId": "QTN-2026-019",
+      "customerName": "Kerala Grand Villas",
+      "destinationAddress": "Waterfront Villas, Aluva, Ernakulam",
+      "deliveryDistrict": "Ernakulam",
+      "vehicleNumber": "KL-09-AW-8210",
+      "driverName": "Suresh Babu",
+      "driverPhone": "9447122334",
+      "eWayBillNo": null,
+      "doorCount": 40,
+      "dispatchDate": "2026-10-28",
+      "status": "SCHEDULED",
+      "createdAt": "2026-10-28T02:44:01.221Z",
+      "updatedAt": "2026-10-28T02:44:01.221Z"
     }
   ],
   "installations": [
@@ -486,6 +503,25 @@
       "status": "QUALITY_APPROVED",
       "createdAt": "2026-10-28T02:35:09.091Z",
       "updatedAt": "2026-10-28T02:35:09.094Z",
+      "clientSignoffName": "Eng. Mathews Aluva",
+      "clientFeedbackRating": 5,
+      "clientRemarks": "All 40 FRP doors installed seamlessly. Water tight seal.",
+      "completedDate": "2026-10-28"
+    },
+    {
+      "id": "ins-1793155441225-762",
+      "installationNumber": "INS-2026-014",
+      "salesOrderId": "QTN-2026-019",
+      "dispatchId": "dsp-1793155441221-6959",
+      "customerName": "Kerala Grand Villas",
+      "siteAddress": "Waterfront Villas, Aluva, Ernakulam",
+      "district": "Ernakulam",
+      "supervisorName": "Sunil Varghese",
+      "scheduledDate": "2026-10-30",
+      "doorCount": 40,
+      "status": "QUALITY_APPROVED",
+      "createdAt": "2026-10-28T02:44:01.225Z",
+      "updatedAt": "2026-10-28T02:44:01.235Z",
       "clientSignoffName": "Eng. Mathews Aluva",
       "clientFeedbackRating": 5,
       "clientRemarks": "All 40 FRP doors installed seamlessly. Water tight seal.",
@@ -941,6 +977,43 @@
         ]
       },
       "issuedAt": "2026-10-28T02:35:09.097Z"
+    },
+    {
+      "certificateNumber": "EXM-WRN-2026-0013",
+      "salesOrderId": "QTN-2026-019",
+      "customerName": "Kerala Grand Villas",
+      "siteAddress": "Waterfront Villas, Aluva, Ernakulam",
+      "district": "Ernakulam",
+      "warrantyPeriodYears": 15,
+      "validFrom": "2026-10-28",
+      "validUntil": "2041-10-28",
+      "coveredDoors": [
+        {
+          "doorId": "EXM-DR-2026-0001",
+          "model": "EXM-FRP-TL101",
+          "sizeMm": "2085 x 888 mm"
+        }
+      ],
+      "coverageScope": "FRP DOOR MATERIAL ONLY (100% Water, Termite & Borer Proof Body)",
+      "explicitExclusions": [
+        "SS Hinges, Tower Bolts, Handles, and Lock Hardware sets",
+        "Surface PU Paints, Foiling, and Cosmetic finish weathering",
+        "Damage arising from civil structure settlement or accidental mechanical impact",
+        "Unapproved modifications, thermal burns, or acidic chemical washing"
+      ],
+      "bilingualCareInstructions": {
+        "english": [
+          "Clean door surfaces with mild soapy water and a soft cotton cloth only.",
+          "Never use acidic floor cleaners, wire brushes, or harsh solvents on FRP doors.",
+          "Ensure SS hinges are lubricated with silicone or machine oil every 6 months."
+        ],
+        "malayalam": [
+          "ഡോർ വൃത്തിയാക്കാൻ വീര്യം കുറഞ്ഞ സോപ്പ് വെള്ളവും കോട്ടൺ തുണിയും മാത്രം ഉപയോഗിക്കുക.",
+          "ആസിഡ്, ഫിനോയിൽ അല്ലെങ്കിൽ കഠിനമായ കെമിക്കലുകൾ ഡോറിൽ ഒഴിക്കരുത്.",
+          "ഹിഞ്ചുകൾ (Hinges) 6 മാസത്തിലൊരിക്കൽ ഓയിൽ ഇട്ട് സുഗമമായി പ്രവർത്തിക്കുന്നുണ്ടെന്ന് ഉറപ്പാക്കുക."
+        ]
+      },
+      "issuedAt": "2026-10-28T02:44:01.240Z"
     }
   ]
 }

@@ -1,0 +1,87 @@
+{
+  "backupId": "EXM-BAK-20261028024401-SCH",
+  "timestamp": "2026-10-28T02:44:01.268Z",
+  "filesCount": 15,
+  "totalSizeBytes": 423895,
+  "sha256Checksum": "ee3fa5e0db746253c9e6c0017b85cfc60d05d0ba586383a10b5f77ab93557b1b",
+  "status": "VERIFIED",
+  "storesIncluded": [
+    "boq-store.json",
+    "concurrency-store.json",
+    "customers-store.json",
+    "customization-store.json",
+    "employees-store.json",
+    "finance-store.json",
+    "fulfillment-store.json",
+    "inventory-store.json",
+    "leads-store.json",
+    "measurements-store.json",
+    "product-categories.json",
+    "production-store.json",
+    "purchases-store.json",
+    "quotations-store.json",
+    "whatsapp-store.json"
+  ],
+  "manifest": {
+    "boq-store.json": {
+      "size": 16894,
+      "sha256": "0f94453cbe3e821cf1647814ae3555925ae005d2a4cbac28dfb99ace433a4476"
+    },
+    "concurrency-store.json": {
+      "size": 2604,
+      "sha256": "6b6fe05504a580144ce0b8e07d5605e342e35f672d90f38bc0c90646da386601"
+    },
+    "customers-store.json": {
+      "size": 8991,
+      "sha256": "11d0e81c3faa317d655874197f2e7cb9453de93d4df46c056354c27d2ebb3ef2"
+    },
+    "customization-store.json": {
+      "size": 209381,
+      "sha256": "e4e2289b17cfe251265b6fc75e7fb05bcb2cb0e3d70f09f6bb09b49d27174011"
+    },
+    "employees-store.json": {
+      "size": 1885,
+      "sha256": "a47d6f488c1540d5453e37cb614004c8f78953fc14bbddd711cbd67e6085f7f3"
+    },
+    "finance-store.json": {
+      "size": 22536,
+      "sha256": "f3b63262566b3e6cbccd85167bbe7d5ff6cb7731f2a60309ed72c198f1eb4451"
+    },
+    "fulfillment-store.json": {
+      "size": 46367,
+      "sha256": "36379dbd4dd06d99aa6f7152cf6aa1a500b0d2f7e8728e828ad9c04aabc3164b"
+    },
+    "inventory-store.json": {
+      "size": 1862,
+      "sha256": "5e35f377e37d8e2e8df8a1fbe80fff2237f7841cbdfc68ee05b471ee24265581"
+    },
+    "leads-store.json": {
+      "size": 9845,
+      "sha256": "7f4a0711f8ca761cf2ad952864d91963ccb523877d8f4174b244ceba27bfa19a"
+    },
+    "measurements-store.json": {
+      "size": 47589,
+      "sha256": "5573e72fdf2faa42200fd20dabebb5907fa95ab38c222661a2c5cb3b7be1e986"
+    },
+    "product-categories.json": {
+      "size": 2977,
+      "sha256": "1eea1ef0435ea68921c0d01bbdf7330833b41c33a0d24b803fb72c31149d0999"
+    },
+    "production-store.json": {
+      "size": 25800,
+      "sha256": "5d7366762ab91b76c75205825ae34e10a0cdd55e404a79b98ddae4019391c7ed"
+    },
+    "purchases-store.json": {
+      "size": 1278,
+      "sha256": "a911588a07d33acd795e292dc0f8603845a45062ffdda9c4cffc89d1a20a423d"
+    },
+    "quotations-store.json": {
+      "size": 17633,
+      "sha256": "a99dae4d8e4af8f1c3bebfd7859c7a8a3b641fb1e494c25ab819b1f3635a4d29"
+    },
+    "whatsapp-store.json": {
+      "size": 8253,
+      "sha256": "79457f2ce2346315d4ad30178b1afbc984e6d9090dee26c33b3f2b5d3bfc6fd3"
+    }
+  }
+}

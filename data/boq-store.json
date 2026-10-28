@@ -552,5 +552,37 @@
     "totalAmount": 340000,
     "createdAt": "2026-10-28T02:35:09.005Z",
     "updatedAt": "2026-10-28T02:35:09.014Z"
+  },
+  {
+    "customerId": "cust-1793155441089-9508",
+    "customerName": "Kerala Grand Villas",
+    "projectName": "Grand Villas Waterfront",
+    "district": "Ernakulam",
+    "status": "DRAFT",
+    "revisionNumber": 1,
+    "id": "boq-api-1793155441101-1050",
+    "boqNumber": "BOQ-2026-017",
+    "items": [
+      {
+        "itemCode": "D-01",
+        "productCategory": "FRP",
+        "model": "EXM-FRP-TL101",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "quantity": 40,
+        "unitRate": 8500,
+        "amount": 340000,
+        "taxRate": 18,
+        "transportRate": 0,
+        "installationRate": 0,
+        "id": "boqitem-1793155441104-2716",
+        "boqId": "boq-api-1793155441101-1050",
+        "areaSqFt": 813.75
+      }
+    ],
+    "totalDoors": 40,
+    "totalAmount": 340000,
+    "createdAt": "2026-10-28T02:44:01.102Z",
+    "updatedAt": "2026-10-28T02:44:01.104Z"
   }
 ]

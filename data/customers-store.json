@@ -290,5 +290,20 @@
     "customerCode": "EXM-CUST-1019",
     "createdAt": "2026-10-28T02:35:08.993Z",
     "updatedAt": "2026-10-28T02:35:08.993Z"
+  },
+  {
+    "name": "Kerala Grand Villas",
+    "firmName": "Grand Villas Construction Ltd",
+    "type": "BUILDER",
+    "district": "Ernakulam",
+    "town": "Aluva",
+    "phone": "9846011223",
+    "creditLimit": 1500000,
+    "outstandingBalance": 0,
+    "status": "ACTIVE",
+    "id": "cust-1793155441089-9508",
+    "customerCode": "EXM-CUST-1020",
+    "createdAt": "2026-10-28T02:44:01.090Z",
+    "updatedAt": "2026-10-28T02:44:01.090Z"
   }
 ]

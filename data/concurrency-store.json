@@ -83,6 +83,13 @@
       "version": 2,
       "lastModifiedAt": "2026-10-28T02:35:09.118Z",
       "lastModifiedBy": "Office 1"
+    },
+    {
+      "entityType": "QUOTATION",
+      "entityId": "QT-CONC-1793155441248",
+      "version": 2,
+      "lastModifiedAt": "2026-10-28T02:44:01.265Z",
+      "lastModifiedBy": "Office 1"
     }
   ],
   "leases": []

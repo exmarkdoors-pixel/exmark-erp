@@ -1,0 +1,44 @@
+[
+  {
+    "id": "po-001",
+    "poNumber": "PO-2026-101",
+    "supplierName": "Cochin Polymers & Chemical Ltd",
+    "supplierGst": "32AABCC1234K1Z2",
+    "orderDate": "2026-10-22",
+    "expectedDate": "2026-10-29",
+    "itemsSummary": "2000 KG Isophthalic Resin + 50 KG Hardener MEKP",
+    "subtotal": 412500,
+    "gstAmount": 74250,
+    "totalAmount": 486750,
+    "status": "DELIVERED",
+    "paymentTerms": "30 Days Credit"
+  },
+  {
+    "id": "po-002",
+    "poNumber": "PO-2026-102",
+    "supplierName": "Gujarat Glass Fabrics Corp",
+    "supplierGst": "24AABCG5544J1Z9",
+    "orderDate": "2026-10-24",
+    "expectedDate": "2026-10-31",
+    "itemsSummary": "1500 KG E-Glass Chopped Strand Mat CSM 450",
+    "subtotal": 240000,
+    "gstAmount": 43200,
+    "totalAmount": 283200,
+    "status": "IN_TRANSIT",
+    "paymentTerms": "Advance Paid 50%"
+  },
+  {
+    "id": "po-003",
+    "poNumber": "PO-2026-103",
+    "supplierName": "Dorset & Kich Hardware Direct",
+    "supplierGst": "32AABCK9988H1Z1",
+    "orderDate": "2026-10-26",
+    "expectedDate": "2026-11-02",
+    "itemsSummary": "500 Pairs SS 304 Hinges + 100 Mortise Cylinders",
+    "subtotal": 265000,
+    "gstAmount": 47700,
+    "totalAmount": 312700,
+    "status": "APPROVED",
+    "paymentTerms": "Cash on Delivery"
+  }
+]
