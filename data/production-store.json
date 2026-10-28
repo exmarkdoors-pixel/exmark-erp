@@ -139,7 +139,7 @@
     "lineAssigned": "Line 1: FRP Hydraulic Press (300 Ton)",
     "batchNumber": "BTH-202610-3",
     "priority": "NORMAL",
-    "status": "QA_INSPECTION",
+    "status": "COMPLETED",
     "tolerancesApplied": {
       "heightDeductionMm": 10,
       "widthDeductionMm": 10
@@ -157,14 +157,14 @@
         "handing": "RH",
         "lockType": "Mortise Cylinder",
         "finishColor": "Burma Teak",
-        "qcStatus": "PENDING",
+        "qcStatus": "PASSED",
         "qrPayload": "{\"doorId\":\"EXM-DR-2026-0006\",\"jobCard\":\"JC-2026-003\",\"client\":\"Kerala Grand Villas\",\"location\":\"D-01\",\"finishedSize\":\"2090x890mm\",\"handing\":\"RH\"}"
       }
     ],
     "startedAt": "2026-10-28T03:15:33.154Z",
-    "completedAt": null,
+    "completedAt": "2026-10-28T03:15:40.229Z",
     "createdAt": "2026-10-27T19:13:45.597Z",
-    "updatedAt": "2026-10-28T03:15:38.631Z"
+    "updatedAt": "2026-10-28T03:15:40.229Z"
   },
   {
     "id": "prd-1793128534974-6918",
