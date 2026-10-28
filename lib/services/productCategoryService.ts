@@ -124,12 +124,14 @@ function persistCategoriesToFile(categories: ProductCategoryConfig[]) {
   }
 }
 
+let isDbOffline = false;
+
 /**
  * Get all product categories
  */
 export async function getProductCategories(): Promise<ProductCategoryConfig[]> {
-  try {
-    if (process.env.DATABASE_URL) {
+  if (!isDbOffline && process.env.DATABASE_URL) {
+    try {
       const records = await prisma.productCategory.findMany({
         orderBy: { isPrimary: 'desc' },
       });
@@ -149,9 +151,9 @@ export async function getProductCategories(): Promise<ProductCategoryConfig[]> {
           updatedAt: r.updatedAt.toISOString(),
         }));
       }
+    } catch {
+      isDbOffline = true;
     }
-  } catch {
-    // Database fallback to file store
   }
 
   return ensureCategoryStore();

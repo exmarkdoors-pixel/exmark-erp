@@ -13,8 +13,34 @@ export function PwaRegister() {
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   useEffect(() => {
-    // Register Service Worker
+    // If in development mode (or on localhost), unregister any active service worker
+    // and clear cache to permanently prevent Fast Refresh / Turbopack reload loops!
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      if (
+        process.env.NODE_ENV === 'development' ||
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1'
+      ) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister().then(() => {
+              console.log('[EXMARK ERP PWA] Service Worker unregistered on localhost/dev to ensure clean Fast Refresh.');
+            });
+          }
+        });
+        if ('caches' in window) {
+          caches.keys().then((keys) => {
+            for (const key of keys) {
+              if (key.startsWith('exmark-')) {
+                caches.delete(key);
+              }
+            }
+          });
+        }
+        return;
+      }
+
+      // Production only: Register Service Worker
       navigator.serviceWorker
         .register('/sw.js')
         .then((registration) => {

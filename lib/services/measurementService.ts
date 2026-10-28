@@ -270,12 +270,14 @@ function persistToFile(records: SiteMeasurementRecord[]) {
   }
 }
 
+let isMeasurementDbOffline = false;
+
 /**
  * Get all site measurements (attempts Prisma DB, falls back seamlessly to persistent store)
  */
 export async function getAllMeasurements(): Promise<SiteMeasurementRecord[]> {
-  try {
-    if (process.env.DATABASE_URL) {
+  if (!isMeasurementDbOffline && process.env.DATABASE_URL) {
+    try {
       const dbRecords = await prisma.doorMeasurement.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
@@ -324,9 +326,9 @@ export async function getAllMeasurements(): Promise<SiteMeasurementRecord[]> {
           })),
         }));
       }
+    } catch {
+      isMeasurementDbOffline = true;
     }
-  } catch {
-    // If DB is offline or not migrated, fallback to persistent file store
   }
 
   return ensureFileStore();

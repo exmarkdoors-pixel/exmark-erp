@@ -1,5 +1,5 @@
 // EXMARK ERP Service Worker — Offline Caching & Background Sync
-const CACHE_NAME = 'exmark-erp-cache-v1';
+const CACHE_NAME = 'exmark-erp-cache-v2';
 
 const STATIC_ASSETS = [
   '/',
@@ -9,6 +9,11 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  // If running on localhost / 127.0.0.1, immediately self-unregister and skip
+  if (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') {
+    self.registration.unregister();
+    return;
+  }
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
@@ -18,6 +23,10 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+  if (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') {
+    self.registration.unregister();
+    return;
+  }
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
@@ -32,8 +41,18 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Network-only for API and mutations
-  if (url.pathname.startsWith('/api/') || request.method !== 'GET') {
+  // COMPLETELY BYPASS on localhost/dev or for _next chunks, HMR, APIs, websockets
+  if (
+    self.location.hostname === 'localhost' ||
+    self.location.hostname === '127.0.0.1' ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/_next/') ||
+    url.pathname.includes('webpack') ||
+    url.pathname.includes('turbopack') ||
+    url.protocol === 'ws:' ||
+    url.protocol === 'wss:' ||
+    request.method !== 'GET'
+  ) {
     return;
   }
 
