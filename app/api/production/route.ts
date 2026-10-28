@@ -6,9 +6,13 @@ import {
   ProductionStage,
   ProductionPriority,
 } from '@/lib/services/productionService';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'production');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { searchParams } = new URL(req.url);
     const filter: ProductionFilter = {};
 
@@ -31,6 +35,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'production', ['Super Admin', 'Management', 'Production']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
 
     if (!body.customerName?.trim()) {

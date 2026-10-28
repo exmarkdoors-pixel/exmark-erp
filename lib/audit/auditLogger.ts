@@ -2,8 +2,31 @@ import prisma from '@/lib/prisma';
 
 export interface AuditLogInput {
   userId?: string | null;
-  action: 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED' | 'CREATE' | 'UPDATE' | 'DELETE' | 'APPROVAL' | 'STATUS_CHANGE';
-  entityType: 'USER' | 'AUTH' | 'ORDER' | 'QUOTATION' | 'PRODUCTION' | 'INVENTORY' | 'PAYMENT' | 'CUSTOMER';
+  action:
+    | 'LOGIN'
+    | 'LOGOUT'
+    | 'LOGIN_FAILED'
+    | 'CREATE'
+    | 'UPDATE'
+    | 'DELETE'
+    | 'APPROVAL'
+    | 'STATUS_CHANGE'
+    | 'ACCESS_DENIED'
+    | 'SETTINGS_DRAFT_SAVED'
+    | 'SETTINGS_PUBLISHED'
+    | 'SETTINGS_ROLLBACK'
+    | string;
+  entityType:
+    | 'USER'
+    | 'AUTH'
+    | 'ORDER'
+    | 'QUOTATION'
+    | 'PRODUCTION'
+    | 'INVENTORY'
+    | 'PAYMENT'
+    | 'CUSTOMER'
+    | 'SETTINGS'
+    | string;
   entityId?: string | null;
   details?: Record<string, unknown> | string;
   ipAddress?: string | null;

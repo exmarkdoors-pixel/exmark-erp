@@ -5,9 +5,13 @@ import {
   QuotationFilter,
   QuotationStatus,
 } from '@/lib/services/quotationService';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'quotations');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { searchParams } = new URL(req.url);
     const filter: QuotationFilter = {};
 
@@ -27,6 +31,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'quotations', ['Super Admin', 'Management', 'Sales']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
 
     if (!body.customerId) {

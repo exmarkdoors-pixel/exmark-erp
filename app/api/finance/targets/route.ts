@@ -3,9 +3,13 @@ import {
   listFinancialTargets,
   createFinancialTarget,
 } from '@/lib/services/financeService';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'accounts', ['Super Admin', 'Management', 'Accounts']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const targets = await listFinancialTargets();
     return NextResponse.json({ success: true, data: targets });
   } catch (error: unknown) {
@@ -16,6 +20,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'accounts', ['Super Admin', 'Management']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
 
     if (!body.targetPeriod?.trim()) {

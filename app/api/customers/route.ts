@@ -6,9 +6,13 @@ import {
   CustomerType,
   CustomerStatus,
 } from '@/lib/services/customerService';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'customers');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { searchParams } = new URL(req.url);
     const filter: CustomerFilter = {};
 
@@ -34,6 +38,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'customers', ['Super Admin', 'Management', 'Sales', 'Accounts']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
 
     if (!body.name?.trim()) {

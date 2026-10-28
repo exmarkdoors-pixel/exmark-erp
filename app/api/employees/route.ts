@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 const STORE_PATH = path.join(process.cwd(), 'data', 'employees-store.json');
 
@@ -21,13 +22,26 @@ function writeEmployees(data: unknown) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await authorizeRequest(req, 'employees');
+  if (auth.errorResponse) return auth.errorResponse;
+
   const list = readEmployees();
-  return NextResponse.json({ success: true, count: list.length, data: list });
+  // Strip any accidental sensitive fields
+  const safeList = list.map((emp: Record<string, unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, password, ...safe } = emp;
+    return safe;
+  });
+
+  return NextResponse.json({ success: true, count: safeList.length, data: safeList });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'employees', ['Super Admin', 'Management', 'HR']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const list = readEmployees();
 

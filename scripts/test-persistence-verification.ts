@@ -116,7 +116,7 @@ async function runTests() {
 
   // TEST D: Create multiple measurements for one customer, verify each appears
   console.log('\n--- TEST D: MULTIPLE MEASUREMENTS FOR ONE CUSTOMER ---');
-  const custId = 'cust-multi-kerala';
+  const custId = `cust-multi-kerala-${Date.now()}`;
   const rec1 = await createMeasurement({
     refNumber: `MSR-2026-MULTI-01`,
     customerId: custId,

@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 const STORE_PATH = path.join(process.cwd(), 'data', 'purchases-store.json');
 
@@ -21,13 +22,19 @@ function writePurchases(data: unknown) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await authorizeRequest(req, 'purchases');
+  if (auth.errorResponse) return auth.errorResponse;
+
   const list = readPurchases();
   return NextResponse.json({ success: true, count: list.length, data: list });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'purchases', ['Super Admin', 'Management', 'Purchase', 'Accounts']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const list = readPurchases();
 

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SYSTEM_REPORTS, generateReport } from '@/lib/services/reportService';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'reports');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { searchParams } = new URL(req.url);
     const code = searchParams.get('code');
 

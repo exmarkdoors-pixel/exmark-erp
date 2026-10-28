@@ -4,9 +4,13 @@ import {
   sendWhatsAppTemplateMessage,
 } from '@/lib/services/communicationService';
 import { WhatsAppDocumentType } from '@/types/communication';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, undefined, ['Super Admin', 'Management', 'Sales', 'Accounts', 'Installation']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { searchParams } = new URL(req.url);
     const documentType = searchParams.get('documentType') as WhatsAppDocumentType | null;
     const phone = searchParams.get('phone') || undefined;
@@ -25,6 +29,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, undefined, ['Super Admin', 'Management', 'Sales', 'Installation']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
 
     if (!body.recipientPhone?.trim()) {

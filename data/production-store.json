@@ -13,7 +13,7 @@
     "lineAssigned": "Line 1: FRP Hydraulic Press (300 Ton)",
     "batchNumber": "BTH-202610-01",
     "priority": "HIGH",
-    "status": "CNC_ROUTING",
+    "status": "COMPLETED",
     "tolerancesApplied": {
       "heightDeductionMm": 10,
       "widthDeductionMm": 10
@@ -46,7 +46,7 @@
         "handing": "LH",
         "lockType": "Baby Latch",
         "finishColor": "Frost White",
-        "qcStatus": "PENDING",
+        "qcStatus": "PASSED",
         "qrPayload": "{\"doorId\":\"EXM-DR-2026-1002\",\"jobCard\":\"JC-2026-001\",\"client\":\"Malabar Luxury Builders\",\"location\":\"D2 - Toilet 1\",\"finishedSize\":\"2075x740mm\",\"handing\":\"LH\"}"
       },
       {
@@ -61,14 +61,14 @@
         "handing": "RH",
         "lockType": "Mortise Lock 60mm",
         "finishColor": "Burma Teak",
-        "qcStatus": "PENDING",
+        "qcStatus": "PASSED",
         "qrPayload": "{\"doorId\":\"EXM-DR-2026-1003\",\"jobCard\":\"JC-2026-001\",\"client\":\"Malabar Luxury Builders\",\"location\":\"D3 - Kitchen Opening\",\"finishedSize\":\"2085x840mm\",\"handing\":\"RH\"}"
       }
     ],
     "startedAt": "2026-10-26T08:30:00.000Z",
-    "completedAt": null,
+    "completedAt": "2026-10-28T01:56:44.155Z",
     "createdAt": "2026-10-26T08:00:00.000Z",
-    "updatedAt": "2026-10-27T10:15:00.000Z",
+    "updatedAt": "2026-10-28T01:56:44.156Z",
     "_demo": true
   },
   {
@@ -493,5 +493,143 @@
     "completedAt": null,
     "createdAt": "2026-10-28T01:27:34.600Z",
     "updatedAt": "2026-10-28T01:27:34.600Z"
+  },
+  {
+    "id": "prd-1793152089308-8720",
+    "prodOrderNumber": "PRD-2026-012",
+    "jobCardNumber": "JC-2026-012",
+    "salesOrderId": null,
+    "measurementRef": null,
+    "customerName": "Kerala Grand Villas",
+    "siteName": "Grand Villas Waterfront",
+    "district": "Ernakulam",
+    "doorCategory": "FRP_DOORS",
+    "quantity": 1,
+    "lineAssigned": "Line 1: FRP Hydraulic Press (300 Ton)",
+    "batchNumber": "BTH-202610-12",
+    "priority": "HIGH",
+    "status": "QUEUED",
+    "tolerancesApplied": {
+      "heightDeductionMm": 10,
+      "widthDeductionMm": 12
+    },
+    "doors": [
+      {
+        "id": "dr-1793152089308-2414",
+        "doorId": "EXM-DR-2026-0015",
+        "doorNumber": "D-01",
+        "model": "EXM-FRP-TL101",
+        "rawHeightMm": 2100,
+        "rawWidthMm": 900,
+        "finishedHeightMm": 2090,
+        "finishedWidthMm": 888,
+        "handing": "LH",
+        "lockType": "Mortise Cylinder",
+        "finishColor": "Teak Brown",
+        "qcStatus": "PENDING",
+        "qrPayload": "{\"doorId\":\"EXM-DR-2026-0015\",\"jobCard\":\"JC-2026-012\",\"client\":\"Kerala Grand Villas\",\"location\":\"D-01\",\"finishedSize\":\"2090x888mm\",\"handing\":\"LH\"}"
+      }
+    ],
+    "startedAt": null,
+    "completedAt": null,
+    "createdAt": "2026-10-28T01:48:09.308Z",
+    "updatedAt": "2026-10-28T01:48:09.308Z"
+  },
+  {
+    "id": "prd-1793152563996-573",
+    "prodOrderNumber": "PRD-2026-013",
+    "jobCardNumber": "JC-2026-013",
+    "salesOrderId": null,
+    "measurementRef": "dm-1793148650251",
+    "customerName": "Malabar Luxury Builders, Kozhikode",
+    "siteName": "Skyline Villa Project, Kakkanad",
+    "district": "Ernakulam",
+    "doorCategory": "FRP_DOORS",
+    "quantity": 2,
+    "lineAssigned": "Line 1: FRP Hydraulic Press (300 Ton)",
+    "batchNumber": "BTH-202610-13",
+    "priority": "NORMAL",
+    "status": "MOLDING",
+    "tolerancesApplied": {
+      "heightDeductionMm": 10,
+      "widthDeductionMm": 10
+    },
+    "doors": [
+      {
+        "id": "dr-1793152563994-360",
+        "doorId": "EXM-DR-2026-0016",
+        "doorNumber": "D1 - Main Entrance",
+        "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "rawHeightMm": 2100,
+        "rawWidthMm": 900,
+        "finishedHeightMm": 2090,
+        "finishedWidthMm": 890,
+        "handing": "LH",
+        "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+        "finishColor": "Burma Teak (Woodgrain PU)",
+        "qcStatus": "PENDING",
+        "qrPayload": "{\"doorId\":\"EXM-DR-2026-0016\",\"jobCard\":\"JC-2026-013\",\"client\":\"Malabar Luxury Builders, Kozhikode\",\"location\":\"D1 - Main Entrance\",\"finishedSize\":\"2090x890mm\",\"handing\":\"LH\"}"
+      },
+      {
+        "id": "dr-1793152563996-1702",
+        "doorId": "EXM-DR-2026-0017",
+        "doorNumber": "D2 - Master Bed",
+        "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "rawHeightMm": 2095,
+        "rawWidthMm": 850,
+        "finishedHeightMm": 2085,
+        "finishedWidthMm": 840,
+        "handing": "LH",
+        "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+        "finishColor": "Burma Teak (Woodgrain PU)",
+        "qcStatus": "PENDING",
+        "qrPayload": "{\"doorId\":\"EXM-DR-2026-0017\",\"jobCard\":\"JC-2026-013\",\"client\":\"Malabar Luxury Builders, Kozhikode\",\"location\":\"D2 - Master Bed\",\"finishedSize\":\"2085x840mm\",\"handing\":\"LH\"}"
+      }
+    ],
+    "startedAt": "2026-10-28T01:56:39.288Z",
+    "completedAt": null,
+    "createdAt": "2026-10-28T01:56:03.996Z",
+    "updatedAt": "2026-10-28T01:56:39.288Z"
+  },
+  {
+    "id": "prd-1793152602340-9536",
+    "prodOrderNumber": "PRD-2026-014",
+    "jobCardNumber": "JC-2026-014",
+    "salesOrderId": null,
+    "measurementRef": null,
+    "customerName": "Kerala Grand Villas",
+    "siteName": "Grand Villas Waterfront",
+    "district": "Ernakulam",
+    "doorCategory": "FRP_DOORS",
+    "quantity": 1,
+    "lineAssigned": "Line 1: FRP Hydraulic Press (300 Ton)",
+    "batchNumber": "BTH-202610-14",
+    "priority": "HIGH",
+    "status": "QUEUED",
+    "tolerancesApplied": {
+      "heightDeductionMm": 10,
+      "widthDeductionMm": 12
+    },
+    "doors": [
+      {
+        "id": "dr-1793152602340-6987",
+        "doorId": "EXM-DR-2026-0018",
+        "doorNumber": "D-01",
+        "model": "EXM-FRP-TL101",
+        "rawHeightMm": 2100,
+        "rawWidthMm": 900,
+        "finishedHeightMm": 2090,
+        "finishedWidthMm": 888,
+        "handing": "LH",
+        "lockType": "Mortise Cylinder",
+        "finishColor": "Teak Brown",
+        "qcStatus": "PENDING",
+        "qrPayload": "{\"doorId\":\"EXM-DR-2026-0018\",\"jobCard\":\"JC-2026-014\",\"client\":\"Kerala Grand Villas\",\"location\":\"D-01\",\"finishedSize\":\"2090x888mm\",\"handing\":\"LH\"}"
+      }
+    ],
+    "startedAt": null,
+    "completedAt": null,
+    "createdAt": "2026-10-28T01:56:42.340Z",
+    "updatedAt": "2026-10-28T01:56:42.340Z"
   }
 ]

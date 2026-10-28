@@ -477,5 +477,69 @@
     "notes": "FRP door quote",
     "createdAt": "2026-10-28T01:27:34.573Z",
     "updatedAt": "2026-10-28T01:27:34.573Z"
+  },
+  {
+    "id": "qtn-api-1793152089305-1126",
+    "quoteNumber": "QTN-2026-015",
+    "customerId": "cust-1793152089254-1307",
+    "leadId": "lead-api-1793152089267-7924",
+    "date": "2026-10-27",
+    "validUntil": "2026-11-27",
+    "items": [
+      {
+        "doorCategory": "FRP_DOORS",
+        "doorModel": "EXM-FRP-TL101",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "thicknessMm": 35,
+        "quantity": 40,
+        "unitPrice": 8500,
+        "gstRate": 18,
+        "totalPrice": 340000,
+        "id": "qitem-1793152089305-0",
+        "quotationId": "qtn-api-1793152089305-1126"
+      }
+    ],
+    "subtotal": 340000,
+    "discount": 10000,
+    "gstRate": 18,
+    "gstAmount": 59400,
+    "totalAmount": 389400,
+    "status": "DRAFT",
+    "notes": "FRP door quote",
+    "createdAt": "2026-10-28T01:48:09.305Z",
+    "updatedAt": "2026-10-28T01:48:09.305Z"
+  },
+  {
+    "id": "qtn-api-1793152602327-8644",
+    "quoteNumber": "QTN-2026-016",
+    "customerId": "cust-1793152602306-6904",
+    "leadId": "lead-api-1793152602310-1631",
+    "date": "2026-10-27",
+    "validUntil": "2026-11-27",
+    "items": [
+      {
+        "doorCategory": "FRP_DOORS",
+        "doorModel": "EXM-FRP-TL101",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "thicknessMm": 35,
+        "quantity": 40,
+        "unitPrice": 8500,
+        "gstRate": 18,
+        "totalPrice": 340000,
+        "id": "qitem-1793152602327-0",
+        "quotationId": "qtn-api-1793152602327-8644"
+      }
+    ],
+    "subtotal": 340000,
+    "discount": 10000,
+    "gstRate": 18,
+    "gstAmount": 59400,
+    "totalAmount": 389400,
+    "status": "DRAFT",
+    "notes": "FRP door quote",
+    "createdAt": "2026-10-28T01:56:42.327Z",
+    "updatedAt": "2026-10-28T01:56:42.327Z"
   }
 ]

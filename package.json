@@ -10,6 +10,7 @@
     "desktop:dev": "electron electron/main.js",
     "desktop:build": "electron-builder",
     "test:master": "tsx scripts/test-master.ts",
+    "test:phase9": "tsx scripts/test-phase9-security.ts",
     "backup": "tsx scripts/backup-agent.ts"
   },
   "dependencies": {

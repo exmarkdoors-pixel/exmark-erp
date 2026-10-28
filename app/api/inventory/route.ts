@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 const STORE_PATH = path.join(process.cwd(), 'data', 'inventory-store.json');
 
@@ -21,13 +22,19 @@ function writeInventory(data: unknown) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await authorizeRequest(req, 'inventory', ['Super Admin', 'Management', 'Inventory', 'Production', 'Purchase']);
+  if (auth.errorResponse) return auth.errorResponse;
+
   const items = readInventory();
   return NextResponse.json({ success: true, count: items.length, data: items });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'inventory', ['Super Admin', 'Inventory']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const items = readInventory();
 

@@ -41,6 +41,7 @@ import {
 import { DoorMeasurementModal } from './DoorMeasurementModal';
 import { SiteMeasurementRecord } from '@/types/measurements';
 import ProductCategoriesSettings from '@/components/settings/ProductCategoriesSettings';
+import AdminCustomizationSettings from '@/components/settings/AdminCustomizationSettings';
 import { CustomerFormModal } from './customers/CustomerFormModal';
 import { LeadFormModal } from './crm/LeadFormModal';
 import { QuotationBuilder } from './quotations/QuotationBuilder';
@@ -2728,7 +2729,7 @@ export function ReportsView() {
  * 14. SETTINGS VIEW
  * ------------------------------------------------------------- */
 export function SettingsView() {
-  const [activeTab, setActiveTab] = useState<'categories' | 'profile'>('categories');
+  const [activeTab, setActiveTab] = useState<'customization' | 'categories' | 'profile'>('customization');
 
   return (
     <div className="space-y-6">
@@ -2739,13 +2740,23 @@ export function SettingsView() {
             Admin Settings &amp; Plant Configuration
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Product categories (FRP primary, WPC toggle), factory parameters, GST registration &amp; role access
+            Master ERP customization, dynamic fields, tolerances, approval rules, product categories &amp; security
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 text-xs">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 text-xs overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('customization')}
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
+            activeTab === 'customization'
+              ? 'bg-red-600 text-white'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          Master Rules &amp; Customization Engine (17 Domains)
+        </button>
         <button
           onClick={() => setActiveTab('categories')}
           className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
@@ -2767,6 +2778,8 @@ export function SettingsView() {
           Company Profile &amp; GST
         </button>
       </div>
+
+      {activeTab === 'customization' && <AdminCustomizationSettings />}
 
       {activeTab === 'categories' && <ProductCategoriesSettings />}
 
