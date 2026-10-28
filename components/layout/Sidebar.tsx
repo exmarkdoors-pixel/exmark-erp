@@ -75,6 +75,19 @@ export default function Sidebar({
   userRole = 'Super Admin',
   liveBadges,
 }: SidebarProps) {
+  const [factoryName, setFactoryName] = React.useState<string>('Central Manufacturing Unit');
+
+  React.useEffect(() => {
+    fetch('/api/settings/company-profile?view=active')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.activeFactory?.name) {
+          const fac = data.activeFactory;
+          setFactoryName(fac.address?.district ? `${fac.name} (${fac.address.district})` : fac.name);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const handleItemClick = (tabId: NavigationTab) => {
     if (!canAccessModule(userRole, tabId)) {
       alert(`Access Restricted: Your current active role (${userRole}) does not have permission for the ${tabId} module. Switch to Super Admin or Management to access.`);
@@ -247,7 +260,7 @@ export default function Sidebar({
             <div className="flex items-center justify-between mb-1.5">
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-200">
                 <Flame className="w-3.5 h-3.5 text-red-500" />
-                Palakkad Plant
+                {factoryName}
               </span>
               <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
@@ -255,7 +268,7 @@ export default function Sidebar({
               </span>
             </div>
             <p className="text-[11px] text-slate-400 leading-tight">
-              FRP Press & WPC Extrusion lines running Day Shift A (28 Techs).
+              FRP Press &amp; WPC Extrusion lines running Day Shift A (28 Techs).
             </p>
             <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
               <span className="flex items-center gap-1">
@@ -266,7 +279,7 @@ export default function Sidebar({
             </div>
           </div>
         ) : (
-          <div className="p-2 mb-2 flex justify-center" title="Palakkad Manufacturing Plant: Active">
+          <div className="p-2 mb-2 flex justify-center" title={`${factoryName}: Active`}>
             <div className="w-8 h-8 rounded-lg bg-[#0B132B] border border-slate-800 flex items-center justify-center text-red-500">
               <Flame className="w-4 h-4" />
             </div>

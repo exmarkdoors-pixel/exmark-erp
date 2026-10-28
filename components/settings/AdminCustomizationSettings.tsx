@@ -18,11 +18,14 @@ import {
   Award,
   MessageSquare,
   Lock,
+  Building2,
 } from 'lucide-react';
 import { ERPConfiguration, ConfigurationRevision } from '@/lib/services/customizationService';
+import CompanyFactoryProfileSettings from './CompanyFactoryProfileSettings';
 
 export default function AdminCustomizationSettings() {
   const [activeTab, setActiveTab] = useState<
+    | 'profile'
     | 'categories'
     | 'fields'
     | 'dropdowns'
@@ -35,7 +38,7 @@ export default function AdminCustomizationSettings() {
     | 'notifications'
     | 'roles'
     | 'revisions'
-  >('categories');
+  >('profile');
 
   const [config, setConfig] = useState<ERPConfiguration | null>(null);
   const [revisions, setRevisions] = useState<ConfigurationRevision[]>([]);
@@ -250,9 +253,10 @@ export default function AdminCustomizationSettings() {
         </div>
       </div>
 
-      {/* Navigation Tabs for all 17 domains */}
+      {/* Navigation Tabs for all domains */}
       <div className="flex items-center gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto text-[11px]">
         {[
+          { id: 'profile', label: '0. Company & Factory Profile', icon: Building2 },
           { id: 'categories', label: '1. Categories', icon: Layers },
           { id: 'fields', label: '2. Dynamic Fields', icon: FileText },
           { id: 'dropdowns', label: '3. Dropdowns', icon: Sliders },
@@ -285,6 +289,11 @@ export default function AdminCustomizationSettings() {
         })}
       </div>
 
+      {/* Tab 0: Company & Factory Profile */}
+      {activeTab === 'profile' && (
+        <CompanyFactoryProfileSettings onSettingsUpdated={refreshSettings} />
+      )}
+
       {/* Tab 1: Product Categories */}
       {activeTab === 'categories' && (
         <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
@@ -293,7 +302,7 @@ export default function AdminCustomizationSettings() {
             1. Product Categories Configuration (FRP Enabled • WPC Optional)
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            FRP Doors is the core manufacturing focus for EXMARK Doors Palakkad plant and is permanently enabled. WPC doors can be toggled on/off as an optional secondary line.
+            FRP Doors is the core manufacturing focus for EXMARK Doors manufacturing plants and is permanently enabled. WPC doors can be toggled on/off as an optional secondary line.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

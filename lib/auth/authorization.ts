@@ -23,19 +23,42 @@ export async function authorizeRequest(
 
   let user: SessionUser | null = null;
 
-  // 1. Inspect role override headers for testing/microservices
-  if (headerEmail && DEMO_USERS[headerEmail.toLowerCase()]) {
-    user = DEMO_USERS[headerEmail.toLowerCase()];
-  } else if (headerRole) {
-    const matched = Object.values(DEMO_USERS).find(
-      (u) => u.role.toLowerCase() === headerRole.toLowerCase()
-    );
-    if (matched) user = matched;
+  // 1. Inspect role override headers only in development/testing environments
+  const isDevOrTest = process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_HEADERS === 'true';
+  if (isDevOrTest) {
+    if (headerEmail && DEMO_USERS[headerEmail.toLowerCase()]) {
+      user = DEMO_USERS[headerEmail.toLowerCase()];
+    } else if (headerRole) {
+      const matched = Object.values(DEMO_USERS).find(
+        (u) => u.role.toLowerCase() === headerRole.toLowerCase()
+      );
+      if (matched) user = matched;
+    }
   }
 
-  // 2. Inspect session cookie
+  // 2. Inspect session cookie from incoming Request header
   if (!user) {
-    user = await getSession();
+    const cookieHeader = req.headers.get('cookie');
+    if (cookieHeader) {
+      const match = cookieHeader.match(/exmark_session=([^;]+)/);
+      if (match && match[1]) {
+        try {
+          const decoded = Buffer.from(match[1], 'base64').toString('utf-8');
+          user = JSON.parse(decoded) as SessionUser;
+        } catch {
+          user = null;
+        }
+      }
+    }
+  }
+
+  // Fallback to Next.js cookies() store if in request lifecycle
+  if (!user) {
+    try {
+      user = await getSession();
+    } catch {
+      user = null;
+    }
   }
 
   // 3. Reject unauthenticated requests

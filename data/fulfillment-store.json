@@ -1233,6 +1233,48 @@
         ]
       },
       "issuedAt": "2026-10-28T16:42:33.237Z"
+    },
+    {
+      "certificateNumber": "EXM-WRN-2026-0017",
+      "salesOrderId": null,
+      "customerName": "nazer",
+      "siteAddress": "vengara",
+      "district": "Malappuram",
+      "warrantyPeriodYears": 10,
+      "validFrom": "2026-10-28",
+      "validUntil": "2036-10-28",
+      "coveredDoors": [
+        {
+          "doorId": "EXM-DR-2026-FRP-01",
+          "model": "EXM-FRP-TL101 (Teakwood Embossed)",
+          "sizeMm": "2085 x 888 mm"
+        },
+        {
+          "doorId": "EXM-DR-2026-FRP-02",
+          "model": "EXM-FRP-TL101 (Teakwood Embossed)",
+          "sizeMm": "2085 x 888 mm"
+        }
+      ],
+      "coverageScope": "FRP DOOR MATERIAL ONLY (100% Water, Termite & Borer Proof Body)",
+      "explicitExclusions": [
+        "SS Hinges, Tower Bolts, Handles, and Lock Hardware sets",
+        "Surface PU Paints, Foiling, and Cosmetic finish weathering",
+        "Damage arising from civil structure settlement or accidental mechanical impact",
+        "Unapproved modifications, thermal burns, or acidic chemical washing"
+      ],
+      "bilingualCareInstructions": {
+        "english": [
+          "Clean door surfaces with mild soapy water and a soft cotton cloth only.",
+          "Never use acidic floor cleaners, wire brushes, or harsh solvents on FRP doors.",
+          "Ensure SS hinges are lubricated with silicone or machine oil every 6 months."
+        ],
+        "malayalam": [
+          "ഡോർ വൃത്തിയാക്കാൻ വീര്യം കുറഞ്ഞ സോപ്പ് വെള്ളവും കോട്ടൺ തുണിയും മാത്രം ഉപയോഗിക്കുക.",
+          "ആസിഡ്, ഫിനോയിൽ അല്ലെങ്കിൽ കഠിനമായ കെമിക്കലുകൾ ഡോറിൽ ഒഴിക്കരുത്.",
+          "ഹിഞ്ചുകൾ (Hinges) 6 മാസത്തിലൊരിക്കൽ ഓയിൽ ഇട്ട് സുഗമമായി പ്രവർത്തിക്കുന്നുണ്ടെന്ന് ഉറപ്പാക്കുക."
+        ]
+      },
+      "issuedAt": "2026-10-28T16:51:41.004Z"
     }
   ]
 }

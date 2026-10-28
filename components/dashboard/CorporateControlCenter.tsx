@@ -126,7 +126,7 @@ const CONTROL_FOLDERS: ControlFolder[] = [
     bgGradient: 'from-cyan-600/15 via-cyan-900/5 to-transparent',
     icon: Factory,
     cards: [
-      { id: 'c4-1', name: 'Production Dashboard', description: 'Palakkad plant floor status: 8 hydraulic press lines', targetTab: 'production', status: 'Operational', badge: 'Palakkad Plant' },
+      { id: 'c4-1', name: 'Production Dashboard', description: 'Central plant floor status: 8 hydraulic press lines', targetTab: 'production', status: 'Operational', badge: 'Active Plant' },
       { id: 'c4-2', name: 'Job Cards', description: 'Individual press route cards with resin mix specs', targetTab: 'production', status: 'Operational' },
       { id: 'c4-3', name: 'Door ID Tracking', description: 'Sequential serial numbering EXM-DR-2026-XXXX', targetTab: 'production', status: 'Operational' },
       { id: 'c4-4', name: 'Cutting Calculator', description: 'Finished = Raw - (Rebate & Floor Clearances)', targetTab: 'production', status: 'Operational' },

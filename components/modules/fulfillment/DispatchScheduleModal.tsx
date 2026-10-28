@@ -77,7 +77,7 @@ export function DispatchScheduleModal({ isOpen, onClose, onSuccess }: Props) {
             </div>
             <div>
               <h3 className="font-bold text-base text-slate-900 dark:text-white">Schedule Fleet Dispatch</h3>
-              <p className="text-xs text-slate-500">Logistics dispatch from Palakkad plant across Kerala</p>
+              <p className="text-xs text-slate-500">Logistics dispatch from manufacturing plant across Kerala</p>
             </div>
           </div>
           <button

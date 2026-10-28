@@ -117,7 +117,7 @@ const MODULES_DIRECTORY: ModuleCardConfig[] = [
   {
     id: 'production',
     title: 'Plant Floor & Job Cards',
-    subtitle: 'Palakkad Press Operations',
+    subtitle: 'Factory Press Operations',
     description: 'Hydraulic heated presses, FRP compression molding, resin-catalyst ratio checks, and thermal stickers.',
     icon: Factory,
     folderCategory: 'MANUFACTURING',
@@ -279,7 +279,7 @@ export default function CorporateModulesHub({
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Departmental operations directory and rapid navigation console for Palakkad Plant &amp; Kerala Branches
+                Departmental operations directory and rapid navigation console for Manufacturing Plant &amp; Kerala Branches
               </p>
             </div>
           </div>

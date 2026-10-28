@@ -70,7 +70,7 @@ async function runPhase9Tests() {
   assert(activeConfig.gstConfig.cgstRate === 9 && activeConfig.gstConfig.sgstRate === 9, '10. GST CGST/SGST split verified (9% + 9% = 18%)');
   assert(activeConfig.financialTargets.monthlyRevenueTarget === 7500000, '11. Financial Targets verified (Rs.75,00,000 monthly)');
   assert(activeConfig.reportTemplates.length >= 4, '12. Report Templates verified (District sales, plant yield)');
-  assert(Boolean(activeConfig.pdfLayouts.headerLogoText), '13. PDF Layouts verified (Palakkad Plant)');
+  assert(Boolean(activeConfig.pdfLayouts.headerLogoText), '13. PDF Layouts verified (Company & Factory Profile)');
   assert(activeConfig.warrantyPolicies.frpWarrantyYears === 15, '14. Warranty Policies verified (15-Year FRP Material)');
   assert(Boolean(activeConfig.notificationTemplates.advanceReceived), '15. Notification Templates verified');
   assert(activeConfig.whatsappSendingRules.autoSendWarrantyCertificate === true, '16. WhatsApp Sending Rules verified');

@@ -8,7 +8,7 @@
     "phone": "+91 94470 12000",
     "email": "nazer@exmarkdoors.com",
     "status": "ACTIVE",
-    "location": "Palakkad Plant HQ"
+    "location": "Corporate & Plant HQ"
   },
   {
     "id": "emp-002",
@@ -19,7 +19,7 @@
     "phone": "+91 98471 44551",
     "email": "rajesh@exmarkdoors.com",
     "status": "ACTIVE",
-    "location": "Palakkad Factory Floor"
+    "location": "Factory Floor"
   },
   {
     "id": "emp-003",
@@ -30,7 +30,7 @@
     "phone": "+91 97450 66772",
     "email": "binu@exmarkdoors.com",
     "status": "ACTIVE",
-    "location": "Palakkad Factory Floor"
+    "location": "Factory Floor"
   },
   {
     "id": "emp-004",
@@ -41,7 +41,7 @@
     "phone": "+91 99951 88990",
     "email": "faizal@exmarkdoors.com",
     "status": "ACTIVE",
-    "location": "Palakkad Tooling Cell"
+    "location": "Tooling Cell"
   },
   {
     "id": "emp-005",
@@ -52,7 +52,7 @@
     "phone": "+91 94002 33441",
     "email": "deepa@exmarkdoors.com",
     "status": "ACTIVE",
-    "location": "Palakkad QC Bay"
+    "location": "QC Bay"
   },
   {
     "id": "emp-006",

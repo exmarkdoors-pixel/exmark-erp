@@ -23,7 +23,7 @@ export const DEMO_USERS: Record<string, SessionUser & { passwordHash: string }> 
     role: 'Super Admin',
     employeeCode: 'EXM-EMP-001',
     department: 'Executive & Strategy',
-    plantLocation: 'Palakkad Plant & Ernakulam HQ',
+    plantLocation: 'Central Manufacturing Plant & Corporate HQ',
     // Hash for "Exmark@2026"
     passwordHash: '$2b$12$K1rG1J5W2y1V5uV7d5P/Q.Zg/y5hT1W4N2p9H6u9G4r7s8e1w2q3a',
   },
@@ -57,14 +57,24 @@ export const DEMO_USERS: Record<string, SessionUser & { passwordHash: string }> 
     plantLocation: 'Kochi Marine Drive Office',
     passwordHash: '$2b$12$K1rG1J5W2y1V5uV7d5P/Q.Zg/y5hT1W4N2p9H6u9G4r7s8e1w2q3a',
   },
-  'plant.palakkad@exmarkdoors.com': {
+  'plant@exmarkdoors.com': {
     id: 'usr-prod-05',
     name: 'Rajesh P.',
-    email: 'plant.palakkad@exmarkdoors.com',
+    email: 'plant@exmarkdoors.com',
     role: 'Production',
     employeeCode: 'EXM-EMP-005',
     department: 'Line 1 FRP Hydraulic Molding',
-    plantLocation: 'Kinfra Industrial Park, Palakkad',
+    plantLocation: 'Manufacturing Plant Floor',
+    passwordHash: '$2b$12$K1rG1J5W2y1V5uV7d5P/Q.Zg/y5hT1W4N2p9H6u9G4r7s8e1w2q3a',
+  },
+  'plant.palakkad@exmarkdoors.com': {
+    id: 'usr-prod-05',
+    name: 'Rajesh P.',
+    email: 'plant@exmarkdoors.com',
+    role: 'Production',
+    employeeCode: 'EXM-EMP-005',
+    department: 'Line 1 FRP Hydraulic Molding',
+    plantLocation: 'Manufacturing Plant Floor',
     passwordHash: '$2b$12$K1rG1J5W2y1V5uV7d5P/Q.Zg/y5hT1W4N2p9H6u9G4r7s8e1w2q3a',
   },
   'inventory@exmarkdoors.com': {
@@ -74,7 +84,7 @@ export const DEMO_USERS: Record<string, SessionUser & { passwordHash: string }> 
     role: 'Inventory',
     employeeCode: 'EXM-EMP-006',
     department: 'Raw Materials & Hardware Store',
-    plantLocation: 'Palakkad Chemical & Resin Bay',
+    plantLocation: 'Central Warehouse & Resin Bay',
     passwordHash: '$2b$12$K1rG1J5W2y1V5uV7d5P/Q.Zg/y5hT1W4N2p9H6u9G4r7s8e1w2q3a',
   },
   'purchase@exmarkdoors.com': {
@@ -84,7 +94,7 @@ export const DEMO_USERS: Record<string, SessionUser & { passwordHash: string }> 
     role: 'Purchase',
     employeeCode: 'EXM-EMP-007',
     department: 'Procurement & Polymer Supply',
-    plantLocation: 'Palakkad Plant Unit',
+    plantLocation: 'Central Procurement Bay',
     passwordHash: '$2b$12$K1rG1J5W2y1V5uV7d5P/Q.Zg/y5hT1W4N2p9H6u9G4r7s8e1w2q3a',
   },
   'hr@exmarkdoors.com': {
@@ -139,7 +149,11 @@ export async function getSession(): Promise<SessionUser | null> {
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
 
   if (!sessionCookie?.value) {
-    // Default to Super Admin (Nazer Karumban) for seamless preview experience
+    // In production, unauthenticated requests MUST NOT get automatic Super Admin access
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEV_FALLBACK !== 'true') {
+      return null;
+    }
+    // Default to Super Admin in local dev preview mode
     return DEMO_USERS['director@exmarkdoors.com'];
   }
 

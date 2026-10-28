@@ -3,7 +3,7 @@ import { createBackupSnapshot, listBackupSnapshots, verifyBackupIntegrity } from
 async function runBackupAgent() {
   console.log('================================================================');
   console.log('  EXMARK DOORS — AUTOMATED WINDOWS OFFICE BACKUP AGENT');
-  console.log('  Palakkad Central Plant & Kerala Office Stations');
+  console.log('  Central Manufacturing Plant & Kerala Office Stations');
   console.log('================================================================');
 
   try {

@@ -206,7 +206,7 @@ async function runWorkflowTest() {
   console.log(`✓ Advance verified: ${verifyAdvanceData.message}\n`);
 
   // Step 9: Release to Production Floor with Job Cards
-  console.log('[Step 9] Releasing confirmed & verified work order to Palakkad press lines...');
+  console.log('[Step 9] Releasing confirmed & verified work order to plant press lines...');
   const releaseSuccessRes = await ordersPost(
     new Request('http://localhost/api/orders', {
       method: 'POST',

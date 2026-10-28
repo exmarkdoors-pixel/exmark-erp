@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
+import { CompanyProfile, DEFAULT_COMPANY_PROFILE, FactoryProfile } from '@/types/companyProfile';
 
 export interface DynamicFieldDef {
   id: string;
@@ -17,6 +18,9 @@ export interface ERPConfiguration {
   version: number;
   lastUpdated: string;
   updatedBy: string;
+
+  // 0. Company & Factory Profile
+  companyProfile: CompanyProfile;
 
   // 1. Product Categories
   categories: {
@@ -196,6 +200,9 @@ export const DEFAULT_ERP_CONFIG: ERPConfiguration = {
   lastUpdated: new Date().toISOString(),
   updatedBy: 'Nazer Karumban (Super Admin)',
 
+  // 0. Company & Factory Profile
+  companyProfile: DEFAULT_COMPANY_PROFILE,
+
   // 1. Product Categories (FRP enabled immutable, WPC optional OFF)
   categories: {
     frp: {
@@ -370,16 +377,16 @@ export const DEFAULT_ERP_CONFIG: ERPConfiguration = {
   // 12. Report Templates
   reportTemplates: [
     { id: 'rpt-dist', name: '14 Kerala Districts Sales Ledger', category: 'Sales', description: 'District breakdown across Kerala', defaultInterval: 'Monthly' },
-    { id: 'rpt-eff', name: 'Palakkad Plant Efficiency & Yield', category: 'Production', description: 'Daily molded units vs press capacity', defaultInterval: 'Weekly' },
+    { id: 'rpt-eff', name: 'Factory Production Efficiency & Yield', category: 'Production', description: 'Daily molded units vs press capacity', defaultInterval: 'Weekly' },
     { id: 'rpt-aging', name: 'Dealer Receivables Aging Ledger', category: 'Finance', description: '30 / 60 / 90 day balance tracking', defaultInterval: 'Weekly' },
     { id: 'rpt-margin', name: 'FRP vs WPC Gross Margin Comparison', category: 'Management', description: 'Unit contribution margin analysis', defaultInterval: 'Monthly' },
   ],
 
   // 13. PDF Layouts
   pdfLayouts: {
-    headerLogoText: 'EXMARK DOORS • Palakkad Central Manufacturing Plant',
-    plantAddress: 'Kinfra Industrial Park, Palakkad, Kerala - 678007',
-    contactPhone: '+91 491 2500100 / +91 94470 12345',
+    headerLogoText: 'EXMARK DOORS • Manufacturing Operations',
+    plantAddress: 'Kerala Manufacturing Unit [Address Pending Configuration]',
+    contactPhone: '+91 484 290 8800',
     contactEmail: 'sales@exmarkdoors.com',
     includeQrCode: true,
     showBilingualKeralaCare: true,
@@ -506,6 +513,28 @@ function readStore(): CustomizationStore {
     const raw = fs.readFileSync(STORE_PATH, 'utf8');
     const parsed = JSON.parse(raw);
     let modified = false;
+
+    // Ensure company & factory profile is present
+    if (parsed.active && !parsed.active.companyProfile) {
+      parsed.active.companyProfile = DEFAULT_COMPANY_PROFILE;
+      modified = true;
+    }
+    if (parsed.draft && !parsed.draft.companyProfile) {
+      parsed.draft.companyProfile = DEFAULT_COMPANY_PROFILE;
+      modified = true;
+    }
+
+    // Cleanse any legacy hardcoded Palakkad entries in active & draft PDF layouts
+    if (parsed.active?.pdfLayouts?.plantAddress?.includes('Palakkad')) {
+      parsed.active.pdfLayouts.plantAddress = 'Kerala Manufacturing Unit [Address Pending Configuration]';
+      parsed.active.pdfLayouts.headerLogoText = 'EXMARK DOORS • Manufacturing Operations';
+      modified = true;
+    }
+    if (parsed.draft?.pdfLayouts?.plantAddress?.includes('Palakkad')) {
+      parsed.draft.pdfLayouts.plantAddress = 'Kerala Manufacturing Unit [Address Pending Configuration]';
+      parsed.draft.pdfLayouts.headerLogoText = 'EXMARK DOORS • Manufacturing Operations';
+      modified = true;
+    }
 
     // Migrate existing revisions to guarantee stable unique ID on each
     if (Array.isArray(parsed.revisions)) {

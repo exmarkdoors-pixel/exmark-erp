@@ -14,7 +14,7 @@ interface Props {
 export function WarrantyCertificateModal({ isOpen, onClose, initialCertificate, onSuccess }: Props) {
   const [customerName, setCustomerName] = useState(initialCertificate?.customerName || '');
   const [siteAddress, setSiteAddress] = useState(initialCertificate?.siteAddress || '');
-  const [district, setDistrict] = useState(initialCertificate?.district || 'Palakkad');
+  const [district, setDistrict] = useState(initialCertificate?.district || 'Ernakulam');
   const [warrantyPeriodYears, setWarrantyPeriodYears] = useState<10 | 15>(
     initialCertificate?.warrantyPeriodYears || 15
   );
@@ -285,7 +285,7 @@ export function WarrantyCertificateModal({ isOpen, onClose, initialCertificate, 
                 <div className="pt-4 flex justify-between items-end text-[10px] text-slate-400 border-t border-slate-200 dark:border-slate-800">
                   <div>
                     <p>EXMARK Doors Kerala Quality Control Wing</p>
-                    <p>Palakkad / Calicut Manufacturing Plants</p>
+                    <p>Central Manufacturing Plants &amp; Distribution Operations</p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-slate-700 dark:text-slate-300">Authorized Technical Signatory</p>

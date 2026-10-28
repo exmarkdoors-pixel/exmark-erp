@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       dispatchId: body.dispatchId || null,
       customerName: body.customerName,
       siteAddress: body.siteAddress,
-      district: body.district || 'Palakkad',
+      district: body.district || 'Ernakulam',
       supervisorName: body.supervisorName,
       scheduledDate: body.scheduledDate || new Date().toISOString().split('T')[0],
       doorCount: Number(body.doorCount) || 1,

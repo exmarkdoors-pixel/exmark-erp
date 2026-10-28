@@ -42,6 +42,7 @@ import { DoorMeasurementModal } from './DoorMeasurementModal';
 import { SiteMeasurementRecord } from '@/types/measurements';
 import ProductCategoriesSettings from '@/components/settings/ProductCategoriesSettings';
 import AdminCustomizationSettings from '@/components/settings/AdminCustomizationSettings';
+import CompanyFactoryProfileSettings from '@/components/settings/CompanyFactoryProfileSettings';
 import { CustomerFormModal } from './customers/CustomerFormModal';
 import { LeadFormModal } from './crm/LeadFormModal';
 import { QuotationBuilder } from './quotations/QuotationBuilder';
@@ -2223,7 +2224,7 @@ export function DispatchInstallationView() {
             <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
               <span className="text-[10px] font-bold uppercase text-slate-400">Total Active Dispatches</span>
               <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">{dispatches.length} Trips</p>
-              <p className="text-[11px] text-slate-400">Palakkad central plant distribution</p>
+              <p className="text-[11px] text-slate-400">Central factory plant distribution</p>
             </div>
             <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
               <span className="text-[10px] font-bold uppercase text-blue-500">Doors In Transit</span>
@@ -2854,44 +2855,7 @@ export function SettingsView() {
 
       {activeTab === 'categories' && <ProductCategoriesSettings />}
 
-      {activeTab === 'profile' && (
-        <div className="bg-white dark:bg-[#0B132B] p-6 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4 max-w-3xl">
-          <h3 className="font-bold text-sm text-slate-900 dark:text-white">EXMARK DOORS Enterprise Profile</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div>
-              <label className="block text-slate-400 mb-1">Company Registered Name</label>
-              <input
-                type="text"
-                readOnly
-                value={DEMO_COMPANY_INFO.name}
-                className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-medium"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-400 mb-1">GSTIN Number (Kerala)</label>
-              <input
-                type="text"
-                readOnly
-                value={DEMO_COMPANY_INFO.gstin}
-                className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-medium"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-slate-400 mb-1">Manufacturing Plant Location</label>
-              <input
-                type="text"
-                readOnly
-                value={DEMO_COMPANY_INFO.factoryLocation}
-                className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-medium"
-              />
-            </div>
-          </div>
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs text-slate-400">
-            <span>Primary Focus: 100% Waterproof FRP Architectural Doors (HSN 3925.20.00)</span>
-            <span className="text-emerald-500 font-bold">System Status: Active</span>
-          </div>
-        </div>
-      )}
+      {activeTab === 'profile' && <CompanyFactoryProfileSettings />}
     </div>
   );
 }

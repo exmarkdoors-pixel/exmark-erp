@@ -4,6 +4,7 @@ import { UserRole } from '@/lib/auth/roles';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 import { verifyPassword } from '@/lib/auth/password';
 import prisma from '@/lib/prisma';
+import { getActiveFactory } from '@/lib/services/companyProfileService';
 
 export async function POST(req: NextRequest) {
   try {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
         role: userRecord.role.name as UserRole,
         employeeCode: userRecord.employee?.employeeCode,
         department: userRecord.employee?.department,
-        plantLocation: 'Palakkad Manufacturing Plant',
+        plantLocation: getActiveFactory().name,
       };
 
       await createSessionCookie(sessionUser);

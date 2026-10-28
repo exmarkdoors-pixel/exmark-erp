@@ -19,6 +19,19 @@ export default function ProductionStatus({
   onViewAllProduction,
 }: ProductionStatusProps) {
   const { isWpcEnabled } = useProductCategories();
+  const [factoryDisplayName, setFactoryDisplayName] = React.useState<string>('Central Manufacturing Unit');
+
+  React.useEffect(() => {
+    fetch('/api/settings/company-profile?view=active')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.activeFactory?.name) {
+          const fac = data.activeFactory;
+          setFactoryDisplayName(fac.address?.district ? `${fac.name} (${fac.address.district})` : fac.name);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Requirement: When WPC is OFF, hide WPC production workflows, focus on FRP
   const activeLines = isWpcEnabled
@@ -67,7 +80,7 @@ export default function ProductionStatus({
             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               Factory Floor & Production Lines
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                Palakkad Unit
+                {factoryDisplayName}
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">

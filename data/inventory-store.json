@@ -8,7 +8,7 @@
     "unit": "KG",
     "reorderLevel": 1200,
     "unitCost": 195,
-    "warehouseLocation": "Palakkad Chemical Bay 1",
+    "warehouseLocation": "Chemical Bay 1",
     "status": "In Stock"
   },
   {
@@ -20,7 +20,7 @@
     "unit": "KG",
     "reorderLevel": 500,
     "unitCost": 160,
-    "warehouseLocation": "Palakkad Fiber Bay 2",
+    "warehouseLocation": "Fiber Bay 2",
     "status": "In Stock"
   },
   {
@@ -32,7 +32,7 @@
     "unit": "KG",
     "reorderLevel": 1000,
     "unitCost": 115,
-    "warehouseLocation": "Palakkad Bay 3 (Extrusion)",
+    "warehouseLocation": "Bay 3 (Extrusion)",
     "status": "Low Stock"
   },
   {

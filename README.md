@@ -1,6 +1,6 @@
 # EXMARK ERP — Kerala FRP Door Manufacturing & Business Platform
 **Version:** 2.4.0-Production | **Branding:** Dark Navy (`#0B132B`), Accent Red (`#E63946`), Clean White  
-**Target Enterprise:** EXMARK Doors — Palakkad Central Manufacturing Plant & Kerala Branch Offices
+**Target Enterprise:** EXMARK Doors — Central Manufacturing Plant & Kerala Branch Offices
 
 ---
 

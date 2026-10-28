@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       phone: body.phone || '+91 94470 00000',
       email: body.email || 'staff@exmarkdoors.com',
       status: 'ACTIVE',
-      location: body.location || 'Palakkad Plant',
+      location: body.location || 'Central Manufacturing Plant',
     };
 
     list.push(newEmp);

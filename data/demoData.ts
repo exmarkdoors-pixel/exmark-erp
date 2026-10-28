@@ -12,7 +12,7 @@ import {
 export const DEMO_COMPANY_INFO = {
   name: 'EXMARK Doors & Frames',
   tagline: 'Premium FRP & WPC Architectural Doors',
-  factoryLocation: 'Kinfra Integrated Industrial Park, Palakkad / Calicut Corridor, Kerala',
+  factoryLocation: 'Central Manufacturing Unit [Configure in Admin Settings]',
   corporateOffice: 'Door Innovation Tower, NH Bypass, Ernakulam, Kerala 682025',
   supportPhone: '+91 484 290 8800',
   gstin: '32AABCE9821K1ZN',

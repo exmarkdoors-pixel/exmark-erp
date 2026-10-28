@@ -55,6 +55,8 @@ export default function Home() {
   const [liveKpiMetrics, setLiveKpiMetrics] = useState<KpiMetric[]>([]);
   const [liveRecentOrders, setLiveRecentOrders] = useState<OrderItem[]>([]);
   const [liveSidebarBadges, setLiveSidebarBadges] = useState<Record<string, string>>({});
+  const [activeFactoryName, setActiveFactoryName] = useState<string>('Central Manufacturing Unit');
+  const [brandName, setBrandName] = useState<string>('EXMARK DOORS');
 
   // Verify and load active session user
   useEffect(() => {
@@ -64,6 +66,22 @@ export default function Home() {
         if (data.authenticated && data.user) {
           setUserRole(data.user.role);
           setUserName(data.user.name);
+        }
+      })
+      .catch(() => {
+        // Fallback to default
+      });
+
+    fetch('/api/settings/company-profile?view=active')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          if (data.data.brandName) setBrandName(data.data.brandName);
+          if (data.activeFactory?.name) {
+            const fac = data.activeFactory;
+            const displayName = fac.address?.district ? `${fac.name} (${fac.address.district})` : fac.name;
+            setActiveFactoryName(displayName);
+          }
         }
       })
       .catch(() => {
@@ -197,7 +215,7 @@ export default function Home() {
                         </span>
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
                           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          Palakkad Plant: Active
+                          {activeFactoryName}: Active
                         </span>
                       </div>
                       <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
@@ -334,9 +352,9 @@ export default function Home() {
           <footer className="mt-auto border-t border-slate-800/80 bg-[#070D1E] py-4 px-6 text-xs text-slate-400">
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-white tracking-wider">EXMARK DOORS</span>
+                <span className="font-bold text-white tracking-wider">{brandName}</span>
                 <span>•</span>
-                <span>Palakkad Plant &amp; Ernakulam Corporate Hub</span>
+                <span>{activeFactoryName} &amp; Corporate Hub</span>
               </div>
               <div className="flex items-center gap-4 text-[11px]">
                 <span className="text-slate-400">FRP Molded &amp; WPC Solid Composite Doors</span>

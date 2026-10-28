@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { createProductionOrder } from '@/lib/services/productionService';
+import { getActiveFactory } from '@/lib/services/companyProfileService';
 
 const STORE_PATH = path.join(process.cwd(), 'data', 'quotations-store.json');
 const CUSTOMERS_PATH = path.join(process.cwd(), 'data', 'customers-store.json');
@@ -161,9 +162,10 @@ export async function POST(req: Request) {
           quotes[idx].productionOrderId = prodOrder.id;
           fs.writeFileSync(STORE_PATH, JSON.stringify(quotes, null, 2), 'utf8');
 
+          const activeFactory = getActiveFactory();
           return NextResponse.json({
             success: true,
-            message: `Work order released to Palakkad press lines. Job card ${prodOrder.jobCardNumber} created.`,
+            message: `Work order released to ${activeFactory.name} press lines. Job card ${prodOrder.jobCardNumber} created.`,
             productionOrder: prodOrder,
             updated: quotes[idx],
           });

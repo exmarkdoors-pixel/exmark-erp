@@ -426,5 +426,39 @@
     "customerCode": "EXM-CUST-1028",
     "createdAt": "2026-10-28T16:42:33.096Z",
     "updatedAt": "2026-10-28T16:42:33.096Z"
+  },
+  {
+    "name": "Skyline Horizon Builders (Test-1793207211488)",
+    "phone": "+91 98470 12345",
+    "email": "skyline.1793207211488@example.com",
+    "district": "Ernakulam",
+    "town": "Kakkanad",
+    "address": "Horizon Heights, Near Infopark, Kakkanad, Kochi",
+    "gstin": "32AABCS1234F1Z8",
+    "type": "BUILDER",
+    "creditLimit": 500000,
+    "outstandingBalance": 0,
+    "status": "ACTIVE",
+    "id": "cust-1793207211499-722",
+    "customerCode": "EXM-CUST-1029",
+    "createdAt": "2026-10-28T17:06:51.499Z",
+    "updatedAt": "2026-10-28T17:06:51.499Z"
+  },
+  {
+    "name": "Skyline Horizon Builders (Test-1793208820305)",
+    "phone": "+91 98470 12345",
+    "email": "skyline.1793208820305@example.com",
+    "district": "Ernakulam",
+    "town": "Kakkanad",
+    "address": "Horizon Heights, Near Infopark, Kakkanad, Kochi",
+    "gstin": "32AABCS1234F1Z8",
+    "type": "BUILDER",
+    "creditLimit": 500000,
+    "outstandingBalance": 0,
+    "status": "ACTIVE",
+    "id": "cust-1793208820313-1155",
+    "customerCode": "EXM-CUST-1030",
+    "createdAt": "2026-10-28T17:33:40.313Z",
+    "updatedAt": "2026-10-28T17:33:40.313Z"
   }
 ]

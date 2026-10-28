@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { getActiveFactory } from '@/lib/services/companyProfileService';
 
 interface DashboardMetricItem {
   id: string;
@@ -145,7 +146,7 @@ export async function GET() {
         change: `${totalProductionDoors} Doors`,
         isPositive: production.length > 0,
         period: 'active floor load',
-        subtext: 'Palakkad FRP Hydraulic Presses • Deterministic cutting sheet ready',
+        subtext: `${getActiveFactory().name} FRP Hydraulic Presses • Deterministic cutting sheet ready`,
         badge: 'Plant Verified',
         iconName: 'Factory',
         accentColor: 'from-blue-500 to-indigo-600',

@@ -29,7 +29,7 @@ const ROLE_PRESETS: RolePreset[] = [
   { role: 'Management', email: 'management@exmarkdoors.com', name: 'Amina Rahman', dept: 'Operations & KPI Oversight' },
   { role: 'Sales', email: 'sales.calicut@exmarkdoors.com', name: 'Shabeer Ali', dept: 'Kerala Dealer & Builder Sales' },
   { role: 'Accounts', email: 'accounts.kochi@exmarkdoors.com', name: 'Varghese Mathew', dept: 'GST, e-Way & Receivables' },
-  { role: 'Production', email: 'plant.palakkad@exmarkdoors.com', name: 'Rajesh P.', dept: 'FRP Press & WPC Extrusion' },
+  { role: 'Production', email: 'plant@exmarkdoors.com', name: 'Rajesh P.', dept: 'FRP Press & WPC Extrusion' },
   { role: 'Inventory', email: 'inventory@exmarkdoors.com', name: 'Deepa V.', dept: 'Raw Material Silos & Hardware' },
   { role: 'Purchase', email: 'purchase@exmarkdoors.com', name: 'Suresh Kumar', dept: 'Chemicals & Polymer Procurement' },
   { role: 'HR', email: 'hr@exmarkdoors.com', name: 'Priya Nair', dept: 'Plant Rosters & Factory Staff' },
@@ -107,7 +107,7 @@ export default function LoginPage() {
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-medium tracking-tight">
-              KERALA FRP & WPC DOORS • PALAKKAD PLANT
+              KERALA FRP & WPC DOORS • ENTERPRISE OPERATIONS
             </p>
           </div>
         </div>

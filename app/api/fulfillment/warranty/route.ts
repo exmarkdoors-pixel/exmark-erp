@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       salesOrderId: body.salesOrderId || null,
       customerName: body.customerName,
       siteAddress: body.siteAddress,
-      district: body.district || 'Palakkad',
+      district: body.district || 'Ernakulam',
       warrantyPeriodYears: Number(body.warrantyPeriodYears) === 15 ? 15 : 10,
       coveredDoors: Array.isArray(body.coveredDoors) ? body.coveredDoors : [
         {

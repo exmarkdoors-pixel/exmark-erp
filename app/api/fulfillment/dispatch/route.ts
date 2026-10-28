@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       salesOrderId: body.salesOrderId || null,
       customerName: body.customerName,
       destinationAddress: body.destinationAddress,
-      deliveryDistrict: body.deliveryDistrict || 'Palakkad',
+      deliveryDistrict: body.deliveryDistrict || 'Ernakulam',
       vehicleNumber: body.vehicleNumber,
       driverName: body.driverName,
       driverPhone: body.driverPhone || '',
