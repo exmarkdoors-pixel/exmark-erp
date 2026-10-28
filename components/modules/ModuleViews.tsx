@@ -32,6 +32,7 @@ import {
   Share2,
   Award,
   ShieldCheck,
+  Download,
 } from 'lucide-react';
 import {
   DEMO_INVENTORY,
@@ -995,6 +996,40 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
  * 5. SALES ORDERS VIEW
  * ------------------------------------------------------------- */
 export function SalesOrdersView() {
+  const [orders, setOrders] = useState<Array<{
+    id: string;
+    orderNumber: string;
+    customerName: string;
+    district: string;
+    date: string;
+    totalDoors: number;
+    totalAmount: number;
+    advanceAmount: number;
+    advanceVerified: boolean;
+    orderStatus: string;
+  }>>([]);
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+
+  useEffect(() => {
+    fetch('/api/orders')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setOrders(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const filteredOrders = filterStatus === 'ALL'
+    ? orders
+    : orders.filter((o) => o.orderStatus === filterStatus);
+
+  const totalDoors = orders.reduce((sum, o) => sum + o.totalDoors, 0);
+  const totalValue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const inProd = orders.filter((o) => o.orderStatus === 'IN_PRODUCTION').length;
+  const readyDispatch = orders.filter((o) => o.orderStatus === 'READY_TO_DISPATCH').length;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1004,31 +1039,105 @@ export function SalesOrdersView() {
             Complete Sales Orders Registry
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Work orders, advance receipts, dispatch dispatch dates & GST invoice status
+            Work orders, advance receipts, dispatch dates &amp; GST invoice status across Kerala
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Total Active Orders</span>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">18 Orders</p>
-          <span className="text-[11px] text-emerald-500 font-semibold">171 Door Sets</span>
+          <span className="text-xs text-slate-400">Total Confirmed Orders</span>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white">{orders.length} Orders</p>
+          <span className="text-[11px] text-emerald-500 font-semibold">{totalDoors} Door Sets</span>
         </div>
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <span className="text-xs text-slate-400">Total Work Order Value</span>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">₹16.41 Lakhs</p>
-          <span className="text-[11px] text-slate-400">Average: ₹91.1k/order</span>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white">
+            ₹{(totalValue / 100000).toFixed(2)} Lakhs
+          </p>
+          <span className="text-[11px] text-slate-400">18% GST Included</span>
         </div>
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <span className="text-xs text-slate-400">In Production Floor</span>
-          <p className="text-2xl font-bold text-blue-500">11 Orders</p>
-          <span className="text-[11px] text-blue-400">FRP Press & CNC</span>
+          <p className="text-2xl font-bold text-blue-500">{inProd} Orders</p>
+          <span className="text-[11px] text-blue-400">FRP Press &amp; CNC</span>
         </div>
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <span className="text-xs text-slate-400">Ready to Dispatch</span>
-          <p className="text-2xl font-bold text-emerald-500">4 Orders</p>
+          <p className="text-2xl font-bold text-emerald-500">{readyDispatch} Orders</p>
           <span className="text-[11px] text-emerald-400">QC Passed</span>
+        </div>
+      </div>
+
+      {/* Orders Table */}
+      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center flex-wrap gap-2">
+          <div className="flex gap-2">
+            {['ALL', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_DISPATCH'].map((st) => (
+              <button
+                key={st}
+                onClick={() => setFilterStatus(st)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                  filterStatus === st
+                    ? 'bg-red-600 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                {st.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-slate-400">{filteredOrders.length} records found</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className="p-3">Order Ref</th>
+                <th className="p-3">Customer &amp; Site</th>
+                <th className="p-3">District</th>
+                <th className="p-3">Doors</th>
+                <th className="p-3">Total Value</th>
+                <th className="p-3">Advance Status</th>
+                <th className="p-3">Production Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredOrders.map((ord) => (
+                <tr key={ord.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                  <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">
+                    {ord.orderNumber}
+                  </td>
+                  <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">
+                    {ord.customerName}
+                  </td>
+                  <td className="p-3 text-slate-500">{ord.district}</td>
+                  <td className="p-3 font-bold text-red-500">{ord.totalDoors} Units</td>
+                  <td className="p-3 font-semibold text-slate-900 dark:text-white">
+                    ₹{ord.totalAmount.toLocaleString('en-IN')}
+                  </td>
+                  <td className="p-3">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">
+                      <CheckCircle2 className="w-3 h-3" /> Advance ₹{ord.advanceAmount.toLocaleString('en-IN')}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        ord.orderStatus === 'READY_TO_DISPATCH'
+                          ? 'bg-emerald-500/15 text-emerald-500'
+                          : ord.orderStatus === 'IN_PRODUCTION'
+                          ? 'bg-blue-500/15 text-blue-500'
+                          : 'bg-amber-500/15 text-amber-500'
+                      }`}
+                    >
+                      {ord.orderStatus.replace(/_/g, ' ')}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1313,21 +1422,64 @@ export function ProductionView() {
  * 7. INVENTORY VIEW
  * ------------------------------------------------------------- */
 export function InventoryView() {
+  const [inventory, setInventory] = useState<Array<{
+    id: string;
+    itemCode: string;
+    name: string;
+    category: string;
+    currentStock: number;
+    unit: string;
+    reorderLevel: number;
+    warehouseLocation: string;
+    status: string;
+  }>>([]);
+
+  const loadInventory = () => {
+    fetch('/api/inventory')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setInventory(json.data);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadInventory();
+  }, []);
+
+  const handleAdjustStock = async (id: string, adjustment: number) => {
+    try {
+      const res = await fetch('/api/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ADJUST_STOCK', id, adjustment }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setInventory((prev) => prev.map((item) => (item.id === id ? json.data : item)));
+      }
+    } catch (err) {
+      console.error('Failed to adjust stock:', err);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Boxes className="w-6 h-6 text-red-500" />
-            Raw Material & Hardware Inventory
+            Raw Material &amp; Hardware Inventory
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Resin chemicals, fiberglass roving, WPC virgin polymer granules & SS hinges
+            Resin chemicals, fiberglass roving, WPC virgin polymer granules &amp; SS hinges
           </p>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
             <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase text-[10px]">
@@ -1339,16 +1491,19 @@ export function InventoryView() {
                 <th className="p-3">Reorder Point</th>
                 <th className="p-3">Warehouse Bay</th>
                 <th className="p-3">Status</th>
+                <th className="p-3 text-right">Quick Stock In / Out</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {DEMO_INVENTORY.map((item) => (
+              {inventory.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
                   <td className="p-3 font-mono text-slate-400">{item.itemCode}</td>
                   <td className="p-3 font-bold text-slate-900 dark:text-white">{item.name}</td>
                   <td className="p-3">{item.category}</td>
-                  <td className="p-3 font-bold text-slate-900 dark:text-white">{item.currentStock} {item.unit}</td>
-                  <td className="p-3">{item.reorderLevel} {item.unit}</td>
+                  <td className="p-3 font-bold text-slate-900 dark:text-white">
+                    {item.currentStock} {item.unit}
+                  </td>
+                  <td className="p-3 text-slate-400">{item.reorderLevel} {item.unit}</td>
                   <td className="p-3 text-slate-400">{item.warehouseLocation}</td>
                   <td className="p-3">
                     <span
@@ -1360,6 +1515,24 @@ export function InventoryView() {
                     >
                       {item.status}
                     </span>
+                  </td>
+                  <td className="p-3 text-right">
+                    <div className="inline-flex gap-1.5">
+                      <button
+                        onClick={() => handleAdjustStock(item.id, 50)}
+                        className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-bold hover:bg-emerald-500/20 text-[10px]"
+                        title="Add 50 units"
+                      >
+                        +50 In
+                      </button>
+                      <button
+                        onClick={() => handleAdjustStock(item.id, -25)}
+                        className="px-2 py-0.5 rounded bg-red-500/10 text-red-600 font-bold hover:bg-red-500/20 text-[10px]"
+                        title="Consume 25 units"
+                      >
+                        -25 Out
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1375,35 +1548,131 @@ export function InventoryView() {
  * 8. PURCHASES VIEW
  * ------------------------------------------------------------- */
 export function PurchasesView() {
+  const [purchases, setPurchases] = useState<Array<{
+    id: string;
+    poNumber: string;
+    supplierName: string;
+    supplierGst: string;
+    orderDate: string;
+    expectedDate: string;
+    itemsSummary: string;
+    subtotal: number;
+    gstAmount: number;
+    totalAmount: number;
+    status: string;
+    paymentTerms: string;
+  }>>([]);
+
+  const loadPurchases = () => {
+    fetch('/api/purchases')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setPurchases(json.data);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadPurchases();
+  }, []);
+
+  const totalSpend = purchases.reduce((sum, p) => sum + p.totalAmount, 0);
+  const totalGstCredit = purchases.reduce((sum, p) => sum + p.gstAmount, 0);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Layers className="w-6 h-6 text-red-500" />
-            Purchases & Supplier Invoices
+            Purchases &amp; Supplier Invoices
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Resin suppliers, wood composite granules, glass fiber rolls & packaging procurement
+            Resin chemicals, glass fiber rolls, hardware fittings &amp; packaging procurement
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Monthly Purchase Volume</span>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">₹19.45 Lakhs</p>
-          <span className="text-[11px] text-slate-400">Oct 2026 Raw Materials</span>
+          <span className="text-xs text-slate-400">Monthly Procurement Volume</span>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white">
+            ₹{(totalSpend / 100000).toFixed(2)} Lakhs
+          </p>
+          <span className="text-[11px] text-slate-400">Active Vendor POs</span>
         </div>
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <span className="text-xs text-slate-400">Active Vendor POs</span>
-          <p className="text-2xl font-bold text-blue-500">6 Purchase Orders</p>
-          <span className="text-[11px] text-blue-400">Kerala & Gujarat Chemical Hubs</span>
+          <p className="text-2xl font-bold text-blue-500">{purchases.length} Purchase Orders</p>
+          <span className="text-[11px] text-blue-400">Kerala &amp; Gujarat Chemical Hubs</span>
         </div>
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <span className="text-xs text-slate-400">Input Tax Credit (GST)</span>
-          <p className="text-2xl font-bold text-emerald-500">₹3.50 Lakhs</p>
-          <span className="text-[11px] text-emerald-400">Available on GSTR-2B</span>
+          <p className="text-2xl font-bold text-emerald-500">
+            ₹{(totalGstCredit / 100000).toFixed(2)} Lakhs
+          </p>
+          <span className="text-[11px] text-emerald-400">Claimable on GSTR-2B</span>
+        </div>
+      </div>
+
+      {/* PO Table */}
+      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+          <h3 className="font-bold text-xs uppercase text-slate-500">Vendor Purchase Orders Registry</h3>
+          <span className="text-xs text-slate-400">{purchases.length} POs recorded</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className="p-3">PO Number</th>
+                <th className="p-3">Vendor / Supplier</th>
+                <th className="p-3">Order Date</th>
+                <th className="p-3">Materials Description</th>
+                <th className="p-3">Total Amount</th>
+                <th className="p-3">Input GST (18%)</th>
+                <th className="p-3">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {purchases.map((po) => (
+                <tr key={po.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                  <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">
+                    {po.poNumber}
+                  </td>
+                  <td className="p-3">
+                    <div className="font-semibold text-slate-800 dark:text-slate-200">{po.supplierName}</div>
+                    <div className="text-[10px] font-mono text-slate-400">{po.supplierGst}</div>
+                  </td>
+                  <td className="p-3 text-slate-500">{po.orderDate}</td>
+                  <td className="p-3 text-slate-700 dark:text-slate-300 max-w-xs truncate">
+                    {po.itemsSummary}
+                  </td>
+                  <td className="p-3 font-bold text-slate-900 dark:text-white">
+                    ₹{po.totalAmount.toLocaleString('en-IN')}
+                  </td>
+                  <td className="p-3 font-semibold text-emerald-600">
+                    ₹{po.gstAmount.toLocaleString('en-IN')}
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        po.status === 'DELIVERED'
+                          ? 'bg-emerald-500/15 text-emerald-500'
+                          : po.status === 'IN_TRANSIT'
+                          ? 'bg-blue-500/15 text-blue-500'
+                          : 'bg-amber-500/15 text-amber-500'
+                      }`}
+                    >
+                      {po.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1661,14 +1930,28 @@ export function AccountsGstView() {
  * 10. EMPLOYEES VIEW
  * ------------------------------------------------------------- */
 export function EmployeesView() {
-  const employees = [
-    { name: 'Nazer Karumban', role: 'Plant & Operations Director', dept: 'Executive & Strategy', phone: '+91 94470 12000' },
-    { name: 'Rajesh P.', role: 'FRP Hydraulic Press Lead', dept: 'Production Line 1', phone: '+91 98471 44551' },
-    { name: 'Binu Kumar', role: 'WPC Extrusion Specialist', dept: 'Production Line 2', phone: '+91 97450 66772' },
-    { name: 'Faizal Rahman', role: '5-Axis CNC & CAD/CAM Lead', dept: 'CNC Routing', phone: '+91 99951 88990' },
-    { name: 'Deepa V.', role: 'Quality Assurance Head', dept: 'Testing & QA', phone: '+91 94002 33441' },
-    { name: 'Anoop Krishnan', role: 'Senior Site Measurement Eng.', dept: 'Field Operations', phone: '+91 94463 55667' },
-  ];
+  const [employees, setEmployees] = useState<Array<{
+    id: string;
+    employeeCode: string;
+    name: string;
+    role: string;
+    department: string;
+    phone: string;
+    email: string;
+    status: string;
+    location: string;
+  }>>([]);
+
+  useEffect(() => {
+    fetch('/api/employees')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setEmployees(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -1676,29 +1959,35 @@ export function EmployeesView() {
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <UserCheck className="w-6 h-6 text-red-500" />
-            Factory Staff & Field Engineers Roster
+            Factory Staff &amp; Field Engineers Roster
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Factory technicians, CNC programmers, QC inspectors and site measurement supervisors
+            Factory technicians, CNC programmers, QC inspectors and site measurement supervisors across Kerala
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {employees.map((emp, i) => (
-          <div key={i} className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+        {employees.map((emp) => (
+          <div key={emp.id} className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-red-500">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 dark:bg-slate-800 flex items-center justify-center font-bold text-red-500">
                 {emp.name.split(' ').map((n) => n[0]).join('')}
               </div>
               <div>
-                <h4 className="font-bold text-sm text-slate-900 dark:text-white">{emp.name}</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">{emp.name}</h4>
+                  <span className="text-[10px] font-mono text-slate-400">{emp.employeeCode}</span>
+                </div>
                 <p className="text-xs text-red-500 font-medium">{emp.role}</p>
               </div>
             </div>
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400 flex justify-between">
-              <span>{emp.dept}</span>
-              <span>{emp.phone}</span>
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 flex justify-between items-center">
+              <span>{emp.department}</span>
+              <span className="font-mono text-slate-600 dark:text-slate-400">{emp.phone}</span>
+            </div>
+            <div className="text-[10px] text-slate-400">
+              Station: {emp.location}
             </div>
           </div>
         ))}
@@ -2229,6 +2518,34 @@ export function ReportsView() {
     window.print();
   };
 
+  const handleExportCsv = () => {
+    if (!reportResult || !reportResult.rows.length) return;
+    const colKeys = Object.keys(reportResult.rows[0]);
+    const headers = colKeys.map((k) => `"${k.replace(/([A-Z])/g, ' $1').trim()}"`).join(',');
+    const rows = reportResult.rows
+      .map((row) =>
+        colKeys
+          .map((k) => {
+            const val = row[k];
+            if (val === undefined || val === null) return '""';
+            return typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val;
+          })
+          .join(',')
+      )
+      .join('\n');
+    const blob = new Blob([`${headers}\n${rows}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `EXMARK_${selectedReportCode}_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setToastMessage(`Exported ${reportResult.title} to Excel/CSV`);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
   const REPORT_OPTIONS = [
     { code: 'SALES_BY_DISTRICT', title: 'District Sales & Dealer Volume' },
     { code: 'PRODUCTION_EFFICIENCY', title: 'Plant Line Output & QC Yield' },
@@ -2262,6 +2579,12 @@ export function ReportsView() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
           >
             <Share2 className="w-3.5 h-3.5" /> Share via WhatsApp
+          </button>
+          <button
+            onClick={handleExportCsv}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-500" /> Export Excel / CSV
           </button>
           <button
             onClick={handlePrint}
