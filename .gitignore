@@ -44,3 +44,10 @@ next-env.d.ts
 
 # backups
 /backups/
+
+# customer uploads, scans and documents
+/uploads/
+/public/uploads/
+*.pdf
+*.xlsx
+*.csv
