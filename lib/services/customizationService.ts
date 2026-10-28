@@ -174,6 +174,7 @@ export interface ERPConfiguration {
 }
 
 export interface ConfigurationRevision {
+  id: string;
   version: number;
   publishedAt: string;
   publishedBy: string;
@@ -470,6 +471,12 @@ export const DEFAULT_ERP_CONFIG: ERPConfiguration = {
   ],
 };
 
+function getNextVersion(revisions: ConfigurationRevision[]): number {
+  if (!revisions || revisions.length === 0) return 1;
+  const maxVersion = revisions.reduce((max, r) => Math.max(max, Number(r.version) || 0), 0);
+  return maxVersion + 1;
+}
+
 function readStore(): CustomizationStore {
   try {
     const dir = path.dirname(STORE_PATH);
@@ -483,6 +490,7 @@ function readStore(): CustomizationStore {
         draft: DEFAULT_ERP_CONFIG,
         revisions: [
           {
+            id: 'rev-init-v1',
             version: 1,
             publishedAt: new Date().toISOString(),
             publishedBy: 'Nazer Karumban (Super Admin)',
@@ -496,7 +504,26 @@ function readStore(): CustomizationStore {
     }
 
     const raw = fs.readFileSync(STORE_PATH, 'utf8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    let modified = false;
+
+    // Migrate existing revisions to guarantee stable unique ID on each
+    if (Array.isArray(parsed.revisions)) {
+      parsed.revisions = parsed.revisions.map((rev: ConfigurationRevision, index: number) => {
+        if (!rev.id) {
+          const ts = new Date(rev.publishedAt || Date.now()).getTime();
+          rev.id = `rev-${ts}-v${rev.version}-${index + 1}`;
+          modified = true;
+        }
+        return rev;
+      });
+    }
+
+    if (modified) {
+      fs.writeFileSync(STORE_PATH, JSON.stringify(parsed, null, 2), 'utf8');
+    }
+
+    return parsed;
   } catch (err) {
     console.error('[CustomizationService] Failed to read store:', err);
     return {
@@ -587,8 +614,9 @@ export async function publishConfiguration(
   publishedBy: string
 ): Promise<{ published: ERPConfiguration; revision: ConfigurationRevision }> {
   const store = readStore();
-  const nextVersion = (store.active.version || 1) + 1;
+  const nextVersion = getNextVersion(store.revisions);
   const now = new Date().toISOString();
+  const revId = `rev-${Date.now()}-v${nextVersion}`;
 
   const publishedConfig: ERPConfiguration = {
     ...store.draft,
@@ -606,6 +634,7 @@ export async function publishConfiguration(
   };
 
   const newRevision: ConfigurationRevision = {
+    id: revId,
     version: nextVersion,
     publishedAt: now,
     publishedBy,
@@ -622,51 +651,57 @@ export async function publishConfiguration(
   await logAuditEvent({
     action: 'SETTINGS_PUBLISHED',
     entityType: 'SETTINGS',
-    details: { version: nextVersion, publishedBy, changelog },
+    details: { version: nextVersion, publishedBy, changelog, revisionId: revId },
   });
 
   return { published: publishedConfig, revision: newRevision };
 }
 
 /**
- * Rollback configuration to a previous revision version
+ * Rollback configuration to a previous revision version or revision ID
  */
 export async function rollbackConfiguration(
-  targetVersion: number,
+  targetIdentifier: number | string,
   rolledBackBy: string
 ): Promise<ERPConfiguration> {
   const store = readStore();
-  const revision = store.revisions.find((r) => r.version === targetVersion);
+  const revision = store.revisions.find(
+    (r) => r.id === String(targetIdentifier) || r.version === Number(targetIdentifier)
+  );
 
   if (!revision) {
-    throw new Error(`Revision version ${targetVersion} not found in history.`);
+    throw new Error(`Revision "${targetIdentifier}" not found in history.`);
   }
+
+  const nextVersion = getNextVersion(store.revisions);
+  const now = new Date().toISOString();
+  const revId = `rev-${Date.now()}-v${nextVersion}-rb${revision.version}`;
 
   const rolledBackConfig: ERPConfiguration = {
     ...revision.configSnapshot,
-    lastUpdated: new Date().toISOString(),
-    updatedBy: `${rolledBackBy} (Rolled back to v${targetVersion})`,
+    version: nextVersion,
+    lastUpdated: now,
+    updatedBy: `${rolledBackBy} (Rolled back to v${revision.version})`,
+  };
+
+  const rollbackRevision: ConfigurationRevision = {
+    id: revId,
+    version: nextVersion,
+    publishedAt: now,
+    publishedBy: rolledBackBy,
+    changelog: `Rollback to settings from Version ${revision.version} (originally published ${new Date(revision.publishedAt).toLocaleDateString()})`,
+    configSnapshot: rolledBackConfig,
   };
 
   store.active = rolledBackConfig;
   store.draft = rolledBackConfig;
-
-  // Add rollback audit revision
-  const rollbackRevision: ConfigurationRevision = {
-    version: store.active.version + 1,
-    publishedAt: new Date().toISOString(),
-    publishedBy: rolledBackBy,
-    changelog: `Rollback to version ${targetVersion} originally published on ${revision.publishedAt}`,
-    configSnapshot: rolledBackConfig,
-  };
-
   store.revisions = [rollbackRevision, ...store.revisions];
   writeStore(store);
 
   await logAuditEvent({
     action: 'SETTINGS_ROLLBACK',
     entityType: 'SETTINGS',
-    details: { targetVersion, rolledBackBy },
+    details: { targetVersion: revision.version, newVersion: nextVersion, rolledBackBy, revisionId: revId },
   });
 
   return rolledBackConfig;

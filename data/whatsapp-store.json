@@ -1,5 +1,22 @@
 [
   {
+    "id": "wa-1793153301538-8681",
+    "recipientPhone": "+919846011223",
+    "recipientName": "Kerala Grand Villas",
+    "documentType": "QUOTATION",
+    "documentId": "QT-MSTR-701",
+    "templateName": "exmark_quotation_estimate",
+    "language": "en",
+    "providerMsgId": "wamid.HBgM1793153301538Exmark",
+    "status": "DELIVERED",
+    "payload": {
+      "quoteNumber": "QT-MSTR-701",
+      "amount": "₹3,40,000"
+    },
+    "sentAt": "2026-10-28T02:08:21.538Z",
+    "createdAt": "2026-10-28T02:08:21.538Z"
+  },
+  {
     "id": "wa-1793152602364-8496",
     "recipientPhone": "+919846011223",
     "recipientName": "Kerala Grand Villas",

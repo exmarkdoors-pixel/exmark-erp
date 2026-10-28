@@ -1,5 +1,147 @@
 [
   {
+    "refNumber": "MSR-2026-LIVE-9976",
+    "customerName": "Kallai Riverfront Builders",
+    "orderRef": "EXM-LIVE-999",
+    "siteName": "Live HTTP Persistence Test Suite",
+    "siteAddress": "Palakkad Industrial Area, Kerala",
+    "district": "Palakkad",
+    "totalOpenings": 1,
+    "engineerName": "Anoop Krishnan",
+    "date": "2026-10-28",
+    "status": "VERIFIED",
+    "doors": [
+      {
+        "doorNumber": "D1 - Front",
+        "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "frameType": "WPC Solid Extruded 100x65mm Frame",
+        "colour": "Burma Teak",
+        "hingeSide": "Left Hand (LH)",
+        "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+        "measurementUnit": "MM",
+        "heightLeft": 2120,
+        "heightRight": 2120,
+        "widthTop": 920,
+        "widthBottom": 920,
+        "id": "door-1793153374137-1"
+      }
+    ],
+    "id": "dm-1793153374137",
+    "createdAt": "2026-10-28T02:09:34.137Z",
+    "updatedAt": "2026-10-28T02:09:34.137Z"
+  },
+  {
+    "refNumber": "MSR-2026-MULTI-02",
+    "customerId": "cust-multi-kerala-1793153310824",
+    "customerName": "Kochi Waterfront Resorts Ltd",
+    "orderRef": "ORD-MULTI-02",
+    "siteName": "Cochin Marina Block B (Clubhouse)",
+    "district": "Ernakulam",
+    "totalOpenings": 1,
+    "engineerName": "Faisal Mohammed",
+    "date": "2026-10-28",
+    "status": "VERIFIED",
+    "doors": [
+      {
+        "doorNumber": "D201",
+        "model": "FRP CNC Carved Luxury Main Door (35mm with Inlay)",
+        "frameType": "FRP Wrap-Around Monolithic Frame",
+        "colour": "Rosewood Classical Kerala Finish",
+        "hingeSide": "Right Hand (RH)",
+        "lockType": "Digital Smart Lock Routing Prep",
+        "measurementUnit": "MM",
+        "heightLeft": 2150,
+        "heightRight": 2150,
+        "widthTop": 1000,
+        "widthBottom": 1000,
+        "id": "door-1793153310826-1"
+      }
+    ],
+    "id": "dm-1793153310826",
+    "createdAt": "2026-10-28T02:08:30.826Z",
+    "updatedAt": "2026-10-28T02:08:30.826Z"
+  },
+  {
+    "refNumber": "MSR-2026-MULTI-01",
+    "customerId": "cust-multi-kerala-1793153310824",
+    "customerName": "Kochi Waterfront Resorts Ltd",
+    "orderRef": "ORD-MULTI-01",
+    "siteName": "Cochin Marina Block A",
+    "district": "Ernakulam",
+    "totalOpenings": 1,
+    "engineerName": "Anoop Krishnan",
+    "date": "2026-10-28",
+    "status": "DRAFT",
+    "doors": [
+      {
+        "doorNumber": "D101",
+        "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "frameType": "WPC Solid Extruded 100x65mm Frame",
+        "colour": "Burma Teak",
+        "hingeSide": "Left Hand (LH)",
+        "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+        "measurementUnit": "MM",
+        "heightLeft": 2100,
+        "heightRight": 2100,
+        "widthTop": 900,
+        "widthBottom": 900,
+        "id": "door-1793153310824-1"
+      }
+    ],
+    "id": "dm-1793153310824",
+    "createdAt": "2026-10-28T02:08:30.824Z",
+    "updatedAt": "2026-10-28T02:08:30.824Z"
+  },
+  {
+    "refNumber": "MSR-2026-T001",
+    "customerId": "cust-1",
+    "customerName": "Malabar Luxury Builders, Kozhikode",
+    "orderRef": "EXM-ORD-TEST-001",
+    "siteName": "Skyline Palms Villa TEST-001 (EDITED)",
+    "siteAddress": "PT Usha Road, Kozhikode",
+    "district": "Kozhikode",
+    "totalOpenings": 2,
+    "engineerName": "Anoop Krishnan",
+    "date": "2026-10-28",
+    "rebateDepthMm": "38mm",
+    "wallThicknessMm": "150mm",
+    "notes": "Updated remarks for coastal humidity resistance",
+    "status": "VERIFIED",
+    "doors": [
+      {
+        "doorNumber": "D1 - Main",
+        "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+        "frameType": "WPC Solid Extruded 100x65mm Frame",
+        "colour": "Burma Teak",
+        "hingeSide": "Left Hand (LH)",
+        "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+        "measurementUnit": "MM",
+        "heightLeft": 2100,
+        "heightRight": 2100,
+        "widthTop": 900,
+        "widthBottom": 900,
+        "id": "door-1793153310815-1"
+      },
+      {
+        "doorNumber": "D2 - Bath",
+        "model": "WPC Solid Waterproof Bathroom Door (30mm)",
+        "frameType": "WPC Solid Extruded 100x65mm Frame",
+        "colour": "Frost White",
+        "hingeSide": "Right Hand (RH)",
+        "lockType": "Bathroom Baby Latch / Coin-Turn Latch",
+        "measurementUnit": "MM",
+        "heightLeft": 2050,
+        "heightRight": 2050,
+        "widthTop": 750,
+        "widthBottom": 750,
+        "id": "door-1793153310815-2"
+      }
+    ],
+    "id": "dm-1793153310814",
+    "createdAt": "2026-10-28T02:08:30.814Z",
+    "updatedAt": "2026-10-28T02:08:30.820Z"
+  },
+  {
     "refNumber": "MSR-2026-9052",
     "customerName": "nazz",
     "orderRef": "EXM-2026-1082",
@@ -880,10 +1022,9 @@
     "date": "2026-10-25",
     "rebateDepthMm": "100x65mm rebate with 12mm tile offset",
     "wallThicknessMm": "125mm RCC wall",
-    "notes": "Bathrooms have 12mm tile step rebate. Water-barrier threshold required.",
-    "status": "SENT_TO_PRODUCTION",
+    "status": "APPROVED",
     "createdAt": "2026-10-25T10:00:00.000Z",
-    "updatedAt": "2026-10-25T14:30:00.000Z",
+    "updatedAt": "2026-10-28T02:05:10.784Z",
     "doors": [
       {
         "id": "door-101-1",
@@ -1041,10 +1182,9 @@
     "date": "2026-10-27",
     "rebateDepthMm": "Standard 100mm masonry wall",
     "wallThicknessMm": "100mm brick wall",
-    "notes": "Draft measurements recorded for client review.",
-    "status": "DRAFT",
+    "status": "VERIFIED",
     "createdAt": "2026-10-27T09:00:00.000Z",
-    "updatedAt": "2026-10-27T09:00:00.000Z",
+    "updatedAt": "2026-10-28T02:04:52.634Z",
     "doors": [
       {
         "id": "door-103-1",
@@ -1080,6 +1220,7 @@
         "rebateDepth": "38mm",
         "remarks": "High wind and rain exposure on terrace."
       }
-    ]
+    ],
+    "notes": ""
   }
 ]

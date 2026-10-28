@@ -151,18 +151,18 @@ export default function AdminCustomizationSettings() {
     }
   };
 
-  const handleRollback = async (version: number) => {
-    if (!confirm(`Are you sure you want to rollback to configuration Version ${version}?`)) return;
+  const handleRollback = async (target: string | number) => {
+    if (!confirm(`Are you sure you want to rollback to configuration revision ${target}?`)) return;
     try {
       const res = await fetch('/api/settings/customizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'ROLLBACK', targetVersion: version }),
+        body: JSON.stringify({ action: 'ROLLBACK', targetIdentifier: target }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || 'Failed to rollback');
       setConfig(json.data);
-      showToast('success', `Successfully rolled back to configuration v${version}.`);
+      showToast('success', `Successfully rolled back to configuration v${json.data.version}.`);
       refreshSettings();
     } catch (err: unknown) {
       showToast('error', err instanceof Error ? err.message : 'Rollback failed');
@@ -725,12 +725,15 @@ export default function AdminCustomizationSettings() {
           <div className="space-y-3">
             {revisions.map((rev) => (
               <div
-                key={rev.version}
+                key={rev.id || `rev-${rev.version}-${rev.publishedAt}`}
                 className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
               >
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-bold text-white text-sm">Version {rev.version}</span>
+                    {rev.id && (
+                      <span className="font-mono text-[10px] text-slate-500">({rev.id})</span>
+                    )}
                     {rev.version === config.version && (
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300">
                         ACTIVE
@@ -745,7 +748,7 @@ export default function AdminCustomizationSettings() {
 
                 {rev.version !== config.version && (
                   <button
-                    onClick={() => handleRollback(rev.version)}
+                    onClick={() => handleRollback(rev.id || rev.version)}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />

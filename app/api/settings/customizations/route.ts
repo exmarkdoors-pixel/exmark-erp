@@ -63,17 +63,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'ROLLBACK') {
-      const targetVersion = Number(body.targetVersion);
-      if (!targetVersion || targetVersion < 1) {
+      const targetIdentifier = body.targetIdentifier || body.targetVersion;
+      if (!targetIdentifier) {
         return NextResponse.json(
-          { success: false, error: 'Valid target version number is required for rollback.' },
+          { success: false, error: 'Valid target revision identifier or version is required for rollback.' },
           { status: 400 }
         );
       }
-      const rolledBack = await rollbackConfiguration(targetVersion, userName);
+      const rolledBack = await rollbackConfiguration(targetIdentifier, userName);
       return NextResponse.json({
         success: true,
-        message: `Successfully rolled back to configuration version ${targetVersion}.`,
+        message: `Successfully rolled back to configuration version ${rolledBack.version}.`,
         data: rolledBack,
       });
     }

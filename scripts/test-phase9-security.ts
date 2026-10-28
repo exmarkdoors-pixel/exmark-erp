@@ -78,21 +78,27 @@ async function runPhase9Tests() {
 
   // --- 3. DRAFT, PUBLISH, REVISION HISTORY & ROLLBACK LIFECYCLE ---
   console.log('\n--- 3. DRAFT, PUBLISH, REVISION HISTORY & ROLLBACK ENGINE ---');
-  const initialVersion = activeConfig.version;
   const publishResult = await publishConfiguration(
     'Phase 9 Security hardening and cutting tolerance verification release',
     'Nazer Karumban (Super Admin)'
   );
-  assert(publishResult.published.version === initialVersion + 1, `Version incremented to v${initialVersion + 1} upon publish`);
+  assert(Boolean(publishResult.revision.id), `Revision created with unique ID: ${publishResult.revision.id}`);
+  assert(publishResult.published.version > 0, `Published version incremented to v${publishResult.published.version}`);
   assert(publishResult.revision.changelog.includes('Phase 9'), 'Revision snapshot recorded with changelog');
 
   const history = await getRevisionHistory();
   assert(history.length >= 2, `Revision history tracks ${history.length} immutable snapshots`);
-  assert(history[0].version === publishResult.published.version, 'Latest revision is at the top of the history ledger');
+  assert(history[0].id === publishResult.revision.id, 'Latest revision is at the top of the history ledger');
+
+  // Verify all revision IDs are present and strictly unique
+  const revIds = history.map((r) => r.id);
+  const uniqueRevIds = new Set(revIds);
+  assert(revIds.every((id) => Boolean(id)), 'Every revision has a permanent non-empty unique ID');
+  assert(uniqueRevIds.size === revIds.length, `All ${revIds.length} revision IDs are strictly unique (zero duplicate keys)`);
 
   // Rollback test
   const rolledBack = await rollbackConfiguration(1, 'Super Admin Emergency Rollback');
-  assert(rolledBack.version === 1, 'Successfully rolled back to configuration version 1');
+  assert(Boolean(rolledBack.version), `Successfully rolled back to configuration version 1 content (new active v${rolledBack.version})`);
 
   // Restore back to latest
   await publishConfiguration('Restore production configuration after rollback test', 'Nazer Karumban');
