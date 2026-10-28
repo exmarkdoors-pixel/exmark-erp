@@ -1,0 +1,74 @@
+[
+  {
+    "id": "inv-001",
+    "itemCode": "RAW-RES-01",
+    "name": "Isophthalic Polyester Resin (Grade A)",
+    "category": "Chemicals",
+    "currentStock": 3850,
+    "unit": "KG",
+    "reorderLevel": 1200,
+    "unitCost": 195,
+    "warehouseLocation": "Palakkad Chemical Bay 1",
+    "status": "In Stock"
+  },
+  {
+    "id": "inv-002",
+    "itemCode": "RAW-FBR-02",
+    "name": "E-Glass Chopped Strand Mat (CSM 450)",
+    "category": "Fiberglass",
+    "currentStock": 1420,
+    "unit": "KG",
+    "reorderLevel": 500,
+    "unitCost": 160,
+    "warehouseLocation": "Palakkad Fiber Bay 2",
+    "status": "In Stock"
+  },
+  {
+    "id": "inv-003",
+    "itemCode": "RAW-WPC-03",
+    "name": "WPC Virgin Polymer Extrusion Compound",
+    "category": "Granules",
+    "currentStock": 890,
+    "unit": "KG",
+    "reorderLevel": 1000,
+    "unitCost": 115,
+    "warehouseLocation": "Palakkad Bay 3 (Extrusion)",
+    "status": "Low Stock"
+  },
+  {
+    "id": "inv-004",
+    "itemCode": "HRD-HNG-04",
+    "name": "Heavy Duty SS 304 Ball Bearing Hinges (5x3x3mm)",
+    "category": "Hardware",
+    "currentStock": 640,
+    "unit": "Pairs",
+    "reorderLevel": 200,
+    "unitCost": 280,
+    "warehouseLocation": "Hardware Rack H-12",
+    "status": "In Stock"
+  },
+  {
+    "id": "inv-005",
+    "itemCode": "CHM-PIG-05",
+    "name": "UV-Stabilized PU Gelcoat / Teak Pigment Paste",
+    "category": "Pigments",
+    "currentStock": 210,
+    "unit": "KG",
+    "reorderLevel": 80,
+    "unitCost": 450,
+    "warehouseLocation": "Tinting Booth Bay",
+    "status": "In Stock"
+  },
+  {
+    "id": "inv-006",
+    "itemCode": "HRD-LCK-06",
+    "name": "Mortise Door Lock Set (Brass Cylinder)",
+    "category": "Hardware",
+    "currentStock": 145,
+    "unit": "Sets",
+    "reorderLevel": 150,
+    "unitCost": 1250,
+    "warehouseLocation": "Hardware Secure Bay",
+    "status": "Low Stock"
+  }
+]

@@ -10,6 +10,7 @@ import ProductionStatus from '@/components/dashboard/ProductionStatus';
 import RecentOrdersTable from '@/components/dashboard/RecentOrdersTable';
 import FollowUpReminders from '@/components/dashboard/FollowUpReminders';
 import QuickActionsModal from '@/components/dashboard/QuickActionsModal';
+import CorporateModulesHub from '@/components/dashboard/CorporateModulesHub';
 import { UserRole } from '@/lib/auth/roles';
 
 import {
@@ -213,6 +214,14 @@ export default function Home() {
                   <KpiCards
                     metrics={DEMO_KPI_METRICS}
                     onCardClick={handleKpiCardClick}
+                  />
+                </section>
+
+                {/* EXMARK Corporate Modules Hub (Folder-Based Departmental Directory) */}
+                <section aria-label="Corporate Modules Hub">
+                  <CorporateModulesHub
+                    onNavigateTab={(tab) => setCurrentTab(tab)}
+                    userRole={userRole}
                   />
                 </section>
 
