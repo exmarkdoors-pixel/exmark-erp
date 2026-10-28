@@ -45,6 +45,10 @@ next-env.d.ts
 # backups
 /backups/
 
+# persistent local json data stores & outbox replication
+/data/*.json
+!/data/.gitkeep
+
 # customer uploads, scans and documents
 /uploads/
 /public/uploads/
