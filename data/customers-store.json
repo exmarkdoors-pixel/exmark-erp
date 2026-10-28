@@ -394,5 +394,37 @@
     "customerCode": "EXM-CUST-1026",
     "createdAt": "2026-10-28T03:15:17.797Z",
     "updatedAt": "2026-10-28T03:15:17.797Z"
+  },
+  {
+    "name": "Skyline Horizon Builders (Test-1793205742739)",
+    "phone": "+91 98470 12345",
+    "email": "skyline.1793205742739@example.com",
+    "district": "Ernakulam",
+    "town": "Kakkanad",
+    "address": "Horizon Heights, Near Infopark, Kakkanad, Kochi",
+    "gstin": "32AABCS1234F1Z8",
+    "type": "BUILDER",
+    "creditLimit": 500000,
+    "outstandingBalance": 0,
+    "status": "ACTIVE",
+    "id": "cust-1793205742744-4685",
+    "customerCode": "EXM-CUST-1027",
+    "createdAt": "2026-10-28T16:42:22.744Z",
+    "updatedAt": "2026-10-28T16:42:22.744Z"
+  },
+  {
+    "name": "Kerala Grand Villas",
+    "firmName": "Grand Villas Construction Ltd",
+    "type": "BUILDER",
+    "district": "Ernakulam",
+    "town": "Aluva",
+    "phone": "9846011223",
+    "creditLimit": 1500000,
+    "outstandingBalance": 0,
+    "status": "ACTIVE",
+    "id": "cust-1793205753096-7507",
+    "customerCode": "EXM-CUST-1028",
+    "createdAt": "2026-10-28T16:42:33.096Z",
+    "updatedAt": "2026-10-28T16:42:33.096Z"
   }
 ]

@@ -83,30 +83,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const created = await createMeasurement({
-      refNumber: body.refNumber,
-      customerId: body.customerId,
-      customerName: body.customerName,
-      orderRef: body.orderRef,
-      siteName: body.siteName,
-      siteAddress: body.siteAddress,
-      district: body.district,
-      totalOpenings: body.doors.length,
-      measuredById: body.measuredById,
-      engineerName: body.engineerName || session?.name || 'Anoop Krishnan',
-      date: body.date || new Date().toISOString().split('T')[0],
-      rebateDepthMm: body.rebateDepthMm,
-      wallThicknessMm: body.wallThicknessMm,
-      notes: body.notes,
-      status: body.status || 'DRAFT',
-      doors: body.doors,
-    });
+    const strictPostgres = req.headers.get('x-require-postgres') === 'true';
+
+    const created = await createMeasurement(
+      {
+        refNumber: body.refNumber,
+        customerId: body.customerId,
+        customerName: body.customerName,
+        orderRef: body.orderRef,
+        siteName: body.siteName,
+        siteAddress: body.siteAddress,
+        district: body.district,
+        totalOpenings: body.doors.length,
+        measuredById: body.measuredById,
+        engineerName: body.engineerName || session?.name || 'Anoop Krishnan',
+        date: body.date || new Date().toISOString().split('T')[0],
+        rebateDepthMm: body.rebateDepthMm,
+        wallThicknessMm: body.wallThicknessMm,
+        notes: body.notes,
+        status: body.status || 'DRAFT',
+        doors: body.doors,
+      },
+      { strictPostgres }
+    );
 
     return NextResponse.json({
       success: true,
       data: created,
       measurement: created,
-      message: `Site measurement ${created.refNumber} saved successfully as ${created.status}.`,
+      persisted: true,
+      message: `Site measurement ${created.refNumber} saved successfully.`,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to save measurement';

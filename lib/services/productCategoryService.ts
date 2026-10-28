@@ -124,20 +124,21 @@ function persistCategoriesToFile(categories: ProductCategoryConfig[]) {
   }
 }
 
-let isDbOffline = false;
+import { isPostgresAvailable } from './dbSyncEngine';
 
 /**
- * Get all product categories
+ * Get all product categories (attempts PostgreSQL if active, falls back to persistent store)
  */
 export async function getProductCategories(): Promise<ProductCategoryConfig[]> {
-  if (!isDbOffline && process.env.DATABASE_URL) {
+  const isOnline = await isPostgresAvailable();
+  if (isOnline) {
     try {
       const records = await prisma.productCategory.findMany({
         orderBy: { isPrimary: 'desc' },
       });
 
       if (records && records.length > 0) {
-        return records.map((r) => ({
+        const mapped = records.map((r) => ({
           id: r.id,
           code: r.code,
           name: r.name,
@@ -150,9 +151,11 @@ export async function getProductCategories(): Promise<ProductCategoryConfig[]> {
           reportingVisibility: r.reportingVisibility,
           updatedAt: r.updatedAt.toISOString(),
         }));
+        persistCategoriesToFile(mapped);
+        return mapped;
       }
     } catch {
-      isDbOffline = true;
+      // Fallback to local store
     }
   }
 

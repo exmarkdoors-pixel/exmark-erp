@@ -1,0 +1,251 @@
+[
+  {
+    "id": "outbox-1793205734502-776",
+    "entityType": "DOOR_MEASUREMENT",
+    "entityId": "dm-1793205734501",
+    "operation": "CREATE",
+    "payload": {
+      "refNumber": "MSR-TEST-SAFE-4501",
+      "customerId": "cust-safe-01",
+      "customerName": "Kochi Waterfront Builders",
+      "siteName": "Marine Drive Tower 4501",
+      "district": "Ernakulam",
+      "totalOpenings": 2,
+      "date": "2026-10-28",
+      "status": "VERIFIED",
+      "doors": [
+        {
+          "doorNumber": "D1 - Master Bed",
+          "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+          "frameType": "WPC Solid Extruded 100x65mm Frame",
+          "colour": "Burma Teak",
+          "hingeSide": "Left Hand (LH)",
+          "lockType": "Mortise Lock 60mm Backset",
+          "measurementUnit": "MM",
+          "heightLeft": 2110,
+          "heightRight": 2110,
+          "widthTop": 910,
+          "widthBottom": 910,
+          "id": "door-1793205734501-1"
+        },
+        {
+          "doorNumber": "D2 - Balcony",
+          "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+          "frameType": "WPC Solid Extruded 100x65mm Frame",
+          "colour": "Burma Teak",
+          "hingeSide": "Right Hand (RH)",
+          "lockType": "Mortise Lock 60mm Backset",
+          "measurementUnit": "MM",
+          "heightLeft": 2110,
+          "heightRight": 2110,
+          "widthTop": 850,
+          "widthBottom": 850,
+          "id": "door-1793205734501-2"
+        }
+      ],
+      "id": "dm-1793205734501",
+      "createdAt": "2026-10-28T16:42:14.501Z",
+      "updatedAt": "2026-10-28T16:42:14.501Z"
+    },
+    "status": "PENDING",
+    "createdAt": "2026-10-28T16:42:14.502Z"
+  },
+  {
+    "id": "outbox-1793205742747-512",
+    "entityType": "DOOR_MEASUREMENT",
+    "entityId": "dm-1793205742745",
+    "operation": "CREATE",
+    "payload": {
+      "refNumber": "MSR-2026-TEST-2739",
+      "customerId": "cust-1793205742744-4685",
+      "customerName": "Skyline Horizon Builders (Test-1793205742739)",
+      "orderRef": "EXM-SO-TEST-2739",
+      "siteName": "Horizon Villa Block A",
+      "siteAddress": "Infopark Expressway, Kakkanad",
+      "district": "Ernakulam",
+      "totalOpenings": 2,
+      "engineerName": "Anoop Krishnan (Sr. Site Engineer)",
+      "date": "2026-10-28",
+      "rebateDepthMm": "38mm standard Kerala frame rebate",
+      "wallThicknessMm": "150mm RCC",
+      "notes": "4-point plumb verified. 12mm floor tile offset accounted.",
+      "status": "VERIFIED",
+      "doors": [
+        {
+          "id": "door-t1-1793205742739",
+          "doorNumber": "D1 - Master Bed",
+          "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+          "frameType": "WPC Solid Extruded 100x65mm Frame",
+          "colour": "Burma Teak (Woodgrain PU)",
+          "hingeSide": "Left Hand (LH) - Inward",
+          "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+          "measurementUnit": "MM",
+          "heightLeft": 2100,
+          "heightRight": 2100,
+          "widthTop": 900,
+          "widthBottom": 900,
+          "wallThickness": "150mm",
+          "rebateDepth": "38mm",
+          "remarks": "Zero out-of-square plumb variance."
+        },
+        {
+          "id": "door-t2-1793205742739",
+          "doorNumber": "D2 - Guest Bedroom",
+          "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+          "frameType": "WPC Solid Extruded 100x65mm Frame",
+          "colour": "Burma Teak (Woodgrain PU)",
+          "hingeSide": "Right Hand (RH) - Inward",
+          "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+          "measurementUnit": "MM",
+          "heightLeft": 2095,
+          "heightRight": 2095,
+          "widthTop": 850,
+          "widthBottom": 850,
+          "wallThickness": "150mm",
+          "rebateDepth": "38mm",
+          "remarks": "Direct factory cutting tolerance ready."
+        }
+      ],
+      "id": "dm-1793205742745",
+      "createdAt": "2026-10-28T16:42:22.745Z",
+      "updatedAt": "2026-10-28T16:42:22.745Z"
+    },
+    "status": "PENDING",
+    "createdAt": "2026-10-28T16:42:22.747Z"
+  },
+  {
+    "id": "outbox-1793205767294-82",
+    "entityType": "DOOR_MEASUREMENT",
+    "entityId": "dm-1793205767280",
+    "operation": "UPDATE",
+    "payload": {
+      "refNumber": "MSR-2026-T001",
+      "customerId": "cust-1",
+      "customerName": "Malabar Luxury Builders, Kozhikode",
+      "orderRef": "EXM-ORD-TEST-001",
+      "siteName": "Skyline Palms Villa TEST-001 (EDITED)",
+      "siteAddress": "PT Usha Road, Kozhikode",
+      "district": "Kozhikode",
+      "totalOpenings": 2,
+      "engineerName": "Anoop Krishnan",
+      "date": "2026-10-28",
+      "rebateDepthMm": "38mm",
+      "wallThicknessMm": "150mm",
+      "notes": "Updated remarks for coastal humidity resistance",
+      "status": "VERIFIED",
+      "doors": [
+        {
+          "doorNumber": "D1 - Main",
+          "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+          "frameType": "WPC Solid Extruded 100x65mm Frame",
+          "colour": "Burma Teak",
+          "hingeSide": "Left Hand (LH)",
+          "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+          "measurementUnit": "MM",
+          "heightLeft": 2100,
+          "heightRight": 2100,
+          "widthTop": 900,
+          "widthBottom": 900,
+          "id": "door-1793205767281-1"
+        },
+        {
+          "doorNumber": "D2 - Bath",
+          "model": "WPC Solid Waterproof Bathroom Door (30mm)",
+          "frameType": "WPC Solid Extruded 100x65mm Frame",
+          "colour": "Frost White",
+          "hingeSide": "Right Hand (RH)",
+          "lockType": "Bathroom Baby Latch / Coin-Turn Latch",
+          "measurementUnit": "MM",
+          "heightLeft": 2050,
+          "heightRight": 2050,
+          "widthTop": 750,
+          "widthBottom": 750,
+          "id": "door-1793205767281-2"
+        }
+      ],
+      "id": "dm-1793205767280",
+      "createdAt": "2026-10-28T16:42:47.280Z",
+      "updatedAt": "2026-10-28T16:42:47.292Z"
+    },
+    "status": "PENDING",
+    "createdAt": "2026-10-28T16:42:47.294Z"
+  },
+  {
+    "id": "outbox-1793205767309-19",
+    "entityType": "DOOR_MEASUREMENT",
+    "entityId": "dm-1793205767308",
+    "operation": "CREATE",
+    "payload": {
+      "refNumber": "MSR-2026-MULTI-01",
+      "customerId": "cust-multi-kerala-1793205767308",
+      "customerName": "Kochi Waterfront Resorts Ltd",
+      "orderRef": "ORD-MULTI-01",
+      "siteName": "Cochin Marina Block A",
+      "district": "Ernakulam",
+      "totalOpenings": 1,
+      "engineerName": "Anoop Krishnan",
+      "date": "2026-10-28",
+      "status": "DRAFT",
+      "doors": [
+        {
+          "doorNumber": "D101",
+          "model": "FRP Molded Teak (32mm) - 100% Waterproof",
+          "frameType": "WPC Solid Extruded 100x65mm Frame",
+          "colour": "Burma Teak",
+          "hingeSide": "Left Hand (LH)",
+          "lockType": "Mortise Lock 60mm Backset with Brass Handles",
+          "measurementUnit": "MM",
+          "heightLeft": 2100,
+          "heightRight": 2100,
+          "widthTop": 900,
+          "widthBottom": 900,
+          "id": "door-1793205767308-1"
+        }
+      ],
+      "id": "dm-1793205767308",
+      "createdAt": "2026-10-28T16:42:47.308Z",
+      "updatedAt": "2026-10-28T16:42:47.308Z"
+    },
+    "status": "PENDING",
+    "createdAt": "2026-10-28T16:42:47.309Z"
+  },
+  {
+    "id": "outbox-1793205767316-3",
+    "entityType": "DOOR_MEASUREMENT",
+    "entityId": "dm-1793205767314",
+    "operation": "CREATE",
+    "payload": {
+      "refNumber": "MSR-2026-MULTI-02",
+      "customerId": "cust-multi-kerala-1793205767308",
+      "customerName": "Kochi Waterfront Resorts Ltd",
+      "orderRef": "ORD-MULTI-02",
+      "siteName": "Cochin Marina Block B (Clubhouse)",
+      "district": "Ernakulam",
+      "totalOpenings": 1,
+      "engineerName": "Faisal Mohammed",
+      "date": "2026-10-28",
+      "status": "VERIFIED",
+      "doors": [
+        {
+          "doorNumber": "D201",
+          "model": "FRP CNC Carved Luxury Main Door (35mm with Inlay)",
+          "frameType": "FRP Wrap-Around Monolithic Frame",
+          "colour": "Rosewood Classical Kerala Finish",
+          "hingeSide": "Right Hand (RH)",
+          "lockType": "Digital Smart Lock Routing Prep",
+          "measurementUnit": "MM",
+          "heightLeft": 2150,
+          "heightRight": 2150,
+          "widthTop": 1000,
+          "widthBottom": 1000,
+          "id": "door-1793205767314-1"
+        }
+      ],
+      "id": "dm-1793205767314",
+      "createdAt": "2026-10-28T16:42:47.314Z",
+      "updatedAt": "2026-10-28T16:42:47.314Z"
+    },
+    "status": "PENDING",
+    "createdAt": "2026-10-28T16:42:47.316Z"
+  }
+]

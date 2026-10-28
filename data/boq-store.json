@@ -776,5 +776,71 @@
     "totalAmount": 15600,
     "createdAt": "2026-10-28T03:15:17.808Z",
     "updatedAt": "2026-10-28T03:15:17.819Z"
+  },
+  {
+    "projectName": "Horizon Villa Block A",
+    "customerId": "cust-1793205742744-4685",
+    "customerName": "Skyline Horizon Builders (Test-1793205742739)",
+    "district": "Ernakulam",
+    "status": "DRAFT",
+    "notes": "18% GST applicable (HSN 3925.20.00).",
+    "revisionNumber": 1,
+    "id": "boq-api-1793205742763-6668",
+    "boqNumber": "BOQ-2026-024",
+    "items": [
+      {
+        "itemCode": "FRP-MLD-32",
+        "model": "FRP Molded Teak Architectural Door 2100x900mm",
+        "description": "FRP Molded Teak Architectural Door 2100x900mm",
+        "productCategory": "FRP",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "quantity": 2,
+        "unitRate": 7800,
+        "amount": 15600,
+        "taxRate": 18,
+        "transportRate": 0,
+        "installationRate": 0,
+        "id": "boqitem-1793205742766-9268",
+        "boqId": "boq-api-1793205742763-6668",
+        "areaSqFt": 40.69
+      }
+    ],
+    "totalDoors": 2,
+    "totalAmount": 15600,
+    "createdAt": "2026-10-28T16:42:22.763Z",
+    "updatedAt": "2026-10-28T16:42:22.766Z"
+  },
+  {
+    "customerId": "cust-1793205753096-7507",
+    "customerName": "Kerala Grand Villas",
+    "projectName": "Grand Villas Waterfront",
+    "district": "Ernakulam",
+    "status": "DRAFT",
+    "revisionNumber": 1,
+    "id": "boq-api-1793205753100-7352",
+    "boqNumber": "BOQ-2026-025",
+    "items": [
+      {
+        "itemCode": "D-01",
+        "productCategory": "FRP",
+        "model": "EXM-FRP-TL101",
+        "heightMm": 2100,
+        "widthMm": 900,
+        "quantity": 40,
+        "unitRate": 8500,
+        "amount": 340000,
+        "taxRate": 18,
+        "transportRate": 0,
+        "installationRate": 0,
+        "id": "boqitem-1793205753102-4901",
+        "boqId": "boq-api-1793205753100-7352",
+        "areaSqFt": 813.75
+      }
+    ],
+    "totalDoors": 40,
+    "totalAmount": 340000,
+    "createdAt": "2026-10-28T16:42:33.100Z",
+    "updatedAt": "2026-10-28T16:42:33.102Z"
   }
 ]

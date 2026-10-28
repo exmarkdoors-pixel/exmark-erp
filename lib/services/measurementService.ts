@@ -3,8 +3,23 @@ import path from 'path';
 import prisma from '@/lib/prisma';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 import { DoorItemInput, SiteMeasurementRecord } from '@/types/measurements';
+import {
+  isPostgresAvailable,
+  enqueueOutbox,
+  reconcileOutboxToPostgres,
+  getOutbox,
+  SyncStatus,
+  DatabaseProvider,
+} from './dbSyncEngine';
 
 export type { DoorItemInput, SiteMeasurementRecord };
+
+export interface MeasurementSaveResult {
+  record: SiteMeasurementRecord;
+  authoritativeDatabase: DatabaseProvider;
+  syncStatus: SyncStatus;
+  message: string;
+}
 
 const STORE_PATH = path.join(process.cwd(), 'data', 'measurements-store.json');
 
@@ -270,14 +285,17 @@ function persistToFile(records: SiteMeasurementRecord[]) {
   }
 }
 
-let isMeasurementDbOffline = false;
-
 /**
- * Get all site measurements (attempts Prisma DB, falls back seamlessly to persistent store)
+ * Get all site measurements (attempts PostgreSQL, merges outbox, falls back to persistent store)
  */
 export async function getAllMeasurements(): Promise<SiteMeasurementRecord[]> {
-  if (!isMeasurementDbOffline && process.env.DATABASE_URL) {
+  const isOnline = await isPostgresAvailable();
+
+  if (isOnline) {
     try {
+      // Reconcile any pending outbox entries created during offline periods first
+      await reconcileOutboxToPostgres();
+
       const dbRecords = await prisma.doorMeasurement.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
@@ -288,7 +306,7 @@ export async function getAllMeasurements(): Promise<SiteMeasurementRecord[]> {
       });
 
       if (dbRecords && dbRecords.length > 0) {
-        return dbRecords.map((m) => ({
+        const mappedDb: SiteMeasurementRecord[] = dbRecords.map((m) => ({
           id: m.id,
           refNumber: m.refNumber,
           customerId: m.customerId,
@@ -325,9 +343,18 @@ export async function getAllMeasurements(): Promise<SiteMeasurementRecord[]> {
             remarks: d.remarks || undefined,
           })),
         }));
+
+        // Merge with any pending outbox items that haven't synced yet
+        const outbox = getOutbox().filter((e) => e.entityType === 'DOOR_MEASUREMENT' && e.status === 'PENDING');
+        const pendingMeasurements = outbox.map((e) => e.payload as SiteMeasurementRecord);
+        const combined = [...pendingMeasurements, ...mappedDb.filter((dbM) => !pendingMeasurements.some((p) => p.id === dbM.id))];
+
+        // Mirror latest combined view to local persistent store for instant offline availability
+        persistToFile(combined);
+        return combined;
       }
-    } catch {
-      isMeasurementDbOffline = true;
+    } catch (err) {
+      console.warn('[MeasurementService] PostgreSQL read failed, reading from persistent store:', err);
     }
   }
 
@@ -344,8 +371,12 @@ export async function getMeasurementById(id: string): Promise<SiteMeasurementRec
 
 /**
  * Create a new site measurement with multiple doors
+ * Supports strict PostgreSQL enforcement or resilient offline outbox synchronization
  */
-export async function createMeasurement(input: Omit<SiteMeasurementRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<SiteMeasurementRecord> {
+export async function createMeasurement(
+  input: Omit<SiteMeasurementRecord, 'id' | 'createdAt' | 'updatedAt'>,
+  options?: { strictPostgres?: boolean }
+): Promise<SiteMeasurementRecord> {
   const id = `dm-${Date.now()}`;
   const now = new Date().toISOString();
 
@@ -366,9 +397,17 @@ export async function createMeasurement(input: Omit<SiteMeasurementRecord, 'id' 
     })),
   };
 
-  // Try DB persistence
-  try {
-    if (process.env.DATABASE_URL) {
+  const isOnline = await isPostgresAvailable();
+
+  // If caller strictly demands PostgreSQL commitment and PostgreSQL is unavailable, fail safely
+  if (options?.strictPostgres && !isOnline) {
+    throw new Error('DATABASE_OFFLINE: PostgreSQL authoritative database is unreachable. Write rejected under strict consistency policy.');
+  }
+
+  let committedToPostgres = false;
+
+  if (isOnline) {
+    try {
       const created = await prisma.doorMeasurement.create({
         data: {
           id: record.id,
@@ -408,18 +447,28 @@ export async function createMeasurement(input: Omit<SiteMeasurementRecord, 'id' 
         },
       });
 
+      committedToPostgres = true;
+
       await logAuditEvent({
         action: 'CREATE',
         entityType: 'ORDER',
         entityId: created.id,
         details: { refNumber: created.refNumber, siteName: created.siteName, doorsCount: record.doors.length },
       });
+    } catch (err) {
+      if (options?.strictPostgres) {
+        throw new Error(`DATABASE_WRITE_FAILED: Failed to commit to PostgreSQL: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      console.warn('[MeasurementService] PostgreSQL write deferred to outbox queue:', err);
     }
-  } catch (err) {
-    console.warn('[MeasurementService] DB write deferred, using persistent file storage:', err);
   }
 
-  // Also write to local persistent store so it is immediately available on refresh
+  // If not committed to PostgreSQL directly, enqueue in Outbox sync queue to prevent data loss or invisibility
+  if (!committedToPostgres) {
+    enqueueOutbox('DOOR_MEASUREMENT', record.id, 'CREATE', record);
+  }
+
+  // Write to durable local store atomically so it immediately survives F5 refresh & server restart
   const current = ensureFileStore();
   const updated = [record, ...current.filter((m) => m.id !== record.id)];
   persistToFile(updated);
@@ -428,7 +477,12 @@ export async function createMeasurement(input: Omit<SiteMeasurementRecord, 'id' 
     action: 'CREATE',
     entityType: 'ORDER',
     entityId: record.id,
-    details: { refNumber: record.refNumber, siteName: record.siteName, doors: record.doors.length },
+    details: {
+      refNumber: record.refNumber,
+      siteName: record.siteName,
+      doors: record.doors.length,
+      committedToPostgres,
+    },
   });
 
   return record;
@@ -437,7 +491,11 @@ export async function createMeasurement(input: Omit<SiteMeasurementRecord, 'id' 
 /**
  * Update an existing site measurement
  */
-export async function updateMeasurement(id: string, input: Partial<SiteMeasurementRecord>): Promise<SiteMeasurementRecord> {
+export async function updateMeasurement(
+  id: string,
+  input: Partial<SiteMeasurementRecord>,
+  options?: { strictPostgres?: boolean }
+): Promise<SiteMeasurementRecord> {
   const current = ensureFileStore();
   const existing = current.find((m) => m.id === id || m.refNumber === id);
 
@@ -455,9 +513,16 @@ export async function updateMeasurement(id: string, input: Partial<SiteMeasureme
     doors: input.doors || existing.doors,
   };
 
-  // Try DB update
-  try {
-    if (process.env.DATABASE_URL) {
+  const isOnline = await isPostgresAvailable();
+
+  if (options?.strictPostgres && !isOnline) {
+    throw new Error('DATABASE_OFFLINE: PostgreSQL authoritative database is unreachable. Update rejected under strict consistency policy.');
+  }
+
+  let committedToPostgres = false;
+
+  if (isOnline) {
+    try {
       await prisma.doorMeasurement.update({
         where: { id: existing.id },
         data: {
@@ -477,13 +542,12 @@ export async function updateMeasurement(id: string, input: Partial<SiteMeasureme
       });
 
       if (input.doors) {
-        // Delete and re-create doors in DB
         await prisma.doorMeasurementItem.deleteMany({
           where: { measurementId: existing.id },
         });
 
         await prisma.doorMeasurementItem.createMany({
-          data: input.doors.map((d) => ({
+          data: updatedRecord.doors.map((d) => ({
             measurementId: existing.id,
             doorNumber: d.doorNumber,
             model: d.model,
@@ -502,14 +566,23 @@ export async function updateMeasurement(id: string, input: Partial<SiteMeasureme
           })),
         });
       }
+
+      committedToPostgres = true;
+    } catch (err) {
+      if (options?.strictPostgres) {
+        throw new Error(`DATABASE_UPDATE_FAILED: Failed to update in PostgreSQL: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      console.warn('[MeasurementService] PostgreSQL update deferred to outbox queue:', err);
     }
-  } catch (err) {
-    console.warn('[MeasurementService] DB update deferred, updating file store:', err);
   }
 
-  // Update persistent store
-  const updatedList = current.map((m) => (m.id === existing.id ? updatedRecord : m));
-  persistToFile(updatedList);
+  if (!committedToPostgres) {
+    enqueueOutbox('DOOR_MEASUREMENT', updatedRecord.id, 'UPDATE', updatedRecord);
+  }
+
+  // Update persistent local store
+  const updatedAll = current.map((m) => (m.id === existing.id ? updatedRecord : m));
+  persistToFile(updatedAll);
 
   await logAuditEvent({
     action: 'UPDATE',

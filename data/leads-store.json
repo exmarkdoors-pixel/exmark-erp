@@ -12,9 +12,19 @@
     "estimatedValue": 420000,
     "assignedToId": null,
     "notes": "48 FRP doors required for luxury waterfront apartments. Client interested in teak finish.",
-    "followUps": [],
+    "followUps": [
+      {
+        "followUpDate": "2026-10-28T03:58:42.411Z",
+        "type": "CALL",
+        "notes": "Routine progress follow-up with client.",
+        "completedAt": null,
+        "id": "fu-1793159922421-8717",
+        "leadId": "lead-api-001",
+        "createdAt": "2026-10-28T03:58:42.421Z"
+      }
+    ],
     "createdAt": "2026-10-01T08:00:00.000Z",
-    "updatedAt": "2026-10-01T08:00:00.000Z"
+    "updatedAt": "2026-10-28T03:58:42.421Z"
   },
   {
     "_demo": true,
@@ -516,5 +526,33 @@
     "followUps": [],
     "createdAt": "2026-10-28T03:15:17.785Z",
     "updatedAt": "2026-10-28T03:15:17.794Z"
+  },
+  {
+    "title": "Skyline Horizon Builders (Test-1793205742739)",
+    "contactPerson": "K. R. Varma (Chief Project Architect)",
+    "phone": "+91 98470 12345",
+    "district": "Ernakulam",
+    "stage": "NEW",
+    "estimatedValue": 185000,
+    "notes": "Premium 32mm FRP Molded Teak doors for luxury villa project in Kakkanad.",
+    "id": "lead-api-1793205742740-6520",
+    "leadCode": "LEAD-2026-028",
+    "followUps": [],
+    "createdAt": "2026-10-28T16:42:22.741Z",
+    "updatedAt": "2026-10-28T16:42:22.741Z"
+  },
+  {
+    "title": "Waterfront Villas FRP Schedule",
+    "contactPerson": "Kerala Grand Villas",
+    "phone": "9846011223",
+    "district": "Ernakulam",
+    "stage": "NEW",
+    "estimatedValue": 340000,
+    "notes": "Architect referral for 40 luxury villas",
+    "id": "lead-api-1793205753098-1902",
+    "leadCode": "LEAD-2026-029",
+    "followUps": [],
+    "createdAt": "2026-10-28T16:42:33.098Z",
+    "updatedAt": "2026-10-28T16:42:33.098Z"
   }
 ]
