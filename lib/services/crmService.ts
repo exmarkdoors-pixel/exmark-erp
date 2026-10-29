@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { assertWriteAllowed } from './dbSyncEngine';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ export async function getLead(id: string): Promise<Lead | null> {
 }
 
 export async function createLead(data: LeadCreateInput): Promise<Lead> {
+  await assertWriteAllowed('Lead Creation');
   const all = readStore();
   const newLead: Lead = {
     ...data,
@@ -117,6 +119,7 @@ export async function createLead(data: LeadCreateInput): Promise<Lead> {
 }
 
 export async function updateLead(id: string, data: LeadUpdateInput): Promise<Lead> {
+  await assertWriteAllowed('Lead Update');
   const all = readStore();
   const idx = all.findIndex((l) => l.id === id);
   if (idx === -1) throw new Error(`Lead ${id} not found`);

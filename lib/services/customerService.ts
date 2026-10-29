@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { assertWriteAllowed } from './dbSyncEngine';
+import prisma from '@/lib/prisma';
+import { assertWriteAllowed, isPostgresAvailable } from './dbSyncEngine';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,10 +77,7 @@ function generateId(): string {
   return `cust-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
 
-// ── Service functions ──────────────────────────────────────────────────────────
-
-export async function listCustomers(filter?: CustomerFilter): Promise<Customer[]> {
-  const all = readStore();
+function filterCustomers(all: Customer[], filter?: CustomerFilter): Customer[] {
   return all.filter((c) => {
     if (filter?.search) {
       const q = filter.search.toLowerCase();
@@ -98,21 +96,90 @@ export async function listCustomers(filter?: CustomerFilter): Promise<Customer[]
   });
 }
 
+// ── Service functions ──────────────────────────────────────────────────────────
+
+export async function listCustomers(filter?: CustomerFilter): Promise<Customer[]> {
+  const isOnline = await isPostgresAvailable();
+  if (isOnline) {
+    try {
+      const dbCusts = await prisma.customer.findMany({ orderBy: { createdAt: 'desc' } });
+      if (dbCusts && dbCusts.length > 0) {
+        const mapped: Customer[] = dbCusts.map((c) => ({
+          id: c.id,
+          customerCode: c.customerCode,
+          name: c.name,
+          firmName: c.firmName || undefined,
+          type: c.type as CustomerType,
+          district: c.district,
+          town: c.town,
+          address: c.address || undefined,
+          gstin: c.gstin || undefined,
+          phone: c.phone,
+          email: c.email || undefined,
+          creditLimit: Number(c.creditLimit),
+          outstandingBalance: Number(c.outstandingBalance),
+          status: c.status as CustomerStatus,
+          createdAt: c.createdAt.toISOString(),
+          updatedAt: c.updatedAt.toISOString(),
+        }));
+        const local = readStore();
+        const merged = [...mapped, ...local.filter((l) => !mapped.some((m) => m.id === l.id))];
+        writeStore(merged);
+        return filterCustomers(merged, filter);
+      }
+    } catch (err) {
+      console.warn('[customerService] PostgreSQL read failed, reading from file store:', err);
+    }
+  }
+  return filterCustomers(readStore(), filter);
+}
+
 export async function getCustomer(id: string): Promise<Customer | null> {
-  const all = readStore();
+  const all = await listCustomers();
   return all.find((c) => c.id === id) ?? null;
 }
 
 export async function createCustomer(data: CustomerCreateInput): Promise<Customer> {
   await assertWriteAllowed('Customer Creation');
   const all = readStore();
+  const id = generateId();
+  const customerCode = generateCode(all.length);
+  const now = new Date().toISOString();
+
   const newCustomer: Customer = {
     ...data,
-    id: generateId(),
-    customerCode: generateCode(all.length),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    id,
+    customerCode,
+    createdAt: now,
+    updatedAt: now,
   };
+
+  const isOnline = await isPostgresAvailable();
+  if (isOnline) {
+    try {
+      await prisma.customer.create({
+        data: {
+          id: newCustomer.id,
+          customerCode: newCustomer.customerCode,
+          name: newCustomer.name,
+          firmName: newCustomer.firmName || null,
+          type: newCustomer.type,
+          district: newCustomer.district,
+          town: newCustomer.town,
+          address: newCustomer.address || null,
+          gstin: newCustomer.gstin || null,
+          phone: newCustomer.phone,
+          email: newCustomer.email || null,
+          creditLimit: newCustomer.creditLimit,
+          outstandingBalance: newCustomer.outstandingBalance,
+          status: newCustomer.status,
+        },
+      });
+    } catch (err) {
+      console.warn('[customerService] PostgreSQL write failed, persisted to local store:', err);
+    }
+  }
+
   all.push(newCustomer);
   writeStore(all);
   return newCustomer;
