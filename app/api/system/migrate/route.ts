@@ -63,12 +63,20 @@ export async function GET(request: NextRequest) {
   });
 }
 
+function sanitizeUrl(raw: string | undefined): string {
+  if (!raw) return '';
+  let cleaned = raw.trim().replace(/^["'`]|["'`]$/g, '').trim();
+  cleaned = cleaned.replace(/^(?:psql\s+|uri:\s*|url:\s*|code:\s*|file:\s*code\s*)/i, '').trim();
+  return cleaned.replace(/^["'`]|["'`]$/g, '').trim();
+}
+
 export async function POST(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized: Valid Bearer AUTH_SECRET required' }, { status: 401 });
   }
 
-  const directUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+  const rawUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+  const directUrl = sanitizeUrl(rawUrl);
   if (!directUrl) {
     return NextResponse.json({ error: 'Neither DIRECT_URL nor DATABASE_URL is configured' }, { status: 400 });
   }
@@ -77,6 +85,7 @@ export async function POST(request: NextRequest) {
     const migrationEnv = {
       ...process.env,
       DATABASE_URL: directUrl,
+      DIRECT_URL: directUrl,
     };
 
     const stdout = execSync('npx prisma migrate deploy', {

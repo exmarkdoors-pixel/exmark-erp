@@ -74,6 +74,13 @@ export async function assertWriteAllowed(operationName = 'write operation'): Pro
   }
 }
 
+function sanitizeUrl(raw: string | undefined): string {
+  if (!raw) return '';
+  let cleaned = raw.trim().replace(/^["'`]|["'`]$/g, '').trim();
+  cleaned = cleaned.replace(/^(?:psql\s+|uri:\s*|url:\s*|code:\s*|file:\s*code\s*)/i, '').trim();
+  return cleaned.replace(/^["'`]|["'`]$/g, '').trim();
+}
+
 /**
  * Check whether the configured PostgreSQL instance is actively reachable
  */
@@ -83,7 +90,8 @@ export async function isPostgresAvailable(): Promise<boolean> {
     return cachedDbOnline;
   }
 
-  const dbUrl = process.env.DATABASE_URL;
+  const rawUrl = process.env.DATABASE_URL;
+  const dbUrl = sanitizeUrl(rawUrl);
   if (!dbUrl) {
     cachedDbOnline = false;
     lastProbeTime = now;

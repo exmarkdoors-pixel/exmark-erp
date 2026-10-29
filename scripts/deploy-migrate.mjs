@@ -8,7 +8,15 @@
 
 import { execSync } from 'child_process';
 
-const directUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+function sanitizeUrl(raw) {
+  if (!raw) return '';
+  let cleaned = raw.trim().replace(/^["'`]|["'`]$/g, '').trim();
+  cleaned = cleaned.replace(/^(?:psql\s+|uri:\s*|url:\s*|code:\s*|file:\s*code\s*)/i, '').trim();
+  return cleaned.replace(/^["'`]|["'`]$/g, '').trim();
+}
+
+const rawUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+const directUrl = sanitizeUrl(rawUrl);
 const isCloud = Boolean(
   process.env.RENDER || 
   process.env.VERCEL || 
@@ -27,7 +35,8 @@ if (isCloud && !isLocalhost) {
     const migrationEnv = {
       ...process.env,
       // Prisma migration engine uses DIRECT_URL for session-compatible DDL migrations
-      DATABASE_URL: process.env.DIRECT_URL || process.env.DATABASE_URL,
+      DATABASE_URL: directUrl,
+      DIRECT_URL: directUrl,
     };
 
     execSync('npx prisma migrate deploy', {
