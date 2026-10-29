@@ -25,7 +25,7 @@ The platform is engineered for high availability across:
 | :--- | :---: | :---: | :---: | :--- |
 | **Authentication & RBAC** | Complete & Verified | 20 Tests | PostgreSQL + bcrypt | `npm run test:phase9` (75/75 PASS) |
 | **Site Measurements** | Complete & Verified | 18 Tests | 4-Point Masonry Store | Verified survives cold restart |
-| **CRM & Leads Management** | Complete & Verified | 10 Tests | Lead & Follow-up Store | `test-workflow-e2e.ts` (PASS) |
+| **CRM & Leads Management** | Complete & Verified | 10 Tests | Dual Postgres + JSON Store | `test-workflow-e2e.ts` (PASS) |
 | **BOQ & Quotation Engine** | Complete & Verified | 15 Tests | GST 18% HSN 3925.20 | Validated rate & sq.ft calculations |
 | **Order Control & Gate** | Complete & Verified | 12 Tests | Mandatory 40% Advance | Release without advance rejected |
 | **FRP Manufacturing** | Complete & Verified | 25 Tests | Job Cards + Cutting Deductions | Door IDs: `EXM-DR-2026-XXXX` |
