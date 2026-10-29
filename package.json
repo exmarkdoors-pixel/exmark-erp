@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/deploy-migrate.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "desktop:dev": "electron electron/main.js",
@@ -25,6 +25,7 @@
     "next": "16.4.3",
     "pg": "^8.23.1",
     "postcss": "^8.5.32",
+    "prisma": "^7.10.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwindcss": "^4.3.3"
@@ -35,7 +36,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
-    "prisma": "^7.10.1",
     "tsx": "^4.23.15",
     "typescript": "^5"
   }

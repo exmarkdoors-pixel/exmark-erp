@@ -90,41 +90,65 @@ export async function isPostgresAvailable(): Promise<boolean> {
     return false;
   }
 
-  // Parse host and port from postgresql://user:pass@host:port/dbname
+  const isCloud = isCloudEnvironment();
+  const isLocalhost = dbUrl.includes('localhost:5432') || dbUrl.includes('127.0.0.1');
+
+  // In local development with default localhost placeholder, use fast TCP socket probe
+  if (isLocalhost && !isCloud) {
+    try {
+      const isAvailable = await new Promise<boolean>((resolve) => {
+        const socket = new net.Socket();
+        socket.setTimeout(600);
+        socket.on('connect', () => { socket.destroy(); resolve(true); });
+        socket.on('timeout', () => { socket.destroy(); resolve(false); });
+        socket.on('error', () => { socket.destroy(); resolve(false); });
+        socket.connect(5432, 'localhost');
+      });
+      cachedDbOnline = isAvailable;
+      lastProbeTime = now;
+      return isAvailable;
+    } catch {
+      cachedDbOnline = false;
+      lastProbeTime = now;
+      return false;
+    }
+  }
+
+  // Cloud or remote PostgreSQL probe: execute real query with SSL negotiation via Prisma
   try {
-    const url = new URL(dbUrl);
-    const host = url.hostname || 'localhost';
-    const port = parseInt(url.port || '5432', 10);
+    const queryPromise = prisma.$queryRaw`SELECT 1 as alive`;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Postgres probe timeout (3500ms)')), 3500)
+    );
 
-    const isAvailable = await new Promise<boolean>((resolve) => {
-      const socket = new net.Socket();
-      socket.setTimeout(800);
-
-      socket.on('connect', () => {
-        socket.destroy();
-        resolve(true);
-      });
-
-      socket.on('timeout', () => {
-        socket.destroy();
-        resolve(false);
-      });
-
-      socket.on('error', () => {
-        socket.destroy();
-        resolve(false);
-      });
-
-      socket.connect(port, host);
-    });
-
-    cachedDbOnline = isAvailable;
+    await Promise.race([queryPromise, timeoutPromise]);
+    cachedDbOnline = true;
     lastProbeTime = now;
-    return isAvailable;
+    return true;
   } catch {
-    cachedDbOnline = false;
-    lastProbeTime = now;
-    return false;
+    // Fallback: If prisma client failed (e.g. before schema tables initialized), test TCP socket with 3500ms
+    try {
+      const url = new URL(dbUrl);
+      const host = url.hostname || 'localhost';
+      const port = parseInt(url.port || '5432', 10);
+
+      const isAvailable = await new Promise<boolean>((resolve) => {
+        const socket = new net.Socket();
+        socket.setTimeout(3500);
+        socket.on('connect', () => { socket.destroy(); resolve(true); });
+        socket.on('timeout', () => { socket.destroy(); resolve(false); });
+        socket.on('error', () => { socket.destroy(); resolve(false); });
+        socket.connect(port, host);
+      });
+
+      cachedDbOnline = isAvailable;
+      lastProbeTime = now;
+      return isAvailable;
+    } catch {
+      cachedDbOnline = false;
+      lastProbeTime = now;
+      return false;
+    }
   }
 }
 
