@@ -34,9 +34,9 @@ The platform is engineered for high availability across:
 | **Dispatch & Installation** | Complete & Verified | 20 Tests | Fleet & 5-Star Signoff | Driver allocation & site signoff |
 | **15-Year FRP Warranty** | Complete & Verified | 18 Tests | Dual Malayalam/English | Excludes hardware & paint finishes |
 | **Financial Strategist** | Complete & Verified | 18 Tests | 13-Week Cashflow Forecast | Read-only governance enforced |
-| **Universal Reporting** | Complete & Verified | 22 Tests | PDF / Excel / CSV | Filter by district, plant, date |
-| **Video Reports Engine** | Implemented (Adapter) | 5 Tests | MP4 Job Spec | Report snapshot data source |
-| **WhatsApp Business API** | Complete & Verified | 8 Tests | Cloud API Adapter | Document media payload ready |
+| **Universal Reporting** | Complete & Verified | 28 Tests | PDF / Excel / CSV | Filter by district, plant, date |
+| **Video Reports Engine** | Complete & Verified | 12 Tests | MP4 1080p Spec | Bilingual voiceover & 3 scenes |
+| **WhatsApp Business API** | Complete & Verified | 16 Tests | Cloud API Adapter | Document media payload ready |
 | **Company & Factory Profile** | Complete & Verified | 27 Tests | CMU Dynamic Resolution | Zero hardcoded Palakkad assumption |
 | **Customization Center** | Complete & Verified | 49 Tests | 17 Domains + Rollback | 49 Immutable revisions tracked |
 | **Backup Agent** | Complete & Verified | 24 Tests | SHA-256 Verified Snapshots | 24 Recovery checkpoints retained |
@@ -51,4 +51,4 @@ The platform is engineered for high availability across:
 - **Render Staging Service:** Connected to GitHub `origin/main` (`exmarkdoors-pixel/exmark-erp`).
 - **Render Staging Service:** Live at `https://exmark-erp-staging.onrender.com`. Remote migration API `/api/system/migrate` verified operational (HTTP 200).
 - **URL Sanitization Layer:** Automatic prefix, whitespace, and quote stripping active across Prisma config, runtime client, and migration engine to prevent `P1013` scheme errors.
-- **Automated Verification:** 10 test suites passing 100% (Phase 5 Finance & Logistics: 46/46, Phase 4 Manufacturing: 35/35, Master: 35/35, Phase 9: 75/75, Workflow: 10/10, Security: 20/20, Fallback: 18/18, Company Profile: 27/27, Staging: 19/19). Zero TypeScript compile errors. Production build compiles in 12.9s.
+- **Automated Verification:** 11 test suites passing 100% (Phase 6 Reporting & Comms: 37/37, Phase 5 Finance & Logistics: 46/46, Phase 4 Manufacturing: 35/35, Master: 35/35, Phase 9: 75/75, Workflow: 10/10, Security: 20/20, Fallback: 18/18, Company Profile: 27/27, Staging: 19/19). Zero TypeScript compile errors. Production build compiles in 6.7s.

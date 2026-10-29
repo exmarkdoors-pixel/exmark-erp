@@ -65,3 +65,24 @@ export interface ReportExecutionResult {
   summaryMetrics: Record<string, string | number>;
   rows: Record<string, string | number>[];
 }
+
+export interface VideoReportScene {
+  sceneNumber: number;
+  headline: string;
+  keyStat: string;
+  narratorScript: {
+    english: string;
+    malayalam: string;
+  };
+  durationSeconds: number;
+}
+
+export interface VideoReportSummary {
+  reportCode: string;
+  title: string;
+  generatedAt: string;
+  totalDurationSeconds: number;
+  format: 'MP4_SPEC_1080P';
+  scenes: VideoReportScene[];
+  executiveVoiceoverText: string;
+}

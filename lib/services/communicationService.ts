@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { assertWriteAllowed } from './dbSyncEngine';
 import {
   WhatsAppMessage,
   WhatsAppDocumentType,
@@ -62,6 +63,8 @@ export async function sendWhatsAppTemplateMessage(input: {
   language?: 'en' | 'ml';
   payload: Record<string, string | number>;
 }): Promise<WhatsAppMessage> {
+  await assertWriteAllowed('send WhatsApp notification');
+
   const all = readStore();
 
   // Clean phone number (must start with country code +91)
@@ -131,6 +134,8 @@ export async function generateConfirmationToken(measurement: {
   district: string;
   totalOpenings?: number;
 }): Promise<MeasurementConfirmationRecord> {
+  await assertWriteAllowed('generate measurement confirmation token');
+
   const token = `tok_${measurement.id.slice(-6)}_${Date.now()}`;
   const expiresAt = new Date(Date.now() + 7 * 86400000).toISOString(); // 7 days validity
 
@@ -153,6 +158,8 @@ export async function recordCustomerMeasurementDecision(
   decision: CustomerConfirmationDecision,
   remarks?: string
 ): Promise<{ success: boolean; measurementId: string; status: string; remarks?: string }> {
+  await assertWriteAllowed('record customer measurement decision');
+
   // Update status in measurement service
   let newStatus: 'APPROVED' | 'VERIFIED' | 'DRAFT' = 'VERIFIED';
   if (decision === 'ACCEPT') {

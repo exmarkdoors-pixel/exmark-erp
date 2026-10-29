@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SYSTEM_REPORTS, generateReport } from '@/lib/services/reportService';
+import {
+  SYSTEM_REPORTS,
+  generateReport,
+  exportReportAsCsv,
+  exportReportAsExcelXml,
+  generateVideoReportSummary,
+} from '@/lib/services/reportService';
 import { authorizeRequest } from '@/lib/auth/authorization';
 
 export async function GET(req: NextRequest) {
@@ -9,9 +15,15 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const code = searchParams.get('code');
+    const format = searchParams.get('format');
 
     if (!code) {
       return NextResponse.json({ success: true, data: SYSTEM_REPORTS });
+    }
+
+    if (format === 'video-summary') {
+      const videoSummary = await generateVideoReportSummary(code);
+      return NextResponse.json({ success: true, data: videoSummary });
     }
 
     const district = searchParams.get('district') || undefined;
@@ -23,6 +35,28 @@ export async function GET(req: NextRequest) {
       startDate,
       endDate,
     });
+
+    if (format === 'csv') {
+      const csvContent = exportReportAsCsv(report);
+      return new NextResponse(csvContent, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${code.toLowerCase()}_${Date.now()}.csv"`,
+        },
+      });
+    }
+
+    if (format === 'excel') {
+      const excelXml = exportReportAsExcelXml(report);
+      return new NextResponse(excelXml, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/vnd.ms-excel; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${code.toLowerCase()}_${Date.now()}.xls"`,
+        },
+      });
+    }
 
     return NextResponse.json({ success: true, data: report });
   } catch (error: unknown) {
