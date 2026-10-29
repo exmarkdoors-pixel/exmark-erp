@@ -3,6 +3,7 @@ import path from 'path';
 import prisma from '@/lib/prisma';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 import { ProductCategoryConfig } from '@/types/categories';
+import { assertWriteAllowed } from './dbSyncEngine';
 
 export type { ProductCategoryConfig };
 
@@ -175,6 +176,7 @@ export async function isWpcEnabled(): Promise<boolean> {
  * Toggle category enabled / disabled
  */
 export async function toggleCategoryEnabled(code: string, enabled: boolean): Promise<ProductCategoryConfig> {
+  await assertWriteAllowed('Toggle Category');
   const categories = ensureCategoryStore();
   const index = categories.findIndex((c) => c.code.toUpperCase() === code.toUpperCase());
 
@@ -237,6 +239,7 @@ export async function toggleCategoryEnabled(code: string, enabled: boolean): Pro
  * Add a new custom product category
  */
 export async function addProductCategory(input: Omit<ProductCategoryConfig, 'id' | 'updatedAt' | 'isPrimary'>): Promise<ProductCategoryConfig> {
+  await assertWriteAllowed('Add Product Category');
   const categories = ensureCategoryStore();
   const code = input.code.toUpperCase().trim();
 
@@ -283,6 +286,7 @@ export async function addProductCategory(input: Omit<ProductCategoryConfig, 'id'
  * Update full category details (pricing, production, fields)
  */
 export async function updateProductCategory(code: string, updates: Partial<ProductCategoryConfig>): Promise<ProductCategoryConfig> {
+  await assertWriteAllowed('Update Product Category');
   const categories = ensureCategoryStore();
   const index = categories.findIndex((c) => c.code.toUpperCase() === code.toUpperCase());
 

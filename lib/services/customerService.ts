@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { assertWriteAllowed } from './dbSyncEngine';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,7 @@ export async function getCustomer(id: string): Promise<Customer | null> {
 }
 
 export async function createCustomer(data: CustomerCreateInput): Promise<Customer> {
+  await assertWriteAllowed('Customer Creation');
   const all = readStore();
   const newCustomer: Customer = {
     ...data,
@@ -117,6 +119,7 @@ export async function createCustomer(data: CustomerCreateInput): Promise<Custome
 }
 
 export async function updateCustomer(id: string, data: CustomerUpdateInput): Promise<Customer> {
+  await assertWriteAllowed('Customer Update');
   const all = readStore();
   const idx = all.findIndex((c) => c.id === id);
   if (idx === -1) throw new Error(`Customer ${id} not found`);

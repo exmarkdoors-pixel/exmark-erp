@@ -46,6 +46,35 @@ let cachedDbOnline = false;
 const PROBE_INTERVAL_MS = 5000; // 5 seconds cache
 
 /**
+ * Check whether the application is running in a Cloud/Staging/Production environment
+ * (e.g., Render, Railway, Vercel) where ephemeral disk makes JSON writes dangerous.
+ */
+export function isCloudEnvironment(): boolean {
+  return (
+    process.env.RENDER === 'true' ||
+    Boolean(process.env.RENDER_SERVICE_ID) ||
+    process.env.STRICT_POSTGRES === 'true' ||
+    process.env.NODE_ENV === 'production'
+  );
+}
+
+/**
+ * Enforce write safety: In Cloud/Render or strict environments, writes MUST NOT
+ * silently fallback to ephemeral disk if PostgreSQL is unreachable.
+ * Desktop/local mode continues to permit local persistent store fallback.
+ */
+export async function assertWriteAllowed(operationName = 'write operation'): Promise<void> {
+  if (isCloudEnvironment()) {
+    const isOnline = await isPostgresAvailable();
+    if (!isOnline) {
+      throw new Error(
+        `DATABASE_UNAVAILABLE: Central PostgreSQL is unreachable and cloud environment rejects ephemeral writes for ${operationName}. Please configure DATABASE_URL.`
+      );
+    }
+  }
+}
+
+/**
  * Check whether the configured PostgreSQL instance is actively reachable
  */
 export async function isPostgresAvailable(): Promise<boolean> {

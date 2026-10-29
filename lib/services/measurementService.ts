@@ -5,6 +5,7 @@ import { logAuditEvent } from '@/lib/audit/auditLogger';
 import { DoorItemInput, SiteMeasurementRecord } from '@/types/measurements';
 import {
   isPostgresAvailable,
+  assertWriteAllowed,
   enqueueOutbox,
   reconcileOutboxToPostgres,
   getOutbox,
@@ -398,6 +399,7 @@ export async function createMeasurement(
   };
 
   const isOnline = await isPostgresAvailable();
+  await assertWriteAllowed('Site Measurement Creation');
 
   // If caller strictly demands PostgreSQL commitment and PostgreSQL is unavailable, fail safely
   if (options?.strictPostgres && !isOnline) {
@@ -514,6 +516,7 @@ export async function updateMeasurement(
   };
 
   const isOnline = await isPostgresAvailable();
+  await assertWriteAllowed('Site Measurement Creation');
 
   if (options?.strictPostgres && !isOnline) {
     throw new Error('DATABASE_OFFLINE: PostgreSQL authoritative database is unreachable. Update rejected under strict consistency policy.');
