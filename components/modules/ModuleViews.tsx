@@ -33,6 +33,7 @@ import {
   Award,
   ShieldCheck,
   Download,
+  QrCode,
 } from 'lucide-react';
 import {
   DEMO_PRODUCTION_LINES,
@@ -48,6 +49,7 @@ import { LeadFormModal } from './crm/LeadFormModal';
 import { QuotationBuilder } from './quotations/QuotationBuilder';
 import { JobCardModal } from './production/JobCardModal';
 import { StickerPrintModal } from './production/StickerPrintModal';
+import { QcInspectionModal } from './production/QcInspectionModal';
 import { PaymentReceiptModal } from './finance/PaymentReceiptModal';
 import { FinancialStrategistModal } from './finance/FinancialStrategistModal';
 import { WhatsAppSendModal } from './communication/WhatsAppSendModal';
@@ -59,7 +61,7 @@ import { DispatchRecord, InstallationRecord, WarrantyCertificate } from '@/types
 import { Customer } from '@/lib/services/customerService';
 import { Lead } from '@/lib/services/crmService';
 import { Quotation } from '@/lib/services/quotationService';
-import { ProductionOrder, ProductionStage } from '@/lib/services/productionService';
+import { ProductionOrder, ProductionStage, ProductionDoorItem } from '@/lib/services/productionService';
 import { Invoice, Payment, FinancialTarget } from '@/types/finance';
 import { ReportExecutionResult, WhatsAppDocumentType } from '@/types/communication';
 
@@ -1247,6 +1249,7 @@ export function ProductionView() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isJobCardModalOpen, setIsJobCardModalOpen] = useState<boolean>(false);
   const [selectedStickerOrder, setSelectedStickerOrder] = useState<ProductionOrder | null>(null);
+  const [selectedQcDoor, setSelectedQcDoor] = useState<{ order: ProductionOrder; door: ProductionDoorItem } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1462,6 +1465,7 @@ export function ProductionView() {
                         <th className="py-1">Handing</th>
                         <th className="py-1">Lock</th>
                         <th className="py-1">QC</th>
+                        <th className="py-1 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
@@ -1487,6 +1491,26 @@ export function ProductionView() {
                               {door.qcStatus}
                             </span>
                           </td>
+                          <td className="py-1.5 text-right space-x-1.5 whitespace-nowrap">
+                            <button
+                              onClick={() => setSelectedQcDoor({ order, door })}
+                              className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded text-[10px] font-semibold transition-colors cursor-pointer"
+                              title="Perform technical QC inspection and defect logging"
+                            >
+                              <ShieldCheck className="w-3 h-3 text-red-500" />
+                              <span>QC Check</span>
+                            </button>
+                            <a
+                              href={`/track/${door.doorId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded text-[10px] font-semibold transition-colors"
+                              title="Open live QR door tracking and lifecycle view"
+                            >
+                              <QrCode className="w-3 h-3" />
+                              <span>QR Track</span>
+                            </a>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1509,6 +1533,20 @@ export function ProductionView() {
         onClose={() => setSelectedStickerOrder(null)}
         order={selectedStickerOrder}
       />
+
+      {selectedQcDoor && (
+        <QcInspectionModal
+          isOpen={!!selectedQcDoor}
+          onClose={() => setSelectedQcDoor(null)}
+          order={selectedQcDoor.order}
+          door={selectedQcDoor.door}
+          onSaved={(updatedOrder) => {
+            setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
+            setToastMessage(`QC Inspection saved for door "${selectedQcDoor.door.doorId}".`);
+            setTimeout(() => setToastMessage(null), 3000);
+          }}
+        />
+      )}
     </div>
   );
 }

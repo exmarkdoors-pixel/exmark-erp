@@ -28,7 +28,7 @@ The platform is engineered for high availability across:
 | **CRM & Leads Management** | Complete & Verified | 10 Tests | Dual Postgres + JSON Store | `test-workflow-e2e.ts` (PASS) |
 | **BOQ & Quotation Engine** | Complete & Verified | 15 Tests | GST 18% HSN 3925.20 | Validated rate & sq.ft calculations |
 | **Order Control & Gate** | Complete & Verified | 12 Tests | Mandatory 40% Advance | Release without advance rejected |
-| **FRP Manufacturing** | Complete & Verified | 25 Tests | Job Cards + Cutting Deductions | Door IDs: `EXM-DR-2026-XXXX` |
+| **FRP Manufacturing** | Complete & Verified | 35 Tests | Job Cards + Cutting Deductions | Door IDs: `EXM-DR-2026-XXXX`, Yellow Stickers, 6-Pt QC |
 | **Inventory & Purchases** | Complete & Verified | 14 Tests | Stock Ledger & Reorder | Raw material consumption verified |
 | **Tax Invoicing & Finance** | Complete & Verified | 20 Tests | CGST 9% + SGST 9% | Invoice ledger & collection tracking |
 | **Dispatch & Installation** | Complete & Verified | 16 Tests | QR Tracking & Signoff | 5-Star customer verification |
@@ -51,4 +51,4 @@ The platform is engineered for high availability across:
 - **Render Staging Service:** Connected to GitHub `origin/main` (`exmarkdoors-pixel/exmark-erp`).
 - **Render Staging Service:** Live at `https://exmark-erp-staging.onrender.com`. Remote migration API `/api/system/migrate` verified operational (HTTP 200).
 - **URL Sanitization Layer:** Automatic prefix, whitespace, and quote stripping active across Prisma config, runtime client, and migration engine to prevent `P1013` scheme errors.
-- **Automated Verification:** 8 test suites passing 100% (Master: 35/35, Phase 9: 75/75, Workflow: 10/10, Security: 20/20, Fallback: 18/18, Company Profile: 27/27, Staging: 19/19). Zero TypeScript compile errors. Production build compiles in 8.8s.
+- **Automated Verification:** 9 test suites passing 100% (Phase 4 Manufacturing: 35/35, Master: 35/35, Phase 9: 75/75, Workflow: 10/10, Security: 20/20, Fallback: 18/18, Company Profile: 27/27, Staging: 19/19). Zero TypeScript compile errors. Production build compiles in 19.9s.

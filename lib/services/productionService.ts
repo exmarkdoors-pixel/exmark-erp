@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import prisma from '@/lib/prisma';
+import { assertWriteAllowed, isPostgresAvailable } from './dbSyncEngine';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +15,38 @@ export type ProductionStage =
 
 export type ProductionPriority = 'NORMAL' | 'HIGH' | 'URGENT';
 export type QcStatus = 'PENDING' | 'PASSED' | 'REJECTED';
+
+export type QcDecision = 'PASSED' | 'REWORK_REQUIRED' | 'REJECTED';
+
+export type DefectType =
+  | 'NONE'
+  | 'DIMENSIONAL_VARIATION'
+  | 'SURFACE_BLEMISH'
+  | 'PU_COATING_PEEL'
+  | 'LOCK_POCKET_MISALIGNMENT'
+  | 'EDGE_DELAMINATION'
+  | 'CORE_VOID'
+  | 'WARPAGE';
+
+export interface QcChecklist {
+  dimensionalAccuracy: boolean; // ±1.5mm tolerance
+  squarenessTolerance: boolean; // <2mm diagonal tolerance
+  surfaceCoatingAdhesion: boolean; // PU finish & adhesion
+  lockPocketAccuracy: boolean; // Lock pocket & mortise depth
+  hingeRebateEdgeSealing: boolean; // Hinge rebate & edge seal
+  waterImmersionDensity: boolean; // Core density & seal
+}
+
+export interface QcInspectionRecord {
+  inspectedAt: string;
+  inspectorName: string;
+  checklist: QcChecklist;
+  decision: QcDecision;
+  defectType?: DefectType;
+  defectSeverity?: 'MINOR' | 'MAJOR' | 'CRITICAL';
+  reworkNotes?: string;
+  actionTaken?: string;
+}
 
 export interface ProductionDoorItem {
   id: string;
@@ -28,6 +62,10 @@ export interface ProductionDoorItem {
   finishColor: string;
   qcStatus: QcStatus;
   qrPayload: string;
+  qcInspection?: QcInspectionRecord | null;
+  stickerRemovedAt?: string | null;
+  stickerRemovedBy?: string | null;
+  stickerRemovalNotes?: string | null;
 }
 
 export interface ProductionOrder {
@@ -149,10 +187,24 @@ export async function listProductionOrders(filter?: ProductionFilter): Promise<P
 
 export async function getProductionOrder(id: string): Promise<ProductionOrder | null> {
   const all = readStore();
-  return all.find((o) => o.id === id) ?? null;
+  return all.find((o) => o.id === id || o.jobCardNumber === id || o.prodOrderNumber === id) ?? null;
+}
+
+export async function findDoorBySerial(doorId: string): Promise<{ order: ProductionOrder; door: ProductionDoorItem } | null> {
+  const all = readStore();
+  const search = doorId.trim().toUpperCase();
+  for (const order of all) {
+    const door = order.doors.find((d) => d.doorId.toUpperCase() === search || d.id === doorId);
+    if (door) {
+      return { order, door };
+    }
+  }
+  return null;
 }
 
 export async function createProductionOrder(input: ProductionOrderCreateInput): Promise<ProductionOrder> {
+  await assertWriteAllowed('create production order');
+
   const all = readStore();
   const prodOrderNumber = generateProdNumber(all.length);
   const jobCardNumber = generateJobCardNumber(all.length);
@@ -191,8 +243,12 @@ export async function createProductionOrder(input: ProductionOrderCreateInput): 
       handing: d.handing || 'RH',
       lockType: d.lockType || 'Mortise Lock 60mm',
       finishColor: d.finishColor || 'Burma Teak',
-      qcStatus: 'PENDING',
+      qcStatus: 'PENDING' as QcStatus,
       qrPayload,
+      qcInspection: null,
+      stickerRemovedAt: null,
+      stickerRemovedBy: null,
+      stickerRemovalNotes: null,
     };
   });
 
@@ -222,12 +278,47 @@ export async function createProductionOrder(input: ProductionOrderCreateInput): 
     updatedAt: new Date().toISOString(),
   };
 
-  all.push(newOrder);
+  // Sync to PostgreSQL if connected and salesOrder is present
+  const isOnline = await isPostgresAvailable();
+  if (isOnline && input.salesOrderId) {
+    try {
+      const orderExists = await prisma.salesOrder.findUnique({
+        where: { id: input.salesOrderId },
+        select: { id: true },
+      });
+      if (orderExists) {
+        await prisma.productionOrder.create({
+          data: {
+            id: newOrder.id,
+            prodOrderNumber: newOrder.prodOrderNumber,
+            salesOrderId: input.salesOrderId,
+            doorCategory: newOrder.doorCategory,
+            specifications: JSON.stringify({
+              tolerances: newOrder.tolerancesApplied,
+              doorsCount: newOrder.doors.length,
+              jobCardNumber: newOrder.jobCardNumber,
+            }),
+            quantity: newOrder.quantity,
+            lineAssigned: newOrder.lineAssigned,
+            batchNumber: newOrder.batchNumber,
+            priority: newOrder.priority,
+            status: newOrder.status,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn('[productionService] PostgreSQL write skipped, preserved locally:', err);
+    }
+  }
+
+  all.unshift(newOrder);
   writeStore(all);
   return newOrder;
 }
 
 export async function updateProductionStage(id: string, stage: ProductionStage): Promise<ProductionOrder> {
+  await assertWriteAllowed('update production stage');
+
   const all = readStore();
   const idx = all.findIndex((o) => o.id === id);
   if (idx === -1) throw new Error(`Production order ${id} not found`);
@@ -241,7 +332,7 @@ export async function updateProductionStage(id: string, stage: ProductionStage):
   }
   if (stage === 'COMPLETED') {
     completedAt = new Date().toISOString();
-    // Auto-mark remaining doors as PASSED in QC upon completion
+    // Auto-mark remaining doors as PASSED in QC upon completion if not rejected
     order.doors.forEach((d) => {
       if (d.qcStatus === 'PENDING') d.qcStatus = 'PASSED';
     });
@@ -255,12 +346,31 @@ export async function updateProductionStage(id: string, stage: ProductionStage):
     updatedAt: new Date().toISOString(),
   };
 
+  // Sync to PostgreSQL if online
+  const isOnline = await isPostgresAvailable();
+  if (isOnline) {
+    try {
+      await prisma.productionOrder.updateMany({
+        where: { id },
+        data: {
+          status: stage,
+          startedAt: startedAt ? new Date(startedAt) : undefined,
+          completedAt: completedAt ? new Date(completedAt) : undefined,
+        },
+      });
+    } catch (err) {
+      console.warn('[productionService] PostgreSQL stage sync failed:', err);
+    }
+  }
+
   all[idx] = updated;
   writeStore(all);
   return updated;
 }
 
 export async function updateDoorQc(orderId: string, doorId: string, qcStatus: QcStatus): Promise<ProductionOrder> {
+  await assertWriteAllowed('update door QC');
+
   const all = readStore();
   const idx = all.findIndex((o) => o.id === orderId);
   if (idx === -1) throw new Error(`Production order ${orderId} not found`);
@@ -274,7 +384,56 @@ export async function updateDoorQc(orderId: string, doorId: string, qcStatus: Qc
   return all[idx];
 }
 
+export async function updateDoorQcWithChecklist(
+  orderId: string,
+  doorId: string,
+  inspection: QcInspectionRecord
+): Promise<ProductionOrder> {
+  await assertWriteAllowed('log door QC inspection');
+
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === orderId);
+  if (idx === -1) throw new Error(`Production order ${orderId} not found`);
+
+  const door = all[idx].doors.find((d) => d.id === doorId || d.doorId === doorId);
+  if (!door) throw new Error(`Door ${doorId} not found in production order ${orderId}`);
+
+  door.qcInspection = inspection;
+  door.qcStatus = inspection.decision === 'PASSED' ? 'PASSED' : 'REJECTED';
+  all[idx].updatedAt = new Date().toISOString();
+  writeStore(all);
+  return all[idx];
+}
+
+export async function confirmStickerRemoval(
+  doorId: string,
+  confirmedBy: string,
+  notes?: string
+): Promise<{ success: boolean; door: ProductionDoorItem; order: ProductionOrder }> {
+  await assertWriteAllowed('confirm sticker removal');
+
+  const all = readStore();
+  const search = doorId.trim().toUpperCase();
+
+  for (let idx = 0; idx < all.length; idx++) {
+    const order = all[idx];
+    const door = order.doors.find((d) => d.doorId.toUpperCase() === search || d.id === doorId);
+    if (door) {
+      door.stickerRemovedAt = new Date().toISOString();
+      door.stickerRemovedBy = confirmedBy.trim();
+      door.stickerRemovalNotes = notes?.trim() || 'Sticker removed and FRP door surface verified by site personnel.';
+      order.updatedAt = new Date().toISOString();
+      writeStore(all);
+      return { success: true, door, order };
+    }
+  }
+
+  throw new Error(`Door with ID "${doorId}" was not found.`);
+}
+
 export async function deleteProductionOrder(id: string): Promise<boolean> {
+  await assertWriteAllowed('delete production order');
+
   const all = readStore();
   const filtered = all.filter((o) => o.id !== id);
   if (filtered.length === all.length) return false;
