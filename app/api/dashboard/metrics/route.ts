@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import prisma from '@/lib/prisma';
+import { isPostgresAvailable } from '@/lib/services/dbSyncEngine';
 import { getActiveFactory } from '@/lib/services/companyProfileService';
 
 interface DashboardMetricItem {
@@ -89,19 +91,65 @@ export async function GET() {
     const invoicesList = finance.invoices || [];
     const paymentsList = finance.payments || [];
 
-    const totalInvoiced = invoicesList.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0);
-    const totalCollected = paymentsList.reduce((sum, pay) => sum + (Number(pay.amount) || 0), 0);
-    const totalReceivables = Math.max(0, totalInvoiced - totalCollected);
-
-    const totalQuoteValue = quotations.reduce((sum, q) => sum + (Number(q.totalAmount) || 0), 0);
-    const totalDoorOpenings = measurements.reduce(
+    let totalInvoiced = invoicesList.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0);
+    let totalCollected = paymentsList.reduce((sum, pay) => sum + (Number(pay.amount) || 0), 0);
+    let totalQuoteValue = quotations.reduce((sum, q) => sum + (Number(q.totalAmount) || 0), 0);
+    let totalDoorOpenings = measurements.reduce(
       (sum, m) => sum + (Number(m.totalOpenings) || (Array.isArray(m.doors) ? m.doors.length : 0)),
       0
     );
-    const totalProductionDoors = production.reduce(
+    let totalProductionDoors = production.reduce(
       (sum, p) => sum + (Number(p.quantity) || (Array.isArray(p.doors) ? p.doors.length : 0)),
       0
     );
+    let activeQuotesCount = quotations.length;
+    let prodOrdersCount = production.length;
+    let invCount = invoicesList.length;
+
+    // Check if Central PostgreSQL is authoritative and query live database
+    const postgresOnline = await isPostgresAvailable();
+    if (postgresOnline) {
+      try {
+        const [
+          custDbCount,
+          quoteAgg,
+          measItemsDbCount,
+          prodDbCount,
+          invDbAgg,
+          payDbAgg
+        ] = await Promise.all([
+          prisma.customer.count(),
+          prisma.quotation.aggregate({ _sum: { totalAmount: true }, _count: { id: true } }),
+          prisma.doorMeasurementItem.count(),
+          prisma.productionOrder.count(),
+          prisma.invoice.aggregate({ _sum: { totalAmount: true }, _count: { id: true } }),
+          prisma.payment.aggregate({ _sum: { amount: true }, _count: { id: true } })
+        ]);
+
+        if (quoteAgg._count.id > 0) {
+          activeQuotesCount = quoteAgg._count.id;
+          totalQuoteValue = Number(quoteAgg._sum.totalAmount) || 0;
+        }
+        if (measItemsDbCount > 0) {
+          totalDoorOpenings = measItemsDbCount;
+        }
+        if (prodDbCount > 0) {
+          prodOrdersCount = prodDbCount;
+          totalProductionDoors = prodDbCount;
+        }
+        if (invDbAgg._count.id > 0) {
+          totalInvoiced = Number(invDbAgg._sum.totalAmount) || 0;
+          invCount = invDbAgg._count.id;
+        }
+        if (payDbAgg._count.id > 0) {
+          totalCollected = Number(payDbAgg._sum.amount) || 0;
+        }
+      } catch (dbErr) {
+        console.warn('[DashboardMetrics] PostgreSQL aggregate query error, using persistent store values:', dbErr);
+      }
+    }
+
+    const totalReceivables = Math.max(0, totalInvoiced - totalCollected);
 
     // Formatter helpers
     const formatLakhs = (val: number): string => {
@@ -117,7 +165,7 @@ export async function GET() {
         title: 'Total Invoiced Sales (MTD)',
         value: totalInvoiced > 0 ? formatLakhs(totalInvoiced) : '₹0.00',
         rawNumeric: totalInvoiced,
-        change: `${invoicesList.length} Invoices`,
+        change: `${invCount} Invoices`,
         isPositive: totalInvoiced > 0,
         period: 'real tax ledger',
         subtext: `₹${(totalCollected / 100000).toFixed(2)}L collected • HSN 3925 (18% GST)`,
@@ -128,12 +176,12 @@ export async function GET() {
       {
         id: 'pending-quotations',
         title: 'Active Quotations Pipeline',
-        value: `${quotations.length} Quotes`,
-        rawNumeric: quotations.length,
+        value: `${activeQuotesCount} Quotes`,
+        rawNumeric: activeQuotesCount,
         change: formatLakhs(totalQuoteValue),
-        isPositive: quotations.length > 0,
+        isPositive: activeQuotesCount > 0,
         period: 'pipeline volume',
-        subtext: `${quotations.length} active FRP door quotes across Kerala districts`,
+        subtext: `${activeQuotesCount} active FRP door quotes across Kerala districts`,
         badge: 'Live Ledger',
         iconName: 'FileSpreadsheet',
         accentColor: 'from-amber-500 to-orange-600',
@@ -141,10 +189,10 @@ export async function GET() {
       {
         id: 'production-orders',
         title: 'Plant Floor & Job Cards',
-        value: `${production.length} Orders`,
-        rawNumeric: production.length,
+        value: `${prodOrdersCount} Orders`,
+        rawNumeric: prodOrdersCount,
         change: `${totalProductionDoors} Doors`,
-        isPositive: production.length > 0,
+        isPositive: prodOrdersCount > 0,
         period: 'active floor load',
         subtext: `${getActiveFactory().name} FRP Hydraulic Presses • Deterministic cutting sheet ready`,
         badge: 'Plant Verified',

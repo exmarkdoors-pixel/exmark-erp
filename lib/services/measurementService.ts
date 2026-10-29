@@ -410,18 +410,39 @@ export async function createMeasurement(
 
   if (isOnline) {
     try {
+      // Validate optional foreign keys before passing to Prisma to prevent constraint failure
+      let validCustomerId: string | null = null;
+      if (record.customerId) {
+        try {
+          const cust = await prisma.customer.findUnique({ where: { id: record.customerId }, select: { id: true } });
+          if (cust) validCustomerId = cust.id;
+        } catch {
+          validCustomerId = null;
+        }
+      }
+
+      let validMeasuredById: string | null = null;
+      if (record.measuredById) {
+        try {
+          const emp = await prisma.employee.findUnique({ where: { id: record.measuredById }, select: { id: true } });
+          if (emp) validMeasuredById = emp.id;
+        } catch {
+          validMeasuredById = null;
+        }
+      }
+
       const created = await prisma.doorMeasurement.create({
         data: {
           id: record.id,
           refNumber: record.refNumber,
-          customerId: record.customerId || null,
+          customerId: validCustomerId,
           customerName: record.customerName || null,
           orderRef: record.orderRef || null,
           siteName: record.siteName,
           siteAddress: record.siteAddress || null,
           district: record.district,
           totalOpenings: record.totalOpenings,
-          measuredById: record.measuredById || null,
+          measuredById: validMeasuredById,
           engineerName: record.engineerName || null,
           date: new Date(record.date || Date.now()),
           rebateDepthMm: record.rebateDepthMm || null,
