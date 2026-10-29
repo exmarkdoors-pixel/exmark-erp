@@ -49,4 +49,6 @@ The platform is engineered for high availability across:
 - **Authoritative Data Layer:** Hybrid dual-mode (PostgreSQL authoritative primary with automatic offline persistent JSON fallback and durable Outbox reconciliation queue).
 - **Relational PostgreSQL Schema:** 29 Relational models defined in `prisma/schema.prisma` and reviewable DDL in `prisma/migrations/20261028000000_init/migration.sql`.
 - **Render Staging Service:** Connected to GitHub `origin/main` (`exmarkdoors-pixel/exmark-erp`).
-- **Automated Verification:** 8 test suites passing 100% (Master: 35/35, Phase 9: 75/75, Workflow: 10/10, Security: 20/20, Fallback: 18/18, Company Profile: 27/27, Staging: 19/19).
+- **Render Staging Service:** Live at `https://exmark-erp-staging.onrender.com`. Remote migration API `/api/system/migrate` verified operational (HTTP 200).
+- **URL Sanitization Layer:** Automatic prefix, whitespace, and quote stripping active across Prisma config, runtime client, and migration engine to prevent `P1013` scheme errors.
+- **Automated Verification:** 8 test suites passing 100% (Master: 35/35, Phase 9: 75/75, Workflow: 10/10, Security: 20/20, Fallback: 18/18, Company Profile: 27/27, Staging: 19/19). Zero TypeScript compile errors. Production build compiles in 8.8s.
