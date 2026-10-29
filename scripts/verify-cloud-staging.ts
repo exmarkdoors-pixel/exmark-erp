@@ -8,6 +8,8 @@
  * 4. Verification that record is persisted in PostgreSQL
  */
 
+export {};
+
 const BASE_URL = process.env.STAGING_URL || 'https://exmark-erp-staging.onrender.com';
 const AUTH_SECRET = process.env.AUTH_SECRET || 'dev_secret_exmark_erp_kerala_doors_manufacturing_stage4_auth_key';
 
@@ -88,15 +90,18 @@ async function runVerification() {
           doors: [
             {
               doorNumber: 'D-01',
-              location: 'Main Staging Entry',
-              widthMm: 1000,
-              heightMm: 2100,
-              frameDepthMm: 125,
-              wallThicknessMm: 150,
-              swingDirection: 'LEFT_INWARD',
-              shutterType: 'MOLDED_PANEL',
-              frameType: 'FRP_STANDARD',
-              hardwareRequirements: ['MORTISE_LOCK', 'HEAVY_DUTY_HINGES'],
+              model: '32mm Molded Teak FRP Door',
+              colour: 'Burma Teak',
+              frameType: 'FRP Standard Wrap',
+              hingeSide: 'Left Hand (LH)',
+              lockType: 'Mortise Lock 60mm',
+              measurementUnit: 'MM',
+              heightLeft: 2100,
+              heightRight: 2100,
+              widthTop: 1000,
+              widthBottom: 1000,
+              wallThickness: '150mm',
+              rebateDepth: '35mm',
             },
           ],
         }),
