@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import prisma from '@/lib/prisma';
+import { assertWriteAllowed, isPostgresAvailable } from './dbSyncEngine';
 import {
   Invoice,
   Payment,
@@ -74,7 +76,7 @@ export async function listInvoices(filter?: { status?: InvoiceStatus; customerId
 
 export async function getInvoice(id: string): Promise<Invoice | null> {
   const store = readStore();
-  return store.invoices.find((i) => i.id === id) ?? null;
+  return store.invoices.find((i) => i.id === id || i.invoiceNumber === id) ?? null;
 }
 
 export async function createInvoice(input: {
@@ -85,6 +87,8 @@ export async function createInvoice(input: {
   dueDate?: string;
   eWayBillNumber?: string | null;
 }): Promise<Invoice> {
+  await assertWriteAllowed('create invoice');
+
   const store = readStore();
   const cgst = Math.round((input.subtotal * 9) / 100);
   const sgst = Math.round((input.subtotal * 9) / 100);
@@ -111,7 +115,39 @@ export async function createInvoice(input: {
     updatedAt: new Date().toISOString(),
   };
 
-  store.invoices.push(newInvoice);
+  // Sync with PostgreSQL if online and salesOrderId and customerId exist
+  const isOnline = await isPostgresAvailable();
+  if (isOnline && input.salesOrderId && input.customerId) {
+    try {
+      const [orderExists, custExists] = await Promise.all([
+        prisma.salesOrder.findUnique({ where: { id: input.salesOrderId }, select: { id: true } }),
+        prisma.customer.findUnique({ where: { id: input.customerId }, select: { id: true } }),
+      ]);
+      if (orderExists && custExists) {
+        await prisma.invoice.create({
+          data: {
+            id: newInvoice.id,
+            invoiceNumber: newInvoice.invoiceNumber,
+            salesOrderId: input.salesOrderId,
+            customerId: input.customerId,
+            invoiceDate: new Date(newInvoice.invoiceDate),
+            dueDate: new Date(newInvoice.dueDate),
+            subtotal: newInvoice.subtotal,
+            cgst: newInvoice.cgst,
+            sgst: newInvoice.sgst,
+            igst: newInvoice.igst,
+            totalAmount: newInvoice.totalAmount,
+            eWayBillNumber: newInvoice.eWayBillNumber,
+            status: newInvoice.status,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn('[financeService] PostgreSQL invoice sync skipped, preserved locally:', err);
+    }
+  }
+
+  store.invoices.unshift(newInvoice);
   writeStore(store);
   return newInvoice;
 }
@@ -132,6 +168,8 @@ export async function recordPayment(input: {
   referenceNumber?: string | null;
   notes?: string;
 }): Promise<Payment> {
+  await assertWriteAllowed('record payment');
+
   const store = readStore();
   const newPayment: Payment = {
     id: generateId('pay'),
@@ -147,8 +185,6 @@ export async function recordPayment(input: {
     createdAt: new Date().toISOString(),
   };
 
-  store.payments.push(newPayment);
-
   // If tied to an invoice, update paidAmount & status
   if (input.invoiceId) {
     const inv = store.invoices.find((i) => i.id === input.invoiceId);
@@ -162,6 +198,37 @@ export async function recordPayment(input: {
     }
   }
 
+  // Sync to PostgreSQL if online and customer exists
+  const isOnline = await isPostgresAvailable();
+  if (isOnline && input.customerId) {
+    try {
+      const custExists = await prisma.customer.findUnique({
+        where: { id: input.customerId },
+        select: { id: true },
+      });
+      const firstUser = await prisma.user.findFirst({ select: { id: true } });
+      if (custExists && firstUser) {
+        await prisma.payment.create({
+          data: {
+            id: newPayment.id,
+            receiptNumber: newPayment.receiptNumber,
+            invoiceId: input.invoiceId || undefined,
+            customerId: input.customerId,
+            recordedById: firstUser.id,
+            amount: newPayment.amount,
+            paymentDate: new Date(newPayment.paymentDate),
+            paymentMode: newPayment.paymentMode,
+            referenceNumber: newPayment.referenceNumber,
+            notes: newPayment.notes,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn('[financeService] PostgreSQL payment sync skipped, preserved locally:', err);
+    }
+  }
+
+  store.payments.unshift(newPayment);
   writeStore(store);
   return newPayment;
 }
@@ -182,6 +249,8 @@ export async function createFinancialTarget(input: {
   grossProfitTarget?: number;
   expenseBudget?: number;
 }): Promise<FinancialTarget> {
+  await assertWriteAllowed('create financial target');
+
   const store = readStore();
   const newTarget: FinancialTarget = {
     id: generateId('tgt'),
@@ -197,7 +266,7 @@ export async function createFinancialTarget(input: {
     updatedAt: new Date().toISOString(),
   };
 
-  store.targets.push(newTarget);
+  store.targets.unshift(newTarget);
   writeStore(store);
   return newTarget;
 }

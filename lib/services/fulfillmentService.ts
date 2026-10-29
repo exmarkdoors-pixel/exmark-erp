@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { assertWriteAllowed } from './dbSyncEngine';
 import {
   DispatchRecord,
   InstallationRecord,
@@ -84,6 +85,8 @@ export async function createDispatch(input: {
   eWayBillNo?: string | null;
   doorCount: number;
 }): Promise<DispatchRecord> {
+  await assertWriteAllowed('create dispatch schedule');
+
   const store = readStore();
   const newDispatch: DispatchRecord = {
     id: generateId('dsp'),
@@ -103,12 +106,14 @@ export async function createDispatch(input: {
     updatedAt: new Date().toISOString(),
   };
 
-  store.dispatches.push(newDispatch);
+  store.dispatches.unshift(newDispatch);
   writeStore(store);
   return newDispatch;
 }
 
 export async function updateDispatchStatus(id: string, status: DispatchStatus): Promise<DispatchRecord> {
+  await assertWriteAllowed('update dispatch status');
+
   const store = readStore();
   const idx = store.dispatches.findIndex((d) => d.id === id);
   if (idx === -1) throw new Error(`Dispatch ${id} not found`);
@@ -136,6 +141,8 @@ export async function createInstallation(input: {
   scheduledDate: string;
   doorCount: number;
 }): Promise<InstallationRecord> {
+  await assertWriteAllowed('create installation record');
+
   const store = readStore();
   const newInst: InstallationRecord = {
     id: generateId('ins'),
@@ -153,7 +160,7 @@ export async function createInstallation(input: {
     updatedAt: new Date().toISOString(),
   };
 
-  store.installations.push(newInst);
+  store.installations.unshift(newInst);
   writeStore(store);
   return newInst;
 }
@@ -164,6 +171,8 @@ export async function completeInstallationSignoff(input: {
   feedbackRating: number;
   remarks?: string;
 }): Promise<InstallationRecord> {
+  await assertWriteAllowed('complete installation signoff');
+
   const store = readStore();
   const idx = store.installations.findIndex((i) => i.id === input.id);
   if (idx === -1) throw new Error(`Installation ${input.id} not found`);
@@ -189,8 +198,10 @@ export async function generateWarrantyCertificate(input: {
   warrantyPeriodYears?: 10 | 15;
   coveredDoors: Array<{ doorId: string; model: string; sizeMm: string }>;
 }): Promise<WarrantyCertificate> {
+  await assertWriteAllowed('generate warranty certificate');
+
   const store = readStore();
-  const years = input.warrantyPeriodYears || 10;
+  const years = input.warrantyPeriodYears ?? 15;
   const validFrom = new Date().toISOString().split('T')[0];
   const expiryDate = new Date();
   expiryDate.setFullYear(expiryDate.getFullYear() + years);
@@ -208,7 +219,7 @@ export async function generateWarrantyCertificate(input: {
     coveredDoors: input.coveredDoors,
     coverageScope: 'FRP DOOR MATERIAL ONLY (100% Water, Termite & Borer Proof Body)',
     explicitExclusions: [
-      'SS Hinges, Tower Bolts, Handles, and Lock Hardware sets',
+      'SS Hinges, Tower Bolts, Handles, Mortise Locks, and Hardware sets',
       'Surface PU Paints, Foiling, and Cosmetic finish weathering',
       'Damage arising from civil structure settlement or accidental mechanical impact',
       'Unapproved modifications, thermal burns, or acidic chemical washing',
@@ -228,7 +239,7 @@ export async function generateWarrantyCertificate(input: {
     issuedAt: new Date().toISOString(),
   };
 
-  store.warranties.push(cert);
+  store.warranties.unshift(cert);
   writeStore(store);
   return cert;
 }

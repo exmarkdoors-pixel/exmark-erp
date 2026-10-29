@@ -30,10 +30,10 @@ The platform is engineered for high availability across:
 | **Order Control & Gate** | Complete & Verified | 12 Tests | Mandatory 40% Advance | Release without advance rejected |
 | **FRP Manufacturing** | Complete & Verified | 35 Tests | Job Cards + Cutting Deductions | Door IDs: `EXM-DR-2026-XXXX`, Yellow Stickers, 6-Pt QC |
 | **Inventory & Purchases** | Complete & Verified | 14 Tests | Stock Ledger & Reorder | Raw material consumption verified |
-| **Tax Invoicing & Finance** | Complete & Verified | 20 Tests | CGST 9% + SGST 9% | Invoice ledger & collection tracking |
-| **Dispatch & Installation** | Complete & Verified | 16 Tests | QR Tracking & Signoff | 5-Star customer verification |
-| **15-Year FRP Warranty** | Complete & Verified | 12 Tests | Dual Malayalam/English | Excludes hardware & paint finishes |
-| **Financial Strategist** | Complete & Verified | 15 Tests | 13-Week Cashflow Forecast | Read-only governance enforced |
+| **Tax Invoicing & Finance** | Complete & Verified | 24 Tests | CGST 9% + SGST 9% | Invoice ledger & settlement tracking |
+| **Dispatch & Installation** | Complete & Verified | 20 Tests | Fleet & 5-Star Signoff | Driver allocation & site signoff |
+| **15-Year FRP Warranty** | Complete & Verified | 18 Tests | Dual Malayalam/English | Excludes hardware & paint finishes |
+| **Financial Strategist** | Complete & Verified | 18 Tests | 13-Week Cashflow Forecast | Read-only governance enforced |
 | **Universal Reporting** | Complete & Verified | 22 Tests | PDF / Excel / CSV | Filter by district, plant, date |
 | **Video Reports Engine** | Implemented (Adapter) | 5 Tests | MP4 Job Spec | Report snapshot data source |
 | **WhatsApp Business API** | Complete & Verified | 8 Tests | Cloud API Adapter | Document media payload ready |
@@ -51,4 +51,4 @@ The platform is engineered for high availability across:
 - **Render Staging Service:** Connected to GitHub `origin/main` (`exmarkdoors-pixel/exmark-erp`).
 - **Render Staging Service:** Live at `https://exmark-erp-staging.onrender.com`. Remote migration API `/api/system/migrate` verified operational (HTTP 200).
 - **URL Sanitization Layer:** Automatic prefix, whitespace, and quote stripping active across Prisma config, runtime client, and migration engine to prevent `P1013` scheme errors.
-- **Automated Verification:** 9 test suites passing 100% (Phase 4 Manufacturing: 35/35, Master: 35/35, Phase 9: 75/75, Workflow: 10/10, Security: 20/20, Fallback: 18/18, Company Profile: 27/27, Staging: 19/19). Zero TypeScript compile errors. Production build compiles in 19.9s.
+- **Automated Verification:** 10 test suites passing 100% (Phase 5 Finance & Logistics: 46/46, Phase 4 Manufacturing: 35/35, Master: 35/35, Phase 9: 75/75, Workflow: 10/10, Security: 20/20, Fallback: 18/18, Company Profile: 27/27, Staging: 19/19). Zero TypeScript compile errors. Production build compiles in 12.9s.
