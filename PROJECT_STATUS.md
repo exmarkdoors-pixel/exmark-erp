@@ -39,7 +39,8 @@ The platform is engineered for high availability across:
 | **WhatsApp Business API** | Complete & Verified | 16 Tests | Cloud API Adapter | Document media payload ready |
 | **Company & Factory Profile** | Complete & Verified | 27 Tests | CMU Dynamic Resolution | Zero hardcoded Palakkad assumption |
 | **Customization Center** | Complete & Verified | 49 Tests | 17 Domains + Rollback | 49 Immutable revisions tracked |
-| **Backup Agent** | Complete & Verified | 24 Tests | SHA-256 Verified Snapshots | 24 Recovery checkpoints retained |
+| **Backup Agent** | Complete & Verified | 24 Tests | SHA-256 Verified Snapshots | 31 Recovery checkpoints retained |
+| **Desktop & Multi-Terminal** | Complete & Verified | 27 Tests | Electron + PWA + Locks | Optimistic concurrency & leases |
 
 ---
 
@@ -51,4 +52,4 @@ The platform is engineered for high availability across:
 - **Render Staging Service:** Connected to GitHub `origin/main` (`exmarkdoors-pixel/exmark-erp`).
 - **Render Staging Service:** Live at `https://exmark-erp-staging.onrender.com`. Remote migration API `/api/system/migrate` verified operational (HTTP 200).
 - **URL Sanitization Layer:** Automatic prefix, whitespace, and quote stripping active across Prisma config, runtime client, and migration engine to prevent `P1013` scheme errors.
-- **Automated Verification:** 11 test suites passing 100% (Phase 6 Reporting & Comms: 37/37, Phase 5 Finance & Logistics: 46/46, Phase 4 Manufacturing: 35/35, Master: 35/35, Phase 9: 75/75, Workflow: 10/10, Security: 20/20, Fallback: 18/18, Company Profile: 27/27, Staging: 19/19). Zero TypeScript compile errors. Production build compiles in 6.7s.
+- **Automated Verification:** 12 test suites passing 100% (Phase 8 Desktop & Concurrency: 27/27, Phase 6 Reporting & Comms: 37/37, Phase 5 Finance & Logistics: 46/46, Phase 4 Manufacturing: 35/35, Master: 35/35, Phase 9: 75/75, Workflow: 10/10, Security: 20/20, Fallback: 18/18, Company Profile: 27/27, Staging: 19/19). Zero TypeScript compile errors. Production build compiles in 6.7s.
