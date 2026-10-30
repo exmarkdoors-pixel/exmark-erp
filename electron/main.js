@@ -1,12 +1,47 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 // EXMARK ERP — Windows Desktop Application Electron Main Process
-// Supports multi-office computers connected to central cloud/LAN ERP
+// Resilient Multi-Terminal Plant & Regional Office Architecture
 
 const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 let mainWindow = null;
-const ERP_SERVER_URL = process.env.EXMARK_SERVER_URL || 'http://localhost:3000';
+const CLOUD_STAGING_URL = 'https://exmark-erp-staging.onrender.com';
+
+function getConfigFilePath() {
+  return path.join(app.getPath('userData'), 'server-config.json');
+}
+
+function getStoredServerUrl() {
+  if (process.env.EXMARK_SERVER_URL) {
+    return process.env.EXMARK_SERVER_URL.trim().replace(/\/+$/, '');
+  }
+  try {
+    const configPath = getConfigFilePath();
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (data && data.serverUrl) {
+        return data.serverUrl.trim().replace(/\/+$/, '');
+      }
+    }
+  } catch (err) {
+    console.warn('[Desktop Main] Could not read stored server config:', err.message);
+  }
+  return CLOUD_STAGING_URL;
+}
+
+function saveServerUrl(url) {
+  try {
+    const configPath = getConfigFilePath();
+    const cleanUrl = url.trim().replace(/\/+$/, '');
+    fs.writeFileSync(configPath, JSON.stringify({ serverUrl: cleanUrl, updatedAt: new Date().toISOString() }, null, 2));
+    return cleanUrl;
+  } catch (err) {
+    console.error('[Desktop Main] Failed to write server config:', err.message);
+    return url;
+  }
+}
 
 // Enforce single instance lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -15,7 +50,6 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    // Focus existing window if a second instance is launched
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
@@ -25,15 +59,31 @@ if (!gotTheLock) {
   app.whenReady().then(createMainWindow);
 }
 
+function loadLocalDesktopApp() {
+  if (!mainWindow) return;
+  const localIndex = path.join(__dirname, 'index.html');
+  console.log(`[Desktop Main] Loading bundled local desktop UI: ${localIndex}`);
+  mainWindow.loadFile(localIndex);
+}
+
+function loadRemoteUrl(targetUrl) {
+  if (!mainWindow) return;
+  console.log(`[Desktop Main] Loading remote ERP URL: ${targetUrl}`);
+  mainWindow.loadURL(targetUrl);
+}
+
 function createMainWindow() {
+  const iconPath = path.join(__dirname, '../public/icons/icon-512.svg');
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    minWidth: 1200,
-    minHeight: 768,
-    title: 'EXMARK ERP — Kerala FRP Architectural Doors',
-    icon: path.join(__dirname, '../public/icons/icon-512.svg'),
-    backgroundColor: '#0B132B',
+    minWidth: 1100,
+    minHeight: 700,
+    title: 'EXMARK ERP — Kerala FRP Architectural Doors Enterprise Platform',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    backgroundColor: '#070D1E',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -42,15 +92,26 @@ function createMainWindow() {
     },
   });
 
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+
   const menuTemplate = [
     {
       label: 'EXMARK ERP',
       submenu: [
         { label: 'About EXMARK Doors', role: 'about' },
         { type: 'separator' },
-        { label: 'Preferences / Plant Connection', accelerator: 'CmdOrCtrl+,', click: () => {
-          if (mainWindow) mainWindow.loadURL(`${ERP_SERVER_URL}/?tab=settings`);
-        }},
+        {
+          label: 'Desktop Terminal Home',
+          accelerator: 'CmdOrCtrl+H',
+          click: () => loadLocalDesktopApp(),
+        },
+        {
+          label: 'Open Cloud Staging Platform',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => loadRemoteUrl(getStoredServerUrl()),
+        },
         { type: 'separator' },
         { label: 'Quit Application', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
       ],
@@ -58,26 +119,46 @@ function createMainWindow() {
     {
       label: 'Operations',
       submenu: [
-        { label: 'Door Measurement Book', accelerator: 'CmdOrCtrl+M', click: () => {
-          if (mainWindow) mainWindow.loadURL(`${ERP_SERVER_URL}/?tab=measurements`);
-        }},
-        { label: 'Job Cards & Cutting', accelerator: 'CmdOrCtrl+P', click: () => {
-          if (mainWindow) mainWindow.loadURL(`${ERP_SERVER_URL}/?tab=production`);
-        }},
-        { label: 'Fleet Dispatches', accelerator: 'CmdOrCtrl+D', click: () => {
-          if (mainWindow) mainWindow.loadURL(`${ERP_SERVER_URL}/?tab=dispatch`);
-        }},
-        { label: 'GST Accounts & Invoices', accelerator: 'CmdOrCtrl+I', click: () => {
-          if (mainWindow) mainWindow.loadURL(`${ERP_SERVER_URL}/?tab=accounts`);
-        }},
+        {
+          label: 'Door Measurement Book',
+          accelerator: 'CmdOrCtrl+M',
+          click: () => {
+            const url = `${getStoredServerUrl()}/?tab=measurements`;
+            loadRemoteUrl(url);
+          },
+        },
+        {
+          label: 'Job Cards & Cutting Deductions',
+          accelerator: 'CmdOrCtrl+P',
+          click: () => {
+            const url = `${getStoredServerUrl()}/?tab=production`;
+            loadRemoteUrl(url);
+          },
+        },
+        {
+          label: 'Fleet Dispatches',
+          accelerator: 'CmdOrCtrl+D',
+          click: () => {
+            const url = `${getStoredServerUrl()}/?tab=dispatch`;
+            loadRemoteUrl(url);
+          },
+        },
+        {
+          label: 'GST Accounts & Invoices',
+          accelerator: 'CmdOrCtrl+I',
+          click: () => {
+            const url = `${getStoredServerUrl()}/?tab=accounts`;
+            loadRemoteUrl(url);
+          },
+        },
       ],
     },
     {
       label: 'View',
       submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        { role: 'reload', accelerator: 'CmdOrCtrl+R' },
+        { role: 'forceReload', accelerator: 'CmdOrCtrl+Shift+R' },
+        { role: 'toggleDevTools', accelerator: 'F12' },
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
@@ -102,11 +183,25 @@ function createMainWindow() {
   const menu = Menu.buildFromTemplate(menuTemplate);
   Menu.setApplicationMenu(menu);
 
-  // Load cloud or local ERP server
-  mainWindow.loadURL(ERP_SERVER_URL);
+  // Fallback to local desktop interface if remote load fails
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.warn(`[Desktop Main] Failed to load URL: ${validatedURL} (Code: ${errorCode}, ${errorDescription})`);
+    
+    // Ignore canceled/aborted user navigations
+    if (errorCode === -3) return;
+
+    // If local file failed, don't loop
+    if (validatedURL.includes('index.html')) return;
+
+    // Instantly recover by loading the offline desktop dashboard
+    loadLocalDesktopApp();
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[Desktop Main] Renderer content ready.');
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Open external links in default browser
     if (url.startsWith('https:') || url.startsWith('http:')) {
       shell.openExternal(url);
       return { action: 'deny' };
@@ -117,9 +212,17 @@ function createMainWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Default launch sequence:
+  // If EXMARK_SERVER_URL is explicitly passed in environment, use that; otherwise load the bundled desktop UI immediately
+  if (process.env.EXMARK_SERVER_URL) {
+    loadRemoteUrl(process.env.EXMARK_SERVER_URL);
+  } else {
+    loadLocalDesktopApp();
+  }
 }
 
-// IPC Handlers for desktop integration
+// IPC Handlers
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-system-info', () => ({
   platform: process.platform,
@@ -127,6 +230,21 @@ ipcMain.handle('get-system-info', () => ({
   nodeVersion: process.versions.node,
   electronVersion: process.versions.electron,
 }));
+ipcMain.handle('get-server-url', () => getStoredServerUrl());
+ipcMain.handle('set-server-url', (event, url) => {
+  const clean = saveServerUrl(url);
+  loadRemoteUrl(clean);
+  return clean;
+});
+ipcMain.handle('retry-connection', () => {
+  loadRemoteUrl(getStoredServerUrl());
+});
+ipcMain.handle('load-local-app', () => {
+  loadLocalDesktopApp();
+});
+ipcMain.handle('open-devtools', () => {
+  if (mainWindow) mainWindow.webContents.openDevTools();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

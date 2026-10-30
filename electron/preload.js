@@ -7,5 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
+  getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+  setServerUrl: (url) => ipcRenderer.invoke('set-server-url', url),
+  retryConnection: () => ipcRenderer.invoke('retry-connection'),
   printPage: () => window.print(),
 });

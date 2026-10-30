@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EXMARK ERP — Kerala FRP Architectural Doors Enterprise Platform</title>
+  <style>
+    :root {
+      --bg-dark: #070D1E;
+      --bg-card: #0B132B;
+      --bg-hover: #172554;
+      --border-color: #1E293B;
+      --primary-red: #E63946;
+      --primary-hover: #D62828;
+      --accent-blue: #38BDF8;
+      --accent-green: #10B981;
+      --accent-amber: #F59E0B;
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-sub: #64748B;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+    /* Sidebar */
+    aside {
+      width: 260px;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .brand-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: var(--primary-red);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 900;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(230, 57, 70, 0.4);
+    }
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+    .brand-subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    nav {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 8px;
+    }
+    .nav-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 8px 12px 4px 12px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 2px;
+      transition: all 0.15s ease;
+    }
+    .nav-item:hover {
+      background: var(--bg-hover);
+      color: #fff;
+    }
+    .nav-item.active {
+      background: rgba(230, 57, 70, 0.15);
+      border: 1px solid rgba(230, 57, 70, 0.3);
+      color: #fff;
+      font-weight: 600;
+    }
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      opacity: 0.8;
+    }
+    .nav-item.active svg {
+      opacity: 1;
+      color: var(--primary-red);
+    }
+    .badge-pill {
+      margin-left: auto;
+      background: rgba(230, 57, 70, 0.2);
+      color: var(--primary-red);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 9999px;
+    }
+    /* User Card Footer */
+    .user-footer {
+      padding: 16px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,0,0,0.2);
+    }
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #3B82F6;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .user-info {
+      flex: 1;
+      overflow: hidden;
+    }
+    .user-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+    .user-role {
+      font-size: 11px;
+      color: var(--accent-blue);
+    }
+
+    /* Main Content Area */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-dark);
+    }
+    /* Top Bar */
+    header {
+      height: 60px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .factory-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: var(--accent-blue);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      border: 1px solid var(--border-color);
+      background: #0F172A;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .status-pill:hover {
+      border-color: #334155;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-amber);
+    }
+    .status-dot.online {
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+    .btn-cloud-switch {
+      background: var(--primary-red);
+      color: #fff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .btn-cloud-switch:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Content View Scrollable */
+    .content-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px;
+    }
+    .view-panel {
+      display: none;
+    }
+    .view-panel.active {
+      display: block;
+    }
+
+    /* Cards & Grids */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--primary-red);
+    }
+    .kpi-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .kpi-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--accent-green);
+    }
+
+    /* Data Table */
+    .table-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 28px;
+    }
+    .table-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .table-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    th {
+      background: rgba(0,0,0,0.25);
+      padding: 12px 20px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    td {
+      padding: 14px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+    .status-tag {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-tag.success { background: rgba(16, 185, 129, 0.15); color: #34D399; }
+    .status-tag.warning { background: rgba(245, 158, 11, 0.15); color: #FBBF24; }
+    .status-tag.info { background: rgba(56, 189, 248, 0.15); color: #38BDF8; }
+
+    /* Interactive Calculator & Modals */
+    .calc-box {
+      background: #0E1A38;
+      border: 1px solid #1E3A8A;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+    .calc-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .calc-input-group label {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .calc-input-group input, .calc-input-group select {
+      width: 100%;
+      background: #070D1E;
+      border: 1px solid #334155;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+    .calc-result {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 12px 16px;
+      border-radius: 8px;
+      color: #A7F3D0;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    button.btn-action {
+      background: #2563EB;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button.btn-action:hover {
+      background: #1D4ED8;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside>
+    <div class="brand-header">
+      <div class="brand-logo">E</div>
+      <div>
+        <div class="brand-title">EXMARK DOORS</div>
+        <div class="brand-subtitle">Architectural FRP ERP</div>
+      </div>
+    </div>
+
+    <nav>
+      <div class="nav-section-title">Core Operations</div>
+      <div class="nav-item active" onclick="switchTab('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Dashboard Hub</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('measurements')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.3 8.7 8.7 21.3a2 2 0 0 1-2.8 0L2.7 18.1a2 2 0 0 1 0-2.8L15.3 2.7a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8z"/><path d="m14.5 4.5 5 5"/></svg>
+        <span>Site Measurements</span>
+        <span class="badge-pill">4-Pt</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('production')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M6 16V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12"/><path d="M10 8h4"/></svg>
+        <span>Job Cards & Cutting</span>
+        <span class="badge-pill">FRP</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('qc')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span>6-Pt Quality Control</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('accounts')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <span>GST Invoices & Cash</span>
+        <span class="badge-pill">18%</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('dispatch')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        <span>Fleet & Installation</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('warranty')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+        <span>15-Year Warranty</span>
+      </div>
+
+      <div class="nav-section-title" style="margin-top: 14px;">Terminal System</div>
+      <div class="nav-item" onclick="switchTab('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Plant Connection</span>
+      </div>
+    </nav>
+
+    <div class="user-footer">
+      <div class="user-avatar">NK</div>
+      <div class="user-info">
+        <div class="user-name">Nazer Karumban</div>
+        <div class="user-role">Super Admin &bull; CMU Plant</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Work Area -->
+  <main>
+    <header>
+      <div class="header-left">
+        <div class="factory-badge" id="factoryBadge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          Central Manufacturing Unit (CMU)
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="status-pill" id="cloudStatusPill" onclick="checkCloudHealth()">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="cloudStatusText">Connecting to Cloud...</span>
+        </div>
+
+        <button class="btn-cloud-switch" onclick="launchCloudSession()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+          Open Cloud Workspace
+        </button>
+      </div>
+    </header>
+
+    <div class="content-container">
+      <!-- 1. DASHBOARD VIEW -->
+      <div id="view-dashboard" class="view-panel active">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Active Orders</div>
+            <div class="kpi-value">24 Doors</div>
+            <div class="kpi-sub">&bull; 100% FRP Hydraulic Press Lines</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Monthly Billing</div>
+            <div class="kpi-value">₹48,60,000</div>
+            <div class="kpi-sub">&bull; 64.8% of ₹75L Monthly Target</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">QC First-Pass Yield</div>
+            <div class="kpi-value">98.4%</div>
+            <div class="kpi-sub">&bull; 6-Point Inspection Standard</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Kerala Dispatch Fleet</div>
+            <div class="kpi-value">14 Districts</div>
+            <div class="kpi-sub">&bull; Avg Delivery: 3.2 Days</div>
+          </div>
+        </div>
+
+        <!-- Cutting Deduction Calculator -->
+        <div class="calc-box">
+          <h3 style="font-size: 15px; margin-bottom: 12px; color: #fff;">FRP Door Raw-to-Finished Cutting Calculator</h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Formula: <code style="color: #F87171;">Finished Dimension = Raw Dimension - Cutting Deduction</code> (Height: -10mm, Width: -12mm)</p>
+          <div class="calc-row">
+            <div class="calc-input-group">
+              <label>Masonry Opening Height (mm)</label>
+              <input type="number" id="calcHeight" value="2100" oninput="calculateCutting()">
+            </div>
+            <div class="calc-input-group">
+              <label>Masonry Opening Width (mm)</label>
+              <input type="number" id="calcWidth" value="900" oninput="calculateCutting()">
+            </div>
+            <div class="calc-input-group">
+              <label>Door Thickness</label>
+              <select id="calcThickness" onchange="calculateCutting()">
+                <option value="32mm">32mm Molded Panel</option>
+                <option value="35mm">35mm Flush Heavy Duty</option>
+              </select>
+            </div>
+          </div>
+          <div class="calc-result" id="cuttingResult">
+            Finished Shutter Size: 2090mm (H) &times; 888mm (W) &bull; Frame: FRP Wrap-around &bull; Clears opening with standard 5mm clearance.
+          </div>
+        </div>
+
+        <!-- Active Orders Table -->
+        <div class="table-card">
+          <div class="table-header">
+            <div class="table-title">Recent Factory Production Work Orders</div>
+            <button class="btn-action" onclick="switchTab('production')">View All Press Lines</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Job Card</th>
+                <th>Client / Project</th>
+                <th>Door Specification</th>
+                <th>Quantity</th>
+                <th>Stage</th>
+                <th>QC Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>JC-2026-045</strong></td>
+                <td>Skyline Horizon Builders (Calicut)</td>
+                <td>32mm Molded Teakwood FRP Door</td>
+                <td>12 Openings</td>
+                <td><span class="status-tag info">PU COATING</span></td>
+                <td><span class="status-tag success">PASSED</span></td>
+              </tr>
+              <tr>
+                <td><strong>JC-2026-044</strong></td>
+                <td>Malabar Coastal Villas (Kochi)</td>
+                <td>35mm Waterproof Bathroom FRP Door</td>
+                <td>8 Openings</td>
+                <td><span class="status-tag warning">MOLDING PRESS</span></td>
+                <td><span class="status-tag info">QUEUED</span></td>
+              </tr>
+              <tr>
+                <td><strong>JC-2026-043</strong></td>
+                <td>Grand Kerala Convention Centre</td>
+                <td>32mm Walnut Acoustic FRP Door</td>
+                <td>20 Openings</td>
+                <td><span class="status-tag success">DISPATCH READY</span></td>
+                <td><span class="status-tag success">CERTIFIED</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2. SITE MEASUREMENTS -->
+      <div id="view-measurements" class="view-panel">
+        <div class="table-card">
+          <div class="table-header">
+            <div class="table-title">Site Measurement Book &bull; 4-Point Masonry Records</div>
+            <button class="btn-action" onclick="alert('Record New Site Measurement opens in Cloud Workspace or press Ctrl+M')">+ Record New Site Measurement</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Ref ID</th>
+                <th>Customer / Site</th>
+                <th>District</th>
+                <th>Openings</th>
+                <th>Frame Type</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>MSR-2026-089</strong></td>
+                <td>Skyline Horizon Builders</td>
+                <td>Kozhikode</td>
+                <td>12 Doors</td>
+                <td>FRP Standard Rebate</td>
+                <td><span class="status-tag success">CONFIRMED</span></td>
+              </tr>
+              <tr>
+                <td><strong>MSR-2026-088</strong></td>
+                <td>Aluva Riverside Luxury Homes</td>
+                <td>Ernakulam</td>
+                <td>6 Doors</td>
+                <td>FRP Wrap Frame</td>
+                <td><span class="status-tag warning">PENDING SIGN</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 3. PRODUCTION & JOB CARDS -->
+      <div id="view-production" class="view-panel">
+        <div class="table-card">
+          <div class="table-header">
+            <div class="table-title">Plant Press Lines & Temporary Yellow Stickers</div>
+            <button class="btn-action" onclick="printTestSticker()">Print 2&times;6 Yellow Sticker Test Sheet</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Serial Number</th>
+                <th>Opening Location</th>
+                <th>Raw Size</th>
+                <th>Finished Cut Size</th>
+                <th>Sticker QR</th>
+                <th>Sticker Removal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>EXM-DR-2026-0052</strong></td>
+                <td>Main Entry Opening</td>
+                <td>2100 &times; 900 mm</td>
+                <td>2088 &times; 890 mm</td>
+                <td><span class="status-tag info">QR GENERATED</span></td>
+                <td><span class="status-tag warning">UNREMOVED (IN-TRANSIT)</span></td>
+              </tr>
+              <tr>
+                <td><strong>EXM-DR-2026-0051</strong></td>
+                <td>Master Bedroom Ensuite</td>
+                <td>2050 &times; 800 mm</td>
+                <td>2038 &times; 790 mm</td>
+                <td><span class="status-tag info">QR GENERATED</span></td>
+                <td><span class="status-tag success">CONFIRMED REMOVED</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 4. QUALITY CONTROL -->
+      <div id="view-qc" class="view-panel">
+        <div class="table-card">
+          <div class="table-header">
+            <div class="table-title">6-Point Technical QA Inspection Checklist</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Check Item</th>
+                <th>Standard Specification</th>
+                <th>Tolerance</th>
+                <th>Verification Method</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Dimensions & Squareness</strong></td>
+                <td>Opening deductions verified</td>
+                <td>&plusmn; 1.0 mm</td>
+                <td>Laser & Caliper Verification</td>
+              </tr>
+              <tr>
+                <td><strong>2. Diagonal Trueness</strong></td>
+                <td>Equal corner-to-corner length</td>
+                <td>&le; 2.0 mm</td>
+                <td>Steel Tape Diagonal Comparison</td>
+              </tr>
+              <tr>
+                <td><strong>3. Core Infill Integrity</strong></td>
+                <td>High-density polymer core matrix</td>
+                <td>Zero voids</td>
+                <td>Ultrasonic Acoustic Resonance Test</td>
+              </tr>
+              <tr>
+                <td><strong>4. Surface Lamination & Finish</strong></td>
+                <td>Uniform PU coating, teak grain</td>
+                <td>No blisters/peel</td>
+                <td>Cross-hatch adhesion & visual inspect</td>
+              </tr>
+              <tr>
+                <td><strong>5. Rebate & Hardware Recess</strong></td>
+                <td>Hinge & lock precision routing</td>
+                <td>&plusmn; 0.5 mm</td>
+                <td>CNC Gauge Depth Verification</td>
+              </tr>
+              <tr>
+                <td><strong>6. Temporary QR Tracking Sticker</strong></td>
+                <td>Yellow sheet 2&times;6 adhered to edge</td>
+                <td>Present</td>
+                <td>Barcode Optical Scan Validation</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 5. GST INVOICES & CASH -->
+      <div id="view-accounts" class="view-panel">
+        <div class="table-card">
+          <div class="table-header">
+            <div class="table-title">GST Tax Invoices & Partial Payments (HSN 3925.20.00)</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Invoice Number</th>
+                <th>Customer</th>
+                <th>Taxable Subtotal</th>
+                <th>CGST (9%)</th>
+                <th>SGST (9%)</th>
+                <th>Total (18%)</th>
+                <th>Settlement</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>INV-2026-031</strong></td>
+                <td>Skyline Horizon Builders</td>
+                <td>₹2,00,000</td>
+                <td>₹18,000</td>
+                <td>₹18,000</td>
+                <td>₹2,36,000</td>
+                <td><span class="status-tag success">SETTLED (PAID)</span></td>
+              </tr>
+              <tr>
+                <td><strong>INV-2026-030</strong></td>
+                <td>Kochi Waterfront Residency</td>
+                <td>₹1,40,000</td>
+                <td>₹12,600</td>
+                <td>₹12,600</td>
+                <td>₹1,65,200</td>
+                <td><span class="status-tag warning">PARTIAL (40% ADVANCE)</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 6. FLEET & INSTALLATION -->
+      <div id="view-dispatch" class="view-panel">
+        <div class="table-card">
+          <div class="table-header">
+            <div class="table-title">Fleet Logistics & 5-Star Customer Installation Signoff</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Dispatch ID</th>
+                <th>Destination</th>
+                <th>Vehicle & Driver</th>
+                <th>Doors</th>
+                <th>Client Rating</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>DSP-2026-022</strong></td>
+                <td>Calicut Bypass Site</td>
+                <td>KL-10-AZ-4421 (Suresh M.)</td>
+                <td>12 Units</td>
+                <td>⭐⭐⭐⭐⭐ 5.0</td>
+                <td><span class="status-tag success">DELIVERED</span></td>
+              </tr>
+              <tr>
+                <td><strong>DSP-2026-021</strong></td>
+                <td>Thrissur Town Project</td>
+                <td>KL-08-BK-1102 (Faisal K.)</td>
+                <td>6 Units</td>
+                <td>⭐⭐⭐⭐⭐ 5.0</td>
+                <td><span class="status-tag success">SIGNED OFF</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 7. 15-YEAR WARRANTY -->
+      <div id="view-warranty" class="view-panel">
+        <div class="table-card">
+          <div class="table-header">
+            <div class="table-title">Official 15-Year FRP Material Warranty Certificates</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Certificate Number</th>
+                <th>Customer Name</th>
+                <th>Doors Covered</th>
+                <th>Issue Date</th>
+                <th>Valid Until</th>
+                <th>Care Instructions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>EXM-WRN-2026-0042</strong></td>
+                <td>Skyline Horizon Builders</td>
+                <td>12 FRP Doors</td>
+                <td>2026-10-30</td>
+                <td>2041-10-30 (15 Yrs)</td>
+                <td>English + മലയാളം</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 8. SETTINGS & PLANT CONNECTION -->
+      <div id="view-settings" class="view-panel">
+        <div class="calc-box">
+          <h3 style="font-size: 16px; margin-bottom: 12px; color: #fff;">Plant Connection & Server Address Configuration</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+            Configure the ERP server endpoint that this office workstation connects to. You can switch between Central Cloud Staging, Local Development, or Factory Intranet LAN IP.
+          </p>
+
+          <div style="margin-bottom: 16px;">
+            <label style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:6px; text-transform:uppercase;">Active Server Endpoint URL</label>
+            <input type="text" id="customServerUrl" style="width:100%; max-width:600px; background:#070D1E; border:1px solid #334155; color:#fff; padding:10px 14px; border-radius:8px; font-size:14px;" value="https://exmark-erp-staging.onrender.com">
+          </div>
+
+          <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+            <button class="btn-action" onclick="saveAndReconnect()">Save & Reconnect</button>
+            <button class="btn-action" style="background:#334155;" onclick="setPresetUrl('https://exmark-erp-staging.onrender.com')">Preset: Cloud Staging</button>
+            <button class="btn-action" style="background:#334155;" onclick="setPresetUrl('http://localhost:3000')">Preset: Localhost:3000</button>
+          </div>
+
+          <div style="font-size:12px; color:#94A3B8; background:rgba(0,0,0,0.3); padding:12px; border-radius:6px; border:1px solid #1E293B;">
+            <strong>Workstation System Environment:</strong><br>
+            Application: EXMARK ERP Desktop Workstation v2.4.0<br>
+            Electron Runtime: Context-Isolated Chromium Sandbox<br>
+            Plant Cache: Zero blank-screen fallback active.
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const DEFAULT_CLOUD_URL = 'https://exmark-erp-staging.onrender.com';
+    let currentServerUrl = DEFAULT_CLOUD_URL;
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
+
+      const targetNav = Array.from(document.querySelectorAll('.nav-item')).find(el => el.getAttribute('onclick')?.includes(`'${tabId}'`));
+      if (targetNav) targetNav.classList.add('active');
+
+      const targetPanel = document.getElementById(`view-${tabId}`);
+      if (targetPanel) targetPanel.classList.add('active');
+    }
+
+    function calculateCutting() {
+      const h = parseFloat(document.getElementById('calcHeight').value) || 2100;
+      const w = parseFloat(document.getElementById('calcWidth').value) || 900;
+      const thickness = document.getElementById('calcThickness').value;
+
+      const finishedH = h - 10;
+      const finishedW = w - 12;
+
+      document.getElementById('cuttingResult').innerHTML = 
+        `Finished Shutter Size: <strong>${finishedH}mm (Height) &times; ${finishedW}mm (Width)</strong> &bull; Thickness: ${thickness} &bull; Deductions applied: -10mm H, -12mm W.`;
+    }
+
+    async function checkCloudHealth() {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('cloudStatusText');
+      text.textContent = 'Checking Cloud Health...';
+      dot.className = 'status-dot';
+
+      try {
+        const res = await fetch(`${currentServerUrl}/api/health`, { method: 'GET', mode: 'cors' });
+        if (res.ok) {
+          const data = await res.json();
+          dot.className = 'status-dot online';
+          text.textContent = 'Cloud Online: Central Cloud Postgres';
+        } else {
+          dot.className = 'status-dot';
+          text.textContent = `Cloud Status: ${res.status}`;
+        }
+      } catch (err) {
+        dot.className = 'status-dot';
+        text.textContent = 'Cloud Offline / Waking Up';
+      }
+    }
+
+    function setPresetUrl(url) {
+      document.getElementById('customServerUrl').value = url;
+    }
+
+    function saveAndReconnect() {
+      const url = document.getElementById('customServerUrl').value.trim();
+      if (!url) return;
+      currentServerUrl = url;
+      if (window.electronAPI && window.electronAPI.setServerUrl) {
+        window.electronAPI.setServerUrl(url);
+      }
+      checkCloudHealth();
+      alert('Active Server updated to: ' + url);
+    }
+
+    function launchCloudSession() {
+      if (window.electronAPI && window.electronAPI.setServerUrl) {
+        window.electronAPI.setServerUrl(currentServerUrl);
+      } else {
+        window.location.href = currentServerUrl;
+      }
+    }
+
+    function printTestSticker() {
+      if (window.electronAPI && window.electronAPI.printPage) {
+        window.electronAPI.printPage();
+      } else {
+        window.print();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      if (window.electronAPI && window.electronAPI.getServerUrl) {
+        try {
+          const stored = await window.electronAPI.getServerUrl();
+          if (stored) {
+            currentServerUrl = stored;
+            document.getElementById('customServerUrl').value = stored;
+          }
+        } catch (e) {
+          console.warn('Could not read electron stored server', e);
+        }
+      }
+      calculateCutting();
+      checkCloudHealth();
+    });
+  </script>
+</body>
+</html>
