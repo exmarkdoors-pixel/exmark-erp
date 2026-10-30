@@ -84,3 +84,20 @@ If a deployed build introduces unexpected regressions:
    ```
 2. In Render, select the prior successful build from the **Deploys** tab and click **Rollback to this deploy**.
 3. Re-run `npm run backup` locally to verify offline data snapshot safety.
+
+---
+
+## 5. Windows Desktop Client Packaging & Distribution
+
+For shop-floor terminals, plant cabins, and regional sales office PCs:
+
+1. **Compile Executable Packages:**
+   ```powershell
+   cmd /c npm run desktop:build
+   ```
+2. **Generated Output Artifacts (`dist/`):**
+   - **`dist\EXMARK ERP Setup 0.1.0.exe`**: Official NSIS installer package. Creates desktop shortcut, start menu entry, and supports uninstallation.
+   - **`dist\EXMARK ERP 0.1.0.exe`**: Standalone portable single-file binary. Runs directly without administrator installation privileges.
+   - **`dist\win-unpacked\`**: Unpacked binary directory for rapid factory terminal testing.
+3. **Office Network Configuration:**
+   - Launch application and configure plant URL via `EXMARK_SERVER_URL` environment variable or **Preferences** (<kbd>Ctrl</kbd> + <kbd>,</kbd>). Default connects to `https://exmark-erp-staging.onrender.com` or local plant LAN server.

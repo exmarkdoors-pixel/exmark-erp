@@ -40,7 +40,7 @@ The platform is engineered for high availability across:
 | **Company & Factory Profile** | Complete & Verified | 27 Tests | CMU Dynamic Resolution | Zero hardcoded Palakkad assumption |
 | **Customization Center** | Complete & Verified | 49 Tests | 17 Domains + Rollback | 49 Immutable revisions tracked |
 | **Backup Agent** | Complete & Verified | 24 Tests | SHA-256 Verified Snapshots | 31 Recovery checkpoints retained |
-| **Desktop & Multi-Terminal** | Complete & Verified | 27 Tests | Electron + PWA + Locks | Optimistic concurrency & leases |
+| **Desktop & Multi-Terminal** | Complete & Verified | 27 Tests | Electron + PWA + Locks | NSIS Setup + Portable .exe compiled in `dist/` |
 
 ---
 
