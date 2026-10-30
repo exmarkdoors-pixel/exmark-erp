@@ -5,9 +5,26 @@
 const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
 
 let mainWindow = null;
 const CLOUD_STAGING_URL = 'https://exmark-erp-staging.onrender.com';
+const LOCAL_DEV_URL = 'http://127.0.0.1:3000';
+
+function checkLocalServer(callback) {
+  try {
+    const req = http.get(`${LOCAL_DEV_URL}/api/health`, { timeout: 1000 }, (res) => {
+      callback(res.statusCode === 200);
+    });
+    req.on('error', () => callback(false));
+    req.on('timeout', () => {
+      req.destroy();
+      callback(false);
+    });
+  } catch {
+    callback(false);
+  }
+}
 
 function getConfigFilePath() {
   return path.join(app.getPath('userData'), 'server-config.json');
@@ -214,11 +231,21 @@ function createMainWindow() {
   });
 
   // Default launch sequence:
-  // If EXMARK_SERVER_URL is explicitly passed in environment, use that; otherwise load the bundled desktop UI immediately
+  // 1. If EXMARK_SERVER_URL is explicitly passed in environment, use that
+  // 2. Otherwise auto-detect if local ERP server (http://127.0.0.1:3000) is running
+  // 3. Fall back to bundled offline workstation UI immediately
   if (process.env.EXMARK_SERVER_URL) {
     loadRemoteUrl(process.env.EXMARK_SERVER_URL);
   } else {
-    loadLocalDesktopApp();
+    checkLocalServer((isLocalActive) => {
+      if (isLocalActive) {
+        console.log('[Desktop Main] Localhost Next.js server detected on port 3000. Loading full ERP.');
+        loadRemoteUrl(LOCAL_DEV_URL);
+      } else {
+        console.log('[Desktop Main] Local server not running on port 3000. Loading bundled offline workstation UI.');
+        loadLocalDesktopApp();
+      }
+    });
   }
 }
 

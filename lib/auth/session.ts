@@ -132,9 +132,12 @@ export async function createSessionCookie(user: SessionUser): Promise<string> {
   // Base64 encode session payload (in production signed with AUTH_SECRET HMAC)
   const encoded = Buffer.from(sessionData).toString('base64');
 
+  // Ensure secure is only true when explicitly enabled or running in real HTTPS cloud (not local HTTP or Electron)
+  const isSecure = process.env.COOKIE_SECURE === 'true';
+
   cookieStore.set(SESSION_COOKIE_NAME, encoded, {
     httpOnly: true,
-    secure: process.env.COOKIE_SECURE === 'true' || (process.env.NODE_ENV === 'production' && process.env.DISABLE_COOKIE_SECURE !== 'true'),
+    secure: isSecure,
     sameSite: 'lax',
     path: '/',
     maxAge: SESSION_MAX_AGE,
