@@ -34,12 +34,14 @@ import {
   ShieldCheck,
   Download,
   QrCode,
+  Zap,
 } from 'lucide-react';
 import {
   DEMO_PRODUCTION_LINES,
   DEMO_COMPANY_INFO,
 } from '@/data/demoData';
 import { DoorMeasurementModal } from './DoorMeasurementModal';
+import { AutoQuotationModal } from './measurements/AutoQuotationModal';
 import { SiteMeasurementRecord } from '@/types/measurements';
 import ProductCategoriesSettings from '@/components/settings/ProductCategoriesSettings';
 import AdminCustomizationSettings from '@/components/settings/AdminCustomizationSettings';
@@ -528,6 +530,7 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedConfirmRecord, setSelectedConfirmRecord] = useState<SiteMeasurementRecord | null>(null);
   const [selectedWhatsAppRecord, setSelectedWhatsAppRecord] = useState<SiteMeasurementRecord | null>(null);
+  const [selectedAutoQuoteRecord, setSelectedAutoQuoteRecord] = useState<SiteMeasurementRecord | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -961,6 +964,14 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
                   >
                     Confirm Portal
                   </button>
+                  <button
+                    onClick={() => setSelectedAutoQuoteRecord(m)}
+                    className="text-amber-500 hover:text-amber-400 font-bold inline-flex items-center gap-1 cursor-pointer"
+                    title="Auto-generate formal GST quotation (Per Piece or Per Sq.Ft)"
+                  >
+                    <Zap className="w-3 h-3 text-amber-400" />
+                    <span>Auto Quote</span>
+                  </button>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -1015,6 +1026,19 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
           setToastMessage({ type: 'success', text: 'Measurement confirmation sent via WhatsApp.' });
         }}
       />
+
+      {selectedAutoQuoteRecord && (
+        <AutoQuotationModal
+          isOpen={!!selectedAutoQuoteRecord}
+          onClose={() => setSelectedAutoQuoteRecord(null)}
+          measurement={selectedAutoQuoteRecord}
+          onQuotationGenerated={(quoteNumber) => {
+            handleRefresh();
+            setToastMessage({ type: 'success', text: `Quotation ${quoteNumber} generated from measurement.` });
+            setSelectedAutoQuoteRecord(null);
+          }}
+        />
+      )}
     </div>
   );
 }

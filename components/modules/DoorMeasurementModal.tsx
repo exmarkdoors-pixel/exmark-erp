@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Ruler,
@@ -27,8 +27,15 @@ import {
   Monitor,
   Eye,
   FolderOpen,
+  Zap,
+  Upload,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { DoorItemInput, SiteMeasurementRecord, MeasurementUnit } from '@/types/measurements';
+import { CatalogMaster, DoorModelCatalogItem, ColourCatalogItem, LockCatalogItem, DEFAULT_CATALOG } from '@/types/catalog';
+import { parseCsvRows, parseOpeningsCsv, getSampleCsvTemplate } from '@/lib/utils/bulkUploadParser';
+import { CatalogManagerModal } from './catalog/CatalogManagerModal';
+import { AutoQuotationModal } from './measurements/AutoQuotationModal';
 import { useProductCategories } from '@/lib/context/ProductCategoryContext';
 
 interface DoorMeasurementModalProps {
@@ -374,6 +381,29 @@ function DoorMeasurementModalContent({
   const currentDoor = doors[activeDoorTab] || doors[0] || DEFAULT_DOOR;
   const metrics = calculateDoorMetrics(currentDoor);
 
+  // Dynamic Catalog State
+  const [catalog, setCatalog] = useState<CatalogMaster>(DEFAULT_CATALOG);
+  const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+  const [isAutoQuotationOpen, setIsAutoQuotationOpen] = useState(false);
+  const [isBulkOpeningsOpen, setIsBulkOpeningsOpen] = useState(false);
+  const [bulkOpeningsText, setBulkOpeningsText] = useState('');
+  const [bulkPreviewDoors, setBulkPreviewDoors] = useState<DoorItemInput[]>([]);
+  const [bulkErrors, setBulkErrors] = useState<string[]>([]);
+
+  // Load latest catalog from database/store
+  useEffect(() => {
+    fetch('/api/catalog')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          setCatalog(data.data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not fetch dynamic catalog, using defaults:', err);
+      });
+  }, []);
+
   // Switch Unit for entire site sheet & active door
   const handleUnitSwitch = (newUnit: MeasurementUnit) => {
     if (newUnit === globalUnit) return;
@@ -392,13 +422,13 @@ function DoorMeasurementModalContent({
 
     // Auto-update price when basePrice, lockPrice, or priceAdjustment changes
     if (field === 'model') {
-      const found = DOOR_MODELS_CATALOG.find((m) => m.name === value || m.id === value);
+      const found = catalog.models.find((m) => m.name === value || m.code === value || m.id === value);
       if (found) {
         target.basePrice = found.basePrice;
         if (found.category) target.categoryName = found.category;
       }
     } else if (field === 'lockType') {
-      const found = LOCK_OPTIONS.find((l) => l.name === value || l.id === value);
+      const found = catalog.locks.find((l) => l.name === value || l.id === value);
       if (found) target.lockPrice = found.price;
     }
 
@@ -409,6 +439,57 @@ function DoorMeasurementModalContent({
 
     updated[activeDoorTab] = target;
     setDoors(updated);
+  };
+
+  // Bulk Openings Upload Handlers
+  const handleParseOpeningsCsv = (csvText: string) => {
+    setBulkOpeningsText(csvText);
+    const rows = parseCsvRows(csvText);
+    const { doors: parsedDoors, errors } = parseOpeningsCsv(rows);
+    setBulkPreviewDoors(parsedDoors);
+    setBulkErrors(errors);
+  };
+
+  const handleOpeningsFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) handleParseOpeningsCsv(content);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleDownloadOpeningsTemplate = () => {
+    const template = getSampleCsvTemplate('OPENINGS');
+    const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'door-openings-template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportOpenings = () => {
+    if (bulkPreviewDoors.length === 0) return;
+    const updated = [...doors];
+    bulkPreviewDoors.forEach((newD) => {
+      const existingIdx = updated.findIndex((d) => d.doorNumber === newD.doorNumber);
+      if (existingIdx >= 0) {
+        updated[existingIdx] = newD;
+      } else {
+        updated.push(newD);
+      }
+    });
+    setDoors(updated);
+    setSuccessToast(`Imported ${bulkPreviewDoors.length} door openings from spreadsheet.`);
+    setIsBulkOpeningsOpen(false);
+    setBulkOpeningsText('');
+    setBulkPreviewDoors([]);
+    setBulkErrors([]);
   };
 
   // Quick Price Stepper ([-100], [+100])
@@ -610,6 +691,28 @@ function DoorMeasurementModalContent({
                 <span>WA PDF</span>
               </button>
 
+              {/* Auto Quotation */}
+              <button
+                type="button"
+                onClick={() => setIsAutoQuotationOpen(true)}
+                className="px-2 py-1 rounded-md bg-gradient-to-r from-emerald-600/30 to-teal-600/30 hover:from-emerald-600/50 hover:to-teal-600/50 text-emerald-300 border border-emerald-500/40 text-[11px] font-black inline-flex items-center gap-1 cursor-pointer"
+                title="Auto-Generate Formal GST Quotation (Per Piece or Per Sq.Ft)"
+              >
+                <Zap className="w-3 h-3 text-emerald-400" />
+                <span>Auto Quote</span>
+              </button>
+
+              {/* Catalog Master */}
+              <button
+                type="button"
+                onClick={() => setIsCatalogModalOpen(true)}
+                className="px-2 py-1 rounded-md bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                title="Manage Models, Colours & Locks (Add, Edit, Delete, Bulk CSV)"
+              >
+                <Sliders className="w-3 h-3 text-amber-400" />
+                <span>Catalog Master</span>
+              </button>
+
               {/* Save */}
               <button
                 type="button"
@@ -761,6 +864,17 @@ function DoorMeasurementModalContent({
             >
               <Plus className="w-4 h-4" />
             </button>
+
+            {/* Bulk Upload Door Openings (CSV / Excel) */}
+            <button
+              type="button"
+              onClick={() => setIsBulkOpeningsOpen(true)}
+              className="px-2.5 py-1.5 rounded-xl bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/40 border border-cyan-500/40 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer ml-auto"
+              title="Bulk Upload Door Openings via CSV / Excel"
+            >
+              <Upload className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Bulk Upload Openings</span>
+            </button>
           </div>
 
           {/* MAIN FIELD TERMINAL CARD (MATCHING SCREENSHOT) */}
@@ -810,15 +924,25 @@ function DoorMeasurementModalContent({
             {/* Row 2: Model & Base Price + Size Preset Dropdown */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Model Code & Base Rate
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Model Code & Base Rate
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCatalogModalOpen(true)}
+                    className="text-[10px] text-amber-400 hover:underline font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <Sliders className="w-2.5 h-2.5" />
+                    <span>Manage Models</span>
+                  </button>
+                </div>
                 <select
                   value={currentDoor.model}
                   onChange={(e) => handleDoorChange('model', e.target.value)}
                   className="w-full px-3 py-2 bg-[#070D1E] text-white font-bold text-xs rounded-xl border border-slate-700 focus:outline-none focus:border-amber-500"
                 >
-                  {DOOR_MODELS_CATALOG.map((m) => (
+                  {catalog.models.map((m) => (
                     <option key={m.id} value={m.name}>
                       {m.name}
                     </option>
@@ -1012,17 +1136,26 @@ function DoorMeasurementModalContent({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Colour and Dual-Tone */}
               <div className="space-y-2">
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Colour / Finish (Preset + Custom)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Colour / Finish (Preset + Custom)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCatalogModalOpen(true)}
+                    className="text-[10px] text-amber-400 hover:underline font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <span>Manage Colours</span>
+                  </button>
+                </div>
                 <select
                   value={currentDoor.colour}
                   onChange={(e) => handleDoorChange('colour', e.target.value)}
                   className="w-full px-3 py-2 bg-[#070D1E] text-white font-bold text-xs rounded-xl border border-slate-700 focus:outline-none focus:border-amber-500"
                 >
-                  {COLOURS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
+                  {catalog.colours.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
                     </option>
                   ))}
                 </select>
@@ -1038,15 +1171,24 @@ function DoorMeasurementModalContent({
 
               {/* Lock Options */}
               <div className="space-y-2">
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Lock Option (All Locks + Custom)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Lock Option (All Locks + Custom)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCatalogModalOpen(true)}
+                    className="text-[10px] text-amber-400 hover:underline font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <span>Manage Locks</span>
+                  </button>
+                </div>
                 <select
                   value={currentDoor.lockType}
                   onChange={(e) => handleDoorChange('lockType', e.target.value)}
                   className="w-full px-3 py-2 bg-[#070D1E] text-white font-bold text-xs rounded-xl border border-slate-700 focus:outline-none focus:border-amber-500"
                 >
-                  {LOCK_OPTIONS.map((l) => (
+                  {catalog.locks.map((l) => (
                     <option key={l.id} value={l.name}>
                       {l.name}
                     </option>
@@ -1264,9 +1406,30 @@ function DoorMeasurementModalContent({
             >
               Cancel
             </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCatalogModalOpen(true)}
+              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <Sliders className="w-3.5 h-3.5 text-amber-400" />
+              <span>Catalog Master</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* ⚡ Auto Quotation Button */}
+            <button
+              type="button"
+              onClick={() => setIsAutoQuotationOpen(true)}
+              disabled={doors.length === 0}
+              className="px-4 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-xs font-black transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+              title="Generate Formal GST Quotation (Per Piece Rate or Square Feet Rate)"
+            >
+              <Zap className="w-4 h-4 text-emerald-400" />
+              <span>⚡ Auto Quotation</span>
+            </button>
+
             <button
               type="button"
               onClick={() => handleSave('DRAFT')}
@@ -1289,6 +1452,171 @@ function DoorMeasurementModalContent({
           </div>
         </div>
       </div>
+
+      {/* CATALOG MANAGER MODAL */}
+      <CatalogManagerModal
+        isOpen={isCatalogModalOpen}
+        onClose={() => setIsCatalogModalOpen(false)}
+        catalog={catalog}
+        onCatalogUpdated={(updated) => setCatalog(updated)}
+      />
+
+      {/* AUTO QUOTATION MODAL */}
+      <AutoQuotationModal
+        isOpen={isAutoQuotationOpen}
+        onClose={() => setIsAutoQuotationOpen(false)}
+        measurement={{
+          id: initialRecord?.id || 'new-session',
+          refNumber,
+          customerName,
+          orderRef,
+          siteName,
+          siteAddress,
+          district,
+          engineerName,
+          date,
+          rebateDepthMm,
+          wallThicknessMm,
+          notes,
+          status,
+          totalOpenings: doors.length,
+          doors,
+          createdAt: initialRecord?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }}
+        catalog={catalog}
+        onQuotationGenerated={(quoteNumber) => {
+          setSuccessToast(`Quotation ${quoteNumber} generated successfully!`);
+          setTimeout(() => setSuccessToast(null), 4000);
+        }}
+      />
+
+      {/* BULK OPENINGS UPLOAD MODAL */}
+      {isBulkOpeningsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="relative w-full max-w-3xl bg-[#070D1E] border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh]">
+            <div className="p-4 bg-[#0B132B] border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-cyan-400" />
+                <div>
+                  <h3 className="text-sm font-black text-white">Bulk Upload Site Door Openings</h3>
+                  <p className="text-xs text-slate-400">
+                    Import multiple openings from CSV or Excel schedule into {refNumber}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsBulkOpeningsOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 overflow-y-auto flex-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 font-bold">1. Upload CSV or paste sheet lines:</span>
+                <button
+                  type="button"
+                  onClick={handleDownloadOpeningsTemplate}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 text-amber-300 hover:bg-slate-700 border border-amber-500/30 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Download Sample CSV</span>
+                </button>
+              </div>
+
+              <div className="border border-dashed border-slate-700 rounded-xl p-3 bg-[#0B132B] text-center">
+                <input
+                  type="file"
+                  accept=".csv,.txt"
+                  onChange={handleOpeningsFileUpload}
+                  className="text-xs text-slate-400 file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-cyan-500 file:text-slate-950 hover:file:bg-cyan-400 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <textarea
+                  rows={4}
+                  value={bulkOpeningsText}
+                  onChange={(e) => handleParseOpeningsCsv(e.target.value)}
+                  placeholder="doorNumber,category,model,heightLeft,heightRight,widthTop,widthBottom,unit..."
+                  className="w-full px-3 py-2 bg-[#070D1E] text-white font-mono text-xs rounded-xl border border-slate-700 focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              {/* Errors */}
+              {bulkErrors.length > 0 && (
+                <div className="p-3 bg-red-500/15 border border-red-500/30 rounded-xl space-y-1">
+                  <div className="text-xs font-bold text-red-400 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>CSV Validation Warnings ({bulkErrors.length}):</span>
+                  </div>
+                  <ul className="text-[11px] text-red-300 list-disc list-inside">
+                    {bulkErrors.map((err, idx) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Preview */}
+              {bulkPreviewDoors.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-emerald-400">
+                    Ready to import {bulkPreviewDoors.length} valid door openings:
+                  </div>
+                  <div className="border border-slate-800 rounded-xl overflow-x-auto bg-[#0B132B] max-h-40">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#070D1E] text-slate-400 uppercase text-[10px]">
+                        <tr>
+                          <th className="p-2">Door #</th>
+                          <th className="p-2">Model</th>
+                          <th className="p-2">Dimensions</th>
+                          <th className="p-2">Sq.Ft</th>
+                          <th className="p-2">Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800 font-mono text-[11px]">
+                        {bulkPreviewDoors.slice(0, 5).map((d, idx) => (
+                          <tr key={idx}>
+                            <td className="p-2 text-amber-400 font-bold">{d.doorNumber}</td>
+                            <td className="p-2 text-white">{d.model}</td>
+                            <td className="p-2 text-slate-300">
+                              {d.heightLeft}×{d.widthTop} {d.measurementUnit}
+                            </td>
+                            <td className="p-2 text-cyan-400">{d.calculatedSqFt}</td>
+                            <td className="p-2 text-emerald-400 font-bold">₹{d.unitPrice}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 bg-[#0B132B] border-t border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setIsBulkOpeningsOpen(false)}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleImportOpenings}
+                disabled={bulkPreviewDoors.length === 0}
+                className="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xs inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Append {bulkPreviewDoors.length} Openings to Sheet</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
