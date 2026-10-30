@@ -930,7 +930,7 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
                           className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-300 border border-slate-700/50"
                         >
                           {d.doorNumber}: {Math.min(d.heightLeft, d.heightRight)}×{Math.min(d.widthTop, d.widthBottom)}
-                          {d.measurementUnit.toLowerCase()}
+                          {(d.measurementUnit || 'CM').toLowerCase()}
                         </span>
                       ))}
                       {m.doors.length > 3 && (

@@ -531,16 +531,49 @@
 
         <!-- Cutting Deduction Calculator -->
         <div class="calc-box">
-          <h3 style="font-size: 15px; margin-bottom: 12px; color: #fff;">FRP Door Raw-to-Finished Cutting Calculator</h3>
-          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Formula: <code style="color: #F87171;">Finished Dimension = Raw Dimension - Cutting Deduction</code> (Height: -10mm, Width: -12mm)</p>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+            <h3 style="font-size: 15px; margin:0; color: #fff;">FRP Door Raw-to-Finished Cutting Calculator</h3>
+            <div style="display:inline-flex; background:#070D1E; border:1px solid #334155; border-radius:8px; padding:2px;" id="calcUnitToggle">
+              <button type="button" id="unitBtn-cm" style="padding:4px 14px; border-radius:6px; font-size:12px; font-weight:800; border:none; background:#F59E0B; color:#070D1E; cursor:pointer;" onclick="setCalcUnit('cm')">cm</button>
+              <button type="button" id="unitBtn-inch" style="padding:4px 14px; border-radius:6px; font-size:12px; font-weight:800; border:none; background:transparent; color:#94A3B8; cursor:pointer;" onclick="setCalcUnit('inch')">Inch</button>
+              <button type="button" id="unitBtn-mm" style="padding:4px 14px; border-radius:6px; font-size:12px; font-weight:800; border:none; background:transparent; color:#94A3B8; cursor:pointer;" onclick="setCalcUnit('mm')">mm</button>
+            </div>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+            Formula: <code style="color: #F87171;">Finished Dimension = Raw Dimension - Cutting Deduction</code> (Height: -10mm, Width: -12mm). Default Unit: <strong style="color:#F59E0B;">cm</strong>.
+          </p>
           <div class="calc-row">
             <div class="calc-input-group">
-              <label>Masonry Opening Height (mm)</label>
-              <input type="number" id="calcHeight" value="2100" oninput="calculateCutting()">
+              <label id="lblCalcHeight">Masonry Opening Height (cm)</label>
+              <input type="number" step="0.1" id="calcHeight" value="203.2" oninput="calculateCutting()">
+              <div id="inchFracHeightContainer" style="display:none; margin-top:6px;">
+                <select id="calcHeightFrac" onchange="calculateCutting()" style="background:#0B132B; color:#FDA4AF; border:1px solid rgba(244,63,94,0.3); font-size:11px; font-weight:bold;">
+                  <option value="0">+ 0/8 (No Frac)</option>
+                  <option value="0.125">+ 1/8"</option>
+                  <option value="0.25">+ 2/8" (1/4")</option>
+                  <option value="0.375">+ 3/8"</option>
+                  <option value="0.5">+ 4/8" (1/2")</option>
+                  <option value="0.625">+ 5/8"</option>
+                  <option value="0.75">+ 6/8" (3/4")</option>
+                  <option value="0.875">+ 7/8"</option>
+                </select>
+              </div>
             </div>
             <div class="calc-input-group">
-              <label>Masonry Opening Width (mm)</label>
-              <input type="number" id="calcWidth" value="900" oninput="calculateCutting()">
+              <label id="lblCalcWidth">Masonry Opening Width (cm)</label>
+              <input type="number" step="0.1" id="calcWidth" value="81.3" oninput="calculateCutting()">
+              <div id="inchFracWidthContainer" style="display:none; margin-top:6px;">
+                <select id="calcWidthFrac" onchange="calculateCutting()" style="background:#0B132B; color:#FDA4AF; border:1px solid rgba(244,63,94,0.3); font-size:11px; font-weight:bold;">
+                  <option value="0">+ 0/8 (No Frac)</option>
+                  <option value="0.125">+ 1/8"</option>
+                  <option value="0.25">+ 2/8" (1/4")</option>
+                  <option value="0.375">+ 3/8"</option>
+                  <option value="0.5">+ 4/8" (1/2")</option>
+                  <option value="0.625">+ 5/8"</option>
+                  <option value="0.75">+ 6/8" (3/4")</option>
+                  <option value="0.875">+ 7/8"</option>
+                </select>
+              </div>
             </div>
             <div class="calc-input-group">
               <label>Door Thickness</label>
@@ -551,7 +584,7 @@
             </div>
           </div>
           <div class="calc-result" id="cuttingResult">
-            Finished Shutter Size: 2090mm (H) &times; 888mm (W) &bull; Frame: FRP Wrap-around &bull; Clears opening with standard 5mm clearance.
+            Finished Shutter Size: 202.2cm (H) &times; 80.1cm (W) &bull; Frame: FRP Wrap-around &bull; 17.78 Sq.Ft &bull; Frame 16 R.Ft
           </div>
         </div>
 
@@ -949,16 +982,120 @@
       if (targetPanel) targetPanel.classList.add('active');
     }
 
+    let currentCalcUnit = 'cm'; // Default is cm as requested
+
+    function setCalcUnit(unit) {
+      if (unit === currentCalcUnit) return;
+      const prevUnit = currentCalcUnit;
+      currentCalcUnit = unit;
+
+      // Update pill styles
+      ['cm', 'inch', 'mm'].forEach(u => {
+        const btn = document.getElementById(`unitBtn-${u}`);
+        if (btn) {
+          if (u === unit) {
+            btn.style.background = '#F59E0B';
+            btn.style.color = '#070D1E';
+          } else {
+            btn.style.background = 'transparent';
+            btn.style.color = '#94A3B8';
+          }
+        }
+      });
+
+      // Update labels & visibility
+      const lblH = document.getElementById('lblCalcHeight');
+      const lblW = document.getElementById('lblCalcWidth');
+      const fracH = document.getElementById('inchFracHeightContainer');
+      const fracW = document.getElementById('inchFracWidthContainer');
+
+      if (unit === 'inch') {
+        lblH.textContent = 'Masonry Opening Height (Inch)';
+        lblW.textContent = 'Masonry Opening Width (Inch)';
+        fracH.style.display = 'block';
+        fracW.style.display = 'block';
+      } else if (unit === 'cm') {
+        lblH.textContent = 'Masonry Opening Height (cm)';
+        lblW.textContent = 'Masonry Opening Width (cm)';
+        fracH.style.display = 'none';
+        fracW.style.display = 'none';
+      } else {
+        lblH.textContent = 'Masonry Opening Height (mm)';
+        lblW.textContent = 'Masonry Opening Width (mm)';
+        fracH.style.display = 'none';
+        fracW.style.display = 'none';
+      }
+
+      // Convert current input values
+      let rawH = parseFloat(document.getElementById('calcHeight').value) || 0;
+      let rawW = parseFloat(document.getElementById('calcWidth').value) || 0;
+      let hMm = rawH;
+      let wMm = rawW;
+
+      if (prevUnit === 'inch') {
+        const hf = parseFloat(document.getElementById('calcHeightFrac').value) || 0;
+        const wf = parseFloat(document.getElementById('calcWidthFrac').value) || 0;
+        hMm = (rawH + hf) * 25.4;
+        wMm = (rawW + wf) * 25.4;
+      } else if (prevUnit === 'cm') {
+        hMm = rawH * 10;
+        wMm = rawW * 10;
+      }
+
+      if (unit === 'inch') {
+        const hInches = hMm / 25.4;
+        const wInches = wMm / 25.4;
+        document.getElementById('calcHeight').value = Math.floor(hInches);
+        document.getElementById('calcWidth').value = Math.floor(wInches);
+        document.getElementById('calcHeightFrac').value = '0';
+        document.getElementById('calcWidthFrac').value = '0';
+      } else if (unit === 'cm') {
+        document.getElementById('calcHeight').value = (hMm / 10).toFixed(1);
+        document.getElementById('calcWidth').value = (wMm / 10).toFixed(1);
+      } else {
+        document.getElementById('calcHeight').value = Math.round(hMm);
+        document.getElementById('calcWidth').value = Math.round(wMm);
+      }
+
+      calculateCutting();
+    }
+
     function calculateCutting() {
-      const h = parseFloat(document.getElementById('calcHeight').value) || 2100;
-      const w = parseFloat(document.getElementById('calcWidth').value) || 900;
+      let rawH = parseFloat(document.getElementById('calcHeight').value) || 0;
+      let rawW = parseFloat(document.getElementById('calcWidth').value) || 0;
       const thickness = document.getElementById('calcThickness').value;
 
-      const finishedH = h - 10;
-      const finishedW = w - 12;
+      let hMm = rawH;
+      let wMm = rawW;
+
+      if (currentCalcUnit === 'inch') {
+        const hf = parseFloat(document.getElementById('calcHeightFrac').value) || 0;
+        const wf = parseFloat(document.getElementById('calcWidthFrac').value) || 0;
+        hMm = (rawH + hf) * 25.4;
+        wMm = (rawW + wf) * 25.4;
+      } else if (currentCalcUnit === 'cm') {
+        hMm = rawH * 10;
+        wMm = rawW * 10;
+      }
+
+      // FRP Standard Cutting Deductions: -10mm Height, -12mm Width
+      const finishedHMm = Math.max(0, hMm - 10);
+      const finishedWMm = Math.max(0, wMm - 12);
+
+      const sqFt = ((hMm * wMm) / 92903.04).toFixed(2);
+      const frameRft = Math.round(((2 * hMm) + wMm) / 304.8);
+
+      let finishedDisplay = '';
+      if (currentCalcUnit === 'cm') {
+        finishedDisplay = `<strong>${(finishedHMm / 10).toFixed(1)} cm (H) &times; ${(finishedWMm / 10).toFixed(1)} cm (W)</strong> [${finishedHMm.toFixed(0)} &times; ${finishedWMm.toFixed(0)} mm]`;
+      } else if (currentCalcUnit === 'inch') {
+        finishedDisplay = `<strong>${(finishedHMm / 25.4).toFixed(2)}" (H) &times; ${(finishedWMm / 25.4).toFixed(2)}" (W)</strong> [${finishedHMm.toFixed(0)} &times; ${finishedWMm.toFixed(0)} mm]`;
+      } else {
+        finishedDisplay = `<strong>${finishedHMm.toFixed(0)} mm (H) &times; ${finishedWMm.toFixed(0)} mm (W)</strong>`;
+      }
 
       document.getElementById('cuttingResult').innerHTML = 
-        `Finished Shutter Size: <strong>${finishedH}mm (Height) &times; ${finishedW}mm (Width)</strong> &bull; Thickness: ${thickness} &bull; Deductions applied: -10mm H, -12mm W.`;
+        `Finished Shutter: ${finishedDisplay} &bull; Thickness: ${thickness} &bull; Area: <strong>${sqFt} Sq.Ft</strong> &bull; Frame: <strong>${frameRft} R.Ft</strong> &bull; Deductions: -10mm H, -12mm W`;
     }
 
     async function checkCloudHealth() {

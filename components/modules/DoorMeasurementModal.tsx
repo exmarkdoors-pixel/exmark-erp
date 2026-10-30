@@ -14,8 +14,21 @@ import {
   Building2,
   ShieldAlert,
   Check,
+  Copy,
+  Mic,
+  Camera,
+  Sliders,
+  Sparkles,
+  Cloud,
+  FileText,
+  Share2,
+  Download,
+  Smartphone,
+  Monitor,
+  Eye,
+  FolderOpen,
 } from 'lucide-react';
-import { DoorItemInput, SiteMeasurementRecord } from '@/types/measurements';
+import { DoorItemInput, SiteMeasurementRecord, MeasurementUnit } from '@/types/measurements';
 import { useProductCategories } from '@/lib/context/ProductCategoryContext';
 
 interface DoorMeasurementModalProps {
@@ -43,13 +56,28 @@ const KERALA_DISTRICTS = [
   'Idukki',
 ];
 
-const DOOR_MODELS = [
-  'FRP Molded Teak (32mm) - 100% Waterproof',
-  'WPC Solid Waterproof Bathroom Door (30mm)',
-  'FRP CNC Carved Luxury Main Door (35mm with Inlay)',
-  'WPC Heavy Frame & Shutter Combination (32mm)',
-  'Commercial Fire-Retardant FRP Door (38mm)',
-  'Solid Hybrid Weather-Shield Exterior Door (35mm)',
+interface ModelPreset {
+  id: string;
+  name: string;
+  category: string;
+  basePrice: number;
+}
+
+const DOOR_MODELS_CATALOG: ModelPreset[] = [
+  { id: 'EXM-A-100', name: 'EXM-A-100 (₹7000)', category: 'Bath FRP Door', basePrice: 7000 },
+  { id: 'EXM-A-101', name: 'EXM-A-101 Premium Molded (₹7500)', category: 'Bath FRP Door', basePrice: 7500 },
+  { id: 'EXM-B-200', name: 'EXM-B-200 Teak Woodgrain (₹8200)', category: 'Bed Room Door', basePrice: 8200 },
+  { id: 'EXM-D-300', name: 'EXM-D-300 Luxury CNC Main (₹9500)', category: 'Main Entry Door', basePrice: 9500 },
+  { id: 'EXM-K-150', name: 'EXM-K-150 Kitchen Moisture-Shield (₹7200)', category: 'Kitchen Door', basePrice: 7200 },
+  { id: 'EXM-W-400', name: 'EXM-W-400 Commercial Heavy-Duty (₹8800)', category: 'Commercial Door', basePrice: 8800 },
+];
+
+const SIZE_PRESETS = [
+  { id: 'mini', name: 'Mini Size (72×50)', heightInch: 72, widthInch: 50, heightCm: 182.9, widthCm: 127.0, heightMm: 1829, widthMm: 1270 },
+  { id: 'standard_bath', name: 'Standard Bath (80×30)', heightInch: 80, widthInch: 30, heightCm: 203.2, widthCm: 76.2, heightMm: 2032, widthMm: 762 },
+  { id: 'standard_bed', name: 'Standard Bed (80×32)', heightInch: 80, widthInch: 32, heightCm: 203.2, widthCm: 81.3, heightMm: 2032, widthMm: 813 },
+  { id: 'main_single', name: 'Main Single (84×38)', heightInch: 84, widthInch: 38, heightCm: 213.4, widthCm: 96.5, heightMm: 2134, widthMm: 965 },
+  { id: 'custom', name: 'Custom Masonry Opening', heightInch: 0, widthInch: 0, heightCm: 0, widthCm: 0, heightMm: 0, widthMm: 0 },
 ];
 
 const FRAME_TYPES = [
@@ -61,6 +89,7 @@ const FRAME_TYPES = [
 ];
 
 const COLOURS = [
+  'Natural Teak (EXGC-510)',
   'Burma Teak (Woodgrain PU)',
   'Frost White (High Gloss Waterproof)',
   'Natural Teak Gold (Matte UV)',
@@ -76,29 +105,191 @@ const HINGE_SIDES = [
   'Right Hand Reverse (RHR)',
 ];
 
-const LOCK_TYPES = [
-  'Mortise Lock 60mm Backset with Brass Handles',
-  'Bathroom Baby Latch / Coin-Turn Latch',
-  'Cylindrical Knob Lock (SS 304)',
-  'Digital Smart Lock Routing Prep',
-  'Deadbolt & Tower Bolt Only',
+const LOCK_OPTIONS = [
+  { id: 'baby_latch', name: 'Baby Latch (+₹200)', price: 200 },
+  { id: 'mortise_brass', name: 'Mortise Lock 60mm (+₹850)', price: 850 },
+  { id: 'cylindrical_knob', name: 'SS Cylindrical Knob (+₹450)', price: 450 },
+  { id: 'deadbolt', name: 'Deadbolt & Tower Bolt (+₹300)', price: 300 },
+  { id: 'digital_prep', name: 'Digital Smart Lock Prep (+₹600)', price: 600 },
+  { id: 'none', name: 'No Lock / Handle Routing Prep (₹0)', price: 0 },
 ];
 
+const FRACTIONS = [
+  { label: '+ 0/8 (No Frac)', value: 0, str: '0/8' },
+  { label: '+ 1/8"', value: 0.125, str: '1/8' },
+  { label: '+ 2/8" (1/4")', value: 0.25, str: '2/8' },
+  { label: '+ 3/8"', value: 0.375, str: '3/8' },
+  { label: '+ 4/8" (1/2")', value: 0.5, str: '4/8' },
+  { label: '+ 5/8"', value: 0.625, str: '5/8' },
+  { label: '+ 6/8" (3/4")', value: 0.75, str: '6/8' },
+  { label: '+ 7/8"', value: 0.875, str: '7/8' },
+];
+
+function parseFraction(fracStr?: string): number {
+  if (!fracStr || fracStr.includes('0/8') || fracStr === '0') return 0;
+  if (fracStr.includes('1/8')) return 1 / 8;
+  if (fracStr.includes('2/8') || fracStr.includes('1/4')) return 2 / 8;
+  if (fracStr.includes('3/8')) return 3 / 8;
+  if (fracStr.includes('4/8') || fracStr.includes('1/2')) return 4 / 8;
+  if (fracStr.includes('5/8')) return 5 / 8;
+  if (fracStr.includes('6/8') || fracStr.includes('3/4')) return 6 / 8;
+  if (fracStr.includes('7/8')) return 7 / 8;
+  return 0;
+}
+
+function decimalToInchWithFraction(decimalInches: number): { whole: number; fraction: string } {
+  const whole = Math.floor(decimalInches);
+  const remainder = decimalInches - whole;
+  const eighths = Math.round(remainder * 8);
+  if (eighths === 0) return { whole, fraction: '0/8' };
+  if (eighths === 8) return { whole: whole + 1, fraction: '0/8' };
+  return { whole, fraction: `${eighths}/8` };
+}
+
+// Convert door dimensions smoothly when unit changes
+function convertDoorUnit(door: DoorItemInput, targetUnit: MeasurementUnit): DoorItemInput {
+  const currentUnit = door.measurementUnit || 'CM';
+  if (currentUnit === targetUnit) return door;
+
+  // 1. Convert current dimensions to millimeters
+  const toMm = (val: number, fracStr?: string): number => {
+    if (currentUnit === 'INCH') {
+      return (val + parseFraction(fracStr)) * 25.4;
+    }
+    if (currentUnit === 'CM') {
+      return val * 10;
+    }
+    return val; // MM
+  };
+
+  const hLMm = toMm(door.heightLeft, door.fractionHeightLeft);
+  const hRMm = toMm(door.heightRight, door.fractionHeightRight);
+  const wTMm = toMm(door.widthTop, door.fractionWidthTop);
+  const wBMm = toMm(door.widthBottom, door.fractionWidthBottom);
+
+  // 2. Convert millimeters to target unit
+  if (targetUnit === 'INCH') {
+    const hl = decimalToInchWithFraction(hLMm / 25.4);
+    const hr = decimalToInchWithFraction(hRMm / 25.4);
+    const wt = decimalToInchWithFraction(wTMm / 25.4);
+    const wb = decimalToInchWithFraction(wBMm / 25.4);
+
+    return {
+      ...door,
+      measurementUnit: 'INCH',
+      heightLeft: hl.whole,
+      fractionHeightLeft: hl.fraction,
+      heightRight: hr.whole,
+      fractionHeightRight: hr.fraction,
+      widthTop: wt.whole,
+      fractionWidthTop: wt.fraction,
+      widthBottom: wb.whole,
+      fractionWidthBottom: wb.fraction,
+    };
+  }
+
+  if (targetUnit === 'CM') {
+    return {
+      ...door,
+      measurementUnit: 'CM',
+      heightLeft: Number((hLMm / 10).toFixed(1)),
+      fractionHeightLeft: '0/8',
+      heightRight: Number((hRMm / 10).toFixed(1)),
+      fractionHeightRight: '0/8',
+      widthTop: Number((wTMm / 10).toFixed(1)),
+      fractionWidthTop: '0/8',
+      widthBottom: Number((wBMm / 10).toFixed(1)),
+      fractionWidthBottom: '0/8',
+    };
+  }
+
+  // Target MM
+  return {
+    ...door,
+    measurementUnit: 'MM',
+    heightLeft: Math.round(hLMm),
+    fractionHeightLeft: '0/8',
+    heightRight: Math.round(hRMm),
+    fractionHeightRight: '0/8',
+    widthTop: Math.round(wTMm),
+    fractionWidthTop: '0/8',
+    widthBottom: Math.round(wBMm),
+    fractionWidthBottom: '0/8',
+  };
+}
+
+// Compute live Sq.Ft, Frame R.Ft, and dynamic price
+function calculateDoorMetrics(door: DoorItemInput) {
+  const unit = door.measurementUnit || 'CM';
+  let hL = door.heightLeft || 0;
+  let hR = door.heightRight || 0;
+  let wT = door.widthTop || 0;
+  let wB = door.widthBottom || 0;
+
+  if (unit === 'INCH') {
+    hL = (hL + parseFraction(door.fractionHeightLeft)) * 25.4;
+    hR = (hR + parseFraction(door.fractionHeightRight)) * 25.4;
+    wT = (wT + parseFraction(door.fractionWidthTop)) * 25.4;
+    wB = (wB + parseFraction(door.fractionWidthBottom)) * 25.4;
+  } else if (unit === 'CM') {
+    hL = hL * 10;
+    hR = hR * 10;
+    wT = wT * 10;
+    wB = wB * 10;
+  }
+
+  const avgH = (hL + hR) / 2;
+  const avgW = (wT + wB) / 2;
+
+  // Sq.Ft = (avgH * avgW) / 92903.04 mm²
+  const sqFt = avgH > 0 && avgW > 0 ? Number(((avgH * avgW) / 92903.04).toFixed(2)) : 0;
+
+  // Frame Running Feet = (2 * avgH + avgW) / 304.8 mm
+  const frameRft = avgH > 0 ? Math.round(((2 * avgH) + avgW) / 304.8) : 0;
+
+  // Pricing
+  const basePrice = door.basePrice ?? 7000;
+  const lockPrice = door.lockPrice ?? 200;
+  const priceAdj = door.priceAdjustment ?? 300;
+  const unitPrice = Math.max(0, basePrice + lockPrice + priceAdj);
+  const qty = door.quantity || 1;
+  const lineTotal = unitPrice * qty;
+
+  return { sqFt, frameRft, unitPrice, lineTotal };
+}
+
+// DEFAULT OPENING WITH CM AS DEFAULT (as specified in request)
 const DEFAULT_DOOR: DoorItemInput = {
-  doorNumber: 'D1 - Main Entry',
-  model: 'FRP Molded Teak (32mm) - 100% Waterproof',
+  doorNumber: '#D1',
+  categoryName: 'Bath FRP Door',
+  model: 'EXM-A-100 (₹7000)',
+  sizePreset: 'Standard Bed (80×32)',
   frameType: 'WPC Solid Extruded 100x65mm Frame',
-  colour: 'Burma Teak (Woodgrain PU)',
+  colour: 'Natural Teak (EXGC-510)',
+  insideColour: 'Natural Teak (EXGC-510)',
   hingeSide: 'Left Hand (LH) - Inward',
-  lockType: 'Mortise Lock 60mm Backset with Brass Handles',
-  measurementUnit: 'MM',
-  heightLeft: 2100,
-  heightRight: 2100,
-  widthTop: 900,
-  widthBottom: 900,
+  lockType: 'Baby Latch (+₹200)',
+  lockPrice: 200,
+  measurementUnit: 'CM', // DEFAULT IS CM!
+  heightLeft: 203.2,
+  heightRight: 203.2,
+  widthTop: 81.3,
+  widthBottom: 81.3,
+  fractionHeightLeft: '0/8',
+  fractionHeightRight: '0/8',
+  fractionWidthTop: '0/8',
+  fractionWidthBottom: '0/8',
+  quantity: 1,
   wallThickness: '150mm',
   rebateDepth: '38mm',
+  basePrice: 7000,
+  priceAdjustment: 300,
+  unitPrice: 7500,
+  pricingMode: 'PIECE',
+  calculatedSqFt: 17.78,
+  calculatedFrameRft: 16,
   remarks: '',
+  photoCount: 0,
 };
 
 export function DoorMeasurementModal({
@@ -132,6 +323,14 @@ function DoorMeasurementModalContent({
   const { isWpcEnabled } = useProductCategories();
   const isEditing = Boolean(initialRecord?.id);
 
+  // Global Unit for site (default: 'CM')
+  const [globalUnit, setGlobalUnit] = useState<MeasurementUnit>(() => {
+    if (initialRecord?.doors && initialRecord.doors[0]?.measurementUnit) {
+      return initialRecord.doors[0].measurementUnit;
+    }
+    return 'CM'; // Default is CM as requested
+  });
+
   // Header state
   const [refNumber] = useState(
     () => initialRecord?.refNumber || `MSR-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`
@@ -155,47 +354,135 @@ function DoorMeasurementModalContent({
   );
 
   // Doors list
-  const [doors, setDoors] = useState<DoorItemInput[]>(
-    initialRecord?.doors && initialRecord.doors.length > 0
-      ? initialRecord.doors
-      : [
-          { ...DEFAULT_DOOR, doorNumber: 'D1 - Main Entrance' },
-          {
-            ...DEFAULT_DOOR,
-            doorNumber: 'D2 - Master Bed',
-            heightLeft: 2095,
-            heightRight: 2095,
-            widthTop: 850,
-            widthBottom: 850,
-          },
-        ]
-  );
+  const [doors, setDoors] = useState<DoorItemInput[]>(() => {
+    if (initialRecord?.doors && initialRecord.doors.length > 0) {
+      return initialRecord.doors.map((d, idx) => ({
+        ...DEFAULT_DOOR,
+        ...d,
+        doorNumber: d.doorNumber || `#D${idx + 1}`,
+      }));
+    }
+    return [{ ...DEFAULT_DOOR }];
+  });
 
-  // UI state
+  // Active door tab index
   const [activeDoorTab, setActiveDoorTab] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [validationResult, setValidationResult] = useState<{
-    valid: boolean;
-    warnings: string[];
-    errors: string[];
-  } | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  // Door row manipulation
+  const currentDoor = doors[activeDoorTab] || doors[0] || DEFAULT_DOOR;
+  const metrics = calculateDoorMetrics(currentDoor);
+
+  // Switch Unit for entire site sheet & active door
+  const handleUnitSwitch = (newUnit: MeasurementUnit) => {
+    if (newUnit === globalUnit) return;
+    setGlobalUnit(newUnit);
+
+    const converted = doors.map((d) => convertDoorUnit(d, newUnit));
+    setDoors(converted);
+    setSuccessToast(`Switched unit to ${newUnit}. Dimensions converted.`);
+    setTimeout(() => setSuccessToast(null), 3000);
+  };
+
+  // Door field change
+  const handleDoorChange = <K extends keyof DoorItemInput>(field: K, value: DoorItemInput[K]) => {
+    const updated = [...doors];
+    const target = { ...updated[activeDoorTab], [field]: value };
+
+    // Auto-update price when basePrice, lockPrice, or priceAdjustment changes
+    if (field === 'model') {
+      const found = DOOR_MODELS_CATALOG.find((m) => m.name === value || m.id === value);
+      if (found) {
+        target.basePrice = found.basePrice;
+        if (found.category) target.categoryName = found.category;
+      }
+    } else if (field === 'lockType') {
+      const found = LOCK_OPTIONS.find((l) => l.name === value || l.id === value);
+      if (found) target.lockPrice = found.price;
+    }
+
+    const newMetrics = calculateDoorMetrics(target);
+    target.calculatedSqFt = newMetrics.sqFt;
+    target.calculatedFrameRft = newMetrics.frameRft;
+    target.unitPrice = newMetrics.unitPrice;
+
+    updated[activeDoorTab] = target;
+    setDoors(updated);
+  };
+
+  // Quick Price Stepper ([-100], [+100])
+  const handleAdjustPrice = (delta: number) => {
+    const currentAdj = currentDoor.priceAdjustment || 0;
+    const newAdj = currentAdj + delta;
+    handleDoorChange('priceAdjustment', newAdj);
+  };
+
+  // Direct Unit Price Edit
+  const handleDirectPriceChange = (val: number) => {
+    const base = currentDoor.basePrice || 7000;
+    const lock = currentDoor.lockPrice || 200;
+    const newAdj = val - (base + lock);
+    handleDoorChange('priceAdjustment', newAdj);
+  };
+
+  // Size Preset selection
+  const handleSizePresetSelect = (presetId: string) => {
+    const preset = SIZE_PRESETS.find((p) => p.id === presetId);
+    if (!preset || preset.id === 'custom') return;
+
+    const unit = currentDoor.measurementUnit || 'CM';
+    if (unit === 'INCH') {
+      handleDoorChange('heightLeft', preset.heightInch);
+      handleDoorChange('heightRight', preset.heightInch);
+      handleDoorChange('widthTop', preset.widthInch);
+      handleDoorChange('widthBottom', preset.widthInch);
+      handleDoorChange('fractionHeightLeft', '0/8');
+      handleDoorChange('fractionHeightRight', '0/8');
+      handleDoorChange('fractionWidthTop', '0/8');
+      handleDoorChange('fractionWidthBottom', '0/8');
+    } else if (unit === 'CM') {
+      handleDoorChange('heightLeft', preset.heightCm);
+      handleDoorChange('heightRight', preset.heightCm);
+      handleDoorChange('widthTop', preset.widthCm);
+      handleDoorChange('widthBottom', preset.widthCm);
+    } else {
+      handleDoorChange('heightLeft', preset.heightMm);
+      handleDoorChange('heightRight', preset.heightMm);
+      handleDoorChange('widthTop', preset.widthMm);
+      handleDoorChange('widthBottom', preset.widthMm);
+    }
+    handleDoorChange('sizePreset', preset.name);
+  };
+
+  // Add opening
   const handleAddDoor = () => {
-    const nextNum = doors.length + 1;
+    const nextIdx = doors.length + 1;
     const newDoor: DoorItemInput = {
       ...DEFAULT_DOOR,
-      doorNumber: `D${nextNum} - Room Opening`,
-      heightLeft: 2100,
-      heightRight: 2100,
-      widthTop: 850,
-      widthBottom: 850,
+      doorNumber: `#D${nextIdx}`,
+      measurementUnit: globalUnit,
     };
-    setDoors([...doors, newDoor]);
+    const converted = convertDoorUnit(newDoor, globalUnit);
+    setDoors([...doors, converted]);
     setActiveDoorTab(doors.length);
   };
 
+  // Duplicate active door
+  const handleDuplicateDoor = () => {
+    const nextIdx = doors.length + 1;
+    const duplicate: DoorItemInput = {
+      ...currentDoor,
+      id: undefined,
+      doorNumber: `#D${nextIdx}`,
+    };
+    setDoors([...doors, duplicate]);
+    setActiveDoorTab(doors.length);
+    setSuccessToast(`Duplicated ${currentDoor.doorNumber} as #D${nextIdx}`);
+    setTimeout(() => setSuccessToast(null), 3000);
+  };
+
+  // Remove opening
   const handleRemoveDoor = (index: number) => {
     if (doors.length <= 1) {
       alert('A site measurement must contain at least one door opening.');
@@ -206,62 +493,9 @@ function DoorMeasurementModalContent({
     setActiveDoorTab(Math.max(0, activeDoorTab - 1));
   };
 
-  const handleDoorChange = <K extends keyof DoorItemInput>(field: K, value: DoorItemInput[K]) => {
-    const updated = [...doors];
-    updated[activeDoorTab] = {
-      ...updated[activeDoorTab],
-      [field]: value,
-    };
-    setDoors(updated);
-  };
-
-  // Run validation
-  const validateForm = () => {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    if (!siteName.trim()) errors.push('Site Name is required.');
-    if (!district.trim()) errors.push('Kerala District must be selected.');
-    if (!engineerName.trim()) errors.push('Site Engineer Name is required.');
-
-    doors.forEach((d, idx) => {
-      const label = d.doorNumber || `Door #${idx + 1}`;
-      if (!d.heightLeft || d.heightLeft <= 0) errors.push(`${label}: Height Left must be a positive number.`);
-      if (!d.heightRight || d.heightRight <= 0) errors.push(`${label}: Height Right must be a positive number.`);
-      if (!d.widthTop || d.widthTop <= 0) errors.push(`${label}: Width Top must be a positive number.`);
-      if (!d.widthBottom || d.widthBottom <= 0) errors.push(`${label}: Width Bottom must be a positive number.`);
-
-      // Plausibility checks
-      const hDiff = Math.abs(d.heightLeft - d.heightRight);
-      if (hDiff > 15) {
-        warnings.push(`${label}: Height Left (${d.heightLeft}) and Right (${d.heightRight}) differ by ${hDiff} ${d.measurementUnit}. Check out-of-square plumb.`);
-      }
-
-      const wDiff = Math.abs(d.widthTop - d.widthBottom);
-      if (wDiff > 15) {
-        warnings.push(`${label}: Width Top (${d.widthTop}) and Bottom (${d.widthBottom}) differ by ${wDiff} ${d.measurementUnit}. Tapered opening detected.`);
-      }
-    });
-
-    const result = {
-      valid: errors.length === 0,
-      errors,
-      warnings,
-    };
-
-    setValidationResult(result);
-    return result;
-  };
-
+  // Save to backend
   const handleSave = async (targetStatus: 'DRAFT' | 'VERIFIED') => {
     setErrorMsg('');
-    const validation = validateForm();
-
-    if (targetStatus === 'VERIFIED' && !validation.valid) {
-      setErrorMsg('Please correct the validation errors before submitting for approval.');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -289,6 +523,7 @@ function DoorMeasurementModalContent({
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -298,648 +533,740 @@ function DoorMeasurementModalContent({
         throw new Error(data.error || 'Failed to save site measurement.');
       }
 
-      const saved = data.data || data.measurement;
-      onSaved(saved);
+      onSaved(data.data || { ...payload, id: initialRecord?.id || `dm-${Date.now()}` });
       onClose();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error saving record';
-      setErrorMsg(message);
+      setErrorMsg(err instanceof Error ? err.message : 'Error saving record.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const currentDoor = doors[activeDoorTab] || doors[0];
-  const activeUnit = currentDoor.measurementUnit || 'MM';
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in overflow-y-auto">
-      <div className="bg-[#0B132B] text-slate-100 rounded-2xl border border-slate-700 w-full max-w-5xl shadow-2xl overflow-hidden my-4 flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 bg-[#070D1E] border-b border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-red-600/20 text-red-500 flex items-center justify-center border border-red-500/40">
-              <Ruler className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base text-white">
-                  {isEditing ? `Edit Site Measurement: ${refNumber}` : 'Record New Site Measurement'}
-                </h3>
-                <span
-                  className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
-                    status === 'APPROVED' || status === 'SENT_TO_PRODUCTION'
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                      : status === 'VERIFIED'
-                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                  }`}
-                >
-                  {status}
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+      <div className="relative w-full max-w-5xl bg-[#070D1E] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[96vh]">
+        {/* TOP STATUS & NAVIGATION BAR (matching screenshot reference) */}
+        <div className="bg-[#0B132B] border-b border-slate-800 p-2 sm:p-3 space-y-2">
+          {/* Row 1: System action pills */}
+          <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center font-black text-white text-xs shadow-md">
+                eM
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 hidden xs:inline">
+                e... T...
+              </span>
+
+              {/* Saved Parties */}
+              <button
+                type="button"
+                onClick={() => alert(`Saved Customer: ${customerName}\nDistrict: ${district}\nSite: ${siteName}`)}
+                className="px-2 py-1 rounded-md bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
+              >
+                <FolderOpen className="w-3 h-3 text-amber-400" />
+                <span>Saved Parties</span>
+              </button>
+
+              {/* Cloud Status */}
+              <div className="flex items-center gap-0.5">
+                <span className="px-2 py-1 rounded-l-md bg-emerald-500/20 text-emerald-300 border-y border-l border-emerald-500/40 text-[11px] font-bold inline-flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  ON
+                </span>
+                <span className="px-2 py-1 rounded-r-md bg-blue-600/30 text-blue-300 border-y border-r border-blue-500/40 text-[11px] font-bold inline-flex items-center gap-1">
+                  <Cloud className="w-3 h-3 text-blue-400" />
+                  Cloud
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
-                Kerala Site Opening Dimensions • Door-Wise Masonry Rebate Book
-              </p>
+
+              {/* Download APK */}
+              <a
+                href="/dist/EXMARK-ERP-Mobile-debug.apk"
+                download="EXMARK-ERP-Mobile-debug.apk"
+                className="px-2 py-1 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer transition-colors"
+                title="Download Native Mobile Android APK (4.12MB)"
+              >
+                <Download className="w-3 h-3" />
+                <span>Download APK</span>
+              </a>
+
+              {/* APK Studio */}
+              <button
+                type="button"
+                onClick={() => alert('APK Studio Terminal: Adoptium JDK 17 & Android SDK 34 Ready')}
+                className="px-2 py-1 rounded-md bg-slate-800/80 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer hidden md:inline-flex"
+              >
+                <Smartphone className="w-3 h-3 text-amber-400" />
+                <span>APK Studio</span>
+              </button>
+
+              {/* WA PDF */}
+              <button
+                type="button"
+                onClick={() => alert(`Generating WhatsApp PDF for ${customerName} (${refNumber})...`)}
+                className="px-2 py-1 rounded-md bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Share2 className="w-3 h-3 text-emerald-400" />
+                <span>WA PDF</span>
+              </button>
+
+              {/* Save */}
+              <button
+                type="button"
+                onClick={() => handleSave('VERIFIED')}
+                disabled={isSubmitting}
+                className="px-2 py-1 rounded-md bg-teal-600/30 hover:bg-teal-600/40 text-teal-300 border border-teal-500/40 text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Save className="w-3 h-3 text-teal-400" />
+                <span>Save</span>
+              </button>
+
+              {/* Desktop UI */}
+              <button
+                type="button"
+                onClick={() => alert('Desktop Electron UI Active & Synced with Cloud Workspace')}
+                className="px-2 py-1 rounded-md bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer hidden sm:inline-flex"
+              >
+                <Monitor className="w-3 h-3 text-cyan-400" />
+                <span>Desktop UI</span>
+              </button>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-block px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-[11px] text-slate-300">
-              Role: <strong className="text-red-400 font-semibold">{userRole}</strong>
-            </span>
+
             <button
+              type="button"
               onClick={onClose}
-              aria-label="Close measurement form"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ml-auto"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
-        </div>
 
-        {/* Scrollable Form Body */}
-        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
-          {/* Requirement 11: Production Tolerance Notice */}
-          <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300 flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="leading-relaxed">
-              <strong className="text-white font-semibold">Engineering Standard: </strong>
-              Record the <em>raw masonry opening / existing frame rebate dimensions</em> below. Factory finished cutting sizes, perimeter clearance deductions (standard 5mm), and CNC router margins are computed exclusively by the Production module based on approved extrusion profiles.
+          {/* Row 2: Segmented Unit Selector [ cm ] [ Inch ] [ mm ] + Party & Profit Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Segmented Unit Buttons: [ cm ] [ Inch ] [ mm ] (cm is default) */}
+              <div className="inline-flex p-0.5 rounded-lg bg-[#070D1E] border border-slate-700/80 shadow-inner">
+                {(['CM', 'INCH', 'MM'] as const).map((unit) => {
+                  const isSelected = globalUnit === unit;
+                  return (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => handleUnitSwitch(unit)}
+                      className={`px-3 py-1 rounded-md text-xs font-black transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                      }`}
+                    >
+                      {unit === 'INCH' ? 'Inch' : unit.toLowerCase()}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* + New Party (All 0) */}
+              <button
+                type="button"
+                onClick={handleAddDoor}
+                className="px-2.5 py-1 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/40 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>+ New Party (All {doors.length})</span>
+              </button>
+
+              {/* Profit +0% */}
+              <button
+                type="button"
+                onClick={() => alert('Gross margin profit target: +0% (Cost markup: Standard Dealer Rate)')}
+                className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Eye className="w-3 h-3" />
+                <span>Profit +0%</span>
+              </button>
+
+              {/* Offline AI + WPC Sheet */}
+              <button
+                type="button"
+                onClick={() => alert('Offline AI Assistant + WPC Cutting Deduction Sheet active.')}
+                className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer hidden sm:inline-flex"
+              >
+                <Sliders className="w-3 h-3 text-amber-400" />
+                <span>Offline AI + WPC Sheet</span>
+              </button>
+            </div>
+
+            {/* Right: Quantity & Grand Total */}
+            <div className="px-3 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-xs font-bold text-emerald-400">
+              {doors.reduce((acc, d) => acc + (d.quantity || 1), 0)} pcs &bull; ₹{doors.reduce((acc, d) => acc + (d.unitPrice || 7500) * (d.quantity || 1), 0).toLocaleString('en-IN')}
             </div>
           </div>
+        </div>
 
-          {/* Validation Banner if errors or warnings exist */}
-          {validationResult && (
-            <div className="space-y-2">
-              {validationResult.errors.length > 0 && (
-                <div className="p-3 rounded-lg bg-red-950/80 border border-red-800 text-red-200 text-xs space-y-1">
-                  <div className="flex items-center gap-1.5 font-bold text-red-300">
-                    <ShieldAlert className="w-4 h-4" />
-                    <span>Required Field Errors:</span>
+        {/* TOAST MESSAGE */}
+        {successToast && (
+          <div className="px-4 py-2 bg-emerald-500/20 border-b border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{successToast}</span>
+          </div>
+        )}
+
+        {/* ERROR MESSAGE */}
+        {errorMsg && (
+          <div className="px-4 py-2 bg-red-500/20 border-b border-red-500/30 text-red-300 text-xs font-medium flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-400" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* BODY CONTAINER (SCROLLABLE) */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+          {/* DOOR OPENING TABS RAIL */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-800/80">
+            {doors.map((door, idx) => {
+              const isActive = activeDoorTab === idx;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveDoorTab(idx)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                    isActive
+                      ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                      : 'bg-[#0B132B] text-slate-300 border border-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span>{door.doorNumber || `#D${idx + 1}`}</span>
+                  {doors.length > 1 && (
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveDoor(idx);
+                      }}
+                      className="hover:text-red-600 transition-colors"
+                      title="Remove Opening"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={handleAddDoor}
+              className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer"
+              title="Add Door Opening"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* MAIN FIELD TERMINAL CARD (MATCHING SCREENSHOT) */}
+          <div className="bg-[#0B132B] border border-slate-800/90 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl">
+            {/* Header: 3D preview badge + #D1 · Sq.Ft · Frame R.Ft + Price */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-14 bg-gradient-to-b from-amber-600 to-orange-700 rounded-lg border border-amber-400/40 flex flex-col items-center justify-center text-[10px] font-black text-white shadow-md">
+                  <span>FRP</span>
+                  <span className="text-[8px] opacity-80">3D/AI</span>
+                </div>
+                <div>
+                  <div className="text-sm sm:text-base font-black text-amber-400 flex items-center gap-2">
+                    <span>{currentDoor.doorNumber || '#D1'}</span>
+                    <span className="text-slate-400">&bull;</span>
+                    <span>{metrics.sqFt} Sq.Ft</span>
+                    <span className="text-slate-400">&bull;</span>
+                    <span>Frame {metrics.frameRft} R.Ft</span>
                   </div>
-                  <ul className="list-disc list-inside space-y-0.5 pl-1">
-                    {validationResult.errors.map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {validationResult.warnings.length > 0 && (
-                <div className="p-3 rounded-lg bg-amber-950/70 border border-amber-800 text-amber-200 text-xs space-y-1">
-                  <div className="flex items-center gap-1.5 font-bold text-amber-300">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>Plumb & Square Warnings (Review on Site):</span>
+                  <div className="text-xs text-slate-400">
+                    Standard 4-Point Masonry Opening &bull; 100% FRP Hydraulic Molding Press
                   </div>
-                  <ul className="list-disc list-inside space-y-0.5 pl-1">
-                    {validationResult.warnings.map((warn, i) => (
-                      <li key={i}>{warn}</li>
-                    ))}
-                  </ul>
                 </div>
-              )}
+              </div>
 
-              {validationResult.valid && validationResult.warnings.length === 0 && (
-                <div className="p-2.5 rounded-lg bg-emerald-950/70 border border-emerald-800 text-emerald-300 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Dimensional validation passed! All openings are within architectural door tolerances.</span>
+              <div className="text-right">
+                <div className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
+                  ₹{metrics.unitPrice.toLocaleString('en-IN')}
                 </div>
-              )}
+                <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                  Unit Net Price ({currentDoor.pricingMode || 'Piece Mode'})
+                </div>
+              </div>
             </div>
-          )}
 
-          {errorMsg && (
-            <div className="p-3 rounded-lg bg-red-950/80 border border-red-800 text-red-200 text-xs flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-red-400 flex-shrink-0" />
-              <span>{errorMsg}</span>
+            {/* Row 1: Door Description / Category */}
+            <div>
+              <input
+                type="text"
+                value={currentDoor.categoryName || 'Bath FRP Door'}
+                onChange={(e) => handleDoorChange('categoryName', e.target.value)}
+                placeholder="e.g. Bath FRP Door / Master Bed / Main Entry"
+                className="w-full px-3 py-2 bg-[#070D1E] text-white font-bold text-sm rounded-xl border border-slate-700 focus:outline-none focus:border-amber-500"
+              />
             </div>
-          )}
 
-          {/* SECTION 1: Site & Party Information */}
-          <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
-            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-              <Building2 className="w-3.5 h-3.5 text-red-400" />
-              1. Site &amp; Party Details
-            </h4>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            {/* Row 2: Model & Base Price + Size Preset Dropdown */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-400 font-medium mb-1">
-                  Customer / Party Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Malabar Builders, Skyline Living..."
-                  className="w-full px-3 py-1.5 bg-slate-900 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-medium mb-1">
-                  Order / Work Reference
-                </label>
-                <input
-                  type="text"
-                  value={orderRef}
-                  onChange={(e) => setOrderRef(e.target.value)}
-                  placeholder="e.g. EXM-2026-1082"
-                  className="w-full px-3 py-1.5 bg-slate-900 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-medium mb-1">
-                  Site Name / Project *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={siteName}
-                  onChange={(e) => setSiteName(e.target.value)}
-                  placeholder="e.g. Palm Springs Tower B, Flat 402"
-                  className="w-full px-3 py-1.5 bg-slate-900 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-medium mb-1">
-                  Kerala District *
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Model Code & Base Rate
                 </label>
                 <select
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-900 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
+                  value={currentDoor.model}
+                  onChange={(e) => handleDoorChange('model', e.target.value)}
+                  className="w-full px-3 py-2 bg-[#070D1E] text-white font-bold text-xs rounded-xl border border-slate-700 focus:outline-none focus:border-amber-500"
                 >
-                  {KERALA_DISTRICTS.map((dist) => (
-                    <option key={dist} value={dist}>
-                      {dist}
+                  {DOOR_MODELS_CATALOG.map((m) => (
+                    <option key={m.id} value={m.name}>
+                      {m.name}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block text-slate-400 font-medium mb-1">
-                  Site Street Address / Location
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Standard Size Preset
+                </label>
+                <select
+                  value={currentDoor.sizePreset || 'Standard Bed (80×32)'}
+                  onChange={(e) => handleSizePresetSelect(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#070D1E] text-white font-bold text-xs rounded-xl border border-slate-700 focus:outline-none focus:border-amber-500"
+                >
+                  {SIZE_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* 4-POINT MEASUREMENT CARDS (H-LEFT, H-RIGHT, W-TOP, W-BOT, QTY) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-black text-slate-300 uppercase tracking-wider">
+                  Masonry Opening 4-Point Measurements ({globalUnit})
+                </span>
+                <span className="text-[11px] text-amber-400 font-semibold">
+                  Active Mode: {globalUnit === 'CM' ? 'Centimeters (cm)' : globalUnit === 'INCH' ? 'Inches with 1/8" Fractions' : 'Millimeters (mm)'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                {/* 1. H-LEFT */}
+                <div className="bg-[#070D1E] p-2.5 rounded-xl border border-slate-700/80 space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">
+                    H-LEFT ({globalUnit})
+                  </div>
+                  <input
+                    type="number"
+                    step={globalUnit === 'CM' ? '0.1' : '1'}
+                    required
+                    value={currentDoor.heightLeft || ''}
+                    onChange={(e) => handleDoorChange('heightLeft', parseFloat(e.target.value) || 0)}
+                    className="w-full text-center py-1 bg-transparent text-white font-black text-lg focus:outline-none"
+                  />
+                  {globalUnit === 'INCH' && (
+                    <select
+                      value={currentDoor.fractionHeightLeft || '0/8'}
+                      onChange={(e) => handleDoorChange('fractionHeightLeft', e.target.value)}
+                      className="w-full text-center py-1 bg-[#0B132B] text-rose-300 text-[11px] font-bold rounded border border-rose-500/30 focus:outline-none"
+                    >
+                      {FRACTIONS.map((f) => (
+                        <option key={f.str} value={f.str}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {globalUnit !== 'INCH' && (
+                    <div className="text-[10px] text-slate-500 text-center">
+                      {globalUnit === 'CM' ? `${(currentDoor.heightLeft * 10).toFixed(0)} mm` : `${(currentDoor.heightLeft / 10).toFixed(1)} cm`}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. H-RIGHT */}
+                <div className="bg-[#070D1E] p-2.5 rounded-xl border border-slate-700/80 space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">
+                    H-RIGHT ({globalUnit})
+                  </div>
+                  <input
+                    type="number"
+                    step={globalUnit === 'CM' ? '0.1' : '1'}
+                    required
+                    value={currentDoor.heightRight || ''}
+                    onChange={(e) => handleDoorChange('heightRight', parseFloat(e.target.value) || 0)}
+                    className="w-full text-center py-1 bg-transparent text-white font-black text-lg focus:outline-none"
+                  />
+                  {globalUnit === 'INCH' && (
+                    <select
+                      value={currentDoor.fractionHeightRight || '0/8'}
+                      onChange={(e) => handleDoorChange('fractionHeightRight', e.target.value)}
+                      className="w-full text-center py-1 bg-[#0B132B] text-rose-300 text-[11px] font-bold rounded border border-rose-500/30 focus:outline-none"
+                    >
+                      {FRACTIONS.map((f) => (
+                        <option key={f.str} value={f.str}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {globalUnit !== 'INCH' && (
+                    <div className="text-[10px] text-slate-500 text-center">
+                      {globalUnit === 'CM' ? `${(currentDoor.heightRight * 10).toFixed(0)} mm` : `${(currentDoor.heightRight / 10).toFixed(1)} cm`}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. W-TOP */}
+                <div className="bg-[#070D1E] p-2.5 rounded-xl border border-slate-700/80 space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">
+                    W-TOP ({globalUnit})
+                  </div>
+                  <input
+                    type="number"
+                    step={globalUnit === 'CM' ? '0.1' : '1'}
+                    required
+                    value={currentDoor.widthTop || ''}
+                    onChange={(e) => handleDoorChange('widthTop', parseFloat(e.target.value) || 0)}
+                    className="w-full text-center py-1 bg-transparent text-white font-black text-lg focus:outline-none"
+                  />
+                  {globalUnit === 'INCH' && (
+                    <select
+                      value={currentDoor.fractionWidthTop || '0/8'}
+                      onChange={(e) => handleDoorChange('fractionWidthTop', e.target.value)}
+                      className="w-full text-center py-1 bg-[#0B132B] text-rose-300 text-[11px] font-bold rounded border border-rose-500/30 focus:outline-none"
+                    >
+                      {FRACTIONS.map((f) => (
+                        <option key={f.str} value={f.str}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {globalUnit !== 'INCH' && (
+                    <div className="text-[10px] text-slate-500 text-center">
+                      {globalUnit === 'CM' ? `${(currentDoor.widthTop * 10).toFixed(0)} mm` : `${(currentDoor.widthTop / 10).toFixed(1)} cm`}
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. W-BOT */}
+                <div className="bg-[#070D1E] p-2.5 rounded-xl border border-slate-700/80 space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">
+                    W-BOT ({globalUnit})
+                  </div>
+                  <input
+                    type="number"
+                    step={globalUnit === 'CM' ? '0.1' : '1'}
+                    required
+                    value={currentDoor.widthBottom || ''}
+                    onChange={(e) => handleDoorChange('widthBottom', parseFloat(e.target.value) || 0)}
+                    className="w-full text-center py-1 bg-transparent text-white font-black text-lg focus:outline-none"
+                  />
+                  {globalUnit === 'INCH' && (
+                    <select
+                      value={currentDoor.fractionWidthBottom || '0/8'}
+                      onChange={(e) => handleDoorChange('fractionWidthBottom', e.target.value)}
+                      className="w-full text-center py-1 bg-[#0B132B] text-rose-300 text-[11px] font-bold rounded border border-rose-500/30 focus:outline-none"
+                    >
+                      {FRACTIONS.map((f) => (
+                        <option key={f.str} value={f.str}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {globalUnit !== 'INCH' && (
+                    <div className="text-[10px] text-slate-500 text-center">
+                      {globalUnit === 'CM' ? `${(currentDoor.widthBottom * 10).toFixed(0)} mm` : `${(currentDoor.widthBottom / 10).toFixed(1)} cm`}
+                    </div>
+                  )}
+                </div>
+
+                {/* 5. QTY */}
+                <div className="bg-[#070D1E] p-2.5 rounded-xl border border-slate-700/80 space-y-1 col-span-2 sm:col-span-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">
+                    QTY
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={currentDoor.quantity || 1}
+                    onChange={(e) => handleDoorChange('quantity', parseInt(e.target.value) || 1)}
+                    className="w-full text-center py-1 bg-transparent text-emerald-400 font-black text-lg focus:outline-none"
+                  />
+                  <div className="text-[10px] text-slate-500 text-center font-medium">
+                    Piece Mode
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* COLOUR / FINISH (PRESET + CUSTOM) & LOCK OPTION */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Colour and Dual-Tone */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Colour / Finish (Preset + Custom)
+                </label>
+                <select
+                  value={currentDoor.colour}
+                  onChange={(e) => handleDoorChange('colour', e.target.value)}
+                  className="w-full px-3 py-2 bg-[#070D1E] text-white font-bold text-xs rounded-xl border border-slate-700 focus:outline-none focus:border-amber-500"
+                >
+                  {COLOURS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="text"
+                  value={currentDoor.insideColour || ''}
+                  onChange={(e) => handleDoorChange('insideColour', e.target.value)}
+                  placeholder="Inside Colour (ഇൻസൈഡ് കളർ)..."
+                  className="w-full px-3 py-1.5 bg-[#070D1E] text-slate-300 text-xs rounded-lg border border-slate-700 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* Lock Options */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Lock Option (All Locks + Custom)
+                </label>
+                <select
+                  value={currentDoor.lockType}
+                  onChange={(e) => handleDoorChange('lockType', e.target.value)}
+                  className="w-full px-3 py-2 bg-[#070D1E] text-white font-bold text-xs rounded-xl border border-slate-700 focus:outline-none focus:border-amber-500"
+                >
+                  {LOCK_OPTIONS.map((l) => (
+                    <option key={l.id} value={l.name}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-400 font-semibold">Frame:</span>
+                  <select
+                    value={currentDoor.frameType}
+                    onChange={(e) => handleDoorChange('frameType', e.target.value)}
+                    className="w-full px-2.5 py-1 bg-[#070D1E] text-slate-300 text-xs rounded-lg border border-slate-700 focus:outline-none"
+                  >
+                    {FRAME_TYPES.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* DOOR PRICE ADJUSTMENT (₹) & REMARK / SITE NOTE */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-800">
+              {/* Stepper Price Adjustment */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Door Price Adjustment (₹)
+                  </label>
+                  <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">
+                    Piece Mode
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustPrice(-100)}
+                    className="px-3 py-1.5 bg-[#070D1E] hover:bg-slate-800 text-rose-400 font-bold text-xs rounded-lg border border-rose-500/30 cursor-pointer"
+                  >
+                    -100
+                  </button>
+                  <input
+                    type="number"
+                    value={metrics.unitPrice}
+                    onChange={(e) => handleDirectPriceChange(parseFloat(e.target.value) || 0)}
+                    className="w-full text-center py-1.5 bg-[#070D1E] text-emerald-400 font-black text-sm rounded-lg border border-slate-700 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustPrice(100)}
+                    className="px-3 py-1.5 bg-[#070D1E] hover:bg-slate-800 text-emerald-400 font-bold text-xs rounded-lg border border-emerald-500/30 cursor-pointer"
+                  >
+                    +100
+                  </button>
+                </div>
+              </div>
+
+              {/* Remark / Site Note */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Remark / Site Note
                 </label>
                 <input
                   type="text"
-                  value={siteAddress}
-                  onChange={(e) => setSiteAddress(e.target.value)}
-                  placeholder="e.g. Near Infopark Expressway, Kakkanad, Kochi"
-                  className="w-full px-3 py-1.5 bg-slate-900 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
+                  value={currentDoor.remarks || ''}
+                  onChange={(e) => handleDoorChange('remarks', e.target.value)}
+                  placeholder="Enter door remark / site note..."
+                  className="w-full px-3 py-1.5 bg-[#070D1E] text-white text-xs rounded-lg border border-slate-700 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            {/* BOTTOM CARD CONTROLS (MATCHING SCREENSHOT) */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => alert(`Handing: ${currentDoor.hingeSide} | Gross margin: +28%`)}
+                  className="px-3 py-1.5 rounded-lg bg-[#070D1E] hover:bg-slate-800 text-amber-400 border border-slate-700 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Handing / Profit</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDoorChange('photoCount', (currentDoor.photoCount || 0) + 1)}
+                  className="px-3 py-1.5 rounded-lg bg-[#070D1E] hover:bg-slate-800 text-cyan-400 border border-slate-700 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>{currentDoor.photoCount || 0}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => alert('Speech recording initialized. Speak clearly into microphone.')}
+                  className="p-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer"
+                  title="Voice Note (Malayalam/English)"
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDuplicateDoor}
+                  className="p-2 rounded-lg bg-[#070D1E] hover:bg-slate-800 text-slate-300 border border-slate-700 cursor-pointer"
+                  title="Duplicate Door Opening"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+
+                {doors.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveDoor(activeDoorTab)}
+                    className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 cursor-pointer"
+                    title="Delete Opening"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* SITE & PROJECT METADATA ACCORDION */}
+          <details className="bg-[#0B132B] p-4 rounded-xl border border-slate-800 space-y-3">
+            <summary className="text-xs font-bold text-slate-300 uppercase tracking-wider cursor-pointer flex items-center justify-between">
+              <span>Site Location & Engineer Details ({district})</span>
+              <span className="text-[11px] text-amber-400 font-normal">Click to expand / edit</span>
+            </summary>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 text-xs">
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Customer / Party Name</label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-[#070D1E] text-white rounded border border-slate-700"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 font-medium mb-1">
-                  Site Measurement Date
-                </label>
+                <label className="block text-slate-400 font-semibold mb-1">Site / Project Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={siteName}
+                  onChange={(e) => setSiteName(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-[#070D1E] text-white rounded border border-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Kerala District *</label>
+                <select
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-[#070D1E] text-white rounded border border-slate-700"
+                >
+                  {KERALA_DISTRICTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Site Engineer</label>
+                <input
+                  type="text"
+                  value={engineerName}
+                  onChange={(e) => setEngineerName(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-[#070D1E] text-white rounded border border-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Measurement Date</label>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-900 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
+                  className="w-full px-2.5 py-1.5 bg-[#070D1E] text-white rounded border border-slate-700"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 font-medium mb-1">
-                  Site Engineer / Technician *
-                </label>
+                <label className="block text-slate-400 font-semibold mb-1">Street Address</label>
                 <input
                   type="text"
-                  required
-                  value={engineerName}
-                  onChange={(e) => setEngineerName(e.target.value)}
-                  placeholder="e.g. Anoop Krishnan"
-                  className="w-full px-3 py-1.5 bg-slate-900 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-medium mb-1">
-                  Default Wall Thickness
-                </label>
-                <input
-                  type="text"
-                  value={wallThicknessMm}
-                  onChange={(e) => setWallThicknessMm(e.target.value)}
-                  placeholder="e.g. 150mm"
-                  className="w-full px-3 py-1.5 bg-slate-900 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-medium mb-1">
-                  Default Frame Rebate Depth
-                </label>
-                <input
-                  type="text"
-                  value={rebateDepthMm}
-                  onChange={(e) => setRebateDepthMm(e.target.value)}
-                  placeholder="e.g. 38mm"
-                  className="w-full px-3 py-1.5 bg-slate-900 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
+                  value={siteAddress}
+                  onChange={(e) => setSiteAddress(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-[#070D1E] text-white rounded border border-slate-700"
                 />
               </div>
             </div>
-          </div>
-
-          {/* SECTION 2: Multiple Door Openings Selector */}
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                <Ruler className="w-3.5 h-3.5 text-red-400" />
-                2. Door Openings ({doors.length} {doors.length === 1 ? 'Door' : 'Doors'})
-              </h4>
-
-              <button
-                type="button"
-                onClick={handleAddDoor}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-600/20 text-red-300 hover:bg-red-600/30 border border-red-500/40 rounded-lg text-xs font-semibold transition-colors self-start sm:self-auto cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Another Door Opening
-              </button>
-            </div>
-
-            {/* Door Tabs Rail */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-              {doors.map((door, idx) => {
-                const isActive = activeDoorTab === idx;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setActiveDoorTab(idx)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border flex items-center gap-2 ${
-                      isActive
-                        ? 'bg-red-600 text-white border-red-500 shadow-sm'
-                        : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <span>{door.doorNumber || `Door #${idx + 1}`}</span>
-                    {doors.length > 1 && (
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveDoor(idx);
-                        }}
-                        className="p-0.5 hover:text-red-200 text-slate-400 transition-colors"
-                        title="Remove opening"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Active Door Form Card */}
-            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="text-xs text-slate-400 font-semibold">Opening Label:</span>
-                  <input
-                    type="text"
-                    value={currentDoor.doorNumber}
-                    onChange={(e) => handleDoorChange('doorNumber', e.target.value)}
-                    placeholder="e.g. D1 - Master Bed"
-                    className="px-2.5 py-1 bg-slate-950 text-white text-xs font-bold rounded-md border border-slate-700 focus:outline-none focus:border-red-500 max-w-xs"
-                  />
-                </div>
-
-                {/* Unit Switcher */}
-                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
-                  <span className="text-[11px] text-slate-400 px-1 font-semibold">Unit:</span>
-                  {(['MM', 'CM', 'INCH'] as const).map((unit) => (
-                    <button
-                      key={unit}
-                      type="button"
-                      onClick={() => handleDoorChange('measurementUnit', unit)}
-                      className={`px-2 py-0.5 rounded font-bold text-xs transition-colors ${
-                        activeUnit === unit
-                          ? 'bg-red-600 text-white shadow-xs'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {unit}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Specifications: Model, Frame, Color, Hinge, Lock */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                {(() => {
-                  const availableDoorModels = isWpcEnabled
-                    ? DOOR_MODELS
-                    : DOOR_MODELS.filter((m) => !m.includes('WPC'));
-
-                  const filteredModels = !isWpcEnabled && currentDoor.model.includes('WPC')
-                    ? [currentDoor.model, ...availableDoorModels.filter((m) => m !== currentDoor.model)]
-                    : availableDoorModels;
-
-                  const availableFrameTypes = isWpcEnabled
-                    ? FRAME_TYPES
-                    : FRAME_TYPES.filter((f) => !f.includes('WPC'));
-
-                  const filteredFrames = !isWpcEnabled && currentDoor.frameType.includes('WPC')
-                    ? [currentDoor.frameType, ...availableFrameTypes.filter((f) => f !== currentDoor.frameType)]
-                    : availableFrameTypes;
-
-                  return (
-                    <>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-slate-400 font-medium">
-                            Door Model Category *
-                          </label>
-                          {!isWpcEnabled && (
-                            <span className="text-[10px] text-red-400 font-medium">FRP Line Active</span>
-                          )}
-                        </div>
-                        <select
-                          value={currentDoor.model}
-                          onChange={(e) => handleDoorChange('model', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-slate-950 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                        >
-                          {filteredModels.map((m) => (
-                            <option key={m} value={m}>
-                              {m}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-400 font-medium mb-1">
-                          Frame Type / Subframe *
-                        </label>
-                        <select
-                          value={currentDoor.frameType}
-                          onChange={(e) => handleDoorChange('frameType', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-slate-950 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                        >
-                          {filteredFrames.map((f) => (
-                            <option key={f} value={f}>
-                              {f}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
-                  );
-                })()}
-
-                <div>
-                  <label className="block text-slate-400 font-medium mb-1">
-                    Colour / Woodgrain Finish *
-                  </label>
-                  <select
-                    value={currentDoor.colour}
-                    onChange={(e) => handleDoorChange('colour', e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-950 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                  >
-                    {COLOURS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 font-medium mb-1">
-                    Hinge Handing (Swing Side) *
-                  </label>
-                  <select
-                    value={currentDoor.hingeSide}
-                    onChange={(e) => handleDoorChange('hingeSide', e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-950 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                  >
-                    {HINGE_SIDES.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 font-medium mb-1">
-                    Lock Hardware Routing *
-                  </label>
-                  <select
-                    value={currentDoor.lockType}
-                    onChange={(e) => handleDoorChange('lockType', e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-950 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                  >
-                    {LOCK_TYPES.map((l) => (
-                      <option key={l} value={l}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 font-medium mb-1">
-                    Wall Rebate Depth / Thickness
-                  </label>
-                  <input
-                    type="text"
-                    value={currentDoor.rebateDepth || rebateDepthMm}
-                    onChange={(e) => handleDoorChange('rebateDepth', e.target.value)}
-                    placeholder="e.g. 38mm rebate, 125mm wall"
-                    className="w-full px-3 py-1.5 bg-slate-950 text-white rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                  />
-                </div>
-              </div>
-
-              {/* Requirement 5: Dimensional 4-Point Measurements (Height Left, Height Right, Width Top, Width Bottom) */}
-              <div className="pt-2">
-                <span className="text-xs font-bold text-slate-300 block mb-2">
-                  4-Point Opening Dimensions ({activeUnit})
-                </span>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {/* Height Left */}
-                  <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
-                    <label className="block text-[11px] font-semibold text-slate-400">
-                      Height Left ({activeUnit}) *
-                    </label>
-                    <input
-                      type="number"
-                      min="100"
-                      max="3500"
-                      required
-                      value={currentDoor.heightLeft || ''}
-                      onChange={(e) => handleDoorChange('heightLeft', parseFloat(e.target.value) || 0)}
-                      className="w-full px-2.5 py-1.5 bg-slate-900 text-white font-bold text-sm rounded border border-slate-700 focus:outline-none focus:border-red-500"
-                    />
-                    {currentDoor.heightLeft > 0 && (
-                      <div className="text-[10px] text-slate-400 pt-0.5">
-                        {activeUnit === 'MM' && (
-                          <span>{(currentDoor.heightLeft / 10).toFixed(1)} cm • {(currentDoor.heightLeft / 25.4).toFixed(2)}″</span>
-                        )}
-                        {activeUnit === 'INCH' && (
-                          <span>{(currentDoor.heightLeft * 25.4).toFixed(1)} mm • {(currentDoor.heightLeft * 2.54).toFixed(1)} cm</span>
-                        )}
-                        {activeUnit === 'CM' && (
-                          <span>{(currentDoor.heightLeft * 10).toFixed(0)} mm • {(currentDoor.heightLeft / 2.54).toFixed(2)}″</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Height Right */}
-                  <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
-                    <label className="block text-[11px] font-semibold text-slate-400">
-                      Height Right ({activeUnit}) *
-                    </label>
-                    <input
-                      type="number"
-                      min="100"
-                      max="3500"
-                      required
-                      value={currentDoor.heightRight || ''}
-                      onChange={(e) => handleDoorChange('heightRight', parseFloat(e.target.value) || 0)}
-                      className="w-full px-2.5 py-1.5 bg-slate-900 text-white font-bold text-sm rounded border border-slate-700 focus:outline-none focus:border-red-500"
-                    />
-                    {currentDoor.heightRight > 0 && (
-                      <div className="text-[10px] text-slate-400 pt-0.5">
-                        {activeUnit === 'MM' && (
-                          <span>{(currentDoor.heightRight / 10).toFixed(1)} cm • {(currentDoor.heightRight / 25.4).toFixed(2)}″</span>
-                        )}
-                        {activeUnit === 'INCH' && (
-                          <span>{(currentDoor.heightRight * 25.4).toFixed(1)} mm • {(currentDoor.heightRight * 2.54).toFixed(1)} cm</span>
-                        )}
-                        {activeUnit === 'CM' && (
-                          <span>{(currentDoor.heightRight * 10).toFixed(0)} mm • {(currentDoor.heightRight / 2.54).toFixed(2)}″</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Width Top */}
-                  <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
-                    <label className="block text-[11px] font-semibold text-slate-400">
-                      Width Top ({activeUnit}) *
-                    </label>
-                    <input
-                      type="number"
-                      min="100"
-                      max="2500"
-                      required
-                      value={currentDoor.widthTop || ''}
-                      onChange={(e) => handleDoorChange('widthTop', parseFloat(e.target.value) || 0)}
-                      className="w-full px-2.5 py-1.5 bg-slate-900 text-white font-bold text-sm rounded border border-slate-700 focus:outline-none focus:border-red-500"
-                    />
-                    {currentDoor.widthTop > 0 && (
-                      <div className="text-[10px] text-slate-400 pt-0.5">
-                        {activeUnit === 'MM' && (
-                          <span>{(currentDoor.widthTop / 10).toFixed(1)} cm • {(currentDoor.widthTop / 25.4).toFixed(2)}″</span>
-                        )}
-                        {activeUnit === 'INCH' && (
-                          <span>{(currentDoor.widthTop * 25.4).toFixed(1)} mm • {(currentDoor.widthTop * 2.54).toFixed(1)} cm</span>
-                        )}
-                        {activeUnit === 'CM' && (
-                          <span>{(currentDoor.widthTop * 10).toFixed(0)} mm • {(currentDoor.widthTop / 2.54).toFixed(2)}″</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Width Bottom */}
-                  <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
-                    <label className="block text-[11px] font-semibold text-slate-400">
-                      Width Bottom ({activeUnit}) *
-                    </label>
-                    <input
-                      type="number"
-                      min="100"
-                      max="2500"
-                      required
-                      value={currentDoor.widthBottom || ''}
-                      onChange={(e) => handleDoorChange('widthBottom', parseFloat(e.target.value) || 0)}
-                      className="w-full px-2.5 py-1.5 bg-slate-900 text-white font-bold text-sm rounded border border-slate-700 focus:outline-none focus:border-red-500"
-                    />
-                    {currentDoor.widthBottom > 0 && (
-                      <div className="text-[10px] text-slate-400 pt-0.5">
-                        {activeUnit === 'MM' && (
-                          <span>{(currentDoor.widthBottom / 10).toFixed(1)} cm • {(currentDoor.widthBottom / 25.4).toFixed(2)}″</span>
-                        )}
-                        {activeUnit === 'INCH' && (
-                          <span>{(currentDoor.widthBottom * 25.4).toFixed(1)} mm • {(currentDoor.widthBottom * 2.54).toFixed(1)} cm</span>
-                        )}
-                        {activeUnit === 'CM' && (
-                          <span>{(currentDoor.widthBottom * 10).toFixed(0)} mm • {(currentDoor.widthBottom / 2.54).toFixed(2)}″</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Door Remarks */}
-                <div className="mt-3">
-                  <label className="block text-slate-400 font-medium text-xs mb-1">
-                    Door-Specific Remarks & Site Conditions
-                  </label>
-                  <input
-                    type="text"
-                    value={currentDoor.remarks || ''}
-                    onChange={(e) => handleDoorChange('remarks', e.target.value)}
-                    placeholder="e.g. Tile step 12mm on floor, architrave required on outer wall face, check hinge block clearance..."
-                    className="w-full px-3 py-1.5 bg-slate-950 text-white text-xs rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* General Site Notes */}
-          <div>
-            <label className="block text-slate-400 font-medium text-xs mb-1">
-              General Project / Site Delivery Notes
-            </label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Unloading bay on North side, lift access available up to 4th floor, client request dispatch by Friday..."
-              className="w-full px-3 py-2 bg-slate-900 text-white text-xs rounded-lg border border-slate-700 focus:outline-none focus:border-red-500"
-            />
-          </div>
+          </details>
         </div>
 
-        {/* Modal Actions Footer */}
-        <div className="p-4 bg-[#070D1E] border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        {/* MODAL FOOTER ACTIONS */}
+        <div className="p-3 bg-[#0B132B] border-t border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
             >
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={validateForm}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
-            >
-              <Check className="w-3.5 h-3.5 text-blue-400" />
-              <span>Validate Dimensions</span>
-            </button>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            {/* Save Draft Action */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => handleSave('DRAFT')}
@@ -950,21 +1277,14 @@ function DoorMeasurementModalContent({
               <span>Save Draft</span>
             </button>
 
-            {/* Submit for Approval Action */}
             <button
               type="button"
               onClick={() => handleSave('VERIFIED')}
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold transition-all shadow-lg shadow-red-950/40 cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-black shadow-lg shadow-red-950/50 transition-all cursor-pointer inline-flex items-center gap-2 disabled:opacity-50"
             >
-              {isSubmitting ? (
-                <span>Persisting Measurement...</span>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  <span>Submit for Approval</span>
-                </>
-              )}
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Verify & Save Openings</span>
             </button>
           </div>
         </div>

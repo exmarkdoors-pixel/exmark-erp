@@ -394,7 +394,7 @@ export async function createMeasurement(
     doors: (input.doors || []).map((d, index) => ({
       ...d,
       id: d.id || `door-${Date.now()}-${index + 1}`,
-      measurementUnit: d.measurementUnit || 'MM',
+      measurementUnit: d.measurementUnit || 'CM',
     })),
   };
 
