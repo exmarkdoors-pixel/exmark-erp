@@ -3,6 +3,7 @@ productName: EXMARK ERP
 directories:
   output: dist
 files:
+  - package.json
   - electron/**/*
   - public/**/*
 win:

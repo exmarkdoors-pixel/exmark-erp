@@ -55,3 +55,6 @@ next-env.d.ts
 *.pdf
 *.xlsx
 *.csv
+
+# electron desktop builds
+/dist/

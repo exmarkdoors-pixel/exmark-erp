@@ -2,6 +2,9 @@
   "name": "exmark-erp",
   "version": "0.1.0",
   "private": true,
+  "description": "EXMARK ERP — Enterprise FRP Architectural Doors Manufacturing Platform",
+  "author": "EXMARK DOORS PRIVATE LIMITED",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/deploy-migrate.mjs && next build",
