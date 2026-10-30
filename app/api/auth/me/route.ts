@@ -1,15 +1,16 @@
-import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth/session';
+import { NextRequest, NextResponse } from 'next/server';
 import { ERP_ROLES } from '@/lib/auth/roles';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getSession();
+    const auth = await authorizeRequest(req);
 
-    if (!session) {
+    if (auth.errorResponse || !auth.user) {
       return NextResponse.json({ authenticated: false, user: null }, { status: 401 });
     }
 
+    const session = auth.user;
     const roleConfig = ERP_ROLES[session.role];
 
     return NextResponse.json({

@@ -58,3 +58,9 @@ next-env.d.ts
 
 # electron desktop builds
 /dist/
+
+# android builds & mobile apk
+/android/.gradle/
+/android/build/
+/android/app/build/
+*.apk

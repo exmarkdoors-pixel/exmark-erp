@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, SessionUser, DEMO_USERS } from './session';
+import { getSession, SessionUser, DEMO_USERS, SESSION_COOKIE_NAME, SESSION_MAX_AGE } from './session';
 import { canAccessModule, UserRole } from './roles';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 
@@ -9,9 +9,28 @@ export interface AuthorizationResult {
 }
 
 /**
+ * Validates and parses a base64 encoded session token.
+ */
+function parseSessionToken(token: string): SessionUser | null {
+  try {
+    const decoded = Buffer.from(token, 'base64').toString('utf-8');
+    const parsed = JSON.parse(decoded) as SessionUser & { issuedAt?: number };
+    if (!parsed || !parsed.id || !parsed.role || !parsed.email) {
+      return null;
+    }
+    if (parsed.issuedAt && Date.now() - parsed.issuedAt > SESSION_MAX_AGE * 1000) {
+      return null; // Expired token
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Universal server-side authorization check for Next.js Route Handlers.
- * Checks HTTP-only session cookie or API headers (x-user-role / x-user-email)
- * against module permission and allowed role lists.
+ * Checks Bearer Authorization header, HTTP-only session cookie (exmark_erp_session),
+ * or API headers (x-user-role / x-user-email in dev) against module permission and allowed role lists.
  */
 export async function authorizeRequest(
   req: NextRequest | Request,
@@ -36,23 +55,36 @@ export async function authorizeRequest(
     }
   }
 
-  // 2. Inspect session cookie from incoming Request header
+  // 2. Inspect Authorization Bearer header (supports Electron desktop, mobile, and web clients)
+  if (!user) {
+    const authHeader = req.headers.get('authorization');
+    if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+      const token = authHeader.substring(7).trim();
+      user = parseSessionToken(token);
+    }
+  }
+
+  // 3. Inspect NextRequest cookies collection if present
+  if (!user && 'cookies' in req && typeof (req as NextRequest).cookies?.get === 'function') {
+    const nextReq = req as NextRequest;
+    const cookieVal = nextReq.cookies.get(SESSION_COOKIE_NAME)?.value || nextReq.cookies.get('exmark_session')?.value;
+    if (cookieVal) {
+      user = parseSessionToken(cookieVal);
+    }
+  }
+
+  // 4. Inspect raw Cookie header from incoming Request
   if (!user) {
     const cookieHeader = req.headers.get('cookie');
     if (cookieHeader) {
-      const match = cookieHeader.match(/exmark_session=([^;]+)/);
+      const match = cookieHeader.match(/(?:^|;\s*)(?:exmark_erp_session|exmark_session)=([^;]+)/);
       if (match && match[1]) {
-        try {
-          const decoded = Buffer.from(match[1], 'base64').toString('utf-8');
-          user = JSON.parse(decoded) as SessionUser;
-        } catch {
-          user = null;
-        }
+        user = parseSessionToken(match[1]);
       }
     }
   }
 
-  // Fallback to Next.js cookies() store if in request lifecycle
+  // 5. Fallback to Next.js cookies() store
   if (!user) {
     try {
       user = await getSession();
@@ -61,7 +93,7 @@ export async function authorizeRequest(
     }
   }
 
-  // 3. Reject unauthenticated requests
+  // 6. Reject unauthenticated requests
   if (!user) {
     return {
       user: null,
@@ -72,7 +104,7 @@ export async function authorizeRequest(
     };
   }
 
-  // 4. Role-based restrictions
+  // 7. Role-based restrictions
   if (allowedRoles && allowedRoles.length > 0) {
     if (!allowedRoles.includes(user.role)) {
       await logAuditEvent({
@@ -95,7 +127,7 @@ export async function authorizeRequest(
     }
   }
 
-  // 5. Module-based restrictions
+  // 8. Module-based restrictions
   if (requiredModule && !canAccessModule(user.role, requiredModule)) {
     await logAuditEvent({
       userId: user.id,

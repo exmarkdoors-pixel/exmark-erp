@@ -16,6 +16,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { ERP_ROLES, UserRole } from '@/lib/auth/roles';
+import { setAuthToken } from '@/lib/api/apiClient';
 
 interface RolePreset {
   role: UserRole;
@@ -63,6 +64,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
@@ -70,6 +72,10 @@ export default function LoginPage() {
 
       if (!res.ok) {
         throw new Error(data.error || 'Authentication failed');
+      }
+
+      if (data.token) {
+        setAuthToken(data.token, data.user);
       }
 
       setSuccessMsg(`Authenticated as ${data.user.name} (${data.user.role}). Redirecting...`);

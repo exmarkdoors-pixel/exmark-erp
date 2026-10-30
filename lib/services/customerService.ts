@@ -82,15 +82,15 @@ function filterCustomers(all: Customer[], filter?: CustomerFilter): Customer[] {
     if (filter?.search) {
       const q = filter.search.toLowerCase();
       const matches =
-        c.name.toLowerCase().includes(q) ||
-        c.district.toLowerCase().includes(q) ||
-        c.town.toLowerCase().includes(q) ||
-        (c.firmName && c.firmName.toLowerCase().includes(q)) ||
-        c.customerCode.toLowerCase().includes(q);
+        (c.name?.toLowerCase().includes(q)) ||
+        (c.district?.toLowerCase().includes(q)) ||
+        (c.town?.toLowerCase().includes(q)) ||
+        (c.firmName?.toLowerCase().includes(q)) ||
+        (c.customerCode?.toLowerCase().includes(q));
       if (!matches) return false;
     }
     if (filter?.type && c.type !== filter.type) return false;
-    if (filter?.district && c.district.toLowerCase() !== filter.district.toLowerCase()) return false;
+    if (filter?.district && c.district?.toLowerCase() !== filter.district.toLowerCase()) return false;
     if (filter?.status && c.status !== filter.status) return false;
     return true;
   });

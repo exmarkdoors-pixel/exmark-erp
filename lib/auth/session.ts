@@ -11,8 +11,8 @@ export interface SessionUser {
   plantLocation: string;
 }
 
-const SESSION_COOKIE_NAME = 'exmark_erp_session';
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+export const SESSION_COOKIE_NAME = 'exmark_erp_session';
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 // Default demo users map for testing all 9 roles
 export const DEMO_USERS: Record<string, SessionUser & { passwordHash: string }> = {
@@ -120,9 +120,9 @@ export const DEMO_USERS: Record<string, SessionUser & { passwordHash: string }> 
 };
 
 /**
- * Creates a secure HTTP-only session cookie for the user.
+ * Creates a secure HTTP-only session cookie for the user and returns the token string.
  */
-export async function createSessionCookie(user: SessionUser): Promise<void> {
+export async function createSessionCookie(user: SessionUser): Promise<string> {
   const cookieStore = await cookies();
   const sessionData = JSON.stringify({
     ...user,
@@ -134,11 +134,13 @@ export async function createSessionCookie(user: SessionUser): Promise<void> {
 
   cookieStore.set(SESSION_COOKIE_NAME, encoded, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.COOKIE_SECURE === 'true' || (process.env.NODE_ENV === 'production' && process.env.DISABLE_COOKIE_SECURE !== 'true'),
     sameSite: 'lax',
     path: '/',
     maxAge: SESSION_MAX_AGE,
   });
+
+  return encoded;
 }
 
 /**
@@ -146,7 +148,7 @@ export async function createSessionCookie(user: SessionUser): Promise<void> {
  */
 export async function getSession(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
+  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME) || cookieStore.get('exmark_session');
 
   if (!sessionCookie?.value) {
     // In production, unauthenticated requests MUST NOT get automatic Super Admin access
@@ -159,7 +161,13 @@ export async function getSession(): Promise<SessionUser | null> {
 
   try {
     const decoded = Buffer.from(sessionCookie.value, 'base64').toString('utf-8');
-    const user = JSON.parse(decoded) as SessionUser;
+    const user = JSON.parse(decoded) as SessionUser & { issuedAt?: number };
+    
+    // Validate session expiration
+    if (user.issuedAt && Date.now() - user.issuedAt > SESSION_MAX_AGE * 1000) {
+      return null;
+    }
+
     return user;
   } catch {
     return null;
@@ -172,4 +180,5 @@ export async function getSession(): Promise<SessionUser | null> {
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
+  cookieStore.delete('exmark_session');
 }

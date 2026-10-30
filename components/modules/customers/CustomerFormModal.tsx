@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Building2, MapPin, Phone, Mail, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Customer, CustomerType } from '@/lib/services/customerService';
+import { apiFetch } from '@/lib/api/apiClient';
 
 const KERALA_DISTRICTS = [
   'Alappuzha',
@@ -66,7 +67,7 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
       const url = initialCustomer?.id ? `/api/customers/${initialCustomer.id}` : '/api/customers';
       const method = initialCustomer?.id ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

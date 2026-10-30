@@ -12,6 +12,7 @@ import FollowUpReminders from '@/components/dashboard/FollowUpReminders';
 import QuickActionsModal from '@/components/dashboard/QuickActionsModal';
 import CorporateControlCenter from '@/components/dashboard/CorporateControlCenter';
 import { UserRole } from '@/lib/auth/roles';
+import { apiFetch } from '@/lib/api/apiClient';
 
 import {
   CustomersView,
@@ -60,7 +61,7 @@ export default function Home() {
 
   // Verify and load active session user
   useEffect(() => {
-    fetch('/api/auth/me')
+    apiFetch('/api/auth/me')
       .then((res) => res.json())
       .then((data) => {
         if (data.authenticated && data.user) {

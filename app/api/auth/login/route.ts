@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
         plantLocation: getActiveFactory().name,
       };
 
-      await createSessionCookie(sessionUser);
+      const token = await createSessionCookie(sessionUser);
       await logAuditEvent({
         userId: userRecord.id,
         action: 'LOGIN',
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         userAgent,
       });
 
-      return NextResponse.json({ success: true, user: sessionUser });
+      return NextResponse.json({ success: true, user: sessionUser, token });
     }
 
     // 2. Demo fallback credentials check
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
           plantLocation: demoUser.plantLocation,
         };
 
-        await createSessionCookie(sessionUser);
+        const token = await createSessionCookie(sessionUser);
         await logAuditEvent({
           userId: demoUser.id,
           action: 'LOGIN',
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
           userAgent,
         });
 
-        return NextResponse.json({ success: true, user: sessionUser });
+        return NextResponse.json({ success: true, user: sessionUser, token });
       }
     }
 

@@ -45,6 +45,7 @@ import ProductCategoriesSettings from '@/components/settings/ProductCategoriesSe
 import AdminCustomizationSettings from '@/components/settings/AdminCustomizationSettings';
 import CompanyFactoryProfileSettings from '@/components/settings/CompanyFactoryProfileSettings';
 import { CustomerFormModal } from './customers/CustomerFormModal';
+import { apiFetch } from '@/lib/api/apiClient';
 import { LeadFormModal } from './crm/LeadFormModal';
 import { QuotationBuilder } from './quotations/QuotationBuilder';
 import { JobCardModal } from './production/JobCardModal';
@@ -78,7 +79,7 @@ export function CustomersView() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/customers')
+    apiFetch('/api/customers')
       .then((res) => res.json())
       .then((json) => {
         if (active && json.success && Array.isArray(json.data)) {

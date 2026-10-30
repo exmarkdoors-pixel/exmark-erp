@@ -4,12 +4,16 @@ import {
   updateCustomer,
   archiveCustomer,
 } from '@/lib/services/customerService';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'customers');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const customer = await getCustomer(id);
     if (!customer) {
@@ -27,6 +31,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'customers', ['Super Admin', 'Management', 'Sales', 'Accounts']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const body = await req.json();
     const updated = await updateCustomer(id, body);
@@ -41,10 +48,13 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'customers', ['Super Admin', 'Management']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const success = await archiveCustomer(id);
     if (!success) {

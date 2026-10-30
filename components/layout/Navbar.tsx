@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { clearAuthToken } from '@/lib/api/apiClient';
 import {
   Menu,
   Search,
@@ -44,10 +45,13 @@ export default function Navbar({
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch {
+      // Ignore network errors on logout
+    } finally {
+      clearAuthToken();
       router.push('/login');
+      router.refresh();
     }
   };
 
