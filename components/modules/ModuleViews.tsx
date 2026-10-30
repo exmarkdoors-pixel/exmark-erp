@@ -50,6 +50,7 @@ import { CustomerFormModal } from './customers/CustomerFormModal';
 import { apiFetch } from '@/lib/api/apiClient';
 import { LeadFormModal } from './crm/LeadFormModal';
 import LeadsPipeline from './crm/LeadsPipeline';
+import { QuotationHub } from './quotations/QuotationHub';
 import { QuotationBuilder } from './quotations/QuotationBuilder';
 import { JobCardModal } from './production/JobCardModal';
 import { StickerPrintModal } from './production/StickerPrintModal';
@@ -250,127 +251,7 @@ export function CrmLeadsView() {
  * 3. QUOTATIONS VIEW
  * ------------------------------------------------------------- */
 export function QuotationsView() {
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    fetch('/api/quotations')
-      .then((res) => res.json())
-      .then((json) => {
-        if (active && json.success && Array.isArray(json.data)) {
-          setQuotations(json.data);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const handleQuotationSaved = (saved: Quotation) => {
-    setQuotations((prev) => [saved, ...prev]);
-    setToastMessage(`Quotation "${saved.quoteNumber}" created successfully.`);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
-
-  return (
-    <div className="space-y-6">
-      {toastMessage && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <FileSpreadsheet className="w-6 h-6 text-red-500" />
-            Door Quotation Estimates & Costing
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            FRP door skin, core filler, frame rebate & 18% GST estimate builder
-          </p>
-        </div>
-        <button
-          onClick={() => setIsBuilderOpen(true)}
-          className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500 cursor-pointer"
-        >
-          + Create New Quote
-        </button>
-      </div>
-
-      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
-        <h3 className="font-bold text-sm text-slate-900 dark:text-white">Active Quotations Pipeline</h3>
-        
-        {isLoading ? (
-          <div className="p-8 text-center text-xs text-slate-400">Loading quotations...</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
-              <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase text-[10px]">
-                <tr>
-                  <th className="p-3">Quote #</th>
-                  <th className="p-3">Date</th>
-                  <th className="p-3">Door Items</th>
-                  <th className="p-3 text-center">Total Doors</th>
-                  <th className="p-3">Base Price</th>
-                  <th className="p-3">GST (18%)</th>
-                  <th className="p-3">Total (INR)</th>
-                  <th className="p-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {quotations.map((q) => {
-                  const totalQty = q.items.reduce((sum, item) => sum + item.quantity, 0);
-                  const firstModel = q.items[0]?.doorModel || 'FRP Door';
-                  const extraCount = q.items.length > 1 ? ` (+${q.items.length - 1} more)` : '';
-                  return (
-                    <tr key={q.id}>
-                      <td className="p-3 font-bold text-slate-900 dark:text-white font-mono">{q.quoteNumber}</td>
-                      <td className="p-3 text-slate-400">{q.date}</td>
-                      <td className="p-3">{firstModel}{extraCount}</td>
-                      <td className="p-3 text-center font-bold">{totalQty}</td>
-                      <td className="p-3 font-mono">₹{q.subtotal?.toLocaleString('en-IN')}</td>
-                      <td className="p-3 font-mono">₹{q.gstAmount?.toLocaleString('en-IN')}</td>
-                      <td className="p-3 font-bold text-slate-900 dark:text-white font-mono">
-                        ₹{q.totalAmount?.toLocaleString('en-IN')}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            q.status === 'APPROVED'
-                              ? 'bg-amber-500/15 text-amber-500'
-                              : q.status === 'CONVERTED'
-                              ? 'bg-emerald-500/15 text-emerald-500'
-                              : 'bg-blue-500/15 text-blue-500'
-                          }`}
-                        >
-                          {q.status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <QuotationBuilder
-        isOpen={isBuilderOpen}
-        onClose={() => setIsBuilderOpen(false)}
-        onSaved={handleQuotationSaved}
-      />
-    </div>
-  );
+  return <QuotationHub />;
 }
 
 /* -------------------------------------------------------------
