@@ -30,8 +30,9 @@ function getOrders(): SalesOrderViewItem[] {
       customers = JSON.parse(fs.readFileSync(CUSTOMERS_PATH, 'utf8'));
     }
 
+    const validStatuses = ['CONVERTED', 'APPROVED', 'SENT', 'IN_PRODUCTION', 'READY_TO_DISPATCH', 'DELIVERED'];
     return quotes
-      .filter((q: { status: string }) => q.status === 'CONVERTED' || q.status === 'APPROVED' || q.status === 'SENT')
+      .filter((q: { status: string }) => validStatuses.includes(q.status))
       .map((q: {
         id: string;
         quoteNumber: string;
@@ -41,6 +42,7 @@ function getOrders(): SalesOrderViewItem[] {
         totalAmount?: number;
         subtotal?: number;
         status: string;
+        orderStatus?: SalesOrderViewItem['orderStatus'];
         advanceVerified?: boolean;
         advanceAmount?: number;
       }, index: number) => {
@@ -50,7 +52,15 @@ function getOrders(): SalesOrderViewItem[] {
         const advanceAmount = q.advanceAmount ?? Math.round(totalAmount * 0.4);
 
         let orderStatus: SalesOrderViewItem['orderStatus'] = 'CONFIRMED';
-        if (q.status === 'CONVERTED') {
+        if (q.orderStatus) {
+          orderStatus = q.orderStatus;
+        } else if (q.status === 'IN_PRODUCTION') {
+          orderStatus = 'IN_PRODUCTION';
+        } else if (q.status === 'READY_TO_DISPATCH') {
+          orderStatus = 'READY_TO_DISPATCH';
+        } else if (q.status === 'DELIVERED') {
+          orderStatus = 'DELIVERED';
+        } else if (q.status === 'CONVERTED') {
           orderStatus = index % 2 === 0 ? 'IN_PRODUCTION' : 'READY_TO_DISPATCH';
         }
 
@@ -168,6 +178,7 @@ export async function POST(req: Request) {
           });
 
           quotes[idx].status = 'IN_PRODUCTION';
+          quotes[idx].orderStatus = 'IN_PRODUCTION';
           quotes[idx].productionOrderId = prodOrder.id;
           fs.writeFileSync(STORE_PATH, JSON.stringify(quotes, null, 2), 'utf8');
 
@@ -182,6 +193,7 @@ export async function POST(req: Request) {
 
         if (newStatus) {
           quotes[idx].status = newStatus;
+          quotes[idx].orderStatus = newStatus;
           fs.writeFileSync(STORE_PATH, JSON.stringify(quotes, null, 2), 'utf8');
           return NextResponse.json({ success: true, updated: quotes[idx] });
         }

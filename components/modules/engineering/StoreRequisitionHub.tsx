@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FlaskConical,
   Boxes,
@@ -67,6 +67,7 @@ const REQUISITION_ORDERS: ProductionRequisitionOrder[] = [
 ];
 
 export default function StoreRequisitionHub() {
+  const [orders, setOrders] = useState<ProductionRequisitionOrder[]>(REQUISITION_ORDERS);
   const [selectedOrderId, setSelectedOrderId] = useState<string>('SO-2026-091');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [isBatchBoqMode, setIsBatchBoqMode] = useState<boolean>(false);
@@ -76,6 +77,43 @@ export default function StoreRequisitionHub() {
     'SO-2026-093',
   ]);
 
+  useEffect(() => {
+    let active = true;
+    fetch('/api/production')
+      .then((res) => res.json())
+      .then((json) => {
+        if (!active || !json.success || !Array.isArray(json.data) || json.data.length === 0) return;
+        const liveOrders: ProductionRequisitionOrder[] = json.data.map((p: {
+          id: string;
+          salesOrderId?: string;
+          prodOrderNumber: string;
+          customerName?: string;
+          siteName?: string;
+          jobCardNumber: string;
+          doors?: Array<{ length?: number }>;
+          doorCategory?: string;
+        }) => ({
+          id: p.salesOrderId || p.id,
+          orderNumber: p.salesOrderId || p.prodOrderNumber,
+          customerName: p.customerName || 'Kerala Customer',
+          siteName: p.siteName || `${p.customerName || 'Client'} Site`,
+          jobCardNumber: p.jobCardNumber,
+          doorsCount: p.doors?.length || 1,
+          doorsDesc: `${p.doors?.length || 1} Sets (${p.doorCategory?.replace('_', ' ') || 'FRP Doors'})`,
+          sqFtPerDoor: 18.0,
+        }));
+        setOrders((prev) => {
+          const existingIds = new Set(prev.map((o) => o.id));
+          const newOrders = liveOrders.filter((o) => !existingIds.has(o.id));
+          return [...prev, ...newOrders];
+        });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const toggleBatchOrder = (id: string) => {
     setSelectedBatchOrderIds((prev) =>
       prev.includes(id) ? (prev.length > 1 ? prev.filter((i) => i !== id) : prev) : [...prev, id]
@@ -83,9 +121,9 @@ export default function StoreRequisitionHub() {
   };
 
   const selectedOrder =
-    REQUISITION_ORDERS.find((o) => o.id === selectedOrderId) || REQUISITION_ORDERS[0];
+    orders.find((o) => o.id === selectedOrderId) || orders[0] || REQUISITION_ORDERS[0];
 
-  const batchOrders = REQUISITION_ORDERS.filter((o) => selectedBatchOrderIds.includes(o.id));
+  const batchOrders = orders.filter((o) => selectedBatchOrderIds.includes(o.id));
 
   // Dynamic calculations: either single order or consolidated multi-party batch
   const totalDoors = isBatchBoqMode
@@ -167,7 +205,7 @@ export default function StoreRequisitionHub() {
                 onChange={(e) => setSelectedOrderId(e.target.value)}
                 className="w-full md:w-auto bg-[#070D1E] border border-emerald-600/80 text-emerald-200 text-xs rounded-xl p-2 font-bold focus:outline-none focus:border-emerald-400 cursor-pointer"
               >
-                {REQUISITION_ORDERS.map((o) => (
+                {orders.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.orderNumber}: {o.customerName} ({o.doorsCount} Doors)
                   </option>
@@ -190,7 +228,7 @@ export default function StoreRequisitionHub() {
             </span>
           </div>
           <div className="flex flex-wrap gap-3 text-xs">
-            {REQUISITION_ORDERS.map((ord) => {
+            {orders.map((ord) => {
               const isChecked = selectedBatchOrderIds.includes(ord.id);
               return (
                 <label

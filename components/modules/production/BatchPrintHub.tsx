@@ -131,6 +131,67 @@ export default function BatchPrintHub({
   const [stickerFormat, setStickerFormat] = useState<'A4_12L' | 'THERMAL_ROLL'>('A4_12L');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    fetch('/api/production')
+      .then((res) => res.json())
+      .then((json) => {
+        if (!active || !json.success || !Array.isArray(json.data) || json.data.length === 0) return;
+        const apiOrders: BatchOrderData[] = json.data.map((p: {
+          id: string;
+          salesOrderId?: string;
+          prodOrderNumber: string;
+          customerName?: string;
+          siteName?: string;
+          district?: string;
+          jobCardNumber: string;
+          doors?: Array<{
+            doorNumber?: string;
+            doorId?: string;
+            rawHeightMm?: number;
+            rawWidthMm?: number;
+            finishedHeightMm?: number;
+            finishedWidthMm?: number;
+            model?: string;
+            finishColor?: string;
+            lockType?: string;
+            handing?: string;
+          }>;
+          doorCategory?: string;
+        }) => ({
+          id: p.salesOrderId || p.id,
+          orderNumber: p.salesOrderId || p.prodOrderNumber,
+          customerName: p.customerName || 'Kerala Customer',
+          siteName: p.siteName || `${p.customerName || 'Client'} Site`,
+          district: p.district || 'Ernakulam',
+          jobCardNumber: p.jobCardNumber,
+          totalAmount: 180000,
+          doorsDesc: `${p.doors?.length || 1} Door Sets (${p.doorCategory?.replace('_', ' ') || 'FRP Doors'})`,
+          doorsList: (p.doors || []).map((d, idx) => ({
+            tag: d.doorNumber || `#D${idx + 1}`,
+            frameSize: `${((d.rawHeightMm || 2100) / 10).toFixed(1)} × ${((d.rawWidthMm || 900) / 10).toFixed(1)} cm`,
+            shutterSize: `${((d.finishedHeightMm || 2080) / 10).toFixed(1)} × ${((d.finishedWidthMm || 820) / 10).toFixed(1)} cm`,
+            tape: `${((d.rawHeightMm || 2100) / 25.4).toFixed(1)}" × ${((d.rawWidthMm || 900) / 25.4).toFixed(1)}"`,
+            profile: d.model || 'FRP Molded 30mm',
+            finish: d.finishColor || 'Natural Teak (EXGC-510)',
+            lock: d.lockType || 'Mortise Lock 60mm',
+            hand: d.handing === 'LH' ? 'LH Inside' : 'RH Inside',
+            qty: 1,
+          })),
+        }));
+
+        setOrders((prev) => {
+          const existingIds = new Set(prev.map((o) => o.id));
+          const newOrders = apiOrders.filter((o) => !existingIds.has(o.id));
+          return [...prev, ...newOrders];
+        });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const toggleOrderSelection = (id: string) => {
     setSelectedOrderIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
