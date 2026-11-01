@@ -150,14 +150,6 @@ function createMainWindow() {
       label: 'Operations',
       submenu: [
         {
-          label: 'Door Measurement Book',
-          accelerator: 'CmdOrCtrl+M',
-          click: () => {
-            const url = `${getStoredServerUrl()}/?tab=measurements`;
-            loadRemoteUrl(url);
-          },
-        },
-        {
           label: 'Job Cards & Cutting Deductions',
           accelerator: 'CmdOrCtrl+P',
           click: () => {

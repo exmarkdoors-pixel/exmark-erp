@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users,
-  Ruler,
+  FileSpreadsheet,
   ShoppingBag,
   Factory,
   Boxes,
@@ -73,22 +73,17 @@ const CONTROL_FOLDERS: ControlFolder[] = [
     ],
   },
 
-  // FOLDER 2 — MEASUREMENTS & BOQ
+  // FOLDER 2 — BOQ & ESTIMATES
   {
     id: 'folder-2',
     number: 2,
-    name: 'MEASUREMENTS & BOQ',
+    name: 'BOQ & ESTIMATES',
     category: 'COMMERCIAL',
     accentColor: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
     bgGradient: 'from-emerald-600/15 via-emerald-900/5 to-transparent',
-    icon: Ruler,
+    icon: FileSpreadsheet,
     cards: [
-      { id: 'c2-1', name: 'New Site Measurement', description: '4-point masonry check with mm/cm conversion', targetTab: 'measurements', status: 'Operational', isQuickAction: true },
-      { id: 'c2-2', name: 'Measurement Book', description: '28 persistent sites, 54 verified door openings', targetTab: 'measurements', status: 'Operational', badge: '28 Sites' },
-      { id: 'c2-3', name: 'Measurement Approval', description: 'Senior engineer signoff before factory production release', targetTab: 'measurements', status: 'Operational' },
-      { id: 'c2-4', name: 'Measurement PDF', description: 'Customer measurement sheet with floor clearance specs', targetTab: 'measurements', status: 'Operational' },
-      { id: 'c2-5', name: 'Customer Confirmation', description: 'Expiring secure token link for customer approval', targetTab: 'measurements', status: 'Operational', badge: 'Token Portal' },
-      { id: 'c2-6', name: 'BOQ Management', description: 'Itemized door schedule, square foot area & rate builder', targetTab: 'quotations', status: 'Operational', badge: '16 BOQs' },
+      { id: 'c2-6', name: 'BOQ Management', description: 'Itemized door schedule, square foot area & rate builder', targetTab: 'quotations', status: 'Operational', badge: '16 BOQs', isQuickAction: true },
       { id: 'c2-7', name: 'BOQ Import', description: 'Import architect door schedules from Excel/CSV', targetTab: 'quotations', status: 'Operational' },
       { id: 'c2-8', name: 'BOQ Comparison', description: 'Tender vs measured opening variance analysis', targetTab: 'quotations', status: 'Operational' },
       { id: 'c2-9', name: 'BOQ Reports', description: 'Material breakdown & hardware estimation sheets', targetTab: 'reports', status: 'Operational' },
@@ -223,8 +218,8 @@ const CONTROL_FOLDERS: ControlFolder[] = [
       { id: 'c8-2', name: 'WhatsApp Communication Center', description: 'Authorized WhatsApp messaging console & templates', targetTab: 'marketing', status: 'Setup Required' },
       { id: 'c8-3', name: 'Send Quotation', description: 'Send finalized 18% GST quote directly to client WhatsApp', targetTab: 'quotations', status: 'Setup Required' },
       { id: 'c8-4', name: 'Send Invoice', description: 'Dispatch official tax invoice & payment receipt PDF', targetTab: 'accounts', status: 'Setup Required' },
-      { id: 'c8-5', name: 'Send Measurement PDF', description: 'Transmit masonry dimensions sheet for architect sign-off', targetTab: 'measurements', status: 'Setup Required' },
-      { id: 'c8-6', name: 'Customer Confirmation Links', description: 'Expiring 7-day token link for one-touch client approval', targetTab: 'measurements', status: 'Operational', badge: 'Live Adapter' },
+      { id: 'c8-5', name: 'Send Quotation PDF', description: 'Transmit quotation PDF directly for architect sign-off', targetTab: 'quotations', status: 'Operational' },
+      { id: 'c8-6', name: 'Customer Confirmation Links', description: 'Expiring 7-day token link for one-touch client approval', targetTab: 'quotations', status: 'Operational', badge: 'Live Adapter' },
       { id: 'c8-7', name: 'Reminder Templates', description: 'Follow-up message templates with Malayalam/English text', targetTab: 'settings', status: 'Operational' },
       { id: 'c8-8', name: 'Delivery Status Tracking', description: 'Dispatch departure & vehicle driver ETA notices', targetTab: 'dispatch', status: 'Operational' },
     ],

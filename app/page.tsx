@@ -18,7 +18,6 @@ import {
   CustomersView,
   CrmLeadsView,
   QuotationsView,
-  DoorMeasurementsView,
   SalesOrdersView,
   SalesAndReturnView,
   ProductionView,
@@ -52,7 +51,6 @@ import {
   Sparkles,
   CalendarCheck,
   Users,
-  Ruler,
   ClipboardList,
   Layers,
   ShieldCheck,
@@ -138,8 +136,6 @@ export default function Home() {
         return 'CRM & Leads Pipeline';
       case 'quotations':
         return 'Quotations & Estimates';
-      case 'measurements':
-        return 'Door Measurements Book';
       case 'sales-orders':
         return 'Sales & Work Orders';
       case 'batch-print':
@@ -265,13 +261,6 @@ export default function Home() {
                         <Sparkles className="w-4 h-4" />
                         Quick New Action
                       </button>
-                      <button
-                        onClick={() => setCurrentTab('measurements')}
-                        className="px-3.5 py-2.5 bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <CalendarCheck className="w-4 h-4 text-red-400" />
-                        Site Measurements
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -365,7 +354,6 @@ export default function Home() {
             {currentTab === 'customers' && <CustomersView />}
             {currentTab === 'crm' && <CrmLeadsView />}
             {currentTab === 'quotations' && <QuotationsView />}
-            {currentTab === 'measurements' && <DoorMeasurementsView userRole={userRole} />}
             {currentTab === 'sales-orders' && <SalesOrdersView />}
             {currentTab === 'sales' && <SalesAndReturnView />}
             {currentTab === 'production' && <ProductionView />}
@@ -418,15 +406,6 @@ export default function Home() {
           <span>CRM</span>
         </button>
 
-        <button
-          onClick={() => setCurrentTab('measurements')}
-          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
-            currentTab === 'measurements' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Ruler className="w-4 h-4 text-amber-400" />
-          <span>Measure</span>
-        </button>
 
         <button
           onClick={() => setCurrentTab('sales-orders')}

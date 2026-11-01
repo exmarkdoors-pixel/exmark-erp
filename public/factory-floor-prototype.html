@@ -143,33 +143,6 @@
     </div>
   </div>
 
-  <!-- MODAL: MEASUREMENT BULK 12L STICKER SELECTOR -->
-  <div id="measBulkPrintModal" class="fixed inset-0 bg-black/85 z-[80] flex items-center justify-center p-3 hidden backdrop-blur-sm">
-    <div class="bg-[#111827] border border-slate-700 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col">
-      <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
-        <h3 class="font-bold text-white text-sm">Bulk 12L Sticker Print from Measurement Book</h3>
-        <button id="closeMeasBulkModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
-      </div>
-      <div class="p-4 space-y-3 text-xs">
-        <p class="text-slate-400">
-          Select multiple orders or party measurements to print all 12L shutter stickers in one bulk batch:
-        </p>
-        <div class="space-y-2 max-h-60 overflow-y-auto" id="measBulkOrdersList">
-          <!-- Populated via JS -->
-        </div>
-      </div>
-      <div class="p-4 border-t border-slate-800 bg-[#141d33] flex justify-between items-center">
-        <span class="text-[11px] text-slate-400" id="measBulkSelectedSummary">3 Orders Selected</span>
-        <button id="triggerMeasBulkPrintBtn" class="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold text-xs shadow flex items-center gap-1.5">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-          Print Bulk 12L Stickers (12-Up A4) 🖨️
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Toast Container -->
   <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
@@ -429,13 +402,7 @@
           <span id="badgeQuotations" class="bg-blue-950 text-blue-300 border border-blue-800 text-[10px] px-1.5 py-0.5 rounded-full font-bold">3 Quotes</span>
         </button>
 
-        <button id="navMeasurement" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg font-medium text-slate-300 hover:bg-slate-800/80 transition group">
-          <div class="flex items-center gap-2.5">
-            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
-            <span>Door Measurement Book</span>
-          </div>
-          <span class="bg-amber-950 text-amber-300 border border-amber-800 text-[10px] px-1.5 py-0.5 rounded-full font-bold">Sync</span>
-        </button>
+        
 
         <button id="navProduction" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg font-medium text-slate-300 hover:bg-slate-800/80 transition group">
           <div class="flex items-center gap-2.5">
@@ -491,10 +458,7 @@
       <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
       <span>CRM</span>
     </button>
-    <button onclick="switchView('measurement')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-white p-1">
-      <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
-      <span>Measure</span>
-    </button>
+    
     <button onclick="switchView('salesOrders')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-white p-1">
       <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
       <span>Orders</span>
@@ -529,7 +493,7 @@
           <select id="userRoleSelect" class="bg-transparent text-amber-300 font-bold focus:outline-none cursor-pointer">
             <option value="SUPER_ADMIN">👑 Super Admin</option>
             <option value="PRODUCTION_MGR">🏭 Production Supervisor</option>
-            <option value="SITE_ENGINEER">📐 Site Engineer (Measurement)</option>
+            <option value="SITE_ENGINEER">📐 Site Engineer (Technical)</option>
             <option value="ACCOUNTS_OFFICER">💰 Accounts & Billing</option>
             <option value="QC_INSPECTOR">🔍 Quality Inspector</option>
           </select>
@@ -566,28 +530,24 @@
           <span class="font-bold text-white text-[11px] uppercase tracking-wider">End-to-End ERP Bonding Pipeline:</span>
         </div>
         <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
-          <button onclick="switchView('quotations')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold border border-slate-700 flex items-center gap-1">
+          <button onclick="switchView('quotations')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-blue-300 font-semibold border border-slate-700 flex items-center gap-1">
             <span>1. Quotation</span>
             <span class="text-slate-500">→</span>
           </button>
-          <button onclick="switchView('measurement')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold border border-slate-700 flex items-center gap-1">
-            <span>2. Measurement</span>
-            <span class="text-slate-500">→</span>
-          </button>
           <button onclick="switchView('salesOrders')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-rose-300 font-semibold border border-slate-700 flex items-center gap-1">
-            <span>3. Sales Order</span>
+            <span>2. Sales Order (40% Adv)</span>
             <span class="text-slate-500">→</span>
           </button>
           <button onclick="switchView('bom')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 font-semibold border border-slate-700 flex items-center gap-1">
-            <span>4. BOM & Store</span>
+            <span>3. BOM & Store</span>
             <span class="text-slate-500">→</span>
           </button>
           <button onclick="switchView('production')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-purple-300 font-semibold border border-slate-700 flex items-center gap-1">
-            <span>5. Plant Press</span>
+            <span>4. Plant Press</span>
             <span class="text-slate-500">→</span>
           </button>
           <button onclick="switchView('accounts')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 font-semibold border border-slate-700">
-            <span>6. Sales Bill (Tax INV)</span>
+            <span>5. Sales Bill (Tax INV)</span>
           </button>
         </div>
       </div>
@@ -648,276 +608,6 @@
                 <!-- Injected via JavaScript -->
               </tbody>
             </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- ================= 2. DOOR MEASUREMENT BOOK VIEW ================= -->
-      <section id="sectionMeasurement" class="space-y-6 hidden">
-        
-        <!-- Order Sync Selection Bar -->
-        <div class="bg-[#131b2e] border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-              <h2 class="font-bold text-white text-sm">Door Measurement Book & Order Sync</h2>
-            </div>
-            <p class="text-xs text-slate-400 mt-0.5">
-              Sync confirmed measurements from Quotation / Sales Order and compute exact Door Shutter cutting sizes with tolerance deductions.
-            </p>
-          </div>
-          
-          <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-            <button id="btnOpenMeasBulkPrint" class="px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5 shrink-0">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-              Bulk 12L Sticker Print (മൾട്ടി-ഓർഡർ)
-            </button>
-            <label class="text-xs text-slate-300 font-semibold shrink-0">Sync Single Order:</label>
-            <select id="measurementOrderSyncSelect" class="bg-[#0b1120] border border-amber-600/60 text-amber-200 text-xs rounded-lg p-2 font-medium focus:outline-none focus:border-amber-400">
-              <option value="">-- Choose Sales Order to Sync --</option>
-              <option value="SO-2026-091">SO-2026-091: Skyline Villa Project (18 Sets)</option>
-              <option value="SO-2026-092">SO-2026-092: Malabar Heritage Villa (14 Sets)</option>
-              <option value="SO-2026-093">SO-2026-093: Test Dealer Build (10 Sets)</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Measurement Entry & Tolerance Deductions -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          <!-- Left 2 Cols: Measurement Dimensions & Tolerance Calculator -->
-          <div class="lg:col-span-2 bg-[#131b2e] border border-slate-800 rounded-xl p-5 space-y-5">
-            
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-              <div>
-                <h3 class="font-bold text-white text-sm" id="measDoorTitle">Door Opening #1: Master Bedroom Shutter</h3>
-                <span class="text-xs text-slate-400" id="measLinkedClient">Linked to: Skyline Villa Project (Ernakulam)</span>
-              </div>
-              <div class="flex items-center gap-2 text-xs">
-                <span class="text-slate-400">Input Mode:</span>
-                <button id="btnModeFrameOuter" class="px-2.5 py-1 rounded bg-amber-950/80 border border-amber-600 text-amber-300 font-bold">
-                  Frame Opening (Outer)
-                </button>
-                <button id="btnModeShutterDirect" class="px-2.5 py-1 rounded bg-slate-800 border border-slate-700 text-slate-400 font-medium">
-                  Direct Shutter
-                </button>
-              </div>
-            </div>
-
-            <!-- Tape Unit Switcher & Quick Fractions -->
-            <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 p-3 rounded-lg border border-slate-800">
-              <div class="flex items-center gap-2 text-xs">
-                <span class="text-slate-400">Tape Unit:</span>
-                <span class="bg-rose-950 border border-rose-800 text-rose-300 px-2 py-0.5 rounded font-bold">INCH (ഇഞ്ച് + നൂൽ)</span>
-                <span class="text-slate-500">| Auto-computes to Master CM for Factory</span>
-              </div>
-              <div class="flex items-center gap-1.5 text-[11px] text-slate-400">
-                <span class="text-slate-500">Quick 1/8":</span>
-                <span class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">1/8 (സൂചി)</span>
-                <span class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">1/4 (2/8)</span>
-                <span class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">1/2 (4/8)</span>
-                <span class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">3/4 (6/8)</span>
-              </div>
-            </div>
-
-            <!-- 4-Point Measurement Inputs (Frame Outer / Masonry Opening) -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-              
-              <!-- H-Left -->
-              <div class="bg-[#0b1120] p-3 rounded-lg border border-slate-800 space-y-1.5">
-                <div class="text-[11px] font-bold text-amber-400">HEIGHT (LEFT)</div>
-                <div class="flex gap-1.5">
-                  <input id="measHLeftInch" type="number" value="81" class="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-center font-bold text-white text-xs" placeholder="Inch">
-                  <select id="measHLeftFrac" class="flex-1 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-slate-200">
-                    <option value="0">0"</option>
-                    <option value="0.125" selected>1/8"</option>
-                    <option value="0.25">1/4"</option>
-                    <option value="0.375">3/8"</option>
-                    <option value="0.5">1/2"</option>
-                    <option value="0.625">5/8"</option>
-                    <option value="0.75">3/4"</option>
-                    <option value="0.875">7/8"</option>
-                  </select>
-                </div>
-                <div class="text-[10px] text-slate-400 text-center" id="measHLeftDisplay">81 1/8" (206.1 cm)</div>
-              </div>
-
-              <!-- H-Right -->
-              <div class="bg-[#0b1120] p-3 rounded-lg border border-slate-800 space-y-1.5">
-                <div class="text-[11px] font-bold text-amber-400">HEIGHT (RIGHT)</div>
-                <div class="flex gap-1.5">
-                  <input id="measHRightInch" type="number" value="81" class="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-center font-bold text-white text-xs" placeholder="Inch">
-                  <select id="measHRightFrac" class="flex-1 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-slate-200">
-                    <option value="0">0"</option>
-                    <option value="0.125" selected>1/8"</option>
-                    <option value="0.25">1/4"</option>
-                    <option value="0.375">3/8"</option>
-                    <option value="0.5">1/2"</option>
-                    <option value="0.625">5/8"</option>
-                    <option value="0.75">3/4"</option>
-                    <option value="0.875">7/8"</option>
-                  </select>
-                </div>
-                <div class="text-[10px] text-slate-400 text-center" id="measHRightDisplay">81 1/8" (206.1 cm)</div>
-              </div>
-
-              <!-- W-Top -->
-              <div class="bg-[#0b1120] p-3 rounded-lg border border-slate-800 space-y-1.5">
-                <div class="text-[11px] font-bold text-amber-400">WIDTH (TOP)</div>
-                <div class="flex gap-1.5">
-                  <input id="measWTopInch" type="number" value="32" class="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-center font-bold text-white text-xs" placeholder="Inch">
-                  <select id="measWTopFrac" class="flex-1 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-slate-200">
-                    <option value="0" selected>0"</option>
-                    <option value="0.125">1/8"</option>
-                    <option value="0.25">1/4"</option>
-                    <option value="0.375">3/8"</option>
-                    <option value="0.5">1/2"</option>
-                    <option value="0.625">5/8"</option>
-                    <option value="0.75">3/4"</option>
-                    <option value="0.875">7/8"</option>
-                  </select>
-                </div>
-                <div class="text-[10px] text-slate-400 text-center" id="measWTopDisplay">32" (81.3 cm)</div>
-              </div>
-
-              <!-- W-Bot -->
-              <div class="bg-[#0b1120] p-3 rounded-lg border border-slate-800 space-y-1.5">
-                <div class="text-[11px] font-bold text-amber-400">WIDTH (BOTTOM)</div>
-                <div class="flex gap-1.5">
-                  <input id="measWBotInch" type="number" value="32" class="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-center font-bold text-white text-xs" placeholder="Inch">
-                  <select id="measWBotFrac" class="flex-1 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-slate-200">
-                    <option value="0" selected>0"</option>
-                    <option value="0.125">1/8"</option>
-                    <option value="0.25">1/4"</option>
-                    <option value="0.375">3/8"</option>
-                    <option value="0.5">1/2"</option>
-                    <option value="0.625">5/8"</option>
-                    <option value="0.75">3/4"</option>
-                    <option value="0.875">7/8"</option>
-                  </select>
-                </div>
-                <div class="text-[10px] text-slate-400 text-center" id="measWBotDisplay">32" (81.3 cm)</div>
-              </div>
-            </div>
-
-            <!-- TOLERANCE & CLEARANCE DEDUCTION ENGINE -->
-            <div class="bg-gradient-to-r from-slate-900 to-[#101726] border border-slate-800 rounded-xl p-4 space-y-3">
-              <div class="flex justify-between items-center">
-                <span class="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-                  Frame Rebate & Shutter Tolerance Deductions (അളവ് കുറവ്)
-                </span>
-                <span class="text-[11px] text-slate-400">Standard Kerala Door Clearances</span>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                <div>
-                  <label class="block text-slate-400 mb-1 text-[11px]">Side Frame Rebate (Each Side)</label>
-                  <select id="tolSideRebate" class="w-full bg-[#131b2e] border border-slate-700 rounded p-1.5 text-slate-200">
-                    <option value="35">35 mm (WPC Standard)</option>
-                    <option value="40" selected>40 mm (FRP Heavy Frame)</option>
-                    <option value="30">30 mm (Slim Frame)</option>
-                    <option value="0">0 mm (No Frame / Direct)</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-slate-400 mb-1 text-[11px]">Bottom Floor Clearance</label>
-                  <select id="tolBottomClearance" class="w-full bg-[#131b2e] border border-slate-700 rounded p-1.5 text-slate-200">
-                    <option value="12" selected>12 mm (1/2" Flooring Gap)</option>
-                    <option value="15">15 mm (Bathroom / Tile Slant)</option>
-                    <option value="10">10 mm (Tight Living Room)</option>
-                    <option value="20">20 mm (High Sill)</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-slate-400 mb-1 text-[11px]">Top & Hinge Gap (Tolerance)</label>
-                  <select id="tolTopGap" class="w-full bg-[#131b2e] border border-slate-700 rounded p-1.5 text-slate-200">
-                    <option value="5" selected>5 mm (Standard Hinge Swing)</option>
-                    <option value="4">4 mm (Precision CNC)</option>
-                    <option value="6">6 mm (Heavy Duty)</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Computed Output Box -->
-              <div class="bg-emerald-950/40 border border-emerald-800/80 rounded-lg p-3 flex flex-wrap justify-between items-center gap-2">
-                <div>
-                  <div class="text-[11px] text-emerald-400 font-semibold">FINAL FACTORY SHUTTER CUTTING SIZE:</div>
-                  <div class="text-lg font-black text-white" id="measCalculatedShutterSize">204.4 × 73.3 cm (Master CM)</div>
-                  <div class="text-[10px] text-slate-300" id="measCalculatedTape">Shutter Tape: 80 1/2" × 28 7/8"</div>
-                </div>
-                <div class="text-right">
-                  <div class="text-[10px] text-slate-400">Total Deduction:</div>
-                  <div class="text-xs font-bold text-amber-300" id="measTotalDeductionText">H: -17 mm | W: -85 mm</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="flex justify-between items-center pt-2">
-              <button id="measResetBtn" class="px-4 py-2 bg-slate-800 text-slate-300 rounded text-xs font-semibold hover:bg-slate-700">Reset</button>
-              <button id="measSaveToOrderBtn" class="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-bold shadow-lg flex items-center gap-1.5">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                Sync & Save to Production Job Work (ജോബ് കാർഡിലേക്ക് ചേർക്കുക)
-              </button>
-            </div>
-          </div>
-
-          <!-- Right Col: Frame Specs, Color Finish & Hardware -->
-          <div class="bg-[#131b2e] border border-slate-800 rounded-xl p-5 space-y-4 text-xs">
-            <h3 class="font-bold text-white border-b border-slate-800 pb-2">Door & Frame Specifications</h3>
-
-            <div>
-              <label class="block text-slate-300 mb-1 font-semibold">Frame Specification *</label>
-              <select id="measFrameSelect" class="w-full bg-[#0b1120] border border-slate-700 rounded p-2 text-slate-200">
-                <option value="FR-01">WPC Solid Extruded 100x65mm Heavy Frame</option>
-                <option value="FR-02">WPC Slim Profile 90x45mm Frame</option>
-                <option value="FR-03">FRP Molded 100x50mm Frame</option>
-                <option value="FR-04">Without Frame (Door Shutter Only)</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-slate-300 mb-1 font-semibold">Color / Finish (ഷെയ്ഡ്) *</label>
-              <select id="measColorSelect" class="w-full bg-[#0b1120] border border-slate-700 rounded p-2 text-slate-200">
-                <option value="COL-01">Natural Teak (EXGC-510) - Matte Finish</option>
-                <option value="COL-02">Rose Wood (EXGC-511) - Glossy UV</option>
-                <option value="COL-03">Mahogany Dark (EXGC-503) - Textured</option>
-                <option value="COL-04">Pure White Glossy (EXGC-101)</option>
-              </select>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-slate-300 mb-1 font-semibold">Lock Mortise</label>
-                <select id="measLockSelect" class="w-full bg-[#0b1120] border border-slate-700 rounded p-2 text-slate-200">
-                  <option value="Baby Latch">Baby Latch</option>
-                  <option value="Mortise 60mm">Mortise Lock 60mm</option>
-                  <option value="Cylindrical">Cylindrical Knob</option>
-                  <option value="No Lock">No Lock (Plain)</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-slate-300 mb-1 font-semibold">Hinge Swing</label>
-                <select id="measHingeSelect" class="w-full bg-[#0b1120] border border-slate-700 rounded p-2 text-slate-200">
-                  <option value="Left Inside">Left Hand Inside</option>
-                  <option value="Right Inside">Right Hand Inside</option>
-                  <option value="Left Outside">Left Hand Outside</option>
-                  <option value="Right Outside">Right Hand Outside</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-slate-300 mb-1 font-semibold">Opening Label / Room Tag</label>
-              <input id="measRoomTagInput" type="text" value="D1 - Master Bed" class="w-full bg-[#0b1120] border border-slate-700 rounded p-2 text-slate-200" placeholder="E.g. D1 - First Floor Bed">
-            </div>
-
-            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-800 text-[11px] space-y-1">
-              <div class="text-slate-400 font-medium">Measurement Verified By:</div>
-              <div class="text-white font-bold">Arun K. (Senior Site Engineer)</div>
-              <div class="text-slate-500">Auto-synced with Plant Floor Cut List</div>
-            </div>
           </div>
         </div>
       </section>
@@ -1159,7 +849,7 @@
               <h2 class="font-bold text-white text-base">Quotations & Estimations (കൊട്ടേഷൻ)</h2>
             </div>
             <p class="text-xs text-slate-400 mt-1">
-              Create and review door estimates. Approved quotations bond directly into the Door Measurement Book.
+              Create and review door estimates. Approved quotations bond directly into Confirmed Sales Orders.
             </p>
           </div>
           <button onclick="openCreateQuoteModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5">
@@ -1170,7 +860,7 @@
         <div class="bg-[#131b2e] border border-slate-800 rounded-xl overflow-hidden shadow-xl">
           <div class="p-3.5 border-b border-slate-800 bg-[#111827] flex justify-between items-center text-xs">
             <span class="font-bold text-white">Active Quotations Registry</span>
-            <span class="text-slate-400">* Click "Send to Measurement" to carry forward customer, models and sizes</span>
+            <span class="text-slate-400">* Click "Convert to Sales Order" to carry forward customer, models and sizes with 40% advance lock</span>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
@@ -1388,7 +1078,7 @@
   <script>
     // ================= GLOBAL STATE =================
     const state = {
-      activeView: 'salesOrders', // 'crm', 'salesOrders', 'measurement', 'production', 'accounts'
+      activeView: 'salesOrders', // 'crm', 'salesOrders', 'production', 'accounts'
       
       customers: [
         { id: 'CUST-01', name: 'Skyline Builders (Kochi)', phone: '+91 98470 11223', city: 'Ernakulam', category: 'Builder', gstin: '32AABCS1234D1Z2' },
@@ -1468,59 +1158,13 @@
 
       crmLeads: [
         { id: 'LEAD-101', title: 'Grand Waterfront Villa Project', client: 'Green Homes Kerala', site: 'Aluva, Ernakulam', value: '₹3.4 Lakhs', stage: 'inquiries', doors: '24 Sets FRP Doors' },
-        { id: 'LEAD-102', title: 'Rhythm Enclave Block D', client: 'Skyline Ventures', site: 'Edappally, Kochi', value: '₹4.8 Lakhs', stage: 'measurement', doors: '32 Sets WPC Doors' },
+        { id: 'LEAD-102', title: 'Rhythm Enclave Block D', client: 'Skyline Ventures', site: 'Edappally, Kochi', value: '₹4.8 Lakhs', stage: doors: '32 Sets WPC Doors' },
         { id: 'LEAD-103', title: 'Malabar Heritage Phase 3', client: 'Apex Developers', site: 'Manjeri, Malappuram', value: '₹2.1 Lakhs', stage: 'quotation', doors: '15 Sets Luxury FRP' },
         { id: 'LEAD-104', title: 'Kollam Seaside Resort Suites', client: 'Ocean Pearl Hospitality', site: 'Kollam Beach', value: '₹5.6 Lakhs', stage: 'negotiation', doors: '40 Sets Waterproof WPC' }
       ],
-
-      currentMeasurement: {
-        orderId: 'SO-2026-091',
-        doorTitle: 'Door Opening #1: Master Bedroom Shutter',
-        hLeftInch: 81,
-        hLeftFrac: 0.125,
-        hRightInch: 81,
-        hRightFrac: 0.125,
-        wTopInch: 32,
-        wTopFrac: 0,
-        wBotInch: 32,
-        wBotFrac: 0,
-        sideRebateMm: 40,
-        bottomClearanceMm: 12,
-        topGapMm: 5,
-        frameId: 'FR-01',
-        colorId: 'COL-01',
-        lock: 'Baby Latch',
-        hinge: 'Right Inside',
-        roomTag: 'D1 - Master Bed'
-      }
-    };
-
-    // ================= TOAST NOTIFICATION =================
-    function showToast(message, type = 'info') {
-      const container = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      const bg = type === 'error' ? 'bg-rose-900 border-rose-700 text-white' :
-                 type === 'success' ? 'bg-emerald-900 border-emerald-700 text-white' :
-                 'bg-slate-800 border-slate-700 text-slate-100';
-      toast.className = `p-3 rounded-lg border shadow-xl text-xs font-semibold flex items-center gap-2 transform transition-all duration-300 pointer-events-auto ${bg}`;
-      toast.innerHTML = `
-        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        <span>${message}</span>
-      `;
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-      }, 3500);
-    }
-
-    // ================= NAVIGATION SWITCHER =================
-    const views = {
-      salesOrders: { id: 'sectionSalesOrders', navId: 'navSalesOrders', title: 'Sales Orders Registry & Production Release', subtitle: '— Kerala FRP & WPC Doors Operations Hub' },
-      measurement: { id: 'sectionMeasurement', navId: 'navMeasurement', title: 'Door Measurement Book & Order Sync', subtitle: '— Frame Opening vs Shutter Tolerances' },
-      production: { id: 'sectionProduction', navId: 'navProduction', title: 'Manufacturing Operations & Plant Floor', subtitle: '— Vengara Central Manufacturing Unit' },
+            production: { id: 'sectionProduction', navId: 'navProduction', title: 'Manufacturing Operations & Plant Floor', subtitle: '— Vengara Central Manufacturing Unit' },
       accounts: { id: 'sectionAccounts', navId: 'navAccounts', title: 'Accounts, GST & Financial Vouchers', subtitle: '— Tax Invoices, Payment IN & Payment OUT' },
-      crm: { id: 'sectionCrm', navId: 'navCrm', title: 'Kerala CRM & Leads Pipeline', subtitle: '— Inquiries, Measurement, Quotation & Negotiation' }
+      crm: { id: 'sectionCrm', navId: 'navCrm', title: 'Kerala CRM & Leads Pipeline', subtitle: '— Inquiries, Technical Survey, Quotation & Negotiation' }
     };
 
     function switchView(viewKey) {
@@ -1545,7 +1189,6 @@
 
       if (viewKey === 'salesOrders') applyRolePermissions();
     renderSalesOrders();
-      if (viewKey === 'measurement') updateMeasurementDisplays();
       if (viewKey === 'production') renderProductionFloor();
       if (viewKey === 'accounts') renderAccounts();
       if (viewKey === 'crm') renderCrmPipeline();
@@ -1553,7 +1196,6 @@
 
     // Attach Nav Click Listeners
     document.getElementById('navSalesOrders').addEventListener('click', () => switchView('salesOrders'));
-    document.getElementById('navMeasurement').addEventListener('click', () => switchView('measurement'));
     document.getElementById('navProduction').addEventListener('click', () => switchView('production'));
     document.getElementById('navAccounts').addEventListener('click', () => switchView('accounts'));
     document.getElementById('navCrm').addEventListener('click', () => switchView('crm'));
@@ -1785,121 +1427,6 @@
       applyRolePermissions();
     renderSalesOrders();
       renderAccounts();
-    });
-
-    // ================= 2. DOOR MEASUREMENT BOOK & ORDER SYNC =================
-    function updateMeasurementDisplays() {
-      const m = state.currentMeasurement;
-
-      const hLeftTotalIn = m.hLeftInch + m.hLeftFrac;
-      const hRightTotalIn = m.hRightInch + m.hRightFrac;
-      const wTopTotalIn = m.wTopInch + m.wTopFrac;
-      const wBotTotalIn = m.wBotInch + m.wBotFrac;
-
-      const hLeftCm = (hLeftTotalIn * 2.54).toFixed(1);
-      const hRightCm = (hRightTotalIn * 2.54).toFixed(1);
-      const wTopCm = (wTopTotalIn * 2.54).toFixed(1);
-      const wBotCm = (wBotTotalIn * 2.54).toFixed(1);
-
-      document.getElementById('measHLeftDisplay').textContent = `${formatInchFrac(m.hLeftInch, m.hLeftFrac)} (${hLeftCm} cm)`;
-      document.getElementById('measHRightDisplay').textContent = `${formatInchFrac(m.hRightInch, m.hRightFrac)} (${hRightCm} cm)`;
-      document.getElementById('measWTopDisplay').textContent = `${formatInchFrac(m.wTopInch, m.wTopFrac)} (${wTopCm} cm)`;
-      document.getElementById('measWBotDisplay').textContent = `${formatInchFrac(m.wBotInch, m.wBotFrac)} (${wBotCm} cm)`;
-
-      // TOLERANCE CALCULATIONS
-      // Outer Frame Height in MM:
-      const avgHeightMm = Math.round(((hLeftTotalIn + hRightTotalIn) / 2) * 25.4);
-      const avgWidthMm = Math.round(((wTopTotalIn + wBotTotalIn) / 2) * 25.4);
-
-      // Deductions:
-      // Height deduction: Floor clearance + Top gap
-      const totalHDeductMm = m.bottomClearanceMm + m.topGapMm;
-      // Width deduction: (Side rebate * 2) + Operating clearance (5mm)
-      const totalWDeductMm = (m.sideRebateMm * 2) + 5;
-
-      const shutterHeightMm = avgHeightMm - totalHDeductMm;
-      const shutterWidthMm = avgWidthMm - totalWDeductMm;
-
-      const shutterHeightCm = (shutterHeightMm / 10).toFixed(1);
-      const shutterWidthCm = (shutterWidthMm / 10).toFixed(1);
-
-      const shutterHInches = (shutterHeightMm / 25.4);
-      const shutterWInches = (shutterWidthMm / 25.4);
-
-      document.getElementById('measCalculatedShutterSize').textContent = `${shutterHeightCm} × ${shutterWidthCm} cm (Master CM)`;
-      document.getElementById('measCalculatedTape').textContent = `Shutter Tape: ${formatDecimalToTape(shutterHInches)} × ${formatDecimalToTape(shutterWInches)}`;
-      document.getElementById('measTotalDeductionText').textContent = `H: -${totalHDeductMm} mm | W: -${totalWDeductMm} mm`;
-    }
-
-    function formatInchFrac(whole, frac) {
-      if (frac === 0) return `${whole}"`;
-      const fracLabels = {
-        0.0625: '1/16"', 0.125: '1/8"', 0.1875: '3/16"', 0.25: '1/4"',
-        0.3125: '5/16"', 0.375: '3/8"', 0.4375: '7/16"', 0.5: '1/2"',
-        0.5625: '9/16"', 0.625: '5/8"', 0.6875: '11/16"', 0.75: '3/4"',
-        0.8125: '13/16"', 0.875: '7/8"', 0.9375: '15/16"'
-      };
-      return `${whole} ${fracLabels[frac] || frac + '"'}`;
-    }
-
-    function formatDecimalToTape(val) {
-      const whole = Math.floor(val);
-      const rem = val - whole;
-      const eighths = Math.round(rem * 8);
-      if (eighths === 0) return `${whole}"`;
-      if (eighths === 8) return `${whole + 1}"`;
-      const map = { 1: '1/8"', 2: '1/4"', 3: '3/8"', 4: '1/2"', 5: '5/8"', 6: '3/4"', 7: '7/8"' };
-      return `${whole} ${map[eighths] || ''}`;
-    }
-
-    // ORDER SYNC SELECTOR
-    document.getElementById('measurementOrderSyncSelect').addEventListener('change', (e) => {
-      const orderId = e.target.value;
-      if (!orderId) return;
-
-      const order = state.salesOrders.find(o => o.id === orderId);
-      if (!order) return;
-
-      state.currentMeasurement.orderId = order.id;
-      document.getElementById('measDoorTitle').textContent = `Door Opening #1: ${order.doorsDesc.split('(')[0]}`;
-      document.getElementById('measLinkedClient').textContent = `Linked to: ${order.client} (${order.site})`;
-      document.getElementById('measRoomTagInput').value = `${order.id}-D01`;
-
-      showToast(`Synced Door Schedule from Order ${order.id}!`, 'success');
-      updateMeasurementDisplays();
-    });
-
-    // TOLERANCE SELECTORS
-    document.getElementById('tolSideRebate').addEventListener('change', (e) => {
-      state.currentMeasurement.sideRebateMm = parseInt(e.target.value);
-      updateMeasurementDisplays();
-    });
-    document.getElementById('tolBottomClearance').addEventListener('change', (e) => {
-      state.currentMeasurement.bottomClearanceMm = parseInt(e.target.value);
-      updateMeasurementDisplays();
-    });
-    document.getElementById('tolTopGap').addEventListener('change', (e) => {
-      state.currentMeasurement.topGapMm = parseInt(e.target.value);
-      updateMeasurementDisplays();
-    });
-
-    // MEASUREMENT INPUTS CHANGE LISTENERS
-    ['measHLeftInch', 'measHLeftFrac', 'measHRightInch', 'measHRightFrac', 'measWTopInch', 'measWTopFrac', 'measWBotInch', 'measWBotFrac'].forEach(id => {
-      document.getElementById(id).addEventListener('change', () => {
-        state.currentMeasurement.hLeftInch = parseFloat(document.getElementById('measHLeftInch').value) || 0;
-        state.currentMeasurement.hLeftFrac = parseFloat(document.getElementById('measHLeftFrac').value) || 0;
-        state.currentMeasurement.hRightInch = parseFloat(document.getElementById('measHRightInch').value) || 0;
-        state.currentMeasurement.hRightFrac = parseFloat(document.getElementById('measHRightFrac').value) || 0;
-        state.currentMeasurement.wTopInch = parseFloat(document.getElementById('measWTopInch').value) || 0;
-        state.currentMeasurement.wTopFrac = parseFloat(document.getElementById('measWTopFrac').value) || 0;
-        state.currentMeasurement.wBotInch = parseFloat(document.getElementById('measWBotInch').value) || 0;
-        state.currentMeasurement.wBotFrac = parseFloat(document.getElementById('measWBotFrac').value) || 0;
-        updateMeasurementDisplays();
-      });
-    });
-
-    document.getElementById('measSaveToOrderBtn').addEventListener('click', () => {
-      showToast('Door measurement and tolerance deductions saved to Production Job Card!', 'success');
     });
 
     // ================= 3. PRODUCTION PLANT FLOOR VIEW =================
@@ -2224,9 +1751,7 @@
       container.innerHTML = '';
 
       const stages = [
-        { key: 'inquiries', label: '1. New Inquiries', color: 'border-cyan-500' },
-        { key: 'measurement', label: '2. Measurement Sched.', color: 'border-amber-500' },
-        { key: 'quotation', label: '3. Quotation Submitted', color: 'border-blue-500' },
+        { key: 'inquiries', label: '1. New Inquiries', color: 'border-cyan-500' },        { key: 'quotation', label: '3. Quotation Submitted', color: 'border-blue-500' },
         { key: 'negotiation', label: '4. Final Negotiation', color: 'border-purple-500' }
       ];
 
@@ -2270,7 +1795,7 @@
       const lead = state.crmLeads.find(l => l.id === leadId);
       if (!lead) return;
 
-      const stageKeys = ['inquiries', 'measurement', 'quotation', 'negotiation'];
+      const stageKeys = ['inquiries', 'quotation', 'negotiation'];
       const idx = stageKeys.indexOf(lead.stage);
 
       if (idx === stageKeys.length - 1) {
@@ -3073,8 +2598,8 @@
             </span>
           </td>
           <td class="p-3 text-right">
-            <button onclick="bondQuoteToMeasurement('${quote.id}')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold text-xs shadow flex items-center gap-1 inline-flex">
-              Send to Measurement Book ➡️
+            <button onclick="bondQuoteToSalesOrder('${quote.id}')" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold text-xs shadow flex items-center gap-1 inline-flex">
+              Convert to Sales Order (40% Adv) ➡️
             </button>
           </td>
         `;
@@ -3083,84 +2608,20 @@
       document.getElementById('badgeQuotations').textContent = `${state.quotations.length} Quotes`;
     }
 
-    // 1. BONDING STEP 1: QUOTATION -> DOOR MEASUREMENT BOOK
-    window.bondQuoteToMeasurement = function(quoteId) {
+    // 1. DIRECT BONDING: QUOTATION -> SALES ORDER (40% ADVANCE LOCK)
+    window.bondQuoteToSalesOrder = function(quoteId) {
       const quote = state.quotations.find(q => q.id === quoteId);
       if (!quote) return;
 
-      const firstDoor = quote.doorsList[0] || { tag: 'Door 1', hInch: 81, hFrac: 0.125, wInch: 32, wFrac: 0 };
-      state.currentMeasurement = {
-        orderId: quote.id,
-        doorTitle: `${quote.client} - ${firstDoor.tag}`,
-        hLeftInch: firstDoor.hInch,
-        hLeftFrac: firstDoor.hFrac,
-        hRightInch: firstDoor.hInch,
-        hRightFrac: firstDoor.hFrac,
-        wTopInch: firstDoor.wInch,
-        wTopFrac: firstDoor.wFrac,
-        wBotInch: firstDoor.wInch,
-        wBotFrac: firstDoor.wFrac,
-        sideRebateMm: 40,
-        bottomClearanceMm: 12,
-        topGapMm: 5,
-        frameId: 'FR-01',
-        colorId: 'COL-01',
-        lock: firstDoor.lock || 'Baby Latch',
-        hinge: firstDoor.hand || 'RH Inside',
-        roomTag: firstDoor.tag
-      };
-
-      // Also register into measurementOrderSyncSelect if not already
-      const select = document.getElementById('measurementOrderSyncSelect');
-      let exists = false;
-      for (let i = 0; i < select.options.length; i++) {
-        if (select.options[i].value === quote.id) { exists = true; break; }
-      }
-      if (!exists) {
-        const opt = document.createElement('option');
-        opt.value = quote.id;
-        opt.textContent = `${quote.id}: ${quote.client} (${quote.doorsDesc.split('(')[0]})`;
-        select.appendChild(opt);
-      }
-      select.value = quote.id;
-
-      document.getElementById('measDoorTitle').textContent = `${quote.client} - ${firstDoor.tag}`;
-      document.getElementById('measLinkedClient').textContent = `Linked from Quotation: ${quote.id} (${quote.site})`;
-
-      showToast(`Success! Quotation ${quote.id} bonded into Door Measurement Book.`, 'success');
-      switchView('measurement');
-      updateMeasurementDisplays();
-    };
-
-    // 2. BONDING STEP 2: MEASUREMENT -> CONVERT TO SALES ORDER
-    // Update the button inside Measurement Book
-    const measSaveBtn = document.getElementById('measSaveToOrderBtn');
-    if (measSaveBtn) {
-      measSaveBtn.innerHTML = `
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-        Lock Measurements & Convert to Sales Order ➡️ (സെയിൽസ് ഓർഡറിലേക്ക് മാറ്റുക)
-      `;
-      measSaveBtn.onclick = function() {
-        bondMeasurementToSalesOrder();
-      };
-    }
-
-    function bondMeasurementToSalesOrder() {
-      const m = state.currentMeasurement;
       const newSoId = `SO-2026-0${state.salesOrders.length + 94}`;
-
-      // Check if originating from a quote or new
-      const linkedQuote = state.quotations.find(q => q.id === m.orderId);
-      const clientName = linkedQuote ? linkedQuote.client : (m.orderId || 'Direct Site Client');
-      const siteLoc = linkedQuote ? linkedQuote.site : 'Site Direct, Kerala';
-      const orderVal = linkedQuote ? linkedQuote.grossValue : 185000;
-
+      const firstDoor = (quote.doorsList && quote.doorsList[0]) || { tag: 'Door 1', hInch: 81, wInch: 32 };
+      
       const newOrder = {
         id: newSoId,
-        client: clientName,
-        site: siteLoc,
-        doorsDesc: `${m.roomTag} + Full Door Set (Locked Factory CM: ${document.getElementById('measCalculatedShutterSize').textContent})`,
-        totalValue: orderVal,
+        client: quote.client,
+        site: quote.site,
+        doorsDesc: quote.doorsDesc || 'Full Door Shutter Set (Factory Standard)',
+        totalValue: quote.grossValue || 185000,
         advanceRequiredPct: 40,
         advanceReceived: 0,
         advanceVerified: false,
@@ -3175,26 +2636,27 @@
 
       // Register extended details for stickers & BOM
       state.orderDetails[newSoId] = {
-        client: clientName,
-        site: siteLoc,
-        doorsList: [
+        client: quote.client,
+        site: quote.site,
+        doorsList: quote.doorsList || [
           {
-            tag: m.roomTag,
-            frameSize: `${document.getElementById('measHLeftInch').value}" × ${document.getElementById('measWTopInch').value}"`,
-            shutterSize: document.getElementById('measCalculatedShutterSize').textContent.split('(')[0].trim(),
-            tape: document.getElementById('measCalculatedTape').textContent.replace('Shutter Tape:', '').trim(),
+            tag: firstDoor.tag || 'D1',
+            frameSize: `${firstDoor.hInch || 81}" × ${firstDoor.wInch || 32}"`,
+            shutterSize: '204.5 × 80.0 cm',
+            tape: '80 1/2" × 31 1/2"',
             profile: 'FRP Molded 30mm',
-            finish: 'Rose Wood',
-            lock: m.lock,
-            hand: m.hinge,
-            qty: 12
+            finish: 'Royal Teak',
+            lock: 'Mortise Lock',
+            hand: 'Right Inside',
+            qty: quote.totalDoors || 12
           }
         ]
       };
 
-      showToast(`Measurements locked! Converted to Confirmed Sales Order ${newSoId}. Ready for Advance & Press.`, 'success');
+      showToast(`Quotation ${quote.id} converted directly to Sales Order ${newSoId}! Ready for 40% Advance verification.`, 'success');
+      renderSalesOrders();
       switchView('salesOrders');
-    }
+    };
 
     // 3. BONDING STEP 3 & 4: SALES ORDER -> PRODUCTION FLOOR & AUTOMATED BOM GENERATION
     // When order is released to press, also populate BOM!
@@ -3477,7 +2939,7 @@
       id: 'sectionQuotations',
       navId: 'navQuotations',
       title: 'Quotations & Estimations (കൊട്ടേഷൻ)',
-      subtitle: '— Direct Workflow Bonding into Measurement Book'
+      subtitle: '— Direct Workflow Bonding into Confirmed Sales Orders'
     };
 
     views.bom = {
@@ -3504,18 +2966,17 @@
 
     // Module permission definition (Role vs Accessible Module IDs)
     state.rolePermissions = {
-      SUPER_ADMIN: ['crm', 'quotations', 'measurement', 'salesOrders', 'bom', 'production', 'accounts', 'batchPrint'],
-      PRODUCTION_MGR: ['measurement', 'salesOrders', 'bom', 'production', 'batchPrint'],
-      SITE_ENGINEER: ['crm', 'quotations', 'measurement'],
+      SUPER_ADMIN: ['crm', 'quotations', 'salesOrders', 'bom', 'production', 'accounts', 'batchPrint'],
+      PRODUCTION_MGR: ['salesOrders', 'bom', 'production', 'batchPrint'],
+      SITE_ENGINEER: ['crm', 'quotations'],
       ACCOUNTS_OFFICER: ['salesOrders', 'accounts', 'batchPrint'],
-      QC_INSPECTOR: ['measurement', 'production', 'batchPrint']
+      QC_INSPECTOR: ['production', 'batchPrint']
     };
 
     const modulesList = [
       { id: 'crm', name: 'CRM & Leads Pipeline', navId: 'navCrm' },
       { id: 'quotations', name: 'Quotations & Estimates', navId: 'navQuotations' },
-      { id: 'measurement', name: 'Door Measurement Book', navId: 'navMeasurement' },
-      { id: 'salesOrders', name: 'Sales Orders Registry', navId: 'navSalesOrders' },
+            { id: 'salesOrders', name: 'Sales Orders Registry', navId: 'navSalesOrders' },
       { id: 'bom', name: 'BOM & Material Issue', navId: 'navBom' },
       { id: 'production', name: 'Plant Floor & QC Inspection', navId: 'navProduction' },
       { id: 'accounts', name: 'Accounts, GST & Vouchers', navId: 'navAccounts' },
@@ -3884,51 +3345,6 @@
       showToast('Physical QC Checklist with tick boxes generated for print!', 'success');
     });
 
-    // ================= 11. DOOR MEASUREMENT BULK 12L STICKER MODAL =================
-    document.getElementById('btnOpenMeasBulkPrint').addEventListener('click', () => {
-      renderMeasBulkModalOrders();
-      document.getElementById('measBulkPrintModal').classList.remove('hidden');
-    });
-
-    document.getElementById('closeMeasBulkModalBtn').addEventListener('click', () => {
-      document.getElementById('measBulkPrintModal').classList.add('hidden');
-    });
-
-    function renderMeasBulkModalOrders() {
-      const container = document.getElementById('measBulkOrdersList');
-      container.innerHTML = '';
-
-      state.salesOrders.forEach(order => {
-        const isChecked = state.selectedOrderIdsForPrint.includes(order.id);
-        const details = state.orderDetails[order.id] || { doorsList: [] };
-        const totalDoors = details.doorsList.reduce((acc, d) => acc + d.qty, 0);
-
-        const row = document.createElement('label');
-        row.className = `flex items-center justify-between p-2.5 rounded border cursor-pointer ${isChecked ? 'bg-rose-950/30 border-rose-700' : 'bg-slate-900 border-slate-800'}`;
-        row.innerHTML = `
-          <div class="flex items-center gap-2.5">
-            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleOrderPrintSelection('${order.id}'); renderMeasBulkModalOrders();" class="w-4 h-4 rounded text-rose-600 bg-slate-950 border-slate-700">
-            <div>
-              <strong class="text-white text-xs">${order.id}</strong>
-              <span class="text-slate-300 text-xs"> — ${order.client}</span>
-              <div class="text-[10px] text-slate-400">${order.site} • ${totalDoors} Doors</div>
-            </div>
-          </div>
-          <span class="text-[11px] font-bold ${isChecked ? 'text-rose-400' : 'text-slate-500'}">
-            ${isChecked ? '✓ Selected' : 'Not Selected'}
-          </span>
-        `;
-        container.appendChild(row);
-      });
-
-      document.getElementById('measBulkSelectedSummary').textContent = `${state.selectedOrderIdsForPrint.length} Orders Selected for 12L Batch Print`;
-    }
-
-    document.getElementById('triggerMeasBulkPrintBtn').addEventListener('click', () => {
-      document.getElementById('measBulkPrintModal').classList.add('hidden');
-      document.getElementById('btnPrint12LStickers').click();
-    });
-
     // HOOK INTO PRODUCTION & BOM
     const origRenderProductionFloor = renderProductionFloor;
     renderProductionFloor = function() {
@@ -3945,7 +3361,6 @@
     // INITIAL LOAD
     applyRolePermissions();
     renderSalesOrders();
-    updateMeasurementDisplays();
   </script>
 </body>
 </html>

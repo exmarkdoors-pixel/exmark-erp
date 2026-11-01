@@ -60,7 +60,6 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'customers', label: 'Customers', icon: Users, badge: '128', category: 'Core' },
   { id: 'crm', label: 'CRM & Leads', icon: Target, badge: '9 New', badgeColor: 'bg-amber-500/20 text-amber-300', category: 'Core' },
   { id: 'quotations', label: 'Quotations', icon: FileSpreadsheet, badge: '24', badgeColor: 'bg-red-500/20 text-red-300', category: 'Core' },
-  { id: 'measurements', label: 'Door Measurements', icon: Ruler, category: 'Core' },
   { id: 'sales-orders', label: 'Sales Orders', icon: ShoppingBag, badge: '18 Active', category: 'Core' },
   { id: 'sales', label: 'Sales & Returns', icon: ReceiptText, badge: 'GST Billed', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Core' },
 

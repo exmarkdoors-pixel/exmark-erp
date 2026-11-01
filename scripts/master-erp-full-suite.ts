@@ -141,30 +141,28 @@ async function runAuditSuite() {
     }
   }
 
-  // --- MODULE 2: DOOR SITE MEASUREMENT BOOK ---
-  console.log(`\n${C.cyan}▸ [Module 2] Door Site Measurement Book & Precision Units${C.reset}`);
-  const measStorePath = path.join(process.cwd(), 'data', 'measurements-store.json');
-  assert('M2: Measurements', 'Measurements data store exists', fs.existsSync(measStorePath));
+  // --- MODULE 2: DIRECT QUOTATION-TO-ORDER PRECISION ENGINE ---
+  console.log(`\n${C.cyan}▸ [Module 2] Direct Quotation-to-Order Conversion & Precision Sizing Engine${C.reset}`);
   
   // Test Tape to CM conversion
   const cmTest1 = parseTapeMeasurement('80 1/2"');
-  assert('M2: Measurements', 'Fractions: 80 1/2" precisely converts to 204.5 cm', Math.abs(cmTest1 - 204.5) < 0.2);
+  assert('M2: Sizing & Bonding', 'Fractions: 80 1/2" precisely converts to 204.5 cm', Math.abs(cmTest1 - 204.5) < 0.2);
   const cmTest2 = parseTapeMeasurement('28 7/8"');
-  assert('M2: Measurements', 'Fractions: 28 7/8" precisely converts to 73.3 cm', Math.abs(cmTest2 - 73.3) < 0.2);
+  assert('M2: Sizing & Bonding', 'Fractions: 28 7/8" precisely converts to 73.3 cm', Math.abs(cmTest2 - 73.3) < 0.2);
 
   // Test Standard Frame Rebate Deductions (10mm Height, 10mm Width)
   const rawHeight = 2100;
   const rawWidth = 900;
   const finishedHeight = rawHeight - 10;
   const finishedWidth = rawWidth - 10;
-  assert('M2: Measurements', 'Standard factory rebate deduction: 10mm height deduction (2100mm -> 2090mm)', finishedHeight === 2090);
-  assert('M2: Measurements', 'Standard factory rebate deduction: 10mm width deduction (900mm -> 890mm)', finishedWidth === 890);
+  assert('M2: Sizing & Bonding', 'Standard factory rebate deduction: 10mm height deduction (2100mm -> 2090mm)', finishedHeight === 2090);
+  assert('M2: Sizing & Bonding', 'Standard factory rebate deduction: 10mm width deduction (900mm -> 890mm)', finishedWidth === 890);
 
-  // Door Measurement Book Conversion bonding test
-  const measModalPath = path.join(process.cwd(), 'components', 'modules', 'DoorMeasurementModal.tsx');
-  const measModalContent = fs.readFileSync(measModalPath, 'utf8');
-  assert('M2: Measurements', 'Measurement Modal contains direct Convert to Sales Order bonding', measModalContent.includes('handleConvertToSalesOrder'));
-  assert('M2: Measurements', 'Supports wall thickness, rebate depth, handing & lock selection', measModalContent.includes('rebateDepthMm') && measModalContent.includes('wallThicknessMm') && measModalContent.includes('lockType'));
+  // Direct Quotation-to-Order Bonding
+  const pipelinePath = path.join(process.cwd(), 'components', 'layout', 'UnifiedBondingPipelineBar.tsx');
+  const pipelineContent = fs.readFileSync(pipelinePath, 'utf8');
+  assert('M2: Sizing & Bonding', 'Pipeline bar bypasses measurement: Quotation -> Sales Order direct bond', pipelineContent.includes("id: 'quotations'") && pipelineContent.includes("id: 'sales-orders'"));
+  assert('M2: Sizing & Bonding', 'Pipeline enforces 40% Advance Lock directly after quotation', pipelineContent.includes('40% Adv Lock'));
 
   // --- MODULE 3: QUOTATION BUILDER & PRICING ENGINE ---
   console.log(`\n${C.cyan}▸ [Module 3] Quotation Builder & Pricing Engine (18% GST)${C.reset}`);

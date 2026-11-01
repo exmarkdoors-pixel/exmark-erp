@@ -4,7 +4,6 @@ import React from 'react';
 import { NavigationTab } from '@/types/erp';
 import {
   FileSpreadsheet,
-  Ruler,
   ShoppingBag,
   FlaskConical,
   Factory,
@@ -42,18 +41,8 @@ const PIPELINE_STEPS: PipelineStep[] = [
     badge: 'Estimates',
   },
   {
-    id: 'measurements',
-    stepNumber: 2,
-    labelEn: 'Measurement Book',
-    labelMl: 'അളവ് പുസ്തകം',
-    icon: Ruler,
-    colorClass: 'text-amber-400',
-    activeBg: 'bg-amber-600 text-white shadow-lg shadow-amber-900/40 border-amber-500',
-    badge: 'Tape Sync',
-  },
-  {
     id: 'sales-orders',
-    stepNumber: 3,
+    stepNumber: 2,
     labelEn: 'Sales Order',
     labelMl: 'സെയിൽസ് ഓർഡർ',
     icon: ShoppingBag,
@@ -63,7 +52,7 @@ const PIPELINE_STEPS: PipelineStep[] = [
   },
   {
     id: 'bom',
-    stepNumber: 4,
+    stepNumber: 3,
     labelEn: 'BOM & Store',
     labelMl: 'മെറ്റീരിയൽ ഇഷ്യൂ',
     icon: FlaskConical,
@@ -73,7 +62,7 @@ const PIPELINE_STEPS: PipelineStep[] = [
   },
   {
     id: 'production',
-    stepNumber: 5,
+    stepNumber: 4,
     labelEn: 'Plant Press',
     labelMl: 'ഹൈഡ്രോളിക് പ്രസ്സ്',
     icon: Factory,
@@ -83,7 +72,7 @@ const PIPELINE_STEPS: PipelineStep[] = [
   },
   {
     id: 'sales',
-    stepNumber: 6,
+    stepNumber: 5,
     labelEn: 'Tax Invoice & Bill',
     labelMl: 'ജി.എസ്.ടി ബിൽ',
     icon: ReceiptIndianRupee,
@@ -117,7 +106,7 @@ export default function UnifiedBondingPipelineBar({
               </span>
             </div>
             <p className="text-[10px] text-slate-400">
-              Quotation $\rightarrow$ Measurement $\rightarrow$ Sales Order $\rightarrow$ BOM Store Slip $\rightarrow$ Plant Press $\rightarrow$ GST Tax Invoice
+              Quotation $\rightarrow$ Sales Order $\rightarrow$ BOM Store Slip $\rightarrow$ Plant Press $\rightarrow$ GST Tax Invoice
             </p>
           </div>
         </div>

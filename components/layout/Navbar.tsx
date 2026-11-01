@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -49,11 +49,11 @@ export default function Navbar({
   const [isRbacModalOpen, setIsRbacModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [matrixPermissions, setMatrixPermissions] = useState<Record<string, string[]>>({
-    'Super Admin': ['crm', 'quotations', 'measurements', 'sales-orders', 'bom', 'production', 'accounts', 'batch-print'],
-    'Plant Supervisor': ['measurements', 'sales-orders', 'bom', 'production', 'batch-print'],
-    'Site Engineer': ['crm', 'quotations', 'measurements'],
+    'Super Admin': ['crm', 'quotations', 'sales-orders', 'bom', 'production', 'accounts', 'batch-print'],
+    'Plant Supervisor': ['sales-orders', 'bom', 'production', 'batch-print'],
+    'Site Engineer': ['crm', 'quotations', 'sales-orders'],
     'Accounts': ['sales-orders', 'accounts', 'batch-print'],
-    'QC Inspector': ['measurements', 'production', 'batch-print'],
+    'QC Inspector': ['production', 'batch-print'],
   });
 
   const togglePermission = (role: string, modId: string) => {
@@ -369,7 +369,6 @@ export default function Navbar({
                     {[
                       { id: 'crm', name: 'CRM & Leads Pipeline' },
                       { id: 'quotations', name: 'Quotations & Estimates' },
-                      { id: 'measurements', name: 'Door Measurement Book' },
                       { id: 'sales-orders', name: 'Sales Orders Registry' },
                       { id: 'bom', name: 'BOM & Material Issue' },
                       { id: 'production', name: 'Plant Floor & Production' },

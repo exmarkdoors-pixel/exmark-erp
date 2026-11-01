@@ -28,7 +28,6 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
       'customers',
       'crm',
       'quotations',
-      'measurements',
       'sales-orders',
       'sales',
       'production',
@@ -85,7 +84,6 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
       'customers',
       'crm',
       'quotations',
-      'measurements',
       'sales-orders',
       'sales',
       'batch-print',
@@ -119,7 +117,6 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
     description: 'FRP hydraulic molding, WPC extrusion calibration, CNC carving, PU coating, and QA inspection.',
     allowedModules: [
       'dashboard',
-      'measurements',
       'sales-orders',
       'sales',
       'production',
@@ -176,11 +173,10 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
   },
   Installation: {
     name: 'Installation',
-    description: 'Site door measurements, rebate depth checks, delivery fleet logistics, and client sign-off.',
+    description: 'Site door delivery fleet logistics and client sign-off.',
     allowedModules: [
       'dashboard',
       'customers',
-      'measurements',
       'sales-orders',
       'sales',
       'installation',
@@ -194,7 +190,6 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
     description: 'Plant Floor Operations, Hydraulic Press release, BOM Store issue, and 12L Sticker Batch Print.',
     allowedModules: [
       'dashboard',
-      'measurements',
       'sales-orders',
       'production',
       'bom',
@@ -209,12 +204,11 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
   },
   'Site Engineer': {
     name: 'Site Engineer',
-    description: 'Site Opening Measurements, Masonry tolerances, Quotations, and Door Measurement Book.',
+    description: 'Site Opening Inspection, Masonry tolerances, and Quotations.',
     allowedModules: [
       'dashboard',
       'crm',
       'quotations',
-      'measurements',
       'sales-orders',
       'installation',
       'reports',
@@ -226,7 +220,6 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
     description: 'IS 14856:2000 Quality Inspection, Shop-floor Tick Sheets, and QC Certification.',
     allowedModules: [
       'dashboard',
-      'measurements',
       'production',
       'quality',
       'batch-print',
