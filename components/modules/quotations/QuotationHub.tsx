@@ -138,6 +138,38 @@ export function formatDimensionDisplay(
   return `${height} × [Top: ${widthTop} / Btm: ${wBtm}] ${unit}`;
 }
 
+export function calculateSqFt(
+  h: number,
+  wTop: number,
+  wBottom?: number,
+  unit: 'cm' | 'mm' | 'inch' = 'cm',
+  hFrac?: string,
+  wTopFrac?: string,
+  wBottomFrac?: string
+): string {
+  const wBtm = wBottom !== undefined && !isNaN(wBottom) ? wBottom : wTop;
+  let hInches = h;
+  let wTopInches = wTop;
+  let wBtmInches = wBtm;
+
+  if (unit === 'inch') {
+    hInches = h + parseInchFraction(hFrac);
+    wTopInches = wTop + parseInchFraction(wTopFrac);
+    wBtmInches = wBtm + parseInchFraction(wBottomFrac ?? wTopFrac);
+  } else if (unit === 'cm') {
+    hInches = h / 2.54;
+    wTopInches = wTop / 2.54;
+    wBtmInches = wBtm / 2.54;
+  } else if (unit === 'mm') {
+    hInches = h / 25.4;
+    wTopInches = wTop / 25.4;
+    wBtmInches = wBtm / 25.4;
+  }
+
+  const avgWidthInches = (wTopInches + wBtmInches) / 2;
+  return ((hInches * avgWidthInches) / 144).toFixed(2);
+}
+
 // Quotation Item Row Draft
 export interface QuoteItemRow {
   id: number;
@@ -383,39 +415,6 @@ export function QuotationHub() {
     } catch {
       // ignore
     }
-  };
-
-  // Helpers
-  const calculateSqFt = (
-    h: number,
-    wTop: number,
-    wBottom?: number,
-    unit: 'cm' | 'mm' | 'inch' = 'cm',
-    hFrac?: string,
-    wTopFrac?: string,
-    wBottomFrac?: string
-  ): string => {
-    const wBtm = wBottom !== undefined && !isNaN(wBottom) ? wBottom : wTop;
-    let hInches = h;
-    let wTopInches = wTop;
-    let wBtmInches = wBtm;
-
-    if (unit === 'inch') {
-      hInches = h + parseInchFraction(hFrac);
-      wTopInches = wTop + parseInchFraction(wTopFrac);
-      wBtmInches = wBtm + parseInchFraction(wBottomFrac ?? wTopFrac);
-    } else if (unit === 'cm') {
-      hInches = h / 2.54;
-      wTopInches = wTop / 2.54;
-      wBtmInches = wBtm / 2.54;
-    } else if (unit === 'mm') {
-      hInches = h / 25.4;
-      wTopInches = wTop / 25.4;
-      wBtmInches = wBtm / 25.4;
-    }
-
-    const avgWidthInches = (wTopInches + wBtmInches) / 2;
-    return ((hInches * avgWidthInches) / 144).toFixed(2);
   };
 
   // Calculations for Active Form
