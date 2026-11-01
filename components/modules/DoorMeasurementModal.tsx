@@ -1108,10 +1108,19 @@ function DoorMeasurementModalContent({
                   </div>
                   <input
                     type="number"
-                    min="1"
-                    max="100"
-                    value={currentDoor.quantity || 1}
-                    onChange={(e) => handleDoorChange('quantity', parseInt(e.target.value) || 1)}
+                    min="0"
+                    max="999"
+                    value={currentDoor.quantity === 0 ? '' : (currentDoor.quantity ?? '')}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        handleDoorChange('quantity', 0);
+                      } else {
+                        const parsed = parseInt(val, 10);
+                        handleDoorChange('quantity', isNaN(parsed) ? 0 : Math.max(0, parsed));
+                      }
+                    }}
                     className="w-full text-center py-1 bg-transparent text-[#34D399] font-black text-2xl focus:outline-none"
                   />
                   <div className="h-4" />

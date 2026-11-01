@@ -402,7 +402,7 @@ export function QuotationHub() {
   };
 
   // Calculations for Active Form
-  const subtotal = quoteItemRows.reduce((sum, r) => sum + r.qty * r.rate, 0);
+  const subtotal = quoteItemRows.reduce((sum, r) => sum + (Number(r.qty) || 0) * r.rate, 0);
   const effectiveGstPercent = gstMode === 'without' ? 0 : customGstPercent;
 
   let gstAmount = 0;
@@ -555,7 +555,7 @@ export function QuotationHub() {
   const handleSaveQuotation = () => {
     const cust = customers.find((c) => c.id === selectedCustomerId) || { name: 'Direct Client', location: 'Kerala' };
     const newQuoteId = `QT-2026-0${quotations.length + 109}`;
-    const totalDoors = quoteItemRows.reduce((acc, r) => acc + r.qty, 0);
+    const totalDoors = quoteItemRows.reduce((acc, r) => acc + (Number(r.qty) || 0), 0);
 
     const newQuote: HubQuotation = {
       id: newQuoteId,
@@ -1036,7 +1036,7 @@ export function QuotationHub() {
                         wTopFrac,
                         wBtmFrac
                       );
-                      const lineTotal = (row.qty * row.rate).toLocaleString('en-IN');
+                      const lineTotal = ((Number(row.qty) || 0) * row.rate).toLocaleString('en-IN');
 
                       return (
                         <tr key={row.id || idx} className="hover:bg-slate-900/60 transition">
@@ -1205,10 +1205,19 @@ export function QuotationHub() {
                           <td className="p-2.5 text-center">
                             <input
                               type="number"
-                              min="1"
-                              value={row.qty}
-                              onChange={(e) => handleUpdateRow(idx, { qty: parseInt(e.target.value) || 1 })}
-                              className="w-14 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-center font-bold text-white"
+                              min="0"
+                              value={row.qty === 0 ? '' : (row.qty ?? '')}
+                              placeholder="0"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '') {
+                                  handleUpdateRow(idx, { qty: 0 });
+                                } else {
+                                  const parsed = parseInt(val, 10);
+                                  handleUpdateRow(idx, { qty: isNaN(parsed) ? 0 : Math.max(0, parsed) });
+                                }
+                              }}
+                              className="w-14 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-center font-bold text-white focus:outline-none focus:border-rose-500"
                             />
                           </td>
 
@@ -1781,7 +1790,7 @@ export function QuotationHub() {
                           wTopFrac,
                           wBtmFrac
                         );
-                        const lineTotal = row.qty * row.rate;
+                        const lineTotal = (Number(row.qty) || 0) * row.rate;
 
                         return (
                           <tr key={i} className="text-[11px] text-slate-300">

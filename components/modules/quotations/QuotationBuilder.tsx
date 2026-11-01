@@ -282,9 +282,18 @@ export function QuotationBuilder({ isOpen, onClose, onSaved }: QuotationBuilderP
                         <td className="p-2.5 text-center">
                           <input
                             type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => handleItemChange(idx, 'quantity', parseInt(e.target.value, 10) || 1)}
+                            min="0"
+                            value={item.quantity === 0 ? '' : (item.quantity ?? '')}
+                            placeholder="0"
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                handleItemChange(idx, 'quantity', 0);
+                              } else {
+                                const parsed = parseInt(val, 10);
+                                handleItemChange(idx, 'quantity', isNaN(parsed) ? 0 : Math.max(0, parsed));
+                              }
+                            }}
                             className="w-14 px-1.5 py-1 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-bold"
                           />
                         </td>
