@@ -988,10 +988,22 @@ export function SalesOrdersView() {
                       </span>
                     )}
                     {ord.orderStatus === 'READY_TO_DISPATCH' && (
-                      <span className="text-[11px] font-semibold text-emerald-400 inline-flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Ready to Ship
-                      </span>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className="text-[11px] font-semibold text-emerald-400 inline-flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Ready to Ship
+                        </span>
+                        <button
+                          onClick={() => {
+                            setToastMessage(`Tax Invoice generated for ${ord.orderNumber}. View in Quotations & Sales Hub.`);
+                            setTimeout(() => setToastMessage(null), 4000);
+                          }}
+                          className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                          title="Convert to Sales (Tax Invoice)"
+                        >
+                          Convert to Sales 🧾
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>

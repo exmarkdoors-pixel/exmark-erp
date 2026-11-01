@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PrintDocumentHub, PrintTheme, DocumentType } from './PrintDocumentHub';
 import {
   FileSpreadsheet,
+  FileText,
   Plus,
   Trash2,
   Printer,
@@ -232,6 +233,8 @@ export interface HubSalesOrder {
   advanceVerified?: boolean;
   paymentMode?: string;
   paymentRef?: string;
+  isConvertedToSales?: boolean;
+  convertedInvoiceId?: string;
 }
 
 // Initial Customers
@@ -820,16 +823,17 @@ export function QuotationHub() {
     setActiveAdvanceOrder(null);
   };
 
-  // 1-Click Generate Tax Invoice
-  const handleGenerateInvoiceFromOrder = (order: HubSalesOrder) => {
+  // Convert Sales Order to Sales (Tax Invoice)
+  const handleConvertToSales = (order: HubSalesOrder) => {
     const totalVal = order.totalNumericValue || (parseFloat(order.value.replace(/[^0-9.]/g, '')) * 100000) || 200000;
     const recd = order.advanceAmount || Math.round(totalVal * 0.5);
+    const invoiceId = `INV-2026-${order.id.replace(/[^0-9]/g, '').slice(-3) || '101'}`;
 
     const invoiceQuote: HubQuotation = {
-      id: `INV-2026-${order.id.slice(-3)}`,
+      id: invoiceId,
       customerName: order.client,
       location: 'Kerala Project Site',
-      itemsSummary: order.doors,
+      itemsSummary: `${order.doors} [Sales Order: ${order.id}]`,
       gstMode: 'included',
       gstRate: 18,
       subtotal: Math.round(totalVal / 1.18),
@@ -840,11 +844,32 @@ export function QuotationHub() {
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     };
 
+    // Mark Sales Order as converted to sales
+    setSalesOrders((prev) =>
+      prev.map((o) =>
+        o.id === order.id
+          ? {
+              ...o,
+              isConvertedToSales: true,
+              convertedInvoiceId: invoiceId,
+            }
+          : o
+      )
+    );
+
+    // Add to Active Quotations / Invoices registry if not already present
+    setQuotations((prev) => {
+      if (prev.some((q) => q.id === invoiceId)) return prev;
+      return [invoiceQuote, ...prev];
+    });
+
     setPrintDocType('salesInvoice');
     setPreviewQuote(invoiceQuote);
-    playBeep(680, 0.12);
-    showToast('Tax Invoice Generated', `Opening Tax Invoice Print Hub for ${order.id}...`);
+    playBeep(720, 0.15);
+    showToast('Converted to Sales', `Sales Order ${order.id} converted to Tax Invoice ${invoiceId}! Opening Print Hub...`);
   };
+
+  const handleGenerateInvoiceFromOrder = handleConvertToSales;
 
   // Clear All Data as Zero
   const handleClearAllDataAsZero = () => {
@@ -1648,7 +1673,16 @@ export function QuotationHub() {
 
                     return (
                       <tr key={q.id} className="hover:bg-slate-900/60 transition">
-                        <td className="p-3 font-mono font-bold text-rose-400">{q.id}</td>
+                        <td className="p-3 font-mono font-bold">
+                          <span className={q.id.startsWith('INV-') ? 'text-emerald-400' : 'text-rose-400'}>
+                            {q.id}
+                          </span>
+                          {q.id.startsWith('INV-') && (
+                            <span className="block mt-0.5 w-fit px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              SALES INVOICE
+                            </span>
+                          )}
+                        </td>
                         <td className="p-3">
                           <div className="font-bold text-white">{q.customerName}</div>
                           <div className="text-[10px] text-slate-400">
@@ -1666,7 +1700,14 @@ export function QuotationHub() {
                         <td className="p-3 text-center">
                           <button
                             type="button"
-                            onClick={() => setPreviewQuote(q)}
+                            onClick={() => {
+                              if (q.id.startsWith('INV-')) {
+                                setPrintDocType('salesInvoice');
+                              } else {
+                                setPrintDocType('quotation');
+                              }
+                              setPreviewQuote(q);
+                            }}
                             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded border border-slate-700 transition cursor-pointer"
                           >
                             View &amp; Print
@@ -1827,10 +1868,18 @@ export function QuotationHub() {
                 >
                   <div className="flex justify-between items-center border-b border-slate-800 pb-3 flex-wrap gap-2">
                     <div>
-                      <span className="px-2 py-0.5 text-xs font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded">
-                        {order.id}
-                      </span>
-                      <h4 className="text-sm font-bold text-white inline-block ml-2">{order.title}</h4>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 text-xs font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded">
+                          {order.id}
+                        </span>
+                        <h4 className="text-sm font-bold text-white inline-block">{order.title}</h4>
+                        {order.isConvertedToSales && (
+                          <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            <span>CONVERTED TO SALES: {order.convertedInvoiceId}</span>
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-400 mt-1">
                         {order.client} &bull; {order.doors}
                       </p>
@@ -1894,15 +1943,32 @@ export function QuotationHub() {
                         </span>
                       )}
 
-                      {/* 1-Click Generate Tax Invoice */}
-                      {order.stepIndex >= 3 && (
+                      {/* Convert to Sales Action */}
+                      {order.isConvertedToSales ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Converted: {order.convertedInvoiceId}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleConvertToSales(order)}
+                            className="bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-bold px-2.5 py-1.5 rounded-lg cursor-pointer transition flex items-center gap-1 border border-slate-700 shadow-sm"
+                            title="Open Converted Tax Invoice in Print Hub"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>View Invoice 📄</span>
+                          </button>
+                        </div>
+                      ) : (
                         <button
                           type="button"
-                          onClick={() => handleGenerateInvoiceFromOrder(order)}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg cursor-pointer transition flex items-center gap-1 shadow-md shadow-emerald-950/40"
-                          title="Generate Tax Invoice and open Print Document Hub"
+                          onClick={() => handleConvertToSales(order)}
+                          className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center gap-1.5 shadow-md shadow-emerald-950/40"
+                          title="Convert this Sales Order into a confirmed Sales Invoice (Tax Invoice)"
                         >
-                          <span>Generate Tax Invoice 📄</span>
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Convert to Sales 🧾</span>
                         </button>
                       )}
                     </div>
@@ -2012,6 +2078,28 @@ export function QuotationHub() {
                   ))}
                 </div>
               </div>
+
+              {/* Quick Convert from Sales Order to Sales (Tax Invoice) */}
+              {printDocType === 'salesOrder' && (
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-950/50 border border-emerald-800/60 text-emerald-300 text-xs gap-2 flex-wrap sm:flex-nowrap animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Currently viewing <strong>Sales Work Order</strong>. Ready to convert to official Tax Invoice?</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrintDocType('salesInvoice');
+                      playBeep(720, 0.12);
+                      showToast('Converted to Sales', 'Document mode switched to Tax Invoice (GST Bill).');
+                    }}
+                    className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow whitespace-nowrap ml-auto"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Convert to Sales (Tax Invoice) ➔</span>
+                  </button>
+                </div>
+              )}
 
               {/* Theme Selector (3 Tally + 2 Vyapar) */}
               <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-800/80">
