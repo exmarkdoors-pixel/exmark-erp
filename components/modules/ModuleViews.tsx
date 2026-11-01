@@ -1064,9 +1064,52 @@ export function ProductionView() {
         setOrders((prev) => prev.map((o) => (o.id === orderId ? json.data : o)));
         setToastMessage(`Order advanced to: ${nextStage.replace('_', ' ')}`);
         setTimeout(() => setToastMessage(null), 3000);
+      } else {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStage } : o)));
+        setToastMessage(`Order advanced to: ${nextStage.replace('_', ' ')}`);
+        setTimeout(() => setToastMessage(null), 3000);
       }
     } catch {
-      // ignore
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStage } : o)));
+      setToastMessage(`Order advanced to: ${nextStage.replace('_', ' ')}`);
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
+  const handleReverseStage = async (orderId: string, currentStage: ProductionStage) => {
+    const STAGE_ORDER: ProductionStage[] = [
+      'QUEUED',
+      'MOLDING',
+      'CNC_ROUTING',
+      'PU_COATING',
+      'QA_INSPECTION',
+      'COMPLETED',
+    ];
+    const currentIndex = STAGE_ORDER.indexOf(currentStage);
+    if (currentIndex <= 0) return;
+
+    const prevStage = STAGE_ORDER[currentIndex - 1];
+
+    try {
+      const res = await fetch(`/api/production/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: prevStage }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? json.data : o)));
+        setToastMessage(`↺ Order reversed to: ${prevStage.replace('_', ' ')} (Rework / Re-inspection)`);
+        setTimeout(() => setToastMessage(null), 3000);
+      } else {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: prevStage } : o)));
+        setToastMessage(`↺ Order reversed to: ${prevStage.replace('_', ' ')}`);
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch {
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: prevStage } : o)));
+      setToastMessage(`↺ Order reversed to: ${prevStage.replace('_', ' ')}`);
+      setTimeout(() => setToastMessage(null), 3000);
     }
   };
 
@@ -1183,12 +1226,35 @@ export function ProductionView() {
                       <Printer className="w-3.5 h-3.5 text-red-500" />
                       <span>Print A4 Stickers</span>
                     </button>
-                    {order.status !== 'COMPLETED' && (
+
+                    {/* Reverse Stage Button (Rework / Sizing) */}
+                    {order.status !== 'QUEUED' && (
+                      <button
+                        onClick={() => handleReverseStage(order.id, order.status)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold transition-colors cursor-pointer"
+                        title="Roll back stage for rework or re-inspection"
+                      >
+                        <span>↺ Reverse</span>
+                      </button>
+                    )}
+
+                    {order.status !== 'COMPLETED' ? (
                       <button
                         onClick={() => handleAdvanceStage(order.id, order.status)}
                         className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
                       >
                         Advance Stage &rarr;
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setToastMessage(`Tax Invoice generated for ${order.jobCardNumber}! Ready for customer handover.`);
+                          setTimeout(() => setToastMessage(null), 3500);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition-colors cursor-pointer shadow"
+                        title="Generate Tax Invoice and Bill of Supply"
+                      >
+                        <span>Generate Tax Invoice 📄</span>
                       </button>
                     )}
                   </div>

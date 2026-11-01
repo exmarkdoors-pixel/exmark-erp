@@ -393,6 +393,11 @@ function DoorMeasurementModalContent({
   const [bulkPreviewDoors, setBulkPreviewDoors] = useState<DoorItemInput[]>([]);
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
 
+  // Tolerance & Clearances (Kerala standard deductions)
+  const [sideRebateMm, setSideRebateMm] = useState<number>(40);
+  const [bottomFloorClearanceMm, setBottomFloorClearanceMm] = useState<number>(12);
+  const [topGapMm, setTopGapMm] = useState<number>(5);
+
   // Load latest catalog from database/store
   useEffect(() => {
     fetch('/api/catalog')
@@ -625,6 +630,41 @@ function DoorMeasurementModalContent({
       setIsSubmitting(false);
     }
   };
+
+  // Tolerance & Shutter Cutting calculation (Kerala factory standards)
+  const toMmCalc = (val: number, frac?: string) => {
+    if (globalUnit === 'INCH') {
+      return (val + parseFraction(frac)) * 25.4;
+    }
+    if (globalUnit === 'CM') {
+      return val * 10;
+    }
+    return val;
+  };
+
+  const hLMm = toMmCalc(currentDoor.heightLeft, currentDoor.fractionHeightLeft);
+  const hRMm = toMmCalc(currentDoor.heightRight, currentDoor.fractionHeightRight);
+  const wTMm = toMmCalc(currentDoor.widthTop, currentDoor.fractionWidthTop);
+  const wBMm = toMmCalc(currentDoor.widthBottom, currentDoor.fractionWidthBottom);
+
+  const avgHMm = (hLMm + hRMm) / 2;
+  const avgWMm = (wTMm + wBMm) / 2;
+
+  const totalHDeductMm = bottomFloorClearanceMm + topGapMm;
+  const totalWDeductMm = (sideRebateMm * 2) + 5; // 5mm operating clearance
+
+  const shutterHMm = Math.max(0, avgHMm - totalHDeductMm);
+  const shutterWMm = Math.max(0, avgWMm - totalWDeductMm);
+
+  const shutterHCm = (shutterHMm / 10).toFixed(1);
+  const shutterWCm = (shutterWMm / 10).toFixed(1);
+
+  const shutterHInches = shutterHMm / 25.4;
+  const shutterWInches = shutterWMm / 25.4;
+  const tapeH = decimalToInchWithFraction(shutterHInches);
+  const tapeW = decimalToInchWithFraction(shutterWInches);
+  const tapeHDisplay = tapeH.fraction !== '0/8' ? `${tapeH.whole} ${tapeH.fraction}"` : `${tapeH.whole}"`;
+  const tapeWDisplay = tapeW.fraction !== '0/8' ? `${tapeW.whole} ${tapeW.fraction}"` : `${tapeW.whole}"`;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
@@ -1124,6 +1164,79 @@ function DoorMeasurementModalContent({
                     className="w-full text-center py-1 bg-transparent text-[#34D399] font-black text-2xl focus:outline-none"
                   />
                   <div className="h-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* FRAME REBATE & SHUTTER TOLERANCE DEDUCTIONS ENGINE */}
+            <div className="bg-gradient-to-r from-slate-900 to-[#101726] border border-slate-700/80 rounded-2xl p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-black text-cyan-400 flex items-center gap-1.5">
+                  <Sliders className="w-4 h-4 text-cyan-400" />
+                  <span>Frame Rebate &amp; Shutter Tolerance Deductions (അളവ് കുറവ്)</span>
+                </span>
+                <span className="text-[11px] text-slate-400">Kerala Factory Standards</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1 text-[11px] font-semibold">Side Frame Rebate (Each Side)</label>
+                  <select
+                    value={sideRebateMm}
+                    onChange={(e) => setSideRebateMm(parseInt(e.target.value) || 0)}
+                    className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-slate-200 font-medium focus:border-cyan-400 focus:outline-none cursor-pointer"
+                  >
+                    <option value="40">40 mm (FRP Heavy Frame)</option>
+                    <option value="35">35 mm (WPC Standard)</option>
+                    <option value="30">30 mm (Slim Profile)</option>
+                    <option value="0">0 mm (Direct Shutter)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 text-[11px] font-semibold">Bottom Floor Clearance</label>
+                  <select
+                    value={bottomFloorClearanceMm}
+                    onChange={(e) => setBottomFloorClearanceMm(parseInt(e.target.value) || 0)}
+                    className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-slate-200 font-medium focus:border-cyan-400 focus:outline-none cursor-pointer"
+                  >
+                    <option value="12">12 mm (1/2" Standard Flooring Gap)</option>
+                    <option value="15">15 mm (Bathroom / Tile Slant)</option>
+                    <option value="10">10 mm (Tight Living Room)</option>
+                    <option value="20">20 mm (High Sill)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 text-[11px] font-semibold">Top &amp; Hinge Gap (Tolerance)</label>
+                  <select
+                    value={topGapMm}
+                    onChange={(e) => setTopGapMm(parseInt(e.target.value) || 0)}
+                    className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-slate-200 font-medium focus:border-cyan-400 focus:outline-none cursor-pointer"
+                  >
+                    <option value="5">5 mm (Standard Hinge Swing)</option>
+                    <option value="4">4 mm (Precision CNC)</option>
+                    <option value="6">6 mm (Heavy Duty)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Computed Output Box */}
+              <div className="bg-emerald-950/40 border border-emerald-800/80 rounded-xl p-3 flex flex-wrap justify-between items-center gap-2">
+                <div>
+                  <div className="text-[11px] text-emerald-400 font-black tracking-wide">FINAL FACTORY SHUTTER CUTTING SIZE:</div>
+                  <div className="text-lg font-black text-white">
+                    {shutterHCm} × {shutterWCm} cm (Master CM)
+                  </div>
+                  <div className="text-[10px] text-slate-300 font-mono">
+                    Shutter Tape: {tapeHDisplay} × {tapeWDisplay}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] text-slate-400">Total Deductions Applied:</div>
+                  <div className="text-xs font-bold text-amber-300 font-mono">
+                    H: -{totalHDeductMm} mm | W: -{totalWDeductMm} mm
+                  </div>
                 </div>
               </div>
             </div>

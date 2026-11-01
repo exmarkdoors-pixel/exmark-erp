@@ -16,7 +16,10 @@ import {
   RotateCcw,
   Sparkles,
   ArrowRight,
+  ArrowLeft,
   ChevronRight,
+  ChevronLeft,
+  CreditCard,
   Building2,
   Calendar,
   Layers,
@@ -224,6 +227,11 @@ export interface HubSalesOrder {
   doors: string;
   stepIndex: number;
   advancePaid: string;
+  totalNumericValue?: number;
+  advanceAmount?: number;
+  advanceVerified?: boolean;
+  paymentMode?: string;
+  paymentRef?: string;
 }
 
 // Initial Customers
@@ -305,8 +313,9 @@ const INITIAL_LEADS: HubLead[] = [
 
 // Initial Sales Orders
 const INITIAL_ORDERS: HubSalesOrder[] = [
-  { id: 'SO-2026-088', title: 'Secura Centre Mall - Shaft & Service Doors', client: 'Secura Mall Ventures', value: '₹19.8L', doors: '163 MS Shaft Doors', stepIndex: 2, advancePaid: '₹9.9L (50% Recd)' },
-  { id: 'SO-2026-089', title: 'Autumn Leaves Luxury Villa 17', client: 'Mr. Anas - Calicut', value: '₹1.85L', doors: '12 FRP Doors', stepIndex: 3, advancePaid: '₹92,500 (50% Recd)' },
+  { id: 'SO-2026-088', title: 'Secura Centre Mall - Shaft & Service Doors', client: 'Secura Mall Ventures', value: '₹19.8L', doors: '163 MS Shaft Doors', stepIndex: 2, advancePaid: '₹9.9L (50% Recd)', totalNumericValue: 1980000, advanceAmount: 990000, advanceVerified: true, paymentMode: 'NEFT/RTGS' },
+  { id: 'SO-2026-089', title: 'Autumn Leaves Luxury Villa 17', client: 'Mr. Anas - Calicut', value: '₹1.85L', doors: '12 FRP Doors', stepIndex: 3, advancePaid: '₹92,500 (50% Recd)', totalNumericValue: 185000, advanceAmount: 92500, advanceVerified: true, paymentMode: 'UPI' },
+  { id: 'SO-2026-090', title: 'Skyline Palms Luxury Tower C', client: 'Varghese Mathew - Ernakulam', value: '₹3.6L', doors: '25 FRP Doors', stepIndex: 0, advancePaid: 'Pending 40% Advance', totalNumericValue: 360000, advanceAmount: 0, advanceVerified: false },
 ];
 
 const STAGE_ORDER: Array<HubLead['stage']> = ['inquiries', 'measurement', 'quotation', 'negotiation'];
@@ -355,6 +364,13 @@ export function QuotationHub() {
   const [printDocType, setPrintDocType] = useState<DocumentType>('quotation');
   const [activeLeadModal, setActiveLeadModal] = useState<HubLead | null>(null);
   const [leadModalNotes, setLeadModalNotes] = useState<string>('');
+
+  // 40% Advance Gatekeeper Modal state
+  const [activeAdvanceOrder, setActiveAdvanceOrder] = useState<HubSalesOrder | null>(null);
+  const [advanceDepositAmount, setAdvanceDepositAmount] = useState<number>(0);
+  const [advanceDepositMode, setAdvanceDepositMode] = useState<string>('UPI');
+  const [advanceDepositRef, setAdvanceDepositRef] = useState<string>('');
+  const [advanceDepositNotes, setAdvanceDepositNotes] = useState<string>('');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -658,6 +674,7 @@ export function QuotationHub() {
     const idx = STAGE_ORDER.indexOf(lead.stage);
 
     if (lead.stage === 'negotiation') {
+      const numVal = parseFloat(lead.value.replace(/[^0-9.]/g, '')) * 100000 || 250000;
       const newSo: HubSalesOrder = {
         id: `SO-2026-0${salesOrders.length + 90}`,
         title: lead.title,
@@ -665,7 +682,10 @@ export function QuotationHub() {
         value: lead.value,
         doors: lead.doors,
         stepIndex: 0,
-        advancePaid: 'Pending 50% Advance',
+        advancePaid: 'Pending 40% Advance',
+        totalNumericValue: numVal,
+        advanceAmount: 0,
+        advanceVerified: false,
       };
       setSalesOrders([newSo, ...salesOrders]);
       setLeads(leads.filter((l) => l.id !== leadId));
@@ -682,6 +702,19 @@ export function QuotationHub() {
     }
   };
 
+  // Reverse Lead Stage (Bidirectional CRM)
+  const handleReverseLead = (leadId: string) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return;
+    const idx = STAGE_ORDER.indexOf(lead.stage);
+    if (idx > 0) {
+      const prevStage = STAGE_ORDER[idx - 1];
+      setLeads(leads.map((l) => (l.id === leadId ? { ...l, stage: prevStage } : l)));
+      playBeep(480, 0.08);
+      showToast('Stage Rolled Back', `${lead.title} moved back to ${STAGE_LABELS[prevStage]}`, 'info');
+    }
+  };
+
   // Sales Order Step Advancement
   const handleAdvanceSalesOrder = (orderId: string) => {
     setSalesOrders(
@@ -695,12 +728,106 @@ export function QuotationHub() {
           return {
             ...o,
             stepIndex: nextIndex,
-            advancePaid: nextIndex >= 1 ? '50% Advance Recd' : o.advancePaid,
+            advancePaid: nextIndex >= 1 ? (o.advanceVerified ? o.advancePaid : '50% Advance Recd') : o.advancePaid,
           };
         }
         return o;
       })
     );
+  };
+
+  // Reverse Sales Order Step (Bidirectional Orders)
+  const handleReverseSalesOrder = (orderId: string) => {
+    setSalesOrders(
+      salesOrders.map((o) => {
+        if (o.id !== orderId) return o;
+        if (o.stepIndex > 0) {
+          const prevIndex = o.stepIndex - 1;
+          const prevStepLabel = ORDER_STEPS[prevIndex];
+          playBeep(480, 0.08);
+          showToast('Order Step Rolled Back', `${o.id} reversed to: ${prevStepLabel}`, 'info');
+          return {
+            ...o,
+            stepIndex: prevIndex,
+            advancePaid: prevIndex === 0 && !o.advanceVerified ? 'Pending 40% Advance' : o.advancePaid,
+          };
+        }
+        return o;
+      })
+    );
+  };
+
+  // Advance Click with 40% Gatekeeper check
+  const handleAdvanceSalesOrderClick = (order: HubSalesOrder) => {
+    const val = order.totalNumericValue || (parseFloat(order.value.replace(/[^0-9.]/g, '')) * 100000) || 200000;
+    const min40 = Math.round(val * 0.40);
+    const recd = order.advanceAmount || 0;
+    const isAdvOk = order.advanceVerified && recd >= min40;
+
+    if (order.stepIndex === 0 && !isAdvOk) {
+      playBeep(420, 0.12);
+      showToast('Advance Required', 'Minimum 40% advance deposit is mandatory before releasing to production.', 'info');
+      setActiveAdvanceOrder(order);
+      setAdvanceDepositAmount(recd > 0 ? recd : min40);
+      setAdvanceDepositMode(order.paymentMode || 'UPI');
+      setAdvanceDepositRef(order.paymentRef || '');
+      setAdvanceDepositNotes('');
+      return;
+    }
+
+    handleAdvanceSalesOrder(order.id);
+  };
+
+  const confirmAdvanceDeposit = () => {
+    if (!activeAdvanceOrder) return;
+    const val = activeAdvanceOrder.totalNumericValue || (parseFloat(activeAdvanceOrder.value.replace(/[^0-9.]/g, '')) * 100000) || 200000;
+    const pct = Math.round((advanceDepositAmount / val) * 100);
+    const verified = pct >= 40;
+
+    setSalesOrders((prev) =>
+      prev.map((o) => {
+        if (o.id !== activeAdvanceOrder.id) return o;
+        return {
+          ...o,
+          advanceAmount: advanceDepositAmount,
+          advanceVerified: verified,
+          paymentMode: advanceDepositMode,
+          paymentRef: advanceDepositRef || 'ACCOUNTS-VERIFIED',
+          advancePaid: verified ? `₹${(advanceDepositAmount / 100000).toFixed(2)}L (${pct}% Verified)` : `Partial (₹${advanceDepositAmount})`,
+          stepIndex: verified && o.stepIndex === 0 ? 1 : o.stepIndex,
+        };
+      })
+    );
+
+    playBeep(640, 0.15);
+    showToast('Advance Deposit Verified', `₹${advanceDepositAmount.toLocaleString('en-IN')} (${pct}%) recorded for ${activeAdvanceOrder.id}. Released for production!`);
+    setActiveAdvanceOrder(null);
+  };
+
+  // 1-Click Generate Tax Invoice
+  const handleGenerateInvoiceFromOrder = (order: HubSalesOrder) => {
+    const totalVal = order.totalNumericValue || (parseFloat(order.value.replace(/[^0-9.]/g, '')) * 100000) || 200000;
+    const recd = order.advanceAmount || Math.round(totalVal * 0.5);
+
+    const invoiceQuote: HubQuotation = {
+      id: `INV-2026-${order.id.slice(-3)}`,
+      customerName: order.client,
+      location: 'Kerala Project Site',
+      itemsSummary: order.doors,
+      gstMode: 'included',
+      gstRate: 18,
+      subtotal: Math.round(totalVal / 1.18),
+      gstAmount: Math.round(totalVal - (totalVal / 1.18)),
+      grandTotal: totalVal,
+      advancePercent: Math.round((recd / totalVal) * 100),
+      advanceAmount: recd,
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    };
+
+    setPrintDocType('salesInvoice');
+    setPreviewQuote(invoiceQuote);
+    playBeep(680, 0.12);
+    showToast('Tax Invoice Generated', `Opening Tax Invoice Print Hub for ${order.id}...`);
   };
 
   // Reset Demo
@@ -1547,7 +1674,7 @@ export function QuotationHub() {
                           </div>
                         </div>
 
-                        <div className="mt-3 pt-2 border-t border-slate-800 flex justify-between items-center">
+                        <div className="mt-3 pt-2 border-t border-slate-800 flex justify-between items-center gap-2">
                           <button
                             type="button"
                             onClick={() => {
@@ -1558,17 +1685,31 @@ export function QuotationHub() {
                           >
                             View Log
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAdvanceLead(lead.id)}
-                            className={`text-[11px] font-semibold px-2.5 py-1 rounded transition cursor-pointer ${
-                              isLastStage
-                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                                : 'bg-rose-600 hover:bg-rose-500 text-white'
-                            }`}
-                          >
-                            {isLastStage ? 'Create Sales Order 📦' : 'Follow up →'}
-                          </button>
+
+                          <div className="flex items-center gap-1.5">
+                            {stageKey !== 'inquiries' && (
+                              <button
+                                type="button"
+                                onClick={() => handleReverseLead(lead.id)}
+                                className="px-2 py-1 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded transition cursor-pointer"
+                                title="Roll back lead to previous stage"
+                              >
+                                ↺ Reverse
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleAdvanceLead(lead.id)}
+                              className={`text-[11px] font-semibold px-2.5 py-1 rounded transition cursor-pointer ${
+                                isLastStage
+                                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                  : 'bg-rose-600 hover:bg-rose-500 text-white'
+                              }`}
+                            >
+                              {isLastStage ? 'Create Sales Order 📦' : 'Follow up →'}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1621,24 +1762,74 @@ export function QuotationHub() {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                       <div className="text-right">
                         <span className="text-emerald-400 font-bold">{order.value}</span>
                         <span className="block text-[10px] text-slate-400 font-mono">{order.advancePaid}</span>
                       </div>
+
+                      {/* Advance Deposit Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = order.totalNumericValue || (parseFloat(order.value.replace(/[^0-9.]/g, '')) * 100000) || 200000;
+                          const min40 = Math.round(val * 0.40);
+                          setActiveAdvanceOrder(order);
+                          setAdvanceDepositAmount(order.advanceAmount && order.advanceAmount > 0 ? order.advanceAmount : min40);
+                          setAdvanceDepositMode(order.paymentMode || 'UPI');
+                          setAdvanceDepositRef(order.paymentRef || '');
+                          setAdvanceDepositNotes('');
+                        }}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition ${
+                          order.advanceVerified
+                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                            : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 animate-pulse'
+                        }`}
+                        title="Record 40% advance deposit"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>{order.advanceVerified ? 'Deposit Paid' : 'Record 40% Advance'}</span>
+                      </button>
+
+                      {/* Reverse Step Button */}
+                      {order.stepIndex > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleReverseSalesOrder(order.id)}
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700 cursor-pointer inline-flex items-center gap-1 transition"
+                          title="Roll back order to previous stage"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5 text-amber-400" />
+                          <span>↺ Reverse</span>
+                        </button>
+                      )}
+
                       {!isFinished ? (
                         <button
                           type="button"
-                          onClick={() => handleAdvanceSalesOrder(order.id)}
-                          className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition"
+                          onClick={() => handleAdvanceSalesOrderClick(order)}
+                          className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center gap-1"
                         >
-                          Advance Step &rarr;
+                          <span>Advance Step</span>
+                          <ChevronRight className="w-4 h-4" />
                         </button>
                       ) : (
                         <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
                           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                           <span>Delivered</span>
                         </span>
+                      )}
+
+                      {/* 1-Click Generate Tax Invoice */}
+                      {order.stepIndex >= 3 && (
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateInvoiceFromOrder(order)}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg cursor-pointer transition flex items-center gap-1 shadow-md shadow-emerald-950/40"
+                          title="Generate Tax Invoice and open Print Document Hub"
+                        >
+                          <span>Generate Tax Invoice 📄</span>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -2109,6 +2300,152 @@ export function QuotationHub() {
           </div>
         </div>
       )}
+      {/* 40% ADVANCE DEPOSIT GATEKEEPER MODAL */}
+      {activeAdvanceOrder && (
+        <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#111827] border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <h3 className="font-black text-white text-sm">Record Advance Deposit / പേയ്‌മെന്റ് വെരിഫിക്കേഷൻ</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveAdvanceOrder(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              {(() => {
+                const totalVal = activeAdvanceOrder.totalNumericValue || (parseFloat(activeAdvanceOrder.value.replace(/[^0-9.]/g, '')) * 100000) || 200000;
+                const min40 = Math.round(totalVal * 0.40);
+                const pct = Math.round((advanceDepositAmount / totalVal) * 100);
+                const isOk = pct >= 40;
+
+                return (
+                  <>
+                    <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
+                      <div className="flex justify-between text-slate-400">
+                        <span>Order ID:</span>
+                        <span className="font-mono font-bold text-white">{activeAdvanceOrder.id}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Customer:</span>
+                        <span className="font-semibold text-slate-200">{activeAdvanceOrder.client}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Total Order Value:</span>
+                        <span className="font-black text-emerald-400">₹{totalVal.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="flex justify-between text-amber-400 font-bold border-t border-slate-800 pt-1">
+                        <span>Mandatory 40% Minimum:</span>
+                        <span>₹{min40.toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-bold mb-1">Deposit Amount Received (₹) *</label>
+                      <input
+                        type="number"
+                        value={advanceDepositAmount || ''}
+                        onChange={(e) => setAdvanceDepositAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="Enter amount (e.g. 140000)"
+                        className="w-full bg-[#131b2e] border border-slate-700 rounded-xl p-2.5 text-white font-black text-sm focus:border-rose-500 focus:outline-none"
+                      />
+                      <div className="mt-2 space-y-1.5">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="text-slate-400">Percentage of Order:</span>
+                          <span className={`font-black ${isOk ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {isNaN(pct) ? 0 : pct}% of total
+                          </span>
+                        </div>
+                        <div
+                          className={`p-2 rounded-lg text-[11px] flex items-center gap-2 ${
+                            isOk
+                              ? 'bg-emerald-950/40 border border-emerald-800/60 text-emerald-300'
+                              : 'bg-rose-950/40 border border-rose-800/60 text-rose-300'
+                          }`}
+                        >
+                          {isOk ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                              <span>Valid deposit ({pct}%). Unlocks production release immediately.</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                              <span>Deposit is under 40% (₹{min40.toLocaleString('en-IN')}). Minimum 40% required.</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-300 mb-1 font-semibold">Payment Mode</label>
+                        <select
+                          value={advanceDepositMode}
+                          onChange={(e) => setAdvanceDepositMode(e.target.value)}
+                          className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-slate-200 focus:border-rose-500 focus:outline-none cursor-pointer"
+                        >
+                          <option value="UPI">UPI / GPay / PhonePe</option>
+                          <option value="NEFT/RTGS">NEFT / RTGS (Bank Transfer)</option>
+                          <option value="Cheque">Cheque Deposit</option>
+                          <option value="Cash">Cash Receipt</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-300 mb-1 font-semibold">Reference / UTR No.</label>
+                        <input
+                          type="text"
+                          value={advanceDepositRef}
+                          onChange={(e) => setAdvanceDepositRef(e.target.value)}
+                          placeholder="UTR / Ref ID"
+                          className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-slate-200 focus:border-rose-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 mb-1 font-semibold">Accounts Verification Note</label>
+                      <input
+                        type="text"
+                        value={advanceDepositNotes}
+                        onChange={(e) => setAdvanceDepositNotes(e.target.value)}
+                        placeholder="Verified with HDFC Bank / Cash Counter"
+                        className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-slate-200 focus:border-rose-500 focus:outline-none"
+                      />
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-[#141d33] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveAdvanceOrder(null)}
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmAdvanceDeposit}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Verify &amp; Save Advance</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Print Media Isolation Styles */}
       <style jsx global>{`
         @media print {

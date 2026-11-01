@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import {
   Target,
   ArrowRight,
+  ArrowLeft,
   CheckCircle2,
   Clock,
   DollarSign,
@@ -17,9 +18,13 @@ import {
   Layers,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
   Send,
   AlertCircle,
   TrendingUp,
+  RotateCcw,
+  FileText,
+  CreditCard,
 } from 'lucide-react';
 
 // 1. കൃത്യമായ സ്റ്റേജ് ക്രമം നിർവ്വചിക്കുക (Exact definitions as requested)
@@ -84,6 +89,10 @@ export interface SalesOrderItem {
   doors: string;
   stepIndex: number;
   advanceStatus: string;
+  advanceReceived?: number;
+  advanceVerified?: boolean;
+  paymentMode?: string;
+  paymentRef?: string;
   createdAt: string;
 }
 
@@ -161,6 +170,10 @@ export const INITIAL_SALES_ORDERS: SalesOrderItem[] = [
     doors: '28 FRP Doors (White Gloss)',
     stepIndex: 2, // 'In Production (FRP Press / WPC Line)'
     advanceStatus: '50% Advance Verified',
+    advanceReceived: 105000,
+    advanceVerified: true,
+    paymentMode: 'NEFT/RTGS',
+    paymentRef: 'HDFCR202699120',
     createdAt: '25/10/2026',
   },
   {
@@ -172,7 +185,24 @@ export const INITIAL_SALES_ORDERS: SalesOrderItem[] = [
     doors: '52 Heavy-Duty Fire-Retardant FRP Doors',
     stepIndex: 3, // 'QC Passed (IS 14856:2000)'
     advanceStatus: '50% Advance Verified',
+    advanceReceived: 197500,
+    advanceVerified: true,
+    paymentMode: 'UPI',
+    paymentRef: 'UPI-98471928371',
     createdAt: '22/10/2026',
+  },
+  {
+    id: 'SO-2026-091',
+    leadId: 'lead-101',
+    title: 'Skyline Sea View Luxury Apartments',
+    client: 'Skyline Builders Kochi',
+    value: 360000,
+    doors: '48 Bath FRP Doors (EXM-A-100)',
+    stepIndex: 0, // 'Order Confirmed & Specs Locked'
+    advanceStatus: 'Pending 40% Advance',
+    advanceReceived: 0,
+    advanceVerified: false,
+    createdAt: '28/10/2026',
   },
 ];
 
@@ -190,6 +220,17 @@ export default function LeadsPipeline() {
   const [newDistrict, setNewDistrict] = useState('Ernakulam');
   const [newDoors, setNewDoors] = useState('25 FRP Bath Doors');
   const [newValue, setNewValue] = useState('185000');
+
+  // 40% Advance Gatekeeper Modal state
+  const [activeAdvanceOrder, setActiveAdvanceOrder] = useState<SalesOrderItem | null>(null);
+  const [depositAmount, setDepositAmount] = useState<number>(0);
+  const [depositMode, setDepositMode] = useState<string>('UPI');
+  const [depositRef, setDepositRef] = useState<string>('');
+  const [depositNotes, setDepositNotes] = useState<string>('');
+
+  // Follow-up notes modal state
+  const [activeLeadForNotes, setActiveLeadForNotes] = useState<LeadItem | null>(null);
+  const [followUpNoteText, setFollowUpNoteText] = useState<string>('');
 
   // 2. സ്റ്റെപ്പ് ബൈ സ്റ്റെപ്പ് ആയി അടുത്ത ഘട്ടത്തിലേക്ക് മാറ്റുന്ന ഫങ്ഷൻ
   const handleFollowUp = (e: React.MouseEvent, leadId: string) => {
@@ -219,7 +260,7 @@ export default function LeadsPipeline() {
         if (currentIndex !== -1 && currentIndex < stageKeys.length - 1) {
           const nextStage = stageKeys[currentIndex + 1] as LeadItem['stage'];
           const nextStageLabel = PIPELINE_STAGES[currentIndex + 1].label;
-          setToastMessage(`Lead moved to: ${nextStageLabel}`);
+          setToastMessage(`Lead advanced to: ${nextStageLabel}`);
           setTimeout(() => setToastMessage(null), 3000);
 
           updatedLeads.push({
@@ -236,6 +277,31 @@ export default function LeadsPipeline() {
     });
   };
 
+  // 2b. സ്റ്റേജ് പിന്നോട്ട് മാറ്റുന്ന ഫങ്ഷൻ (Reverse Lead Stage)
+  const handleReverseLead = (e: React.MouseEvent, leadId: string) => {
+    e.stopPropagation();
+    const stageKeys = PIPELINE_STAGES.map((s) => s.key);
+
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) => {
+        if (lead.id !== leadId) return lead;
+        const curIdx = stageKeys.indexOf(lead.stage);
+        if (curIdx > 0) {
+          const prevStage = stageKeys[curIdx - 1] as LeadItem['stage'];
+          const prevStageLabel = PIPELINE_STAGES[curIdx - 1].label;
+          setToastMessage(`↺ Lead "${lead.title}" rolled back to: ${prevStageLabel}`);
+          setTimeout(() => setToastMessage(null), 3000);
+          return {
+            ...lead,
+            stage: prevStage,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return lead;
+      })
+    );
+  };
+
   // 3. ഫൈനൽ നെഗോഷിയേഷൻ കഴിഞ്ഞാൽ സെയിൽസ് ഓർഡർ ക്രിയേറ്റ് ചെയ്യുന്ന ലോജിക്
   const convertToSalesOrder = (lead: any) => {
     const newSO: SalesOrderItem = {
@@ -246,14 +312,16 @@ export default function LeadsPipeline() {
       value: lead.value,
       doors: lead.doors || 'FRP & WPC Doors',
       stepIndex: 0, // ആദ്യ സ്റ്റെപ്പ്: Order Confirmed
-      advanceStatus: 'Pending 50% Advance',
+      advanceStatus: 'Pending 40% Advance',
+      advanceReceived: 0,
+      advanceVerified: false,
       createdAt: new Date().toLocaleDateString('en-IN'),
     };
 
     setSalesOrders((prevOrders) => [newSO, ...prevOrders]);
   };
 
-  // 4. സെയിൽസ് ഓർഡറിലെ ഓരോ സ്റ്റെപ്പും മുന്നോട്ട് മാറ്റുന്ന ഫങ്ഷൻ
+  // 4. സെയിൽസ് ഓർഡറിലെ ഓരോ സ്റ്റെപ്പും മുന്നോട്ട് മാറ്റുന്ന ഫങ്ഷൻ (with 40% Advance Gatekeeper check)
   const advanceSalesOrderStep = (orderId: string) => {
     setSalesOrders((prevOrders) =>
       prevOrders.map((order) => {
@@ -267,12 +335,108 @@ export default function LeadsPipeline() {
           return {
             ...order,
             stepIndex: nextStep,
-            advanceStatus: nextStep >= 1 ? '50% Advance Verified' : order.advanceStatus,
+            advanceStatus: nextStep >= 1 ? (order.advanceVerified ? order.advanceStatus : '50% Advance Verified') : order.advanceStatus,
           };
         }
         return order;
       })
     );
+  };
+
+  // 4b. Advance Click with 40% Gatekeeper modal trigger
+  const handleAdvanceSalesOrderClick = (order: SalesOrderItem) => {
+    const min40 = Math.round(order.value * 0.40);
+    const recd = order.advanceReceived || 0;
+    const isAdvOk = order.advanceVerified && recd >= min40;
+
+    // Gatekeeper: Cannot move from Step 0 (Confirmed) into production without 40% deposit
+    if (order.stepIndex === 0 && !isAdvOk) {
+      setToastMessage(`⚠️ Minimum 40% advance required before moving into production (Currently ${Math.round((recd / order.value) * 100)}%).`);
+      setTimeout(() => setToastMessage(null), 3500);
+      openRecordAdvanceModal(order);
+      return;
+    }
+
+    advanceSalesOrderStep(order.id);
+  };
+
+  // 4c. സെയിൽസ് ഓർഡർ സ്റ്റേജ് പിന്നോട്ട് മാറ്റുന്ന ഫങ്ഷൻ (Reverse Sales Order Step)
+  const reverseSalesOrderStep = (orderId: string) => {
+    setSalesOrders((prevOrders) =>
+      prevOrders.map((order) => {
+        if (order.id !== orderId) return order;
+        if (order.stepIndex > 0) {
+          const prevStep = order.stepIndex - 1;
+          const prevStepLabel = SALES_ORDER_STEPS[prevStep];
+          setToastMessage(`↺ Order ${order.id} rolled back to: ${prevStepLabel}`);
+          setTimeout(() => setToastMessage(null), 3000);
+
+          return {
+            ...order,
+            stepIndex: prevStep,
+            advanceStatus: prevStep === 0 && !order.advanceVerified ? 'Pending 40% Advance' : order.advanceStatus,
+          };
+        }
+        return order;
+      })
+    );
+  };
+
+  // Open Record Advance Modal
+  const openRecordAdvanceModal = (order: SalesOrderItem) => {
+    setActiveAdvanceOrder(order);
+    const min40 = Math.round(order.value * 0.40);
+    setDepositAmount(order.advanceReceived && order.advanceReceived > 0 ? order.advanceReceived : min40);
+    setDepositMode(order.paymentMode || 'UPI');
+    setDepositRef(order.paymentRef || '');
+    setDepositNotes('');
+  };
+
+  // Confirm Record Advance Modal
+  const confirmRecordAdvance = () => {
+    if (!activeAdvanceOrder) return;
+    if (depositAmount <= 0) {
+      setToastMessage('Please enter a valid deposit amount.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+
+    const pct = Math.round((depositAmount / activeAdvanceOrder.value) * 100);
+    setSalesOrders((prev) =>
+      prev.map((o) => {
+        if (o.id !== activeAdvanceOrder.id) return o;
+        const verified = pct >= 40;
+        return {
+          ...o,
+          advanceReceived: depositAmount,
+          advanceVerified: verified,
+          paymentMode: depositMode,
+          paymentRef: depositRef || 'ACCOUNTS-VERIFIED',
+          advanceStatus: verified ? `${pct}% Advance Verified (${depositMode})` : `Partial Deposit (${pct}%)`,
+          stepIndex: verified && o.stepIndex === 0 ? 1 : o.stepIndex, // Automatically advance to Step 1 (Advance Received)
+        };
+      })
+    );
+
+    setToastMessage(`Advance deposit of ₹${depositAmount.toLocaleString('en-IN')} (${pct}%) recorded and verified for ${activeAdvanceOrder.id}!`);
+    setTimeout(() => setToastMessage(null), 4000);
+    setActiveAdvanceOrder(null);
+  };
+
+  // Follow-up notes modal
+  const openFollowUpNotesModal = (lead: LeadItem) => {
+    setActiveLeadForNotes(lead);
+    setFollowUpNoteText(lead.notes || '');
+  };
+
+  const saveFollowUpNotes = () => {
+    if (!activeLeadForNotes) return;
+    setLeads((prev) =>
+      prev.map((l) => (l.id === activeLeadForNotes.id ? { ...l, notes: followUpNoteText.trim() } : l))
+    );
+    setToastMessage(`Follow-up notes updated for ${activeLeadForNotes.title}`);
+    setTimeout(() => setToastMessage(null), 3000);
+    setActiveLeadForNotes(null);
   };
 
   const handleCreateNewLead = (e: React.FormEvent) => {
@@ -457,36 +621,63 @@ export default function LeadsPipeline() {
                         </p>
                       )}
 
-                      {/* Action Button: handleFollowUp(e, lead.id) */}
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
+                      {/* Action Buttons: Reverse, Follow-up Notes, Advance / Convert */}
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1.5 flex-wrap">
                         <span className="font-mono text-[9px] text-slate-500">{lead.leadCode || lead.id}</span>
 
-                        <button
-                          type="button"
-                          onClick={(e) => handleFollowUp(e, lead.id)}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-black inline-flex items-center gap-1.5 cursor-pointer transition-all ${
-                            isLastLeadStage
-                              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-950/40'
-                              : 'bg-red-600/15 hover:bg-red-600/30 text-red-400 border border-red-500/30'
-                          }`}
-                          title={
-                            isLastLeadStage
-                              ? 'Convert Lead to Sales Order and release to Production'
-                              : `Advance Lead to next stage`
-                          }
-                        >
-                          {isLastLeadStage ? (
-                            <>
-                              <span>Convert to Sales Order</span>
-                              <Sparkles className="w-3 h-3 text-amber-300" />
-                            </>
-                          ) : (
-                            <>
-                              <span>Advance Stage</span>
-                              <ArrowRight className="w-3 h-3" />
-                            </>
+                        <div className="flex items-center gap-1.5">
+                          {idx > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleReverseLead(e, lead.id)}
+                              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 inline-flex items-center gap-1 cursor-pointer transition-all"
+                              title="Roll back lead to previous pipeline stage"
+                            >
+                              <RotateCcw className="w-2.5 h-2.5 text-amber-400" />
+                              <span>↺ Reverse</span>
+                            </button>
                           )}
-                        </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openFollowUpNotesModal(lead);
+                            }}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 inline-flex items-center gap-1 cursor-pointer transition-all"
+                            title="View or add follow-up action notes"
+                          >
+                            <FileText className="w-2.5 h-2.5" />
+                            <span>Notes</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleFollowUp(e, lead.id)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black inline-flex items-center gap-1.5 cursor-pointer transition-all ${
+                              isLastLeadStage
+                                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-950/40'
+                                : 'bg-red-600/15 hover:bg-red-600/30 text-red-400 border border-red-500/30'
+                            }`}
+                            title={
+                              isLastLeadStage
+                                ? 'Convert Lead to Sales Order and release to Production'
+                                : `Advance Lead to next stage`
+                            }
+                          >
+                            {isLastLeadStage ? (
+                              <>
+                                <span>Convert to Order</span>
+                                <Sparkles className="w-3 h-3 text-amber-300" />
+                              </>
+                            ) : (
+                              <>
+                                <span>Advance</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -548,7 +739,7 @@ export default function LeadsPipeline() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-end">
                       <div className="text-right">
                         <div className="text-base sm:text-lg font-black text-emerald-400">
                           ₹{order.value.toLocaleString('en-IN')}
@@ -564,11 +755,39 @@ export default function LeadsPipeline() {
                         </span>
                       </div>
 
+                      {/* Advance Deposit Gatekeeper Button */}
+                      <button
+                        type="button"
+                        onClick={() => openRecordAdvanceModal(order)}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-all ${
+                          order.advanceVerified
+                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                            : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-sm animate-pulse'
+                        }`}
+                        title="Record or update advance deposit (Mandatory 40% before production release)"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>{order.advanceVerified ? 'Deposit Paid' : 'Record 40% Advance'}</span>
+                      </button>
+
+                      {/* Reverse Step Button (Bidirectional progression) */}
+                      {order.stepIndex > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => reverseSalesOrderStep(order.id)}
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold border border-slate-700 cursor-pointer inline-flex items-center gap-1 transition-all"
+                          title="Roll back order to previous stage"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5 text-amber-400" />
+                          <span>↺ Reverse</span>
+                        </button>
+                      )}
+
                       {!isCompleted ? (
                         <button
                           type="button"
-                          onClick={() => advanceSalesOrderStep(order.id)}
-                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-emerald-950/40"
+                          onClick={() => handleAdvanceSalesOrderClick(order)}
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-emerald-950/40"
                           title="Advance order to next factory/dispatch milestone"
                         >
                           <span>Advance Step</span>
@@ -760,6 +979,204 @@ export default function LeadsPipeline() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 40% ADVANCE DEPOSIT GATEKEEPER MODAL */}
+      {activeAdvanceOrder && (
+        <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#111827] border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <h3 className="font-black text-white text-sm">Record Advance Deposit / പേയ്‌മെന്റ് വെരിഫിക്കേഷൻ</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveAdvanceOrder(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
+                <div className="flex justify-between text-slate-400">
+                  <span>Order ID:</span>
+                  <span className="font-mono font-bold text-white">{activeAdvanceOrder.id}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Customer:</span>
+                  <span className="font-semibold text-slate-200">{activeAdvanceOrder.client}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Total Order Value:</span>
+                  <span className="font-black text-emerald-400">₹{activeAdvanceOrder.value.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-amber-400 font-bold border-t border-slate-800 pt-1">
+                  <span>Mandatory 40% Minimum:</span>
+                  <span>₹{Math.round(activeAdvanceOrder.value * 0.40).toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Deposit Amount Received (₹) *</label>
+                <input
+                  type="number"
+                  value={depositAmount || ''}
+                  onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 0)}
+                  placeholder="Enter amount (e.g. 140000)"
+                  className="w-full bg-[#131b2e] border border-slate-700 rounded-xl p-2.5 text-white font-black text-sm focus:border-rose-500 focus:outline-none"
+                />
+                {(() => {
+                  const pct = Math.round((depositAmount / activeAdvanceOrder.value) * 100);
+                  const isOk = pct >= 40;
+                  return (
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-400">Percentage of Order:</span>
+                        <span className={`font-black ${isOk ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {isNaN(pct) ? 0 : pct}% of total
+                        </span>
+                      </div>
+                      <div
+                        className={`p-2 rounded-lg text-[11px] flex items-center gap-2 ${
+                          isOk
+                            ? 'bg-emerald-950/40 border border-emerald-800/60 text-emerald-300'
+                            : 'bg-rose-950/40 border border-rose-800/60 text-rose-300'
+                        }`}
+                      >
+                        {isOk ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                            <span>Valid deposit ({pct}%). Unlocks production release immediately.</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                            <span>Deposit is under 40% (₹{Math.round(activeAdvanceOrder.value * 0.40).toLocaleString('en-IN')}). Minimum 40% required.</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Payment Mode</label>
+                  <select
+                    value={depositMode}
+                    onChange={(e) => setDepositMode(e.target.value)}
+                    className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-slate-200 focus:border-rose-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="UPI">UPI / GPay / PhonePe</option>
+                    <option value="NEFT/RTGS">NEFT / RTGS (Bank Transfer)</option>
+                    <option value="Cheque">Cheque Deposit</option>
+                    <option value="Cash">Cash Receipt</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-1 font-semibold">Reference / UTR No.</label>
+                  <input
+                    type="text"
+                    value={depositRef}
+                    onChange={(e) => setDepositRef(e.target.value)}
+                    placeholder="UTR / Ref ID"
+                    className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-slate-200 focus:border-rose-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 mb-1 font-semibold">Accounts Verification Note</label>
+                <input
+                  type="text"
+                  value={depositNotes}
+                  onChange={(e) => setDepositNotes(e.target.value)}
+                  placeholder="Verified with HDFC Bank / Cash Counter"
+                  className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-slate-200 focus:border-rose-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-[#141d33] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveAdvanceOrder(null)}
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmRecordAdvance}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Verify &amp; Save Advance</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FOLLOW-UP NOTES MODAL */}
+      {activeLeadForNotes && (
+        <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#111827] border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-cyan-400" />
+                <h3 className="font-black text-white text-sm">Lead Follow-up Notes</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveLeadForNotes(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3 text-xs">
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-1">
+                <div className="font-black text-white text-sm">{activeLeadForNotes.title}</div>
+                <div className="text-slate-400 text-[11px]">{activeLeadForNotes.client} &bull; {activeLeadForNotes.district}</div>
+                <div className="text-amber-400 font-bold text-[11px]">Stage: {PIPELINE_STAGES.find((s) => s.key === activeLeadForNotes.stage)?.label}</div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Follow-up Log / Customer Requests:</label>
+                <textarea
+                  rows={4}
+                  value={followUpNoteText}
+                  onChange={(e) => setFollowUpNoteText(e.target.value)}
+                  placeholder="Record customer preferences, site visit date, dimension changes, or price notes..."
+                  className="w-full bg-[#131b2e] border border-slate-700 rounded-xl p-3 text-slate-100 text-xs focus:border-cyan-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-[#141d33] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveLeadForNotes(null)}
+                className="px-3.5 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveFollowUpNotes}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold cursor-pointer shadow-md"
+              >
+                Save Notes
+              </button>
+            </div>
           </div>
         </div>
       )}
