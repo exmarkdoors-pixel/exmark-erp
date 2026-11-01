@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { HubQuotation, HubCustomer, HubDoorModel, formatDimensionDisplay, calculateSqFt } from './QuotationHub';
+import type { HubQuotation, HubCustomer, HubDoorModel } from './QuotationHub';
+import { formatDimensionDisplay, calculateSqFt } from '@/lib/services/doorSizingEngine';
 import { Building2, Calendar, FileText, CheckCircle2, QrCode, ShieldCheck, Printer } from 'lucide-react';
 
 export type PrintTheme = 'tally-classic' | 'tally-modern' | 'tally-formal' | 'vyapar-elegant' | 'vyapar-modern';

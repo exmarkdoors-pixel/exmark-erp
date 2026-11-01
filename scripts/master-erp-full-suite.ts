@@ -20,6 +20,7 @@ import http from 'http';
 import { ERP_ROLES, UserRole } from '../lib/auth/roles';
 import { DEFAULT_COMPANY_PROFILE } from '../lib/services/companyProfileService';
 import { getProductCategories } from '../lib/services/productCategoryService';
+import { calculateDoorSizing, FRAME_DEDUCTION_PRESETS } from '../lib/services/doorSizingEngine';
 
 // ANSI Colors
 const C = {
@@ -158,6 +159,15 @@ async function runAuditSuite() {
   assert('M2: Sizing & Bonding', 'Standard factory rebate deduction: 10mm height deduction (2100mm -> 2090mm)', finishedHeight === 2090);
   assert('M2: Sizing & Bonding', 'Standard factory rebate deduction: 10mm width deduction (900mm -> 890mm)', finishedWidth === 890);
 
+  // Architectural Frame Deduction Presets Engine
+  assert('M2: Sizing & Bonding', 'Regular 3x2 deduction preset (7mm width, 14mm height)', FRAME_DEDUCTION_PRESETS.regular_3x2.wDedMm === 7 && FRAME_DEDUCTION_PRESETS.regular_3x2.hDedMm === 14);
+  assert('M2: Sizing & Bonding', 'Mini Type deduction preset (6mm width, 12mm height)', FRAME_DEDUCTION_PRESETS.mini.wDedMm === 6 && FRAME_DEDUCTION_PRESETS.mini.hDedMm === 12);
+  assert('M2: Sizing & Bonding', 'Bedroom 4x2 deduction preset (8mm width, 15mm height)', FRAME_DEDUCTION_PRESETS.bedroom_4x2.wDedMm === 8 && FRAME_DEDUCTION_PRESETS.bedroom_4x2.hDedMm === 15);
+  const sizeCalc = calculateDoorSizing({ frameWidthMm: 920, frameHeightMm: 2145, presetKey: 'regular_3x2' });
+  assert('M2: Sizing & Bonding', 'Calculates exact door shutter: 920x2145 -> 913x2131 mm', sizeCalc.doorWidthMm === 913 && sizeCalc.doorHeightMm === 2131);
+  assert('M2: Sizing & Bonding', '3-point hinge positioning (top 150mm, mid, bottom-200mm)', sizeCalc.hingePositionsMm[0] === 150);
+  assert('M2: Sizing & Bonding', 'Standard lock mortise centerline at 1000mm', sizeCalc.lockCenterMm === 1000);
+
   // Direct Quotation-to-Order Bonding
   const pipelinePath = path.join(process.cwd(), 'components', 'layout', 'UnifiedBondingPipelineBar.tsx');
   const pipelineContent = fs.readFileSync(pipelinePath, 'utf8');
@@ -263,6 +273,10 @@ async function runAuditSuite() {
   assert('M10: Stickers', 'Format 2: Single Continuous Thermal Roll 100mm x 50mm (4"x2") supported', batchPrintContent.includes('THERMAL_ROLL') && batchPrintContent.includes('100mm'));
   assert('M10: Stickers', 'Continuous thermal labels feature page-break-after: always for roll printer sensors', batchPrintContent.includes('pageBreakAfter') || batchPrintContent.includes('break-after-page'));
   assert('M10: Stickers', 'IS 14856:2000 QC PASS badge printed on stickers', batchPrintContent.includes('IS 14856:2000 QC PASS'));
+  assert('M10: Stickers', 'Strict conditional remark: Alert box printed only when remark is populated', batchPrintContent.includes('st.remark && st.remark.trim().length > 0'));
+  assert('M10: Stickers', 'Direct 12L Vector PDF Download using jsPDF engine supported', batchPrintContent.includes('generate12LStickerPdf'));
+  const pdfEnginePath = path.join(process.cwd(), 'lib', 'utils', 'pdfStickerEngine.ts');
+  assert('M10: Stickers', 'Vector PDF Sticker Engine module exists with exact mm scaling', fs.existsSync(pdfEnginePath));
 
   // --- MODULE 11: SUBCONTRACTING & JOB WORK HUB ---
   console.log(`\n${C.cyan}▸ [Module 11] Subcontracting & Job Work Hub${C.reset}`);

@@ -17,7 +17,11 @@ import {
   X,
   Building2,
   Calendar,
+  Download,
+  Edit3,
+  MessageSquare,
 } from 'lucide-react';
+import { FRAME_DEDUCTION_PRESETS, FramePresetKey } from '@/lib/services/doorSizingEngine';
 
 interface BatchDoorScheduleItem {
   tag: string;
@@ -29,6 +33,8 @@ interface BatchDoorScheduleItem {
   lock: string;
   hand: string;
   qty: number;
+  remark?: string;
+  presetKey?: FramePresetKey;
 }
 
 interface BatchOrderData {
@@ -94,6 +100,8 @@ const SEED_BATCH_ORDERS: BatchOrderData[] = [
 ];
 
 export interface ExpandedSticker {
+  id?: string;
+  orderId?: string;
   orderNumber: string;
   customerName: string;
   siteName: string;
@@ -109,6 +117,7 @@ export interface ExpandedSticker {
   lock: string;
   hand: string;
   barcode: string;
+  remark?: string;
 }
 
 export interface BatchPrintHubProps {
@@ -130,6 +139,11 @@ export default function BatchPrintHub({
   const [activePrintModal, setActivePrintModal] = useState<'STICKERS' | 'QC_PDF' | 'A4_SCHEDULE' | null>(null);
   const [stickerFormat, setStickerFormat] = useState<'A4_12L' | 'THERMAL_ROLL'>('A4_12L');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [doorRemarks, setDoorRemarks] = useState<Record<string, string>>({
+    'SO-2026-091-D1 - Master Bed-1': 'Customer Special Handle Groove',
+  });
+  const [isRemarksManagerOpen, setIsRemarksManagerOpen] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -218,7 +232,10 @@ export default function BatchPrintHub({
       let doorIdx = 1;
       ord.doorsList.forEach((door) => {
         for (let q = 1; q <= door.qty; q++) {
+          const uniqueKey = `${ord.id}-${door.tag}-${q}`;
           list.push({
+            id: uniqueKey,
+            orderId: ord.id,
             orderNumber: ord.orderNumber,
             customerName: ord.customerName,
             siteName: ord.siteName,
@@ -234,12 +251,50 @@ export default function BatchPrintHub({
             lock: door.lock,
             hand: door.hand,
             barcode: `*EXM-${ord.orderNumber.slice(-3)}-D0${doorIdx}-${q.toString().padStart(2, '0')}*`,
+            remark: doorRemarks[uniqueKey] !== undefined ? doorRemarks[uniqueKey] : (door.remark || ''),
           });
         }
         doorIdx++;
       });
     });
     return list;
+  };
+
+  const handleDownloadVectorPdf = async () => {
+    try {
+      setIsDownloadingPdf(true);
+      const { generate12LStickerPdf } = await import('@/lib/utils/pdfStickerEngine');
+      const printableItems = stickers.map((st, idx) => ({
+        id: st.id || `stk-${idx}`,
+        orderNumber: st.orderNumber,
+        customerName: st.customerName,
+        siteName: st.siteName,
+        doorNumber: idx + 1,
+        totalDoorsInOrder: stickers.length,
+        shutterSize: st.shutterSize,
+        tape: st.tape,
+        profile: st.profile,
+        finish: st.finish,
+        hand: st.hand,
+        lock: st.lock,
+        remark: st.remark, // Strictly conditional: only populated if non-empty!
+        barcode: st.barcode,
+      }));
+
+      const pdf = await generate12LStickerPdf(printableItems, {
+        companyName: 'EXMARK DOORS',
+        layout: '2x6',
+      });
+      pdf.save(`EXMARK_12L_Sticker_Sheet_${new Date().toISOString().slice(0, 10)}.pdf`);
+      setToastMessage('12L Vector PDF generated and downloaded successfully!');
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      console.error('Vector PDF generation failed:', err);
+      setToastMessage('Failed to download Vector PDF. Please try HTML Print.');
+      setTimeout(() => setToastMessage(null), 4000);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const stickers = getExpandedStickers();
@@ -355,6 +410,30 @@ export default function BatchPrintHub({
             <Tag className="w-4 h-4" />
             <span>Print 12L Stickers {stickerFormat === 'THERMAL_ROLL' ? '(Thermal Roll)' : '(12-Up A4)'} 🏷️</span>
           </button>
+
+          <button
+            onClick={handleDownloadVectorPdf}
+            disabled={isDownloadingPdf || totalStickers === 0}
+            className="px-3.5 py-2 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-sky-950/40 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            title="Download high-resolution 12-Up vector PDF via jsPDF engine"
+          >
+            <Download className="w-4 h-4" />
+            <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download 12L Vector PDF'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsRemarksManagerOpen(!isRemarksManagerOpen)}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+              isRemarksManagerOpen
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+            }`}
+            title="Customize Door Remarks (Strict Conditional Display)"
+          >
+            <Edit3 className="w-4 h-4 text-amber-400" />
+            <span>Door Remarks Manager</span>
+          </button>
+
           <button
             onClick={() => setActivePrintModal('QC_PDF')}
             disabled={selectedOrderIds.length === 0}
@@ -429,6 +508,92 @@ export default function BatchPrintHub({
         </div>
       </div>
 
+      {/* DOOR REMARKS & FRAME PRESETS MANAGER (STRICT CONDITIONAL DISPLAY) */}
+      {isRemarksManagerOpen && (
+        <div className="bg-[#0B132B] border border-amber-500/40 rounded-xl p-5 space-y-4 shadow-xl">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+                <h3 className="font-bold text-white text-xs tracking-wide">
+                  Door Remarks Manager (Strict Conditional Rule)
+                </h3>
+              </div>
+              <p className="text-[11px] text-amber-300/90 mt-0.5">
+                "Remark in 12L STICKER WHEN I TYPE SOMETHING IN REMARK COLUMN ONLY OTHERWISE REMARK WILL BE BLANK"
+              </p>
+            </div>
+            <button
+              onClick={() => setIsRemarksManagerOpen(false)}
+              className="text-slate-400 hover:text-white text-xs font-semibold px-2 py-1 bg-slate-800 rounded-lg cursor-pointer"
+            >
+              Close Editor ✕
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            {stickers.map((st, sIdx) => {
+              const uniqueKey = st.id || `stk-${sIdx}`;
+              return (
+                <div
+                  key={uniqueKey}
+                  className="bg-[#070D1E] border border-slate-800 p-2.5 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs"
+                >
+                  <div className="min-w-[180px]">
+                    <span className="font-mono text-rose-400 font-bold text-[11px]">{st.orderNumber}</span>
+                    <span className="text-slate-300 font-semibold ml-2">#{sIdx + 1}: {st.tag}</span>
+                    <div className="text-[10px] text-slate-400">{st.customerName} • {st.shutterSize}</div>
+                  </div>
+
+                  <div className="flex-1 w-full flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Type custom remark (leave blank for no remark box)..."
+                      value={doorRemarks[uniqueKey] || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDoorRemarks((prev) => ({
+                          ...prev,
+                          [uniqueKey]: val,
+                        }));
+                      }}
+                      className="flex-1 bg-slate-900 border border-slate-700 text-slate-100 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-amber-400 placeholder:text-slate-600"
+                    />
+                    {doorRemarks[uniqueKey] && doorRemarks[uniqueKey].trim() && (
+                      <button
+                        onClick={() => {
+                          setDoorRemarks((prev) => {
+                            const copy = { ...prev };
+                            delete copy[uniqueKey];
+                            return copy;
+                          });
+                        }}
+                        className="text-[10px] text-slate-400 hover:text-rose-400 px-2 py-1 bg-slate-800 rounded cursor-pointer"
+                        title="Clear remark"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="text-[11px] font-mono shrink-0">
+                    {doorRemarks[uniqueKey] && doorRemarks[uniqueKey].trim() ? (
+                      <span className="text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+                        ✓ Printed
+                      </span>
+                    ) : (
+                      <span className="text-slate-500 font-normal">
+                        — Blank (Suppressed)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Live Sample Sticker Preview Grid */}
       <div className="bg-[#0B132B] border border-slate-800 rounded-xl p-5 space-y-3">
         <div className="flex justify-between items-center border-b border-slate-800 pb-2">
@@ -483,6 +648,14 @@ export default function BatchPrintHub({
                     <strong className="text-slate-300">Hardware:</strong> {st.hand} • {st.lock}
                   </div>
                 </div>
+
+                {/* STRICT CONDITIONAL REMARK IN LIVE PREVIEW */}
+                {st.remark && st.remark.trim().length > 0 && (
+                  <div className="p-1 rounded bg-amber-950/60 border border-amber-600/70 text-amber-300 text-[8.5px] font-bold leading-tight flex items-start gap-1">
+                    <span className="text-amber-400 font-black shrink-0">REMARK:</span>
+                    <span className="truncate">{st.remark.trim()}</span>
+                  </div>
+                )}
 
                 <div className="pt-1 border-t border-slate-800 text-center font-mono text-[9px] tracking-widest text-slate-400">
                   {st.barcode}
@@ -639,6 +812,14 @@ export default function BatchPrintHub({
                                       <div className="truncate"><strong>Finish:</strong> {st.finish}</div>
                                       <div className="truncate"><strong>Hdw:</strong> {st.hand} • {st.lock}</div>
                                     </div>
+
+                                    {/* STRICT CONDITIONAL REMARK CONTAINER IN 12L PRINT SHEET */}
+                                    {st.remark && st.remark.trim().length > 0 && (
+                                      <div className="mt-0.5 p-0.5 px-1 rounded bg-amber-50 border border-amber-400 text-amber-900 text-[7.5px] font-bold leading-tight flex items-start gap-0.5">
+                                        <span className="text-amber-700 font-black shrink-0">REMARK:</span>
+                                        <span className="truncate">{st.remark.trim()}</span>
+                                      </div>
+                                    )}
                                   </div>
 
                                   <div className="pt-0.5 border-t border-slate-300 text-center font-mono text-[8px] tracking-wider text-slate-800">
@@ -716,6 +897,14 @@ export default function BatchPrintHub({
                               <div className="truncate"><strong>Hardware:</strong> {st.hand}</div>
                               <div className="truncate"><strong>Lock:</strong> {st.lock}</div>
                             </div>
+
+                            {/* STRICT CONDITIONAL REMARK IN THERMAL ROLL */}
+                            {st.remark && st.remark.trim().length > 0 && (
+                              <div className="mt-1 p-0.5 px-1 rounded bg-slate-100 border border-black text-black text-[8px] font-bold leading-tight flex items-start gap-1">
+                                <span className="font-black shrink-0">REMARK:</span>
+                                <span className="truncate">{st.remark.trim()}</span>
+                              </div>
+                            )}
                           </div>
 
                           <div className="pt-1 border-t border-black flex justify-between items-center font-mono text-[9px]">
