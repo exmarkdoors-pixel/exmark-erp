@@ -74,7 +74,45 @@ const doorMeasContent = fs.readFileSync(doorMeasModalPath, 'utf8');
 assert(doorMeasContent.includes('handleConvertToSalesOrder'), 'handleConvertToSalesOrder function present');
 assert(doorMeasContent.includes('Convert to Order ➡️'), 'Direct Convert to Order action button present');
 
-// 6. Next.js Server HTTP Check
+// 6. Dual Sticker Print Formats (A4 12L Compact vs Continuous Thermal Roll 4"x2")
+assert(batchPrintContent.includes('THERMAL_ROLL'), 'Thermal Roll format mode supported in BatchPrintHub');
+assert(batchPrintContent.includes('67mm'), 'Exact 67mm card height enforced on A4 12L compact to prevent overflow');
+assert(batchPrintContent.includes('100mm') && batchPrintContent.includes('50mm'), 'Single Continuous Thermal Roll 100mm x 50mm (4"x2") supported');
+assert(batchPrintContent.includes('IS 14856:2000 QC PASS'), 'IS 14856:2000 QC PASS badge on thermal label present');
+
+// 7. Consolidated Multi-Party Batch BOQ
+assert(storeReqContent.includes('Consolidated Multi-Party BOQ') || storeReqContent.includes('പല പാർട്ടികളുടെ ആകെ BOQ'), 'Consolidated Multi-Party BOQ toggle present in StoreRequisitionHub');
+assert(storeReqContent.includes('selectedBatchOrderIds'), 'Multi-order batch selection state present');
+assert(storeReqContent.includes('MR-BATCH-'), 'Batch Requisition slip format supported');
+
+// 8. Door Measurement Book Bulk 12L Sticker Selector
+const moduleViewsPath = path.join(__dirname, '..', 'components', 'modules', 'ModuleViews.tsx');
+const moduleViewsContent = fs.readFileSync(moduleViewsPath, 'utf8');
+assert(moduleViewsContent.includes('meas-bulk-12l-sticker-btn'), 'meas-bulk-12l-sticker-btn present in DoorMeasurementsView');
+assert(moduleViewsContent.includes('Bulk 12L Sticker Print from Measurement Book'), 'Bulk 12L Sticker Print modal present in DoorMeasurementsView');
+
+// 9. RBAC Permissions Matrix & Role Switcher
+const navbarPath = path.join(__dirname, '..', 'components', 'layout', 'Navbar.tsx');
+const navbarContent = fs.readFileSync(navbarPath, 'utf8');
+assert(navbarContent.includes('Active Role:'), 'Active Role Selector present in Navbar');
+assert(navbarContent.includes('Plant Supervisor') && navbarContent.includes('Site Engineer') && navbarContent.includes('QC Inspector'), 'Extended operational roles supported in Navbar');
+assert(navbarContent.includes('Role-Based Access Control (RBAC) Permissions'), 'Super Admin RBAC Permission Matrix modal present');
+
+// 10. Mobile Responsive Bottom Navigation Bar
+const homePagePath = path.join(__dirname, '..', 'app', 'page.tsx');
+const homePageContent = fs.readFileSync(homePagePath, 'utf8');
+assert(homePageContent.includes('Mobile Bottom Navigation'), 'Mobile Responsive Bottom Navigation Bar present in app/page.tsx');
+assert(homePageContent.includes('md:hidden fixed bottom-0'), 'Fixed bottom styling present on mobile nav');
+assert(homePageContent.includes('12L Print'), '12L Print touch target present on mobile bottom nav');
+
+// 11. Interactive QC Floor Checklist & Printable Physical Tick-Sheet
+const qcHubPath = path.join(__dirname, '..', 'components', 'modules', 'quality', 'QualityControlHub.tsx');
+const qcHubContent = fs.readFileSync(qcHubPath, 'utf8');
+assert(qcHubContent.includes('Quality Control (QC) Floor Checklist & Digital Inspection'), 'Interactive Floor QC Checklist table present in QualityControlHub');
+assert(qcHubContent.includes('Print Floor QC Sheet (പ്രിന്റ് ടിക്ക് ഷീറ്റ്)'), 'Print Floor QC Sheet action button present');
+assert(qcHubContent.includes('PHYSICAL INSPECTION TICK-SHEET (IS 14856 : 2000 PROTOCOL)'), 'Physical QC Clipboard Sheet with [ ] tick-boxes present');
+
+// 12. Next.js Server HTTP Check
 const options = {
   hostname: 'localhost',
   port: 3000,

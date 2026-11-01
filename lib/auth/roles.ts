@@ -7,7 +7,10 @@ export type UserRole =
   | 'Inventory'
   | 'Purchase'
   | 'HR'
-  | 'Installation';
+  | 'Installation'
+  | 'Plant Supervisor'
+  | 'Site Engineer'
+  | 'QC Inspector';
 
 export interface RoleConfig {
   name: UserRole;
@@ -185,6 +188,51 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
       'dispatch',
     ],
     badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
+  },
+  'Plant Supervisor': {
+    name: 'Plant Supervisor',
+    description: 'Plant Floor Operations, Hydraulic Press release, BOM Store issue, and 12L Sticker Batch Print.',
+    allowedModules: [
+      'dashboard',
+      'measurements',
+      'sales-orders',
+      'production',
+      'bom',
+      'quality',
+      'maintenance',
+      'job-work',
+      'batch-print',
+      'inventory',
+      'reports',
+    ],
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+  },
+  'Site Engineer': {
+    name: 'Site Engineer',
+    description: 'Site Opening Measurements, Masonry tolerances, Quotations, and Door Measurement Book.',
+    allowedModules: [
+      'dashboard',
+      'crm',
+      'quotations',
+      'measurements',
+      'sales-orders',
+      'installation',
+      'reports',
+    ],
+    badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+  },
+  'QC Inspector': {
+    name: 'QC Inspector',
+    description: 'IS 14856:2000 Quality Inspection, Shop-floor Tick Sheets, and QC Certification.',
+    allowedModules: [
+      'dashboard',
+      'measurements',
+      'production',
+      'quality',
+      'batch-print',
+      'reports',
+    ],
+    badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
   },
 };
 

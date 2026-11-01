@@ -111,11 +111,24 @@ export interface ExpandedSticker {
   barcode: string;
 }
 
-export default function BatchPrintHub() {
+export interface BatchPrintHubProps {
+  initialSelectedOrderIds?: string[];
+  onClose?: () => void;
+}
+
+export default function BatchPrintHub({
+  initialSelectedOrderIds,
+  onClose,
+}: BatchPrintHubProps = {}) {
   const [orders, setOrders] = useState<BatchOrderData[]>(SEED_BATCH_ORDERS);
-  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>(['SO-2026-091', 'SO-2026-092', 'SO-2026-093']);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>(
+    initialSelectedOrderIds && initialSelectedOrderIds.length > 0
+      ? initialSelectedOrderIds
+      : ['SO-2026-091', 'SO-2026-092', 'SO-2026-093']
+  );
   const [partyFilter, setPartyFilter] = useState<string>('ALL');
   const [activePrintModal, setActivePrintModal] = useState<'STICKERS' | 'QC_PDF' | 'A4_SCHEDULE' | null>(null);
+  const [stickerFormat, setStickerFormat] = useState<'A4_12L' | 'THERMAL_ROLL'>('A4_12L');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const toggleOrderSelection = (id: string) => {
@@ -206,14 +219,25 @@ export default function BatchPrintHub() {
           </p>
         </div>
 
-        {/* Batch Counter Pill */}
-        <div className="bg-slate-900/90 border border-slate-700/80 px-4 py-2 rounded-xl text-right shrink-0">
-          <div className="text-[10px] text-slate-400 uppercase font-semibold">Active Batch Summary</div>
-          <div className="text-xs font-bold text-white mt-0.5">
-            <span className="text-rose-400 font-black text-sm">{selectedOrderIds.length}</span> Orders •{' '}
-            <span className="text-emerald-400 font-black text-sm">{totalStickers}</span> Labels •{' '}
-            <span className="text-amber-400 font-black text-sm">{totalSheets}</span> A4 Sheets
+        {/* Batch Counter Pill & Optional Close */}
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-900/90 border border-slate-700/80 px-4 py-2 rounded-xl text-right shrink-0">
+            <div className="text-[10px] text-slate-400 uppercase font-semibold">Active Batch Summary</div>
+            <div className="text-xs font-bold text-white mt-0.5">
+              <span className="text-rose-400 font-black text-sm">{selectedOrderIds.length}</span> Orders •{' '}
+              <span className="text-emerald-400 font-black text-sm">{totalStickers}</span> Labels •{' '}
+              <span className="text-amber-400 font-black text-sm">{totalSheets}</span> A4 Sheets
+            </div>
           </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition"
+              title="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -251,15 +275,24 @@ export default function BatchPrintHub() {
           </div>
         </div>
 
-        {/* 3 Dedicated Print Action Buttons */}
+        {/* 3 Dedicated Print Action Buttons & Format Selector */}
         <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={stickerFormat}
+            onChange={(e) => setStickerFormat(e.target.value as 'A4_12L' | 'THERMAL_ROLL')}
+            className="bg-[#070D1E] border border-rose-600/80 text-rose-200 rounded-xl p-2 text-xs font-bold focus:outline-none cursor-pointer"
+          >
+            <option value="A4_12L">📄 A4 12-Up Sheet (12L Compact)</option>
+            <option value="THERMAL_ROLL">🏷️ Single Thermal Roll (4"×2" / 100×50mm)</option>
+          </select>
+
           <button
             onClick={() => setActivePrintModal('STICKERS')}
             disabled={totalStickers === 0}
             className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-950/40 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <Tag className="w-4 h-4" />
-            <span>Print 12L Stickers (12-Up A4) 🏷️</span>
+            <span>Print 12L Stickers {stickerFormat === 'THERMAL_ROLL' ? '(Thermal Roll)' : '(12-Up A4)'} 🏷️</span>
           </button>
           <button
             onClick={() => setActivePrintModal('QC_PDF')}
@@ -408,7 +441,9 @@ export default function BatchPrintHub() {
               <div className="flex items-center gap-3">
                 <span className="font-bold text-sm">
                   {activePrintModal === 'STICKERS' &&
-                    `12L FACTORY SHUTTER STICKERS (${totalStickers} LABELS • ${totalSheets} A4 SHEETS)`}
+                    (stickerFormat === 'A4_12L'
+                      ? `12L FACTORY SHUTTER STICKERS (${totalStickers} LABELS • ${totalSheets} A4 SHEETS)`
+                      : `SINGLE THERMAL ROLL LABELS (${totalStickers} LABELS • 4"×2" / 100×50mm)`)}
                   {activePrintModal === 'QC_PDF' &&
                     `PARTY-WISE QC INSPECTION CERTIFICATE (IS 14856 : 2000)`}
                   {activePrintModal === 'A4_SCHEDULE' &&
@@ -420,6 +455,34 @@ export default function BatchPrintHub() {
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Format switcher inside print modal */}
+                {activePrintModal === 'STICKERS' && (
+                  <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-0.5 text-xs mr-2">
+                    <button
+                      type="button"
+                      onClick={() => setStickerFormat('A4_12L')}
+                      className={`px-2.5 py-1 rounded-md font-bold text-xs transition cursor-pointer ${
+                        stickerFormat === 'A4_12L'
+                          ? 'bg-rose-600 text-white shadow'
+                          : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      📄 A4 12-Up Sheet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStickerFormat('THERMAL_ROLL')}
+                      className={`px-2.5 py-1 rounded-md font-bold text-xs transition cursor-pointer ${
+                        stickerFormat === 'THERMAL_ROLL'
+                          ? 'bg-rose-600 text-white shadow'
+                          : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      🏷️ Thermal Roll (4"×2")
+                    </button>
+                  </div>
+                )}
+
                 <button
                   onClick={handlePrint}
                   className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow cursor-pointer"
@@ -438,94 +501,173 @@ export default function BatchPrintHub() {
 
             {/* Printable Document Area */}
             <div className="p-8 overflow-y-auto font-sans text-xs space-y-6 flex-1 print:p-0 print:overflow-visible">
-              {/* FORMAT 1: 12L STICKERS */}
+              {/* FORMAT 1: 12L STICKERS (DUAL FORMAT: A4 12-UP COMPACT vs SINGLE THERMAL ROLL 4"x2") */}
               {activePrintModal === 'STICKERS' && (
-                <div className="space-y-8">
-                  {Array.from({ length: totalSheets }).map((_, sIdx) => {
-                    const sheetStickers = stickers.slice(sIdx * 12, (sIdx + 1) * 12);
-                    return (
-                      <div
-                        key={sIdx}
-                        className="bg-white border border-slate-300 p-4 rounded-xl shadow-sm break-after-page print:border-none print:shadow-none print:p-0 print:m-0"
-                        style={{
-                          width: '210mm',
-                          minHeight: '297mm',
-                          margin: '0 auto',
-                          boxSizing: 'border-box',
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(3, 1fr)',
-                          gridTemplateRows: 'repeat(4, 1fr)',
-                          gap: '4mm',
-                        }}
-                      >
-                        {sheetStickers.map((st, idx) => {
-                          const globalNum = sIdx * 12 + idx + 1;
-                          return (
-                            <div
-                              key={idx}
-                              className="border border-slate-400 p-2.5 flex flex-col justify-between text-[10px] font-sans bg-white leading-tight rounded"
-                              style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
-                            >
-                              <div>
-                                <div className="flex justify-between items-center border-b border-slate-900 pb-0.5 mb-1">
-                                  <span className="font-black text-rose-700 tracking-wider text-[10px]">
-                                    EXMARK DOORS
-                                  </span>
-                                  <span className="font-bold text-[9px] text-slate-700">
-                                    {st.orderNumber} #{globalNum}/{totalStickers}
-                                  </span>
-                                </div>
-                                <div className="font-bold text-slate-950 text-[11px] truncate">
-                                  {st.customerName}
-                                </div>
-                                <div className="text-[9px] text-slate-600 truncate mb-1">
-                                  {st.siteName}
-                                </div>
+                <>
+                  {stickerFormat === 'A4_12L' ? (
+                    /* A4 12-UP COMPACT DIE-CUT SHEETS (EXACT 67mm PER CARD, ZERO OVERFLOW) */
+                    <div className="space-y-8">
+                      {Array.from({ length: totalSheets }).map((_, sIdx) => {
+                        const sheetStickers = stickers.slice(sIdx * 12, (sIdx + 1) * 12);
+                        return (
+                          <div
+                            key={sIdx}
+                            className="sheet-12l bg-white border border-slate-300 rounded-xl shadow-sm break-after-page print:border-none print:shadow-none print:m-0"
+                            style={{
+                              width: '210mm',
+                              height: '292mm',
+                              maxHeight: '294mm',
+                              padding: '5mm 5mm',
+                              margin: '0 auto',
+                              boxSizing: 'border-box',
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(3, 1fr)',
+                              gridTemplateRows: 'repeat(4, 1fr)',
+                              gap: '2.5mm',
+                            }}
+                          >
+                            {sheetStickers.map((st, idx) => {
+                              const globalNum = sIdx * 12 + idx + 1;
+                              return (
+                                <div
+                                  key={idx}
+                                  className="sticker-card-12l border border-dashed border-slate-400 font-sans bg-white"
+                                  style={{
+                                    height: '67mm',
+                                    maxHeight: '67mm',
+                                    overflow: 'hidden',
+                                    padding: '2mm 2.5mm',
+                                    boxSizing: 'border-box',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'space-between',
+                                    fontSize: '8.5px',
+                                    lineHeight: 1.15,
+                                    pageBreakInside: 'avoid',
+                                    breakInside: 'avoid',
+                                  }}
+                                >
+                                  <div>
+                                    <div className="flex justify-between items-center border-b border-slate-800 pb-0.5 mb-1">
+                                      <span className="font-black text-rose-700 tracking-wider text-[9px]">
+                                        EXMARK DOORS
+                                      </span>
+                                      <span className="font-bold text-[8px] text-slate-700">
+                                        {st.orderNumber} #{globalNum}/{totalStickers}
+                                      </span>
+                                    </div>
+                                    <div className="font-bold text-slate-950 text-[10px] leading-tight truncate">
+                                      {st.customerName}
+                                    </div>
+                                    <div className="text-[8px] text-slate-500 truncate mb-0.5">
+                                      {st.siteName}
+                                    </div>
 
-                                <div className="bg-slate-100 p-1 rounded border border-slate-300 my-1 text-center">
-                                  <div className="font-bold text-slate-900 text-[10px]">
-                                    {st.tag} ({st.unitIndex}/{st.totalUnitsInTag})
-                                  </div>
-                                  <div className="font-black text-slate-950 text-xs">
-                                    {st.shutterSize}
-                                  </div>
-                                  <div className="text-[9px] text-slate-600">Tape: {st.tape}</div>
-                                </div>
+                                    <div className="bg-slate-50 p-1 rounded border border-slate-300 my-0.5 text-center">
+                                      <div className="font-bold text-slate-900 text-[9px] truncate">
+                                        {st.tag} ({st.unitIndex}/{st.totalUnitsInTag})
+                                      </div>
+                                      <div className="font-black text-slate-950 text-[11px] leading-tight">
+                                        {st.shutterSize}
+                                      </div>
+                                      <div className="text-[8px] text-slate-600">Tape: {st.tape}</div>
+                                    </div>
 
-                                <div className="text-[9px] text-slate-700 space-y-0.5">
-                                  <div>
-                                    <strong>Profile:</strong> {st.profile}
+                                    <div className="text-[8px] text-slate-700 leading-tight">
+                                      <div className="truncate"><strong>Spec:</strong> {st.profile}</div>
+                                      <div className="truncate"><strong>Finish:</strong> {st.finish}</div>
+                                      <div className="truncate"><strong>Hdw:</strong> {st.hand} • {st.lock}</div>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <strong>Finish:</strong> {st.finish}
-                                  </div>
-                                  <div>
-                                    <strong>Hand:</strong> {st.hand} | <strong>Lock:</strong>{' '}
-                                    {st.lock}
+
+                                  <div className="pt-0.5 border-t border-slate-300 text-center font-mono text-[8px] tracking-wider text-slate-800">
+                                    {st.barcode}
                                   </div>
                                 </div>
+                              );
+                            })}
+
+                            {/* Blank slots up to 12 */}
+                            {Array.from({ length: 12 - sheetStickers.length }).map((_, bIdx) => (
+                              <div
+                                key={bIdx}
+                                className="sticker-card-12l border border-dashed border-slate-300 text-center text-slate-300 text-[8px] flex items-center justify-center rounded"
+                                style={{
+                                  height: '67mm',
+                                  maxHeight: '67mm',
+                                  boxSizing: 'border-box',
+                                }}
+                              >
+                                [Blank 12L Die-Cut Slot]
                               </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* SINGLE CONTINUOUS THERMAL ROLL LABELS (4" x 2" / 100mm x 50mm) */
+                    <div className="thermal-roll-container mx-auto space-y-4 max-w-[100mm]">
+                      {stickers.map((st, idx) => (
+                        <div
+                          key={idx}
+                          className="thermal-single-label bg-white text-black border border-slate-900 rounded p-2.5 break-after-page shadow-sm"
+                          style={{
+                            width: '100mm',
+                            height: '50mm',
+                            maxHeight: '50mm',
+                            padding: '2.5mm 3.5mm',
+                            margin: '0 auto 5mm auto',
+                            boxSizing: 'border-box',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            fontSize: '9px',
+                            lineHeight: 1.2,
+                            pageBreakAfter: 'always',
+                            breakAfter: 'page',
+                            pageBreakInside: 'avoid',
+                            breakInside: 'avoid',
+                          }}
+                        >
+                          <div>
+                            <div className="flex justify-between items-center border-b border-black pb-0.5 mb-1">
+                              <span className="font-black text-xs tracking-wider">EXMARK DOORS</span>
+                              <span className="font-bold text-[9px]">TAG #{idx + 1}/{totalStickers} • {st.orderNumber}</span>
+                            </div>
 
-                              <div className="mt-1 pt-1 border-t border-slate-300 text-center font-mono text-[8px] tracking-wider text-slate-800">
-                                {st.barcode}
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="flex-1 truncate">
+                                <div className="font-bold text-[10px] text-black uppercase truncate">{st.customerName}</div>
+                                <div className="text-[8.5px] text-slate-600 truncate">{st.siteName}</div>
+                                <div className="font-bold text-[9.5px] text-black mt-0.5">{st.tag} ({st.unitIndex}/{st.totalUnitsInTag})</div>
+                              </div>
+                              <div className="bg-black text-white p-1 rounded text-right min-w-[110px] shrink-0">
+                                <div className="text-[7.5px] text-slate-300">SHUTTER CUTTING SIZE:</div>
+                                <div className="font-black text-xs">{st.shutterSize}</div>
+                                <div className="text-[8px] text-slate-200">Tape: {st.tape}</div>
                               </div>
                             </div>
-                          );
-                        })}
 
-                        {/* Blank slots */}
-                        {Array.from({ length: 12 - sheetStickers.length }).map((_, bIdx) => (
-                          <div
-                            key={bIdx}
-                            className="border border-dashed border-slate-300 p-2 text-center text-slate-300 text-[9px] flex items-center justify-center rounded"
-                          >
-                            [Blank Die-Cut Slot]
+                            <div className="grid grid-cols-2 gap-1 text-[8.5px] text-slate-800 mt-1 pt-1 border-t border-slate-300">
+                              <div className="truncate"><strong>Profile:</strong> {st.profile}</div>
+                              <div className="truncate"><strong>Finish:</strong> {st.finish}</div>
+                              <div className="truncate"><strong>Hardware:</strong> {st.hand}</div>
+                              <div className="truncate"><strong>Lock:</strong> {st.lock}</div>
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
+
+                          <div className="pt-1 border-t border-black flex justify-between items-center font-mono text-[9px]">
+                            <span className="tracking-widest">{st.barcode}</span>
+                            <span className="font-sans font-bold text-[8px] uppercase tracking-wider bg-black text-white px-1.5 py-0.2 rounded">
+                              IS 14856:2000 QC PASS
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* FORMAT 2: PARTY-WISE QC PDF */}

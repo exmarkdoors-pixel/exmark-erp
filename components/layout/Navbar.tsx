@@ -17,6 +17,8 @@ import {
   Shield,
   LogOut,
   ChevronDown,
+  X,
+  Check,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/erp';
 import { UserRole } from '@/lib/auth/roles';
@@ -28,6 +30,7 @@ interface NavbarProps {
   currentTabName: string;
   userRole?: UserRole;
   userName?: string;
+  onRoleChange?: (role: UserRole) => void;
 }
 
 export default function Navbar({
@@ -37,11 +40,31 @@ export default function Navbar({
   currentTabName,
   userRole = 'Super Admin',
   userName = 'Nazer Karumban',
+  onRoleChange,
 }: NavbarProps) {
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [notificationsRead, setNotificationsRead] = useState(false);
+  const [isRbacModalOpen, setIsRbacModalOpen] = useState(false);
+  const [matrixPermissions, setMatrixPermissions] = useState<Record<string, string[]>>({
+    'Super Admin': ['crm', 'quotations', 'measurements', 'sales-orders', 'bom', 'production', 'accounts', 'batch-print'],
+    'Plant Supervisor': ['measurements', 'sales-orders', 'bom', 'production', 'batch-print'],
+    'Site Engineer': ['crm', 'quotations', 'measurements'],
+    'Accounts': ['sales-orders', 'accounts', 'batch-print'],
+    'QC Inspector': ['measurements', 'production', 'batch-print'],
+  });
+
+  const togglePermission = (role: string, modId: string) => {
+    if (role === 'Super Admin') return; // Super admin has full access
+    setMatrixPermissions((prev) => {
+      const current = prev[role] || [];
+      const updated = current.includes(modId)
+        ? current.filter((m) => m !== modId)
+        : [...current, modId];
+      return { ...prev, [role]: updated };
+    });
+  };
 
   const handleLogout = async () => {
     try {
@@ -125,6 +148,32 @@ export default function Navbar({
 
       {/* Right: Actions, Notifications, Profile */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* ACTIVE ROLE SELECTOR DROPDOWN */}
+        <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/80 px-2.5 py-1 rounded-lg text-xs">
+          <span className="text-slate-400 font-medium hidden lg:inline">Active Role:</span>
+          <select
+            value={userRole}
+            onChange={(e) => onRoleChange?.(e.target.value as UserRole)}
+            className="bg-transparent text-amber-300 font-bold focus:outline-none cursor-pointer text-xs"
+          >
+            <option value="Super Admin" className="bg-slate-900 text-white">👑 Super Admin</option>
+            <option value="Plant Supervisor" className="bg-slate-900 text-white">🏭 Plant Supervisor</option>
+            <option value="Site Engineer" className="bg-slate-900 text-white">📐 Site Engineer</option>
+            <option value="Accounts" className="bg-slate-900 text-white">💰 Accounts & Billing</option>
+            <option value="QC Inspector" className="bg-slate-900 text-white">🔍 QC Inspector</option>
+          </select>
+        </div>
+
+        {/* RBAC PERMISSIONS MATRIX TRIGGER */}
+        <button
+          onClick={() => setIsRbacModalOpen(true)}
+          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition"
+          title="Super Admin: Manage Role-Based Access Control (RBAC) Permissions"
+        >
+          <Shield className="w-4 h-4 text-amber-400" />
+          <span className="hidden md:inline text-[11px]">Role Matrix</span>
+        </button>
+
         {/* Date & Location Pill (Hidden on Mobile) */}
         <div className="hidden xl:flex items-center gap-2 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs text-slate-300">
           <Calendar className="w-3.5 h-3.5 text-red-400" />
@@ -270,6 +319,99 @@ export default function Navbar({
           )}
         </div>
       </div>
+
+      {/* RBAC ROLE PERMISSIONS MATRIX MODAL */}
+      {isRbacModalOpen && (
+        <div className="fixed inset-0 bg-black/85 z-[80] flex items-center justify-center p-3 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-[#111827] border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-amber-400 animate-pulse" />
+                <h3 className="font-bold text-white text-sm">
+                  Super Admin: Role-Based Access Control (RBAC) Permissions
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRbacModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs overflow-y-auto">
+              <p className="text-slate-400">
+                സൂപ്പർ അഡ്മിന് ഓരോ റോളിനും (Plant Supervisor, Site Engineer, Accounts, QC Inspector) ആക്സസ് ചെയ്യാവുന്ന മോഡ്യൂളുകൾ ടിക്ക് ചെയ്ത് നൽകാം:
+              </p>
+
+              <div className="overflow-x-auto border border-slate-800 rounded-xl">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-[#0b1120] text-slate-300 font-bold border-b border-slate-800">
+                      <th className="p-2.5">System Module</th>
+                      <th className="p-2.5 text-center">Super Admin</th>
+                      <th className="p-2.5 text-center">Plant Supervisor</th>
+                      <th className="p-2.5 text-center">Site Engineer</th>
+                      <th className="p-2.5 text-center">Accounts</th>
+                      <th className="p-2.5 text-center">QC Inspector</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 text-[11px]">
+                    {[
+                      { id: 'crm', name: 'CRM & Leads Pipeline' },
+                      { id: 'quotations', name: 'Quotations & Estimates' },
+                      { id: 'measurements', name: 'Door Measurement Book' },
+                      { id: 'sales-orders', name: 'Sales Orders Registry' },
+                      { id: 'bom', name: 'BOM & Material Issue' },
+                      { id: 'production', name: 'Plant Floor & Production' },
+                      { id: 'accounts', name: 'Accounts, GST & Vouchers' },
+                      { id: 'batch-print', name: '12L Stickers & Batch Print' },
+                    ].map((mod) => (
+                      <tr key={mod.id} className="hover:bg-slate-800/40 transition">
+                        <td className="p-2.5 font-bold text-white">{mod.name}</td>
+                        {['Super Admin', 'Plant Supervisor', 'Site Engineer', 'Accounts', 'QC Inspector'].map(
+                          (role) => {
+                            const isSuper = role === 'Super Admin';
+                            const isChecked = isSuper || (matrixPermissions[role] || []).includes(mod.id);
+                            return (
+                              <td key={role} className="p-2.5 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  disabled={isSuper}
+                                  onChange={() => togglePermission(role, mod.id)}
+                                  className="w-4 h-4 rounded text-amber-500 bg-slate-900 border-slate-700 cursor-pointer focus:ring-0 disabled:opacity-75"
+                                />
+                              </td>
+                            );
+                          }
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-[#141d33] flex justify-between items-center">
+              <span className="text-[11px] text-slate-400">
+                Changes apply immediately upon role switching
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRbacModalOpen(false);
+                }}
+                className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold text-xs shadow cursor-pointer transition flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save Permission Matrix (അനുമതികൾ സൂക്ഷിക്കുക)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

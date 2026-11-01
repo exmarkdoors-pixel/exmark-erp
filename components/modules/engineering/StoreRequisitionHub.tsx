@@ -69,12 +69,36 @@ const REQUISITION_ORDERS: ProductionRequisitionOrder[] = [
 export default function StoreRequisitionHub() {
   const [selectedOrderId, setSelectedOrderId] = useState<string>('SO-2026-091');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const [isBatchBoqMode, setIsBatchBoqMode] = useState<boolean>(false);
+  const [selectedBatchOrderIds, setSelectedBatchOrderIds] = useState<string[]>([
+    'SO-2026-091',
+    'SO-2026-092',
+    'SO-2026-093',
+  ]);
+
+  const toggleBatchOrder = (id: string) => {
+    setSelectedBatchOrderIds((prev) =>
+      prev.includes(id) ? (prev.length > 1 ? prev.filter((i) => i !== id) : prev) : [...prev, id]
+    );
+  };
 
   const selectedOrder =
     REQUISITION_ORDERS.find((o) => o.id === selectedOrderId) || REQUISITION_ORDERS[0];
 
-  const totalDoors = selectedOrder.doorsCount;
-  const totalSqft = parseFloat((totalDoors * selectedOrder.sqFtPerDoor).toFixed(1));
+  const batchOrders = REQUISITION_ORDERS.filter((o) => selectedBatchOrderIds.includes(o.id));
+
+  // Dynamic calculations: either single order or consolidated multi-party batch
+  const totalDoors = isBatchBoqMode
+    ? batchOrders.reduce((sum, o) => sum + o.doorsCount, 0)
+    : selectedOrder.doorsCount;
+
+  const totalSqft = isBatchBoqMode
+    ? parseFloat(
+        batchOrders
+          .reduce((sum, o) => sum + o.doorsCount * o.sqFtPerDoor, 0)
+          .toFixed(1)
+      )
+    : parseFloat((selectedOrder.doorsCount * selectedOrder.sqFtPerDoor).toFixed(1));
 
   // Automated chemical & material formulas
   const resinKg = parseFloat((totalSqft * 0.30).toFixed(1));
@@ -106,31 +130,93 @@ export default function StoreRequisitionHub() {
             <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
             <h2 className="font-bold text-white text-base sm:text-lg flex items-center gap-2">
               <FlaskConical className="w-5 h-5 text-emerald-400" />
-              Bill of Materials (BOM) &amp; Factory Store Requisition
+              {isBatchBoqMode
+                ? 'Consolidated Batch BOQ & Bill of Materials'
+                : 'Bill of Materials (BOM) & Factory Store Requisition'}
             </h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Automated raw material calculation (Resin, Fiber Mat, PU core, PU polish, Hinges, Screws) per production order with printable Store Issue Slips.
+            {isBatchBoqMode
+              ? 'ഒന്നിലധികം പാർട്ടികളിൽ നിന്നുള്ള വാതിലുകൾ ഒരുമിച്ച് ബാച്ച് പ്രൊഡക്ഷൻ നടത്തുമ്പോൾ ആവശ്യമായ ആകെ മെറ്റീരിയൽ ലിസ്റ്റ് (Total Batch BOQ).'
+              : 'Automated raw material calculation (Resin, Fiber Mat, PU core, PU polish, Hinges, Screws) per production order with printable Store Issue Slips.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <label className="text-xs text-slate-300 font-semibold shrink-0">
-            Select Order:
-          </label>
-          <select
-            value={selectedOrderId}
-            onChange={(e) => setSelectedOrderId(e.target.value)}
-            className="w-full md:w-auto bg-[#070D1E] border border-emerald-600/80 text-emerald-200 text-xs rounded-xl p-2 font-bold focus:outline-none focus:border-emerald-400 cursor-pointer"
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          {/* Mode Switcher Button */}
+          <button
+            type="button"
+            onClick={() => setIsBatchBoqMode(!isBatchBoqMode)}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer ${
+              isBatchBoqMode
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white ring-2 ring-emerald-400/50'
+                : 'bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-600/60'
+            }`}
           >
-            {REQUISITION_ORDERS.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.orderNumber}: {o.customerName} ({o.doorsCount} Doors)
-              </option>
-            ))}
-          </select>
+            <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+            <span>⚡ Consolidated Multi-Party BOQ (പല പാർട്ടികളുടെ ആകെ BOQ)</span>
+          </button>
+
+          {!isBatchBoqMode && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-slate-300 font-semibold shrink-0">
+                Order:
+              </label>
+              <select
+                value={selectedOrderId}
+                onChange={(e) => setSelectedOrderId(e.target.value)}
+                className="w-full md:w-auto bg-[#070D1E] border border-emerald-600/80 text-emerald-200 text-xs rounded-xl p-2 font-bold focus:outline-none focus:border-emerald-400 cursor-pointer"
+              >
+                {REQUISITION_ORDERS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.orderNumber}: {o.customerName} ({o.doorsCount} Doors)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* MULTI-ORDER SELECTION PANEL (WHEN CONSOLIDATED BATCH BOQ MODE IS ACTIVE) */}
+      {isBatchBoqMode && (
+        <div className="bg-[#0B132B] border border-emerald-800/60 rounded-xl p-4 space-y-2.5">
+          <div className="flex justify-between items-center text-xs">
+            <span className="font-bold text-emerald-400">
+              Select Orders to Combine into Production Press Batch:
+            </span>
+            <span className="text-slate-400 font-semibold">
+              {batchOrders.length} Parties Combined • {totalDoors} Doors in Batch ({totalSqft} Sq.Ft)
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs">
+            {REQUISITION_ORDERS.map((ord) => {
+              const isChecked = selectedBatchOrderIds.includes(ord.id);
+              return (
+                <label
+                  key={ord.id}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition ${
+                    isChecked
+                      ? 'bg-emerald-950/50 border-emerald-500 text-emerald-200'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleBatchOrder(ord.id)}
+                    className="w-4 h-4 rounded text-emerald-500 bg-slate-950 border-slate-700 focus:ring-0 cursor-pointer"
+                  />
+                  <span>
+                    <strong>{ord.orderNumber}</strong>: {ord.customerName.split('(')[0]} (
+                    {ord.doorsCount} Doors)
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* KPI Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
@@ -163,10 +249,14 @@ export default function StoreRequisitionHub() {
         <div className="p-4 border-b border-slate-800 bg-[#070D1E] flex flex-wrap justify-between items-center gap-3">
           <div>
             <h3 className="font-bold text-white text-sm">
-              Material Requisition for Order: {selectedOrder.orderNumber} ({selectedOrder.customerName})
+              {isBatchBoqMode
+                ? `Consolidated Material Requisition for ${batchOrders.length} Combined Orders`
+                : `Material Requisition for Order: ${selectedOrder.orderNumber} (${selectedOrder.customerName})`}
             </h3>
             <span className="text-xs text-slate-400">
-              Job Card: {selectedOrder.jobCardNumber} • {selectedOrder.doorsDesc}
+              {isBatchBoqMode
+                ? `Combined Parties: ${batchOrders.map((b) => b.customerName.split('(')[0].trim()).join(' | ')} • Total Production Batch: ${totalDoors} Doors (${totalSqft} Sq.Ft)`
+                : `Job Card: ${selectedOrder.jobCardNumber} • ${selectedOrder.doorsDesc}`}
             </span>
           </div>
 
@@ -367,7 +457,7 @@ export default function StoreRequisitionHub() {
                     STORE ISSUE SLIP
                   </span>
                   <div className="text-xs font-bold text-slate-900 mt-1">
-                    Slip #: MR-2026-{selectedOrder.orderNumber.slice(-3)}
+                    Slip #: {isBatchBoqMode ? `MR-BATCH-${batchOrders.length}P` : `MR-2026-${selectedOrder.orderNumber.slice(-3)}`}
                   </div>
                   <div className="text-[10px] text-slate-600">
                     Date: {new Date().toLocaleDateString('en-GB')}
@@ -378,13 +468,15 @@ export default function StoreRequisitionHub() {
               <div className="grid grid-cols-2 gap-4 bg-emerald-50 p-3 rounded-lg border border-emerald-200 text-xs">
                 <div>
                   <span className="text-[10px] text-emerald-900 font-bold uppercase">
-                    Issued For Production Order:
+                    {isBatchBoqMode ? 'Issued For Consolidated Production Run:' : 'Issued For Production Order:'}
                   </span>
                   <div className="text-sm font-black text-slate-950">
-                    {selectedOrder.orderNumber} — {selectedOrder.customerName}
+                    {isBatchBoqMode
+                      ? `${batchOrders.length} Combined Parties (${batchOrders.map((b) => b.customerName.split('(')[0].trim()).join(', ')})`
+                      : `${selectedOrder.orderNumber} — ${selectedOrder.customerName}`}
                   </div>
                   <div className="text-[11px] text-slate-700 mt-0.5">
-                    Site: {selectedOrder.siteName}
+                    {isBatchBoqMode ? 'Central Manufacturing Plant Floor Batch' : `Site: ${selectedOrder.siteName}`}
                   </div>
                 </div>
                 <div className="text-right">
@@ -392,7 +484,7 @@ export default function StoreRequisitionHub() {
                     Job Card &amp; Target:
                   </span>
                   <div className="text-xs font-bold text-slate-900">
-                    {selectedOrder.jobCardNumber} ({totalDoors} Door Shutters • {totalSqft} Sq.Ft)
+                    {isBatchBoqMode ? `BATCH-PRESS-${Date.now().toString().slice(-4)}` : selectedOrder.jobCardNumber} ({totalDoors} Door Shutters • {totalSqft} Sq.Ft)
                   </div>
                   <div className="text-[11px] text-slate-700 mt-0.5">
                     Target Line: Line 1 (FRP Press) &amp; Line 2 (CNC)

@@ -19,7 +19,8 @@ import {
   Check,
   BarChart3,
   RefreshCw,
-  Printer
+  Printer,
+  X,
 } from 'lucide-react';
 
 export type QcStage = 'IQC' | 'IPQC' | 'FQC';
@@ -120,6 +121,30 @@ const SEED_QC_INSPECTIONS: QcInspectionItem[] = [
   },
 ];
 
+export interface InteractiveQcDoorItem {
+  id: string;
+  roomTag: string;
+  orderId: string;
+  customerName: string;
+  shutterSize: string;
+  dim: boolean;
+  diag: boolean;
+  flat: boolean;
+  finish: boolean;
+  lock: boolean;
+}
+
+const SEED_FLOOR_QC_ITEMS: InteractiveQcDoorItem[] = [
+  { id: 'QC-D1', roomTag: 'D1 - Master Bed', orderId: 'SO-2026-091', customerName: 'Skyline Builders', shutterSize: '204.4 × 73.3 cm', dim: true, diag: true, flat: true, finish: true, lock: true },
+  { id: 'QC-D2', roomTag: 'D2 - Bed 2 (1st Floor)', orderId: 'SO-2026-091', customerName: 'Skyline Builders', shutterSize: '204.4 × 73.3 cm', dim: true, diag: true, flat: true, finish: true, lock: true },
+  { id: 'QC-D3', roomTag: 'D3 - Bed 3 (Guest)', orderId: 'SO-2026-091', customerName: 'Skyline Builders', shutterSize: '204.4 × 73.3 cm', dim: true, diag: true, flat: true, finish: true, lock: true },
+  { id: 'QC-D4', roomTag: 'D4 - Kitchen & Utility', orderId: 'SO-2026-091', customerName: 'Skyline Builders', shutterSize: '201.5 × 68.2 cm', dim: true, diag: true, flat: true, finish: true, lock: true },
+  { id: 'QC-D5', roomTag: 'D5 - Bathrooms (Waterproof)', orderId: 'SO-2026-091', customerName: 'Skyline Builders', shutterSize: '196.4 × 63.1 cm', dim: true, diag: true, flat: true, finish: true, lock: true },
+  { id: 'QC-M1', roomTag: 'M1 - Main Entrance Inner', orderId: 'SO-2026-092', customerName: 'Malabar Heritage', shutterSize: '208.3 × 82.0 cm', dim: true, diag: true, flat: true, finish: true, lock: true },
+  { id: 'QC-M2', roomTag: 'M2 - Bed 1 & 2', orderId: 'SO-2026-092', customerName: 'Malabar Heritage', shutterSize: '204.4 × 73.3 cm', dim: true, diag: true, flat: true, finish: true, lock: true },
+  { id: 'QC-V1', roomTag: 'V1 - Master Suite', orderId: 'SO-2026-093', customerName: 'Dr. Jacob Abraham', shutterSize: '206.6 × 75.8 cm', dim: true, diag: true, flat: true, finish: true, lock: true },
+];
+
 export default function QualityControlHub() {
   const [inspections, setInspections] = useState<QcInspectionItem[]>(SEED_QC_INSPECTIONS);
   const [selectedInspection, setSelectedInspection] = useState<QcInspectionItem>(SEED_QC_INSPECTIONS[0]);
@@ -127,6 +152,14 @@ export default function QualityControlHub() {
   const [verdictFilter, setVerdictFilter] = useState<'ALL' | 'PASSED' | 'REJECTED'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewInspectionModalOpen, setIsNewInspectionModalOpen] = useState(false);
+  const [floorQcItems, setFloorQcItems] = useState<InteractiveQcDoorItem[]>(SEED_FLOOR_QC_ITEMS);
+  const [isPrintQcClipboardOpen, setIsPrintQcClipboardOpen] = useState(false);
+
+  const toggleFloorQcCheck = (id: string, field: 'dim' | 'diag' | 'flat' | 'finish' | 'lock') => {
+    setFloorQcItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: !item[field] } : item))
+    );
+  };
 
   // New Inspection Form State
   const [newStage, setNewStage] = useState<QcStage>('FQC');
@@ -258,6 +291,122 @@ export default function QualityControlHub() {
           </div>
           <div className="mt-2 text-2xl font-black text-amber-300">135°C @ 180T</div>
           <p className="text-xs text-slate-400 mt-1">Zero air blister ultrasonic</p>
+        </div>
+      </div>
+
+      {/* INTERACTIVE QC INSPECTION & PHYSICAL TICK CHECKLIST (FOR MOBILE & PRINT) */}
+      <div className="bg-[#0B132B] border border-purple-900/60 rounded-2xl overflow-hidden shadow-xl">
+        <div className="p-4 border-b border-slate-800 bg-[#070D1E] flex flex-wrap justify-between items-center gap-3">
+          <div>
+            <h3 className="font-bold text-white text-sm flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
+              Quality Control (QC) Floor Checklist & Digital Inspection (IS 14856:2000)
+            </h3>
+            <span className="text-xs text-slate-400">
+              Live checkboxes for mobile/tablet floor auditing or click print for physical clipboard tick-sheet
+            </span>
+          </div>
+
+          <button
+            onClick={() => setIsPrintQcClipboardOpen(true)}
+            className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-purple-950/40 flex items-center gap-1.5 cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print Floor QC Sheet (പ്രിന്റ് ടിക്ക് ഷീറ്റ്) 🖨️</span>
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-slate-800 bg-[#070D1E] text-slate-400 uppercase text-[10px]">
+                <th className="p-3">Door / Room Tag</th>
+                <th className="p-3">Order & Party</th>
+                <th className="p-3 text-center">1. Dimensions (±1.5mm)</th>
+                <th className="p-3 text-center">2. Diagonal Squareness</th>
+                <th className="p-3 text-center">3. Flatness / Warpage</th>
+                <th className="p-3 text-center">4. Polish & UV Finish</th>
+                <th className="p-3 text-center">5. Lock Mortising</th>
+                <th className="p-3 text-right">QC Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {floorQcItems.map((door) => {
+                const allPass = door.dim && door.diag && door.flat && door.finish && door.lock;
+                return (
+                  <tr key={door.id} className="hover:bg-slate-800/40 transition">
+                    <td className="p-3">
+                      <strong className="text-white text-xs">{door.roomTag}</strong>
+                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">{door.shutterSize}</div>
+                    </td>
+                    <td className="p-3">
+                      <div className="font-semibold text-slate-200">{door.customerName}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{door.orderId}</div>
+                    </td>
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={door.dim}
+                        onChange={() => toggleFloorQcCheck(door.id, 'dim')}
+                        className="w-4 h-4 rounded text-purple-600 bg-slate-900 border-slate-700 cursor-pointer focus:ring-0"
+                      />
+                    </td>
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={door.diag}
+                        onChange={() => toggleFloorQcCheck(door.id, 'diag')}
+                        className="w-4 h-4 rounded text-purple-600 bg-slate-900 border-slate-700 cursor-pointer focus:ring-0"
+                      />
+                    </td>
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={door.flat}
+                        onChange={() => toggleFloorQcCheck(door.id, 'flat')}
+                        className="w-4 h-4 rounded text-purple-600 bg-slate-900 border-slate-700 cursor-pointer focus:ring-0"
+                      />
+                    </td>
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={door.finish}
+                        onChange={() => toggleFloorQcCheck(door.id, 'finish')}
+                        className="w-4 h-4 rounded text-purple-600 bg-slate-900 border-slate-700 cursor-pointer focus:ring-0"
+                      />
+                    </td>
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={door.lock}
+                        onChange={() => toggleFloorQcCheck(door.id, 'lock')}
+                        className="w-4 h-4 rounded text-purple-600 bg-slate-900 border-slate-700 cursor-pointer focus:ring-0"
+                      />
+                    </td>
+                    <td className="p-3 text-right">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                          allPass
+                            ? 'bg-emerald-950 text-emerald-400 border-emerald-700'
+                            : 'bg-rose-950 text-rose-400 border-rose-700'
+                        }`}
+                      >
+                        {allPass ? (
+                          <>
+                            <CheckCircle2 className="w-3 h-3" /> ✓ CERTIFIED PASS
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-3 h-3" /> ⚠ REWORK REQUIRED
+                          </>
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -609,6 +758,126 @@ export default function QualityControlHub() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PRINTABLE PHYSICAL QC CLIPBOARD SHEET MODAL */}
+      {isPrintQcClipboardOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-2 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-white text-slate-900 w-full max-w-4xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="bg-slate-900 text-white p-3.5 flex justify-between items-center print:hidden">
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-sm">
+                  SHOP-FLOOR PHYSICAL QUALITY CONTROL (QC) CHECK-SHEET
+                </span>
+                <span className="text-xs text-slate-400 hidden sm:inline">
+                  • IS 14856:2000 Inspection Sheet with Physical Tick Boxes [ ] for Clipboards
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print Check-Sheet</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPrintQcClipboardOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Document Content */}
+            <div className="p-8 overflow-y-auto font-sans text-xs space-y-4 print:p-0 print:overflow-visible">
+              <div className="border-b-2 border-slate-900 pb-3 flex justify-between items-start">
+                <div>
+                  <div className="text-xl font-black text-rose-700 tracking-wider">
+                    EXMARK DOORS — QUALITY CONTROL CLIPBOARD CHECKLIST
+                  </div>
+                  <div className="text-xs text-slate-700 font-bold">
+                    PHYSICAL INSPECTION TICK-SHEET (IS 14856 : 2000 PROTOCOL)
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    Shop-Floor Inspector Form • Vengara Central Manufacturing Plant
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="px-2.5 py-1 bg-purple-900 text-white rounded font-bold text-[10px]">
+                    QC TICK-SHEET
+                  </span>
+                  <div className="text-xs font-bold text-slate-900 mt-1">
+                    Date: {new Date().toLocaleDateString('en-GB')}
+                  </div>
+                  <div className="text-[10px] text-slate-600">Shift: Floor Inspection</div>
+                </div>
+              </div>
+
+              <table className="w-full text-left border-collapse border border-slate-300 text-xs mt-3">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-300 font-bold text-[10px]">
+                    <th className="p-1.5 border-r border-slate-300 text-center">#</th>
+                    <th className="p-1.5 border-r border-slate-300">Door &amp; Party</th>
+                    <th className="p-1.5 border-r border-slate-300">Target Size</th>
+                    <th className="p-1.5 border-r border-slate-300 text-center">Dim. (±1.5mm)</th>
+                    <th className="p-1.5 border-r border-slate-300 text-center">Diag. (≤3mm)</th>
+                    <th className="p-1.5 border-r border-slate-300 text-center">Flatness (≤3mm)</th>
+                    <th className="p-1.5 border-r border-slate-300 text-center">Polish/UV</th>
+                    <th className="p-1.5 border-r border-slate-300 text-center">Lock Mortise</th>
+                    <th className="p-1.5 text-center">Final Stamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {floorQcItems.map((door, idx) => (
+                    <tr key={door.id} className="border-b border-slate-300 text-[10px]">
+                      <td className="p-1.5 border-r border-slate-300 font-bold text-center">
+                        {idx + 1}
+                      </td>
+                      <td className="p-1.5 border-r border-slate-300 font-bold">
+                        {door.roomTag}
+                        <br />
+                        <span className="text-[9px] text-slate-500 font-normal">
+                          {door.customerName} ({door.orderId})
+                        </span>
+                      </td>
+                      <td className="p-1.5 border-r border-slate-300 font-mono">
+                        {door.shutterSize}
+                      </td>
+                      <td className="p-1.5 border-r border-slate-300 text-center font-mono">
+                        [&nbsp;&nbsp;&nbsp;] Pass
+                      </td>
+                      <td className="p-1.5 border-r border-slate-300 text-center font-mono">
+                        [&nbsp;&nbsp;&nbsp;] ≤3mm
+                      </td>
+                      <td className="p-1.5 border-r border-slate-300 text-center font-mono">
+                        [&nbsp;&nbsp;&nbsp;] ≤3mm
+                      </td>
+                      <td className="p-1.5 border-r border-slate-300 text-center font-mono">
+                        [&nbsp;&nbsp;&nbsp;] Pass
+                      </td>
+                      <td className="p-1.5 border-r border-slate-300 text-center font-mono">
+                        [&nbsp;&nbsp;&nbsp;] Pass
+                      </td>
+                      <td className="p-1.5 text-center font-bold text-slate-700">
+                        PASSED [&nbsp;&nbsp;&nbsp;]
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="pt-8 flex justify-between items-end border-t border-slate-300 text-[11px] text-slate-600">
+                <div>Inspector Name &amp; Badge: _______________________________</div>
+                <div className="text-right">QC Lead Sign-off: _______________________________</div>
+              </div>
+            </div>
           </div>
         </div>
       )}

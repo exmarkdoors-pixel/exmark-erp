@@ -51,6 +51,12 @@ import { NavigationTab, KpiMetric, OrderItem } from '@/types/erp';
 import {
   Sparkles,
   CalendarCheck,
+  Users,
+  Ruler,
+  ClipboardList,
+  Layers,
+  ShieldCheck,
+  Printer,
 } from 'lucide-react';
 
 export default function Home() {
@@ -200,10 +206,11 @@ export default function Home() {
             onOpenQuickAction={() => setIsQuickActionOpen(true)}
             userRole={userRole}
             userName={userName}
+            onRoleChange={(role) => setUserRole(role)}
           />
 
           {/* Main Body Content */}
-          <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6 print:p-0 print:m-0 print:max-w-none">
+          <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6 pb-20 md:pb-6 print:p-0 print:m-0 print:max-w-none">
             {/* Unified Factory ERP Bonding Pipeline */}
             <UnifiedBondingPipelineBar
               currentTab={currentTab}
@@ -386,6 +393,72 @@ export default function Home() {
           </footer>
         </div>
       </div>
+
+      {/* MOBILE RESPONSIVE BOTTOM NAVIGATION BAR (ANDROID & IPHONE COMPATIBLE) */}
+      <nav
+        aria-label="Mobile Bottom Navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-[#0B132B] border-t border-slate-800 flex items-center justify-around z-40 px-2 text-[10px] print:hidden shadow-2xl backdrop-blur-md"
+      >
+        <button
+          onClick={() => setCurrentTab('crm')}
+          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
+            currentTab === 'crm' ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Users className="w-4 h-4 text-cyan-400" />
+          <span>CRM</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('measurements')}
+          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
+            currentTab === 'measurements' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Ruler className="w-4 h-4 text-amber-400" />
+          <span>Measure</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('sales-orders')}
+          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
+            currentTab === 'sales-orders' ? 'text-rose-400 font-bold' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <ClipboardList className="w-4 h-4 text-rose-400" />
+          <span>Orders</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('bom')}
+          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
+            currentTab === 'bom' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Layers className="w-4 h-4 text-emerald-400" />
+          <span>BOQ/BOM</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('production')}
+          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
+            currentTab === 'production' ? 'text-purple-400 font-bold' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4 text-purple-400" />
+          <span>QC/Plant</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('batch-print')}
+          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
+            currentTab === 'batch-print' ? 'text-rose-500 font-bold' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Printer className="w-4 h-4 text-rose-500" />
+          <span>12L Print</span>
+        </button>
+      </nav>
 
       {/* Quick Action Modal */}
       <QuickActionsModal

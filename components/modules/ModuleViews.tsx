@@ -280,6 +280,13 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
   const [selectedConfirmRecord, setSelectedConfirmRecord] = useState<SiteMeasurementRecord | null>(null);
   const [selectedWhatsAppRecord, setSelectedWhatsAppRecord] = useState<SiteMeasurementRecord | null>(null);
   const [selectedAutoQuoteRecord, setSelectedAutoQuoteRecord] = useState<SiteMeasurementRecord | null>(null);
+  const [isBulkStickerModalOpen, setIsBulkStickerModalOpen] = useState<boolean>(false);
+  const [selectedBulkOrderIds, setSelectedBulkOrderIds] = useState<string[]>([
+    'SO-2026-091',
+    'SO-2026-092',
+    'SO-2026-093',
+  ]);
+  const [isBatchPrintHubModalOpen, setIsBatchPrintHubModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     let active = true;
@@ -480,7 +487,17 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
+          <button
+            id="meas-bulk-12l-sticker-btn"
+            onClick={() => setIsBulkStickerModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold shadow-md shadow-rose-900/30 transition-all cursor-pointer transform active:scale-95"
+            title="Batch print 12L shutter stickers from multiple orders"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Bulk 12L Sticker Print (മൾട്ടി-ഓർഡർ)</span>
+          </button>
+
           <button
             onClick={() => handleRefresh()}
             disabled={isLoading}
@@ -787,6 +804,103 @@ export function DoorMeasurementsView({ userRole }: { userRole?: string }) {
             setSelectedAutoQuoteRecord(null);
           }}
         />
+      )}
+
+      {/* BULK 12L STICKER SELECTOR MODAL */}
+      {isBulkStickerModalOpen && (
+        <div className="fixed inset-0 bg-black/85 z-[80] flex items-center justify-center p-3 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-[#111827] border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+                <h3 className="font-bold text-white text-sm">Bulk 12L Sticker Print from Measurement Book</h3>
+              </div>
+              <button
+                onClick={() => setIsBulkStickerModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 text-xs">
+              <p className="text-slate-400">
+                Select multiple confirmed orders or party measurements to print all 12L shutter stickers in one bulk batch:
+              </p>
+
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {[
+                  { id: 'SO-2026-091', client: 'Skyline Builders (Kochi)', doors: 18, site: 'Skyline Prime Villa, Kakkanad' },
+                  { id: 'SO-2026-092', client: 'Malabar Heritage Project', doors: 14, site: 'Heritage Villas, Westhill, Kozhikode' },
+                  { id: 'SO-2026-093', client: 'Dr. Jacob Abraham', doors: 10, site: 'Ottapalam, Palakkad' },
+                ].map((item) => {
+                  const isChecked = selectedBulkOrderIds.includes(item.id);
+                  return (
+                    <label
+                      key={item.id}
+                      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition ${
+                        isChecked
+                          ? 'bg-rose-950/30 border-rose-600 text-white'
+                          : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setSelectedBulkOrderIds((prev) =>
+                              prev.includes(item.id)
+                                ? (prev.length > 1 ? prev.filter((id) => id !== item.id) : prev)
+                                : [...prev, item.id]
+                            );
+                          }}
+                          className="w-4 h-4 rounded text-rose-600 bg-slate-950 border-slate-700 focus:ring-0 cursor-pointer"
+                        />
+                        <div>
+                          <span className="font-bold text-white text-xs">{item.id}</span>
+                          <span className="text-slate-300 text-xs"> — {item.client}</span>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{item.site} • {item.doors} Doors</div>
+                        </div>
+                      </div>
+                      <span className={`text-[11px] font-bold ${isChecked ? 'text-rose-400' : 'text-slate-500'}`}>
+                        {isChecked ? '✓ Selected' : 'Not Selected'}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-[#141d33] flex justify-between items-center">
+              <span className="text-[11px] text-slate-400">
+                {selectedBulkOrderIds.length} Orders Selected for Batch Print
+              </span>
+              <button
+                onClick={() => {
+                  setIsBulkStickerModalOpen(false);
+                  setIsBatchPrintHubModalOpen(true);
+                }}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-rose-950/40 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Bulk 12L Stickers (12-Up A4) 🖨️</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OVERLAY BATCH PRINT HUB MODAL TRIGGERED FROM MEASUREMENT BOOK */}
+      {isBatchPrintHubModalOpen && (
+        <div className="fixed inset-0 bg-black/90 z-[90] p-4 flex items-center justify-center overflow-y-auto backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-6xl max-h-[96vh] overflow-y-auto bg-[#070D1E] rounded-2xl border border-slate-700 shadow-2xl p-6">
+            <BatchPrintHub
+              initialSelectedOrderIds={selectedBulkOrderIds}
+              onClose={() => setIsBatchPrintHubModalOpen(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
