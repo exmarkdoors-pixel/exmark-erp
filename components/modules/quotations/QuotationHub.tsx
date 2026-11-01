@@ -339,6 +339,23 @@ export function QuotationHub() {
   const [activeTab, setActiveTab] = useState<'quotations' | 'pipeline' | 'salesOrders'>('quotations');
   const [audioEnabled, setAudioEnabled] = useState(true);
 
+  // Helper to create a clean zero-baseline draft row
+  const createZeroRow = (id = 1, modelId = ''): QuoteItemRow => ({
+    id,
+    modelId: modelId || INITIAL_MODELS[0]?.id || 'MOD-101',
+    unit: 'inch',
+    height: 0,
+    heightFraction: '0',
+    widthTop: 0,
+    widthTopFraction: '0',
+    widthBottom: 0,
+    widthBottomFraction: '0',
+    width: 0,
+    widthFraction: '0',
+    qty: 0,
+    rate: 0,
+  });
+
   // Entities
   const [customers, setCustomers] = useState<HubCustomer[]>(INITIAL_CUSTOMERS);
   const [doorModels, setDoorModels] = useState<HubDoorModel[]>(INITIAL_MODELS);
@@ -364,6 +381,7 @@ export function QuotationHub() {
   const [printDocType, setPrintDocType] = useState<DocumentType>('quotation');
   const [activeLeadModal, setActiveLeadModal] = useState<HubLead | null>(null);
   const [leadModalNotes, setLeadModalNotes] = useState<string>('');
+  const [isZeroConfirmOpen, setIsZeroConfirmOpen] = useState(false);
 
   // 40% Advance Gatekeeper Modal state
   const [activeAdvanceOrder, setActiveAdvanceOrder] = useState<HubSalesOrder | null>(null);
@@ -376,6 +394,14 @@ export function QuotationHub() {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('exmark_print_theme') as PrintTheme;
       if (saved) setPrintTheme(saved);
+
+      const isZeroed = localStorage.getItem('exmark_data_zeroed');
+      if (isZeroed === 'true') {
+        setQuotations([]);
+        setLeads([]);
+        setSalesOrders([]);
+        setQuoteItemRows([createZeroRow(1, INITIAL_MODELS[0]?.id)]);
+      }
     }
   }, []);
 
@@ -561,33 +587,23 @@ export function QuotationHub() {
     setQuoteItemRows(quoteItemRows.filter((_, idx) => idx !== index));
   };
 
-  const handleClearAll = () => {
-    const firstModel = doorModels[0];
-    setQuoteItemRows([
-      {
-        id: 1,
-        modelId: firstModel.id,
-        unit: 'cm',
-        height: 205,
-        heightFraction: '0',
-        widthTop: 75,
-        widthTopFraction: '0',
-        widthBottom: 75,
-        widthBottomFraction: '0',
-        width: 75,
-        widthFraction: '0',
-        qty: 1,
-        rate: firstModel.rate,
-      },
-    ]);
-    showToast('Form Reset', 'Quotation items reset to 1 standard door specification.', 'info');
+  const handleClearAllToZero = () => {
+    setQuoteItemRows([createZeroRow(1, doorModels[0]?.id)]);
+    playBeep(480, 0.08);
+    showToast('Workbench Cleared to Zero', 'All door quantities, dimensions, and rates set to 0 (₹0).', 'info');
   };
 
   // Save Quotation
   const handleSaveQuotation = () => {
+    const totalDoors = quoteItemRows.reduce((acc, r) => acc + (Number(r.qty) || 0), 0);
+    if (totalDoors <= 0) {
+      playBeep(350, 0.15);
+      showToast('Zero Quantity', 'Please enter a door quantity greater than 0 before generating a quotation.', 'info');
+      return;
+    }
+
     const cust = customers.find((c) => c.id === selectedCustomerId) || { name: 'Direct Client', location: 'Kerala' };
     const newQuoteId = `QT-2026-0${quotations.length + 109}`;
-    const totalDoors = quoteItemRows.reduce((acc, r) => acc + (Number(r.qty) || 0), 0);
 
     const newQuote: HubQuotation = {
       id: newQuoteId,
@@ -830,7 +846,21 @@ export function QuotationHub() {
     showToast('Tax Invoice Generated', `Opening Tax Invoice Print Hub for ${order.id}...`);
   };
 
-  // Reset View Data
+  // Clear All Data as Zero
+  const handleClearAllDataAsZero = () => {
+    setQuotations([]);
+    setLeads([]);
+    setSalesOrders([]);
+    setQuoteItemRows([createZeroRow(1, doorModels[0]?.id)]);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('exmark_data_zeroed', 'true');
+    }
+    setIsZeroConfirmOpen(false);
+    playBeep(440, 0.15);
+    showToast('All Data Cleared to Zero', '0 quotations, 0 leads, 0 orders, ₹0 metrics.');
+  };
+
+  // Restore Standard Templates Data
   const handleResetData = () => {
     setCustomers(INITIAL_CUSTOMERS);
     setDoorModels(INITIAL_MODELS);
@@ -838,8 +868,11 @@ export function QuotationHub() {
     setLeads(INITIAL_LEADS);
     setSalesOrders(INITIAL_ORDERS);
     setSelectedCustomerId(INITIAL_CUSTOMERS[0].id);
-    handleClearAll();
-    showToast('Data Reset', 'Quotations, customers, and door models restored.');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('exmark_data_zeroed');
+    }
+    handleClearAllToZero();
+    showToast('Template Data Restored', 'Standard Kerala quotations, leads, and orders loaded.');
   };
 
   return (
@@ -1008,12 +1041,22 @@ export function QuotationHub() {
 
           <button
             type="button"
+            onClick={() => setIsZeroConfirmOpen(true)}
+            className="px-2.5 py-1 text-xs text-rose-400 hover:text-white bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 rounded-md transition cursor-pointer flex items-center gap-1.5"
+            title="Clear all quotations, CRM leads, and sales orders to zero"
+          >
+            <Trash2 className="w-3 h-3 text-rose-400" />
+            <span>Clear All Data as Zero</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleResetData}
-            className="px-2.5 py-1 text-xs text-slate-400 hover:text-rose-400 transition cursor-pointer flex items-center gap-1"
-            title="Reset View Data"
+            className="px-2.5 py-1 text-xs text-slate-400 hover:text-slate-200 transition cursor-pointer flex items-center gap-1"
+            title="Restore standard template data"
           >
             <RotateCcw className="w-3 h-3" />
-            <span>Reset</span>
+            <span>Restore Templates</span>
           </button>
         </div>
       </div>
@@ -1044,10 +1087,12 @@ export function QuotationHub() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleClearAll}
-                  className="px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                  onClick={handleClearAllToZero}
+                  className="px-3 py-1.5 text-xs text-slate-400 hover:text-rose-400 hover:bg-slate-800/80 rounded-lg transition cursor-pointer flex items-center gap-1.5"
+                  title="Clear all rows to 0 (₹0 Subtotal)"
                 >
-                  Clear All
+                  <RotateCcw className="w-3 h-3 text-rose-400" />
+                  <span>Clear to Zero (0 Data)</span>
                 </button>
                 <button
                   type="button"
@@ -1217,7 +1262,8 @@ export function QuotationHub() {
                                   <span className="text-[10px] text-slate-400 font-bold w-12">Height:</span>
                                   <input
                                     type="number"
-                                    value={row.height}
+                                    value={row.height === 0 ? '' : row.height}
+                                    placeholder="0"
                                     onChange={(e) => handleUpdateRow(idx, { height: parseFloat(e.target.value) || 0 })}
                                     className="w-14 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
                                     title="Height (inches)"
@@ -1241,7 +1287,8 @@ export function QuotationHub() {
                                   <span className="text-[10px] text-cyan-400 font-bold w-12">W (Top):</span>
                                   <input
                                     type="number"
-                                    value={wTop}
+                                    value={wTop === 0 ? '' : wTop}
+                                    placeholder="0"
                                     onChange={(e) => {
                                       const val = parseFloat(e.target.value) || 0;
                                       if (wBottom === wTop) {
@@ -1279,7 +1326,8 @@ export function QuotationHub() {
                                   <span className="text-[10px] text-cyan-400 font-bold w-12">W (Btm):</span>
                                   <input
                                     type="number"
-                                    value={wBottom}
+                                    value={wBottom === 0 ? '' : wBottom}
+                                    placeholder="0"
                                     onChange={(e) => handleUpdateRow(idx, { widthBottom: parseFloat(e.target.value) || 0 })}
                                     className="w-14 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
                                     title="Bottom Width (inches)"
@@ -1305,7 +1353,8 @@ export function QuotationHub() {
                                   <span className="text-[10px] text-slate-400 font-bold w-12">Height:</span>
                                   <input
                                     type="number"
-                                    value={row.height}
+                                    value={row.height === 0 ? '' : row.height}
+                                    placeholder="0"
                                     onChange={(e) => handleUpdateRow(idx, { height: parseFloat(e.target.value) || 0 })}
                                     className="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
                                     title={`Height (${row.unit})`}
@@ -1316,7 +1365,8 @@ export function QuotationHub() {
                                   <span className="text-[10px] text-cyan-400 font-bold w-12">W (Top):</span>
                                   <input
                                     type="number"
-                                    value={wTop}
+                                    value={wTop === 0 ? '' : wTop}
+                                    placeholder="0"
                                     onChange={(e) => {
                                       const val = parseFloat(e.target.value) || 0;
                                       if (wBottom === wTop) {
@@ -1334,7 +1384,8 @@ export function QuotationHub() {
                                   <span className="text-[10px] text-cyan-400 font-bold w-12">W (Btm):</span>
                                   <input
                                     type="number"
-                                    value={wBottom}
+                                    value={wBottom === 0 ? '' : wBottom}
+                                    placeholder="0"
                                     onChange={(e) => handleUpdateRow(idx, { widthBottom: parseFloat(e.target.value) || 0 })}
                                     className="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
                                     title={`Bottom Width (${row.unit})`}
@@ -1369,7 +1420,8 @@ export function QuotationHub() {
                               <span className="text-slate-400">₹</span>
                               <input
                                 type="number"
-                                value={row.rate}
+                                value={row.rate === 0 ? '' : row.rate}
+                                placeholder="0"
                                 onChange={(e) => handleUpdateRow(idx, { rate: parseFloat(e.target.value) || 0 })}
                                 className="w-24 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-bold text-emerald-400"
                               />
@@ -1561,7 +1613,20 @@ export function QuotationHub() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/70">
-                  {quotations.map((q) => {
+                  {quotations.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-10 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto text-slate-500">
+                          <FileSpreadsheet className="w-8 h-8 text-slate-600" />
+                          <p className="font-bold text-slate-300 text-sm">0 Quotation Records</p>
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            All data cleared to zero. Use the door workbench above to draft and save your first factory quotation.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    quotations.map((q) => {
                     let modeBadge = (
                       <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold">
                         +18% GST Excl
@@ -1609,7 +1674,7 @@ export function QuotationHub() {
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>
@@ -1743,7 +1808,16 @@ export function QuotationHub() {
           </div>
 
           <div className="space-y-4">
-            {salesOrders.map((order) => {
+            {salesOrders.length === 0 ? (
+              <div className="p-12 text-center bg-[#11192e] border border-slate-800 rounded-xl space-y-2">
+                <Layers className="w-8 h-8 text-slate-600 mx-auto" />
+                <p className="text-sm font-bold text-slate-300">0 Active Factory Work Orders</p>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  All production orders cleared to zero. Generate quotations and verify 40% advance to release jobs to the plant floor.
+                </p>
+              </div>
+            ) : (
+              salesOrders.map((order) => {
               const isFinished = order.stepIndex === ORDER_STEPS.length - 1;
 
               return (
@@ -1866,7 +1940,7 @@ export function QuotationHub() {
                   </div>
                 </div>
               );
-            })}
+            }))}
           </div>
         </div>
       )}
@@ -2440,6 +2514,43 @@ export function QuotationHub() {
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Verify &amp; Save Advance</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM ZERO ALL DATA MODAL */}
+      {isZeroConfirmOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#0f172a] border border-slate-700 max-w-md w-full rounded-2xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2.5 rounded-full bg-rose-950/60 border border-rose-800/60">
+                <Trash2 className="w-6 h-6 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Clear All Data to Zero?</h3>
+                <p className="text-xs text-slate-400">Reset factory operations to zero baseline</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              This will clear all <strong>quotations ({quotations.length})</strong>, <strong>CRM leads ({leads.length})</strong>, and <strong>active work orders ({salesOrders.length})</strong> to zero records. The quotation draft workbench will reset all quantities, dimensions, and rates to <strong>₹0</strong>.
+            </p>
+            <div className="pt-2 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsZeroConfirmOpen(false)}
+                className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAllDataAsZero}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg shadow-rose-900/40 cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Yes, Clear All to Zero</span>
               </button>
             </div>
           </div>
