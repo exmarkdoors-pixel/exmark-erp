@@ -15,6 +15,9 @@
     "test:master": "tsx scripts/test-master.ts",
     "test:phase9": "tsx scripts/test-phase9-security.ts",
     "test:workflow": "tsx scripts/test-workflow-e2e.ts",
+    "erp:full-audit": "tsx scripts/master-erp-full-suite.ts --audit",
+    "erp:simulate": "tsx scripts/master-erp-full-suite.ts --simulate",
+    "erp:health": "tsx scripts/master-erp-full-suite.ts --health",
     "backup": "tsx scripts/backup-agent.ts"
   },
   "dependencies": {
