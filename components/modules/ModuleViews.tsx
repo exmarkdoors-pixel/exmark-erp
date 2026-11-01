@@ -181,7 +181,7 @@ export function CustomersView() {
         queryParam = `?id=${deleteTarget}`;
       }
 
-      const res = await fetch(`/api/customers${queryParam}`, {
+      const res = await apiFetch(`/api/customers${queryParam}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: queryParam ? undefined : JSON.stringify(body),

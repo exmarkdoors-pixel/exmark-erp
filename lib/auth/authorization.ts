@@ -9,12 +9,32 @@ export interface AuthorizationResult {
 }
 
 /**
- * Validates and parses a base64 encoded session token.
+ * Validates and parses a base64 encoded session token or JSON string.
  */
 function parseSessionToken(token: string): SessionUser | null {
   try {
-    const decoded = Buffer.from(token, 'base64').toString('utf-8');
-    const parsed = JSON.parse(decoded) as SessionUser & { issuedAt?: number };
+    let clean = token.trim();
+    if (clean.toLowerCase().startsWith('bearer ')) {
+      clean = clean.substring(7).trim();
+    }
+    try {
+      clean = decodeURIComponent(clean);
+    } catch {
+      // ignore
+    }
+    if (clean.startsWith('"') && clean.endsWith('"')) {
+      clean = clean.slice(1, -1);
+    }
+    let jsonStr: string;
+    try {
+      jsonStr = Buffer.from(clean, 'base64').toString('utf-8');
+      if (!jsonStr.trim().startsWith('{')) {
+        jsonStr = clean;
+      }
+    } catch {
+      jsonStr = clean;
+    }
+    const parsed = JSON.parse(jsonStr) as SessionUser & { issuedAt?: number };
     if (!parsed || !parsed.id || !parsed.role || !parsed.email) {
       return null;
     }

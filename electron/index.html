@@ -1299,17 +1299,43 @@
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
-      if (window.electronAPI && window.electronAPI.getServerUrl) {
+      // 1. Proactively test if local ERP server is running on 3000
+      let detectedLocal = false;
+      try {
+        const ping = await fetch('http://127.0.0.1:3000/api/health', { method: 'GET' });
+        if (ping.ok) {
+          currentServerUrl = 'http://127.0.0.1:3000';
+          detectedLocal = true;
+          const inputEl = document.getElementById('customServerUrl');
+          if (inputEl) inputEl.value = currentServerUrl;
+        }
+      } catch {
+        try {
+          const ping2 = await fetch('http://localhost:3000/api/health', { method: 'GET' });
+          if (ping2.ok) {
+            currentServerUrl = 'http://localhost:3000';
+            detectedLocal = true;
+            const inputEl = document.getElementById('customServerUrl');
+            if (inputEl) inputEl.value = currentServerUrl;
+          }
+        } catch {
+          // Localhost offline
+        }
+      }
+
+      if (!detectedLocal && window.electronAPI && window.electronAPI.getServerUrl) {
         try {
           const stored = await window.electronAPI.getServerUrl();
           if (stored) {
             currentServerUrl = stored;
-            document.getElementById('customServerUrl').value = stored;
+            const inputEl = document.getElementById('customServerUrl');
+            if (inputEl) inputEl.value = stored;
           }
         } catch (e) {
           console.warn('Could not read electron stored server', e);
         }
       }
+
       calculateCutting();
       checkCloudHealth();
       renderCustomerTable();
@@ -1391,6 +1417,5 @@
       </form>
     </div>
   </div>
-  </script>
 </body>
 </html>

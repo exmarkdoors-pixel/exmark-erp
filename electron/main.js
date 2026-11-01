@@ -13,10 +13,20 @@ const LOCAL_DEV_URL = 'http://127.0.0.1:3000';
 
 function checkLocalServer(callback) {
   try {
-    const req = http.get(`${LOCAL_DEV_URL}/api/health`, { timeout: 1000 }, (res) => {
+    const req = http.get(`${LOCAL_DEV_URL}/api/health`, { timeout: 2000 }, (res) => {
       callback(res.statusCode === 200);
     });
-    req.on('error', () => callback(false));
+    req.on('error', () => {
+      // Also test localhost if 127.0.0.1 failed
+      const req2 = http.get('http://localhost:3000/api/health', { timeout: 2000 }, (res2) => {
+        callback(res2.statusCode === 200);
+      });
+      req2.on('error', () => callback(false));
+      req2.on('timeout', () => {
+        req2.destroy();
+        callback(false);
+      });
+    });
     req.on('timeout', () => {
       req.destroy();
       callback(false);
@@ -86,7 +96,10 @@ function loadLocalDesktopApp() {
 function loadRemoteUrl(targetUrl) {
   if (!mainWindow) return;
   console.log(`[Desktop Main] Loading remote ERP URL: ${targetUrl}`);
-  mainWindow.loadURL(targetUrl);
+  mainWindow.loadURL(targetUrl).catch((err) => {
+    console.warn(`[Desktop Main] loadURL failed: ${err.message}. Loading bundled local desktop UI.`);
+    loadLocalDesktopApp();
+  });
 }
 
 function createMainWindow() {

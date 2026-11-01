@@ -76,9 +76,18 @@ export default function Home() {
   // Verify and load active session user
   useEffect(() => {
     apiFetch('/api/auth/me')
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (res.status === 401 && typeof window !== 'undefined') {
+          const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          if (!isDev) {
+            window.location.href = '/login';
+            return null;
+          }
+        }
+        return res.json();
+      })
       .then((data) => {
-        if (data.authenticated && data.user) {
+        if (data && data.authenticated && data.user) {
           setUserRole(data.user.role);
           setUserName(data.user.name);
         }

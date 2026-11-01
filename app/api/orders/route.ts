@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { createProductionOrder } from '@/lib/services/productionService';
 import { getActiveFactory } from '@/lib/services/companyProfileService';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 const STORE_PATH = path.join(process.cwd(), 'data', 'quotations-store.json');
 const CUSTOMERS_PATH = path.join(process.cwd(), 'data', 'customers-store.json');
@@ -83,13 +84,18 @@ function getOrders(): SalesOrderViewItem[] {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await authorizeRequest(req, 'sales-orders');
+  if (auth.errorResponse) return auth.errorResponse;
   const orders = getOrders();
   return NextResponse.json({ success: true, count: orders.length, data: orders });
 }
 
 export async function POST(req: Request) {
   try {
+    const auth = await authorizeRequest(req, 'sales-orders', ['Super Admin', 'Management', 'Sales', 'Accounts']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const { orderId, action, newStatus } = body;
 

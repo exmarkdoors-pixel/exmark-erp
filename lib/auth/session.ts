@@ -163,8 +163,25 @@ export async function getSession(): Promise<SessionUser | null> {
   }
 
   try {
-    const decoded = Buffer.from(sessionCookie.value, 'base64').toString('utf-8');
-    const user = JSON.parse(decoded) as SessionUser & { issuedAt?: number };
+    let raw = sessionCookie.value.trim();
+    try {
+      raw = decodeURIComponent(raw);
+    } catch {
+      // not url-encoded
+    }
+    if (raw.startsWith('"') && raw.endsWith('"')) {
+      raw = raw.slice(1, -1);
+    }
+    let jsonStr: string;
+    try {
+      jsonStr = Buffer.from(raw, 'base64').toString('utf-8');
+      if (!jsonStr.trim().startsWith('{')) {
+        jsonStr = raw;
+      }
+    } catch {
+      jsonStr = raw;
+    }
+    const user = JSON.parse(jsonStr) as SessionUser & { issuedAt?: number };
     
     // Validate session expiration
     if (user.issuedAt && Date.now() - user.issuedAt > SESSION_MAX_AGE * 1000) {

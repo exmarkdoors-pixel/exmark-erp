@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllMeasurements, createMeasurement } from '@/lib/services/measurementService';
-import { getSession } from '@/lib/auth/session';
-import { canAccessModule } from '@/lib/auth/roles';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'measurements');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const measurements = await getAllMeasurements();
     return NextResponse.json({
       success: true,
@@ -20,15 +22,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-
-    // Permission check
-    if (session && !canAccessModule(session.role, 'measurements')) {
-      return NextResponse.json(
-        { success: false, error: `Access denied. Role ${session.role} cannot record site measurements.` },
-        { status: 403 }
-      );
-    }
+    const auth = await authorizeRequest(req, 'measurements');
+    if (auth.errorResponse) return auth.errorResponse;
+    const session = auth.user;
 
     const body = await req.json();
 

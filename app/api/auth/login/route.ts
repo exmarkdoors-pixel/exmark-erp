@@ -4,6 +4,7 @@ import { UserRole } from '@/lib/auth/roles';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 import { verifyPassword } from '@/lib/auth/password';
 import prisma from '@/lib/prisma';
+import { isPostgresAvailable } from '@/lib/services/dbSyncEngine';
 import { getActiveFactory } from '@/lib/services/companyProfileService';
 
 export async function POST(req: NextRequest) {
@@ -21,10 +22,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Check in database first if configured
+    // 1. Check in database first if configured and available
     let userRecord = null;
     try {
-      if (process.env.DATABASE_URL) {
+      if (await isPostgresAvailable()) {
         userRecord = await prisma.user.findUnique({
           where: { email: email.toLowerCase() },
           include: { role: true, employee: true },

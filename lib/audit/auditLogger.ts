@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { isPostgresAvailable } from '@/lib/services/dbSyncEngine';
 
 export interface AuditLogInput {
   userId?: string | null;
@@ -47,7 +48,7 @@ export async function logAuditEvent(input: AuditLogInput): Promise<void> {
       : (input.details as string) || null;
 
   try {
-    if (process.env.DATABASE_URL) {
+    if (await isPostgresAvailable()) {
       await prisma.auditLog.create({
         data: {
           userId: input.userId || null,
