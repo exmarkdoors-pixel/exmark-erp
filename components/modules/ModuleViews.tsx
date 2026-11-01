@@ -36,6 +36,9 @@ import {
   QrCode,
   Zap,
   X,
+  Trash2,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import {
   DEMO_PRODUCTION_LINES,
@@ -92,22 +95,29 @@ export function CustomersView() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
+  // Multi-selection & batch deletion state
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<'ALL' | 'SELECTED' | string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchCustomers = () => {
+    setIsLoading(true);
     apiFetch('/api/customers')
       .then((res) => res.json())
       .then((json) => {
-        if (active && json.success && Array.isArray(json.data)) {
+        if (json.success && Array.isArray(json.data)) {
           setCustomers(json.data);
         }
       })
       .catch(() => {})
       .finally(() => {
-        if (active) setIsLoading(false);
+        setIsLoading(false);
       });
-    return () => {
-      active = false;
-    };
+  };
+
+  useEffect(() => {
+    fetchCustomers();
   }, []);
 
   const handleCustomerSaved = (saved: Customer) => {
@@ -135,6 +145,77 @@ export function CustomersView() {
     return matchesSearch && matchesType;
   });
 
+  const isAllSelected = filtered.length > 0 && filtered.every((c) => selectedCustomerIds.includes(c.id));
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedCustomerIds([]);
+    } else {
+      setSelectedCustomerIds(filtered.map((c) => c.id));
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedCustomerIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const triggerDelete = (target: 'ALL' | 'SELECTED' | string) => {
+    setDeleteTarget(target);
+    setIsConfirmDeleteOpen(true);
+  };
+
+  const executeDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      let body: any = {};
+      let queryParam = '';
+
+      if (deleteTarget === 'ALL') {
+        body = { all: true };
+      } else if (deleteTarget === 'SELECTED') {
+        body = { ids: selectedCustomerIds };
+      } else {
+        queryParam = `?id=${deleteTarget}`;
+      }
+
+      const res = await fetch(`/api/customers${queryParam}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: queryParam ? undefined : JSON.stringify(body),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        if (deleteTarget === 'ALL') {
+          setCustomers([]);
+          setSelectedCustomerIds([]);
+          setToastMessage('All customer records successfully deleted. Clean fresh start ready.');
+        } else if (deleteTarget === 'SELECTED') {
+          const removedSet = new Set(selectedCustomerIds);
+          setCustomers((prev) => prev.filter((c) => !removedSet.has(c.id)));
+          setSelectedCustomerIds([]);
+          setToastMessage(`Deleted ${data.deletedCount || selectedCustomerIds.length} customer records.`);
+        } else {
+          setCustomers((prev) => prev.filter((c) => c.id !== deleteTarget));
+          setSelectedCustomerIds((prev) => prev.filter((i) => i !== deleteTarget));
+          setToastMessage('Customer record deleted.');
+        }
+        setTimeout(() => setToastMessage(null), 4000);
+      } else {
+        alert(data.error || 'Failed to delete customer(s).');
+      }
+    } catch {
+      alert('Error occurred while deleting customer record(s).');
+    } finally {
+      setIsDeleting(false);
+      setIsConfirmDeleteOpen(false);
+      setDeleteTarget(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {toastMessage && (
@@ -144,6 +225,7 @@ export function CustomersView() {
         </div>
       )}
 
+      {/* Top Header Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -154,14 +236,37 @@ export function CustomersView() {
             Kerala Authorized Dealers, Commercial Builders, Architects & Direct Contractors
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500 transition-colors self-start sm:self-auto cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Add New Customer
-        </button>
+
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+          {selectedCustomerIds.length > 0 && (
+            <button
+              onClick={() => triggerDelete('SELECTED')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600/20 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-semibold hover:bg-rose-600 hover:text-white transition-all cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete Selected ({selectedCustomerIds.length})
+            </button>
+          )}
+
+          {customers.length > 0 && (
+            <button
+              onClick={() => triggerDelete('ALL')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-950/40 text-red-400 border border-red-600/40 rounded-lg text-xs font-semibold hover:bg-red-600 hover:text-white transition-all cursor-pointer"
+              title="Clear all customers to start with fresh clean data"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Clear All (Start Fresh)
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500 transition-colors cursor-pointer shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> Add New Customer
+          </button>
+        </div>
       </div>
 
+      {/* Search, Filter & Select All Bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -186,59 +291,173 @@ export function CustomersView() {
         </select>
       </div>
 
+      {/* Selection Summary Toolbar */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between text-xs px-3 py-2 bg-slate-100 dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-slate-800/80">
+          <button
+            onClick={handleSelectAll}
+            className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-semibold hover:text-red-500 transition cursor-pointer"
+          >
+            {isAllSelected ? (
+              <CheckSquare className="w-4 h-4 text-red-500" />
+            ) : (
+              <Square className="w-4 h-4 text-slate-400" />
+            )}
+            <span>{isAllSelected ? 'Deselect All' : 'Select All Customers (SELETE ALL)'}</span>
+          </button>
+          <span className="text-slate-400">
+            {selectedCustomerIds.length > 0
+              ? `${selectedCustomerIds.length} of ${filtered.length} customers selected`
+              : `Total: ${filtered.length} customer records`}
+          </span>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="p-8 text-center text-xs text-slate-400">Loading customer directory...</div>
       ) : filtered.length === 0 ? (
-        <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
-          No customers found matching your criteria.
+        <div className="p-12 text-center text-xs border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-[#0B132B]/40 space-y-3">
+          <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto">
+            <Users className="w-6 h-6" />
+          </div>
+          <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+            {customers.length === 0 ? 'Clean Slate — 0 Customer Records' : 'No matching customers found'}
+          </h3>
+          <p className="text-slate-400 max-w-sm mx-auto">
+            {customers.length === 0
+              ? 'Your customer directory is completely fresh with zero records. Click below to add your first client.'
+              : 'Try adjusting your search keywords or customer type filter.'}
+          </p>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Add First Customer
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((customer) => (
-            <div
-              key={customer.id}
-              className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-red-500/50 transition-all space-y-3"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                    {customer.type}
-                  </span>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white mt-1">
-                    {customer.name}
-                  </h3>
-                  {customer.firmName && (
-                    <p className="text-xs text-slate-400">{customer.firmName}</p>
-                  )}
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-                  {customer.status}
-                </span>
-              </div>
+          {filtered.map((customer) => {
+            const isSelected = selectedCustomerIds.includes(customer.id);
+            return (
+              <div
+                key={customer.id}
+                className={`bg-white dark:bg-[#0B132B] p-5 rounded-xl border transition-all space-y-3 relative ${
+                  isSelected
+                    ? 'border-red-500 ring-2 ring-red-500/20'
+                    : 'border-slate-200 dark:border-slate-800 shadow-sm hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleSelect(customer.id)}
+                      className="mt-1 w-4 h-4 rounded text-red-600 bg-slate-900 border-slate-700 focus:ring-0 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        {customer.type}
+                      </span>
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-white mt-1">
+                        {customer.name}
+                      </h3>
+                      {customer.firmName && (
+                        <p className="text-xs text-slate-400">{customer.firmName}</p>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-red-500" />
-                  <span>{customer.town}, {customer.district}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                      {customer.status}
+                    </span>
+                    <button
+                      onClick={() => triggerDelete(customer.id)}
+                      className="p-1 text-slate-500 hover:text-rose-400 rounded hover:bg-rose-500/10 transition cursor-pointer"
+                      title="Delete customer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{customer.phone}</span>
+
+                <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                    <span>{customer.town}, {customer.district}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{customer.phone}</span>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-center text-xs">
+                  <div className="p-2 rounded bg-slate-50 dark:bg-slate-900/60">
+                    <span className="text-[10px] text-slate-400 block">Credit Limit</span>
+                    <span className="font-bold text-slate-900 dark:text-white">₹{customer.creditLimit?.toLocaleString('en-IN') || 0}</span>
+                  </div>
+                  <div className="p-2 rounded bg-slate-50 dark:bg-slate-900/60">
+                    <span className="text-[10px] text-slate-400 block">Outstanding</span>
+                    <span className="font-bold text-red-500">₹{customer.outstandingBalance?.toLocaleString('en-IN') || 0}</span>
+                  </div>
                 </div>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-center text-xs">
-                <div className="p-2 rounded bg-slate-50 dark:bg-slate-900/60">
-                  <span className="text-[10px] text-slate-400 block">Credit Limit</span>
-                  <span className="font-bold text-slate-900 dark:text-white">₹{customer.creditLimit?.toLocaleString('en-IN') || 0}</span>
-                </div>
-                <div className="p-2 rounded bg-slate-50 dark:bg-slate-900/60">
-                  <span className="text-[10px] text-slate-400 block">Outstanding</span>
-                  <span className="font-bold text-red-500">₹{customer.outstandingBalance?.toLocaleString('en-IN') || 0}</span>
-                </div>
+      {/* CONFIRMATION SAFETY MODAL */}
+      {isConfirmDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-[#0B132B] border border-red-500/40 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl text-slate-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-white">
+                  {deleteTarget === 'ALL'
+                    ? 'Clear All Customer Records?'
+                    : deleteTarget === 'SELECTED'
+                    ? `Delete ${selectedCustomerIds.length} Selected Customer(s)?`
+                    : 'Delete Customer Record?'}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {deleteTarget === 'ALL'
+                    ? 'This will delete all customer data across the system to start with a completely fresh directory.'
+                    : 'This action will permanently delete the selected customer(s).'}
+                </p>
               </div>
             </div>
-          ))}
+
+            <div className="p-3 bg-red-950/30 border border-red-500/30 rounded-xl text-xs text-red-300">
+              ⚠️ <strong>Warning:</strong> A safety backup has been created in <code>data/backups/</code>.
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setIsConfirmDeleteOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={executeDelete}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-500 transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Deleting...' : 'Yes, Delete Now'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

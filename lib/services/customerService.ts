@@ -206,3 +206,61 @@ export async function updateCustomer(id: string, data: CustomerUpdateInput): Pro
 export async function archiveCustomer(id: string): Promise<Customer> {
   return updateCustomer(id, { status: 'SUSPENDED' });
 }
+
+export async function deleteCustomer(id: string): Promise<boolean> {
+  await assertWriteAllowed('Customer Deletion');
+  const all = readStore();
+  const filtered = all.filter((c) => c.id !== id);
+  if (filtered.length === all.length) return false;
+
+  const isOnline = await isPostgresAvailable();
+  if (isOnline) {
+    try {
+      await prisma.customer.delete({ where: { id } });
+    } catch (err) {
+      console.warn('[customerService] PostgreSQL delete failed, continuing with file store:', err);
+    }
+  }
+
+  writeStore(filtered);
+  return true;
+}
+
+export async function deleteMultipleCustomers(ids: string[]): Promise<{ count: number }> {
+  await assertWriteAllowed('Customer Bulk Deletion');
+  if (!ids || ids.length === 0) return { count: 0 };
+  const idSet = new Set(ids);
+  const all = readStore();
+  const filtered = all.filter((c) => !idSet.has(c.id));
+  const removedCount = all.length - filtered.length;
+
+  const isOnline = await isPostgresAvailable();
+  if (isOnline) {
+    try {
+      await prisma.customer.deleteMany({ where: { id: { in: ids } } });
+    } catch (err) {
+      console.warn('[customerService] PostgreSQL bulk delete failed:', err);
+    }
+  }
+
+  writeStore(filtered);
+  return { count: removedCount };
+}
+
+export async function clearAllCustomers(): Promise<{ count: number }> {
+  await assertWriteAllowed('Clear All Customers');
+  const all = readStore();
+  const count = all.length;
+
+  const isOnline = await isPostgresAvailable();
+  if (isOnline) {
+    try {
+      await prisma.customer.deleteMany({});
+    } catch (err) {
+      console.warn('[customerService] PostgreSQL clear all failed:', err);
+    }
+  }
+
+  writeStore([]);
+  return { count };
+}

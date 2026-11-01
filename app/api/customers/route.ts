@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   listCustomers,
   createCustomer,
+  deleteCustomer,
+  deleteMultipleCustomers,
+  clearAllCustomers,
   CustomerFilter,
   CustomerType,
   CustomerStatus,
@@ -77,6 +80,57 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, data: customer }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create customer';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const auth = await authorizeRequest(req, 'customers', ['Super Admin', 'Management', 'Sales', 'Accounts']);
+    if (auth.errorResponse) return auth.errorResponse;
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body may be empty if deleting via query param ?id=...
+    }
+
+    if (body.all === true) {
+      const res = await clearAllCustomers();
+      return NextResponse.json({
+        success: true,
+        message: `All ${res.count} customer records have been deleted. Clean fresh start ready.`,
+        deletedCount: res.count,
+      });
+    }
+
+    if (Array.isArray(body.ids) && body.ids.length > 0) {
+      const res = await deleteMultipleCustomers(body.ids);
+      return NextResponse.json({
+        success: true,
+        message: `Successfully deleted ${res.count} customer records.`,
+        deletedCount: res.count,
+      });
+    }
+
+    if (id) {
+      const ok = await deleteCustomer(id);
+      if (!ok) {
+        return NextResponse.json({ success: false, error: 'Customer not found' }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, message: 'Customer successfully deleted.' });
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Missing customer id, ids array, or all: true flag' },
+      { status: 400 }
+    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to delete customer(s)';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
