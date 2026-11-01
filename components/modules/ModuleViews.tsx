@@ -52,6 +52,7 @@ import { LeadFormModal } from './crm/LeadFormModal';
 import LeadsPipeline from './crm/LeadsPipeline';
 import { QuotationHub } from './quotations/QuotationHub';
 import { QuotationBuilder } from './quotations/QuotationBuilder';
+import SalesAndReturnHub from './sales/SalesAndReturnHub';
 import { JobCardModal } from './production/JobCardModal';
 import { StickerPrintModal } from './production/StickerPrintModal';
 import { QcInspectionModal } from './production/QcInspectionModal';
@@ -1014,6 +1015,13 @@ export function SalesOrdersView() {
       </div>
     </div>
   );
+}
+
+/* -------------------------------------------------------------
+ * 5B. SALES & SALES RETURN VIEW
+ * ------------------------------------------------------------- */
+export function SalesAndReturnView() {
+  return <SalesAndReturnHub />;
 }
 
 /* -------------------------------------------------------------

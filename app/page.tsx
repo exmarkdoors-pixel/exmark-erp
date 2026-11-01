@@ -19,6 +19,7 @@ import {
   QuotationsView,
   DoorMeasurementsView,
   SalesOrdersView,
+  SalesAndReturnView,
   ProductionView,
   InventoryView,
   PurchasesView,
@@ -334,6 +335,7 @@ export default function Home() {
             {currentTab === 'quotations' && <QuotationsView />}
             {currentTab === 'measurements' && <DoorMeasurementsView userRole={userRole} />}
             {currentTab === 'sales-orders' && <SalesOrdersView />}
+            {currentTab === 'sales' && <SalesAndReturnView />}
             {currentTab === 'production' && <ProductionView />}
             {currentTab === 'inventory' && <InventoryView />}
             {currentTab === 'purchases' && <PurchasesView />}

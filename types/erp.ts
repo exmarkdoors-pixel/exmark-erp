@@ -5,6 +5,7 @@ export type NavigationTab =
   | 'quotations'
   | 'measurements'
   | 'sales-orders'
+  | 'sales'
   | 'production'
   | 'inventory'
   | 'purchases'

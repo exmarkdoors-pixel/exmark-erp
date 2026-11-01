@@ -5,7 +5,7 @@ import { HubQuotation, HubCustomer, HubDoorModel, formatDimensionDisplay, calcul
 import { Building2, Calendar, FileText, CheckCircle2, QrCode, ShieldCheck, Printer } from 'lucide-react';
 
 export type PrintTheme = 'tally-classic' | 'tally-modern' | 'tally-formal' | 'vyapar-elegant' | 'vyapar-modern';
-export type DocumentType = 'quotation' | 'proforma' | 'salesOrder' | 'salesInvoice' | 'statement';
+export type DocumentType = 'quotation' | 'proforma' | 'salesOrder' | 'salesInvoice' | 'statement' | 'creditNote';
 
 export interface StatementEntry {
   id: string;
@@ -54,6 +54,7 @@ export const DOCUMENT_TITLES: Record<DocumentType, { en: string; ml: string; bad
   salesOrder: { en: 'SALES WORK ORDER', ml: 'സെയിൽസ് വർക്ക് ഓർഡർ', badge: 'WORK ORDER' },
   salesInvoice: { en: 'TAX INVOICE (GST BILL)', ml: 'ടാക്സ് ഇൻവോയ്സ് (ജിഎസ്ടി)', badge: 'TAX INVOICE' },
   statement: { en: 'PARTY ACCOUNT STATEMENT', ml: 'കസ്റ്റമർ അക്കൗണ്ട് ലെഡ്ജർ', badge: 'LEDGER' },
+  creditNote: { en: 'GST CREDIT NOTE (SALES RETURN)', ml: 'ജിഎസ്ടി ക്രെഡിറ്റ് നോട്ട് (സെയിൽസ് റിട്ടേൺ)', badge: 'CREDIT NOTE' },
 };
 
 // Generate default statement ledger data based on quotation

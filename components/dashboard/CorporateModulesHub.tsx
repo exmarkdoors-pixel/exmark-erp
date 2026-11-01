@@ -11,6 +11,7 @@ import {
   Boxes,
   Truck,
   ReceiptIndianRupee,
+  ReceiptText,
   UserCheck,
   Megaphone,
   BarChart3,
@@ -111,6 +112,19 @@ const MODULES_DIRECTORY: ModuleCardConfig[] = [
     badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
     primaryMetric: '₹28.4L Booked',
     accentColor: 'from-indigo-600/20 to-transparent',
+  },
+  {
+    id: 'sales',
+    title: 'Sales & Returns Management',
+    subtitle: 'Tax Invoices & Credit Notes',
+    description: 'Bilingual GST Tax Invoices (HSN 3925), sales returns, Section 34 credit notes, and factory rework routing.',
+    icon: ReceiptText,
+    folderCategory: 'CORE',
+    folderName: 'Core Commercial',
+    badge: 'GST Invoices',
+    badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    primaryMetric: '100% Tax Compliant',
+    accentColor: 'from-emerald-600/20 to-transparent',
   },
 
   // Folder: Manufacturing & Supply Chain
