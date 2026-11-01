@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import DemoNoticeBanner from '@/components/layout/DemoNoticeBanner';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import KpiCards from '@/components/dashboard/KpiCards';
@@ -163,9 +162,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#070D1E] text-slate-100 flex flex-col font-sans selection:bg-red-500 selection:text-white">
-      {/* Top Demo Notice Banner */}
-      <DemoNoticeBanner />
-
       <div className="flex flex-1 relative">
         {/* Collapsible Sidebar */}
         <Sidebar

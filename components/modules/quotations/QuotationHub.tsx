@@ -830,8 +830,8 @@ export function QuotationHub() {
     showToast('Tax Invoice Generated', `Opening Tax Invoice Print Hub for ${order.id}...`);
   };
 
-  // Reset Demo
-  const handleResetDemo = () => {
+  // Reset View Data
+  const handleResetData = () => {
     setCustomers(INITIAL_CUSTOMERS);
     setDoorModels(INITIAL_MODELS);
     setQuotations(INITIAL_QUOTATIONS);
@@ -839,7 +839,7 @@ export function QuotationHub() {
     setSalesOrders(INITIAL_ORDERS);
     setSelectedCustomerId(INITIAL_CUSTOMERS[0].id);
     handleClearAll();
-    showToast('Demo Data Reset', 'Quotations, customers, and door models restored.');
+    showToast('Data Reset', 'Quotations, customers, and door models restored.');
   };
 
   return (
@@ -1008,9 +1008,9 @@ export function QuotationHub() {
 
           <button
             type="button"
-            onClick={handleResetDemo}
+            onClick={handleResetData}
             className="px-2.5 py-1 text-xs text-slate-400 hover:text-rose-400 transition cursor-pointer flex items-center gap-1"
-            title="Reset Demo Data"
+            title="Reset View Data"
           >
             <RotateCcw className="w-3 h-3" />
             <span>Reset</span>

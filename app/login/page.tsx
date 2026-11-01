@@ -133,7 +133,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-red-400" />
-                Select Role Profile (Demo Testing):
+                Select Role Profile:
               </span>
               <span className="text-[10px] text-slate-400">9 Enterprise Roles</span>
             </div>
@@ -217,7 +217,7 @@ export default function LoginPage() {
                 </button>
               </div>
               <span className="text-[11px] text-slate-400 mt-1 block">
-                Default demo pass: <code className="text-slate-300 font-mono">Exmark@2026</code>
+                System default pass: <code className="text-slate-300 font-mono">Exmark@2026</code>
               </span>
             </div>
 

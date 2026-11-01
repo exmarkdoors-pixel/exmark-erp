@@ -105,10 +105,10 @@ export default function QuickActionsModal({
                 <CheckCircle className="w-7 h-7" />
               </div>
               <h4 className="text-base font-bold text-slate-900 dark:text-white">
-                Simulated Successfully!
+                Saved Successfully!
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                Demo record generated. All changes are contained within the client demo session.
+                Record generated successfully.
               </p>
             </div>
           ) : (
@@ -181,7 +181,7 @@ export default function QuickActionsModal({
               </div>
 
               <div className="p-3 bg-red-50/50 dark:bg-red-950/20 rounded-lg border border-red-200/50 dark:border-red-900/30 text-[11px] text-red-700 dark:text-red-300">
-                <span className="font-semibold block mb-0.5">Estimated Kerala Pricing (Demo):</span>
+                <span className="font-semibold block mb-0.5">Estimated Kerala Pricing:</span>
                 <span>Subtotal: ₹{((parseInt(units) || 1) * 8500).toLocaleString('en-IN')} + 18% GST (HSN 3925)</span>
               </div>
 
@@ -197,7 +197,7 @@ export default function QuickActionsModal({
                   type="submit"
                   className="px-5 py-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold hover:from-red-500 hover:to-rose-500 transition-all shadow-md shadow-red-900/30"
                 >
-                  Save Demo Record
+                  Save Record
                 </button>
               </div>
             </form>

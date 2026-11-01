@@ -36,7 +36,7 @@ export function WhatsAppSendModal({
     if (language === 'ml') {
       switch (documentType) {
         case 'MEASUREMENT_CONFIRMATION':
-          return `നമസ്കാരം ${recipientName || 'സർ/മാഡം'}, EXMARK DOORS-ൽ നിന്നുള്ള നിങ്ങളുടെ സൈറ്റ് ഡോർ അളവുകൾ തയ്യാറായിട്ടുണ്ട്. ദയവായി താഴെ നൽകിയിരിക്കുന്ന ലിങ്ക് വഴി അളവുകൾ പരിശോധിച്ച് സ്ഥിരീകരിക്കുക:\n🔗 https://exmarkdoors.com/confirm/${initialDocumentId || 'msr-demo'}`;
+          return `നമസ്കാരം ${recipientName || 'സർ/മാഡം'}, EXMARK DOORS-ൽ നിന്നുള്ള നിങ്ങളുടെ സൈറ്റ് ഡോർ അളവുകൾ തയ്യാറായിട്ടുണ്ട്. ദയവായി താഴെ നൽകിയിരിക്കുന്ന ലിങ്ക് വഴി അളവുകൾ പരിശോധിച്ച് സ്ഥിരീകരിക്കുക:\n🔗 https://exmarkdoors.com/confirm/${initialDocumentId || 'msr-doc'}`;
         case 'QUOTATION':
           return `നമസ്കാരം ${recipientName}, EXMARK FRP ഡോറുകൾക്കുള്ള നിങ്ങളുടെ കൊട്ടേഷൻ എസ്റ്റിമേറ്റ് തയ്യാറായിട്ടുണ്ട്. 18% GST ഉൾപ്പെടെയുള്ള വിവരങ്ങൾ ഇതോടൊപ്പം അറ്റാച്ച് ചെയ്തിരിക്കുന്നു.`;
         case 'INVOICE':
@@ -47,7 +47,7 @@ export function WhatsAppSendModal({
     } else {
       switch (documentType) {
         case 'MEASUREMENT_CONFIRMATION':
-          return `Dear ${recipientName || 'Customer'}, your EXMARK Site Door Measurements (${initialDocumentId || 'MSR-2026-001'}) have been verified. Please inspect finished cutting sizes and tap below to confirm:\n🔗 https://exmarkdoors.com/confirm/${initialDocumentId || 'msr-demo'}`;
+          return `Dear ${recipientName || 'Customer'}, your EXMARK Site Door Measurements (${initialDocumentId || 'MSR-2026-001'}) have been verified. Please inspect finished cutting sizes and tap below to confirm:\n🔗 https://exmarkdoors.com/confirm/${initialDocumentId || 'msr-doc'}`;
         case 'QUOTATION':
           return `Dear ${recipientName}, your official quotation estimate for EXMARK Premium FRP Doors is ready with 18% GST. Total estimate is attached.`;
         case 'INVOICE':

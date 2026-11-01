@@ -213,7 +213,7 @@ const MODULES_DIRECTORY: ModuleCardConfig[] = [
     id: 'marketing',
     title: 'Showroom Racks & Marketing',
     subtitle: 'Dealer Display Units',
-    description: 'Kerala dealer sample rack distribution, marketing collateral, physical demo door tracking.',
+    description: 'Kerala dealer sample rack distribution, marketing collateral, physical display door tracking.',
     icon: Megaphone,
     folderCategory: 'GOVERNANCE',
     folderName: 'Executive & Admin',
