@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
+import UnifiedBondingPipelineBar from '@/components/layout/UnifiedBondingPipelineBar';
 import KpiCards from '@/components/dashboard/KpiCards';
 import SalesChart from '@/components/dashboard/SalesChart';
 import ProductionStatus from '@/components/dashboard/ProductionStatus';
@@ -25,6 +26,7 @@ import {
   QualityControlView,
   PlantMaintenanceView,
   SubcontractingView,
+  BatchPrintView,
   InventoryView,
   PurchasesView,
   GatePassView,
@@ -125,6 +127,8 @@ export default function Home() {
         return 'Door Measurements Book';
       case 'sales-orders':
         return 'Sales & Work Orders';
+      case 'batch-print':
+        return '12L Stickers & Batch Print Hub';
       case 'production':
         return 'Plant Floor & Production';
       case 'inventory':
@@ -200,6 +204,12 @@ export default function Home() {
 
           {/* Main Body Content */}
           <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6 print:p-0 print:m-0 print:max-w-none">
+            {/* Unified Factory ERP Bonding Pipeline */}
+            <UnifiedBondingPipelineBar
+              currentTab={currentTab}
+              onNavigate={(tab) => setCurrentTab(tab)}
+            />
+
             {/* Dashboard View */}
             {currentTab === 'dashboard' && (
               <>
@@ -347,6 +357,7 @@ export default function Home() {
             {currentTab === 'quality' && <QualityControlView />}
             {currentTab === 'maintenance' && <PlantMaintenanceView />}
             {currentTab === 'job-work' && <SubcontractingView />}
+            {currentTab === 'batch-print' && <BatchPrintView />}
             {currentTab === 'inventory' && <InventoryView />}
             {currentTab === 'purchases' && <PurchasesView />}
             {currentTab === 'gate-pass' && <GatePassView />}

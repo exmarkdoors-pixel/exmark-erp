@@ -31,6 +31,7 @@ import {
   Upload,
   FileSpreadsheet,
   Printer,
+  ShoppingBag,
 } from 'lucide-react';
 import { DoorItemInput, SiteMeasurementRecord, MeasurementUnit } from '@/types/measurements';
 import { CatalogMaster, DoorModelCatalogItem, ColourCatalogItem, LockCatalogItem, DEFAULT_CATALOG } from '@/types/catalog';
@@ -627,6 +628,49 @@ function DoorMeasurementModalContent({
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Error saving record.');
     } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Direct lock & convert measurements to confirmed Sales Order
+  const handleConvertToSalesOrder = async () => {
+    if (doors.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      // 1. Compute total amount
+      const totalEstimated = doors.reduce((sum, d) => sum + (d.unitPrice || 7000), 0);
+      const grossWithTax = Math.round(totalEstimated * 1.18);
+
+      // 2. Post to create confirmed sales order
+      await fetch('/api/quotations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: customerName || 'Direct Site Client',
+          siteName: siteName || 'Kerala Site',
+          district: district || 'Ernakulam',
+          status: 'APPROVED',
+          items: doors.map((d) => ({
+            doorModel: d.model || 'FRP Molded Door',
+            quantity: 1,
+            unitPrice: d.unitPrice || 7000,
+            amount: d.unitPrice || 7000,
+          })),
+          subtotal: totalEstimated,
+          totalAmount: grossWithTax,
+          advanceAmount: 0,
+          advanceVerified: false,
+          notes: `Bonded from Door Measurement Book (${refNumber || 'Site Direct'}). Shutter tolerance deductions applied.`,
+        }),
+      });
+
+      setSuccessToast('Measurements locked! Converted to Confirmed Sales Order. Ready for 40% Advance Deposit.');
+      setTimeout(() => {
+        setSuccessToast(null);
+        handleSave('VERIFIED');
+      }, 1500);
+    } catch {
+      setErrorMsg('Failed to bond measurements to Sales Order.');
       setIsSubmitting(false);
     }
   };
@@ -1540,11 +1584,23 @@ function DoorMeasurementModalContent({
               type="button"
               onClick={() => setIsAutoQuotationOpen(true)}
               disabled={doors.length === 0}
-              className="px-4 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-xs font-black transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3.5 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-xs font-black transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
               title="Generate Formal GST Quotation (Per Piece Rate or Square Feet Rate)"
             >
               <Zap className="w-4 h-4 text-emerald-400" />
-              <span>⚡ Auto Quotation</span>
+              <span>⚡ Auto Quote</span>
+            </button>
+
+            {/* Direct Lock & Convert to Sales Order */}
+            <button
+              type="button"
+              onClick={handleConvertToSalesOrder}
+              disabled={doors.length === 0 || isSubmitting}
+              className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-lg shadow-rose-950/40 transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+              title="Lock confirmed dimensions and convert directly to Confirmed Sales Order"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>Convert to Order ➡️</span>
             </button>
 
             <button

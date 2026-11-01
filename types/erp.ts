@@ -11,6 +11,7 @@ export type NavigationTab =
   | 'quality'
   | 'maintenance'
   | 'job-work'
+  | 'batch-print'
   | 'inventory'
   | 'purchases'
   | 'gate-pass'

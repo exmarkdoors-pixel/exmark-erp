@@ -28,6 +28,7 @@ import {
   Repeat,
   ClipboardCheck,
   Ticket,
+  Printer,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/erp';
 import { UserRole, canAccessModule } from '@/lib/auth/roles';
@@ -69,6 +70,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'quality', label: 'Quality Control (QA)', icon: ShieldCheck, badge: 'IQC/IPQC', badgeColor: 'bg-teal-500/20 text-teal-300', category: 'Operations' },
   { id: 'maintenance', label: 'Plant Maintenance', icon: Wrench, badge: '8 Presses', badgeColor: 'bg-amber-500/20 text-amber-300', category: 'Operations' },
   { id: 'job-work', label: 'Subcontracting', icon: Repeat, badge: 'Sec 143', badgeColor: 'bg-indigo-500/20 text-indigo-300', category: 'Operations' },
+  { id: 'batch-print', label: '12L Stickers & Batch', icon: Printer, badge: '12-Up PDF', badgeColor: 'bg-rose-500/20 text-rose-300', category: 'Operations' },
 
   // Supply Chain & Fulfillment
   { id: 'inventory', label: 'Inventory Stock', icon: Boxes, badge: '2 Low', badgeColor: 'bg-orange-500/20 text-orange-300', category: 'Operations' },

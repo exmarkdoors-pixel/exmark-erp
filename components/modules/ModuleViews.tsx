@@ -61,6 +61,8 @@ import SubcontractingHub from './jobwork/SubcontractingHub';
 import SiteInstallationHub from './fieldservice/SiteInstallationHub';
 import GatePassHub from './logistics/GatePassHub';
 import { ReportPrintDocumentHub, ReportPrintTheme } from './reports/ReportPrintDocumentHub';
+import { RecordAdvanceModal } from './sales/RecordAdvanceModal';
+import BatchPrintHub from './production/BatchPrintHub';
 import { JobCardModal } from './production/JobCardModal';
 import { StickerPrintModal } from './production/StickerPrintModal';
 import { QcInspectionModal } from './production/QcInspectionModal';
@@ -809,6 +811,14 @@ export function SalesOrdersView() {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [selectedAdvanceOrder, setSelectedAdvanceOrder] = useState<{
+    id: string;
+    orderNumber: string;
+    customerName: string;
+    totalAmount: number;
+    advanceAmount: number;
+    advanceVerified: boolean;
+  } | null>(null);
 
   const fetchOrders = () => {
     fetch('/api/orders')
@@ -952,9 +962,27 @@ export function SalesOrdersView() {
                     ₹{ord.totalAmount.toLocaleString('en-IN')}
                   </td>
                   <td className="p-3">
-                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">
-                      <CheckCircle2 className="w-3 h-3" /> Advance ₹{ord.advanceAmount.toLocaleString('en-IN')}
-                    </span>
+                    {(() => {
+                      const advPct = ord.totalAmount > 0 ? Math.round((ord.advanceAmount / ord.totalAmount) * 100) : 0;
+                      const isSufficient = ord.advanceVerified && advPct >= 40;
+                      return (
+                        <div>
+                          <span
+                            className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded ${
+                              isSufficient
+                                ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20'
+                                : 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                            }`}
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            {isSufficient ? `Advance Verified (${advPct}%)` : `Advance Pending (${advPct}%)`}
+                          </span>
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            ₹{ord.advanceAmount.toLocaleString('en-IN')} / Min ₹{Math.round(ord.totalAmount * 0.4).toLocaleString('en-IN')} (40%)
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="p-3">
                     <span
@@ -970,25 +998,33 @@ export function SalesOrdersView() {
                     </span>
                   </td>
                   <td className="p-3 text-right">
-                    {ord.orderStatus === 'CONFIRMED' && ord.advanceVerified && (
-                      <button
-                        onClick={() => handleAction(ord.id, 'RELEASE_TO_PRODUCTION')}
-                        disabled={isProcessing === ord.id}
-                        className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 ml-auto cursor-pointer"
-                      >
-                        <Factory className="w-3 h-3" />
-                        Release to Press
-                      </button>
-                    )}
-                    {ord.orderStatus === 'CONFIRMED' && !ord.advanceVerified && (
-                      <button
-                        onClick={() => handleAction(ord.id, 'VERIFY_ADVANCE')}
-                        disabled={isProcessing === ord.id}
-                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 ml-auto cursor-pointer"
-                      >
-                        <ReceiptIndianRupee className="w-3 h-3" />
-                        Verify Advance
-                      </button>
+                    {ord.orderStatus === 'CONFIRMED' && (
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        <button
+                          onClick={() => setSelectedAdvanceOrder(ord)}
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-[11px] font-semibold transition cursor-pointer"
+                        >
+                          + Record Advance
+                        </button>
+                        <button
+                          onClick={() => {
+                            const advPct = ord.totalAmount > 0 ? Math.round((ord.advanceAmount / ord.totalAmount) * 100) : 0;
+                            if (!ord.advanceVerified || advPct < 40) {
+                              setToastMessage(
+                                `Cannot release to production: Minimum 40% advance deposit is mandatory (Currently ${advPct}%). Opening Advance Deposit window...`
+                              );
+                              setSelectedAdvanceOrder(ord);
+                              return;
+                            }
+                            handleAction(ord.id, 'RELEASE_TO_PRODUCTION');
+                          }}
+                          disabled={isProcessing === ord.id}
+                          className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <Factory className="w-3 h-3" />
+                          Release to Press 🚀
+                        </button>
+                      </div>
                     )}
                     {ord.orderStatus === 'IN_PRODUCTION' && (
                       <span className="text-[11px] font-semibold text-blue-400 inline-flex items-center gap-1">
@@ -1021,6 +1057,21 @@ export function SalesOrdersView() {
           </table>
         </div>
       </div>
+
+      {/* Record Advance Modal */}
+      {selectedAdvanceOrder && (
+        <RecordAdvanceModal
+          isOpen={!!selectedAdvanceOrder}
+          onClose={() => setSelectedAdvanceOrder(null)}
+          order={selectedAdvanceOrder}
+          onSuccess={() => {
+            fetchOrders();
+            setToastMessage('Advance payment successfully recorded & verified! Order is now eligible for Release to Press.');
+            setTimeout(() => setToastMessage(null), 4000);
+            setSelectedAdvanceOrder(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1058,6 +1109,13 @@ export function PlantMaintenanceView() {
  * ------------------------------------------------------------- */
 export function SubcontractingView() {
   return <SubcontractingHub />;
+}
+
+/* -------------------------------------------------------------
+ * 5F2. 12L STICKERS & BATCH PRINT HUB (Die-Cut Labels & Batch QC)
+ * ------------------------------------------------------------- */
+export function BatchPrintView() {
+  return <BatchPrintHub />;
 }
 
 /* -------------------------------------------------------------

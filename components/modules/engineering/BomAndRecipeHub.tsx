@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   PackageCheck
 } from 'lucide-react';
+import StoreRequisitionHub from './StoreRequisitionHub';
 
 export interface BomComponentItem {
   id: string;
@@ -251,7 +252,7 @@ const SEED_RECIPES: DoorRecipe[] = [
 export default function BomAndRecipeHub() {
   const [recipes, setRecipes] = useState<DoorRecipe[]>(SEED_RECIPES);
   const [selectedRecipe, setSelectedRecipe] = useState<DoorRecipe>(SEED_RECIPES[0]);
-  const [activeTab, setActiveTab] = useState<'RECIPES' | 'COSTING_ROLLUP' | 'RAW_MATERIALS'>('RECIPES');
+  const [activeTab, setActiveTab] = useState<'RECIPES' | 'STORE_REQUISITION'>('RECIPES');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [isNewRecipeModalOpen, setIsNewRecipeModalOpen] = useState(false);
@@ -371,7 +372,38 @@ export default function BomAndRecipeHub() {
         </div>
       </div>
 
-      {/* KPI Overview Strip */}
+      {/* Sub-View Switcher Bar */}
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-2 flex-wrap">
+        <button
+          onClick={() => setActiveTab('RECIPES')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'RECIPES'
+              ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40'
+              : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Door Recipes &amp; Formulation (ഡോർ ഫോർമുലേഷൻ)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('STORE_REQUISITION')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'STORE_REQUISITION'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40'
+              : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
+          }`}
+        >
+          <Boxes className="w-4 h-4" />
+          <span>BOM &amp; Store Issue Slips (സ്റ്റോർ ഇഷ്യൂ വൗച്ചർ)</span>
+        </button>
+      </div>
+
+      {activeTab === 'STORE_REQUISITION' ? (
+        <StoreRequisitionHub />
+      ) : (
+        <>
+          {/* KPI Overview Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
           <div className="flex items-center justify-between">
@@ -648,6 +680,8 @@ export default function BomAndRecipeHub() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* New Recipe Modal */}
       {isNewRecipeModalOpen && (

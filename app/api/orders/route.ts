@@ -93,6 +93,15 @@ export async function POST(req: Request) {
       if (idx !== -1) {
         if (action === 'VERIFY_ADVANCE') {
           quotes[idx].advanceVerified = true;
+          if (typeof body.advanceAmount === 'number') {
+            quotes[idx].advanceAmount = body.advanceAmount;
+          }
+          if (body.paymentMode) {
+            quotes[idx].paymentMode = body.paymentMode;
+          }
+          if (body.utrNumber) {
+            quotes[idx].utrNumber = body.utrNumber;
+          }
           quotes[idx].status = 'CONVERTED';
           fs.writeFileSync(STORE_PATH, JSON.stringify(quotes, null, 2), 'utf8');
           return NextResponse.json({
