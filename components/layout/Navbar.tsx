@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { clearAuthToken } from '@/lib/api/apiClient';
@@ -47,6 +47,7 @@ export default function Navbar({
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [notificationsRead, setNotificationsRead] = useState(false);
   const [isRbacModalOpen, setIsRbacModalOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [matrixPermissions, setMatrixPermissions] = useState<Record<string, string[]>>({
     'Super Admin': ['crm', 'quotations', 'measurements', 'sales-orders', 'bom', 'production', 'accounts', 'batch-print'],
     'Plant Supervisor': ['measurements', 'sales-orders', 'bom', 'production', 'batch-print'],
@@ -65,6 +66,11 @@ export default function Navbar({
       return { ...prev, [role]: updated };
     });
   };
+
+  // Prevent hydration mismatch: interactive/dynamic elements only render on client
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -148,21 +154,23 @@ export default function Navbar({
 
       {/* Right: Actions, Notifications, Profile */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* ACTIVE ROLE SELECTOR DROPDOWN */}
-        <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/80 px-2.5 py-1 rounded-lg text-xs">
-          <span className="text-slate-400 font-medium hidden lg:inline">Active Role:</span>
-          <select
-            value={userRole}
-            onChange={(e) => onRoleChange?.(e.target.value as UserRole)}
-            className="bg-transparent text-amber-300 font-bold focus:outline-none cursor-pointer text-xs"
-          >
-            <option value="Super Admin" className="bg-slate-900 text-white">👑 Super Admin</option>
-            <option value="Plant Supervisor" className="bg-slate-900 text-white">🏭 Plant Supervisor</option>
-            <option value="Site Engineer" className="bg-slate-900 text-white">📐 Site Engineer</option>
-            <option value="Accounts" className="bg-slate-900 text-white">💰 Accounts & Billing</option>
-            <option value="QC Inspector" className="bg-slate-900 text-white">🔍 QC Inspector</option>
-          </select>
-        </div>
+        {/* ACTIVE ROLE SELECTOR DROPDOWN — client-only to prevent hydration mismatch */}
+        {isMounted && (
+          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/80 px-2.5 py-1 rounded-lg text-xs">
+            <span className="text-slate-400 font-medium hidden lg:inline">Active Role:</span>
+            <select
+              value={userRole}
+              onChange={(e) => onRoleChange?.(e.target.value as UserRole)}
+              className="bg-transparent text-amber-300 font-bold focus:outline-none cursor-pointer text-xs"
+            >
+              <option value="Super Admin" className="bg-slate-900 text-white">👑 Super Admin</option>
+              <option value="Plant Supervisor" className="bg-slate-900 text-white">🏭 Plant Supervisor</option>
+              <option value="Site Engineer" className="bg-slate-900 text-white">📐 Site Engineer</option>
+              <option value="Accounts" className="bg-slate-900 text-white">💰 Accounts & Billing</option>
+              <option value="QC Inspector" className="bg-slate-900 text-white">🔍 QC Inspector</option>
+            </select>
+          </div>
+        )}
 
         {/* RBAC PERMISSIONS MATRIX TRIGGER */}
         <button
