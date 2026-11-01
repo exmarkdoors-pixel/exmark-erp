@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { PrintDocumentHub, PrintTheme, DocumentType } from './PrintDocumentHub';
 import {
   FileSpreadsheet,
   Plus,
@@ -314,12 +315,28 @@ export function QuotationHub() {
     { id: 2, modelId: INITIAL_MODELS[1].id, unit: 'cm', height: 205, heightFraction: '0', widthTop: 80, widthTopFraction: '0', widthBottom: 80, widthBottomFraction: '0', width: 80, widthFraction: '0', qty: 5, rate: INITIAL_MODELS[1].rate },
   ]);
 
-  // Modals
+  // Modals & Print Options
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [isAddDoorModelOpen, setIsAddDoorModelOpen] = useState(false);
   const [previewQuote, setPreviewQuote] = useState<HubQuotation | null>(null);
+  const [printTheme, setPrintTheme] = useState<PrintTheme>('tally-classic');
+  const [printDocType, setPrintDocType] = useState<DocumentType>('quotation');
   const [activeLeadModal, setActiveLeadModal] = useState<HubLead | null>(null);
   const [leadModalNotes, setLeadModalNotes] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('exmark_print_theme') as PrintTheme;
+      if (saved) setPrintTheme(saved);
+    }
+  }, []);
+
+  const handleSelectTheme = (t: PrintTheme) => {
+    setPrintTheme(t);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('exmark_print_theme', t);
+    }
+  };
 
   // Add Customer Form Fields
   const [newCustName, setNewCustName] = useState('');
@@ -1664,224 +1681,140 @@ export function QuotationHub() {
         </div>
       )}
 
-      {/* PRINT / VIEW QUOTATION MODAL */}
+      {/* PRINT / VIEW MULTI-THEME DOCUMENT MODAL */}
       {previewQuote && (
-        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-[#111827] border border-slate-700 w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh]">
-            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
-              <div className="flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-[#0f172a] border border-slate-700 w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[95vh]">
+            {/* Top Modal Header */}
+            <div className="p-3.5 border-b border-slate-800 flex justify-between items-center bg-[#131d35]">
+              <div className="flex items-center gap-2.5">
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
                   {previewQuote.id}
                 </span>
-                <h3 className="text-sm font-bold text-white">Quotation Document Preview</h3>
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <Printer className="w-4 h-4 text-cyan-400" />
+                  <span>Print &amp; Document Hub (Tally &amp; Vyapar Formats)</span>
+                </h3>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs text-white rounded-lg flex items-center gap-1 transition cursor-pointer"
+                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white rounded-lg flex items-center gap-1.5 shadow-md shadow-rose-900/40 transition cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Print</span>
+                  <span>Print Document (A4)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setPreviewQuote(null)}
-                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer transition"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Printable Sheet Body */}
-            <div id="printableQuoteArea" className="p-6 overflow-y-auto bg-slate-950 text-slate-100 text-xs space-y-4">
-              {/* Letterhead */}
-              <div className="flex justify-between items-start border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-rose-600 rounded-lg flex items-center justify-center font-black text-white text-xl">
-                    EX
-                  </div>
-                  <div>
-                    <h2 className="text-base font-extrabold text-white tracking-wide">EX-MARK DOORS</h2>
-                    <p className="text-[11px] text-slate-400">Cherur, Vengara, Malappuram, Kerala - 676304</p>
-                    <p className="text-[10px] text-slate-400">
-                      Ph: +91 9447928866 | Email: exmarkdoors@gmail.com | GSTIN: 32AAHFE4489L1Z2
-                    </p>
-                  </div>
+            {/* Document Type & Theme Switcher Toolbars */}
+            <div className="border-b border-slate-800 bg-[#090e1a] p-3 space-y-2.5 text-xs">
+              {/* Document Type Selector */}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-1 text-[11px] font-bold text-slate-300">
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Document Mode:</span>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs font-bold uppercase tracking-wider text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded">
-                    Proforma Quotation
-                  </span>
-                  <p className="text-xs font-mono font-bold text-white mt-1">{previewQuote.id}</p>
-                  <p className="text-[10px] text-slate-400">Date: {previewQuote.date}</p>
-                </div>
-              </div>
-
-              {/* Bill To & Commercial Overview */}
-              <div className="grid grid-cols-2 gap-4 bg-slate-900/60 p-3.5 rounded-lg border border-slate-800">
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quotation Prepared For:</p>
-                  <p className="text-sm font-bold text-white mt-0.5">{previewQuote.customerName}</p>
-                  <p className="text-xs text-slate-300">{previewQuote.location}, Kerala</p>
-                  <p className="text-xs text-slate-400">+91 94479 28866 (Exmark Verified)</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tax &amp; Terms Regime:</p>
-                  <p className="text-xs font-semibold text-amber-300 mt-0.5">
-                    {previewQuote.gstMode === 'without'
-                      ? 'Without GST (0% Tax)'
-                      : previewQuote.gstMode === 'excluded'
-                      ? `GST Excluded (+${previewQuote.gstRate}% SGST/CGST)`
-                      : `GST Included (${previewQuote.gstRate}% Tax Included)`}
-                  </p>
-                  <p className="text-xs text-slate-300 mt-0.5">
-                    Advance Term:{' '}
-                    <span className="font-bold text-emerald-400">
-                      {previewQuote.advancePercent}% Advance (₹{previewQuote.advanceAmount.toLocaleString('en-IN')})
-                    </span>
-                  </p>
-                  <p className="text-[10px] text-slate-400">Validity: 15 Days | Plant: Vengara Central Unit</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(
+                    [
+                      { id: 'quotation', label: 'Quotation (എസ്റ്റിമേറ്റ്)' },
+                      { id: 'proforma', label: 'Proforma Invoice' },
+                      { id: 'salesOrder', label: 'Sales Work Order' },
+                      { id: 'salesInvoice', label: 'Tax Invoice (GST Bill)' },
+                      { id: 'statement', label: 'Party Statement (ലെഡ്ജർ)' },
+                    ] as const
+                  ).map((doc) => (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={() => setPrintDocType(doc.id)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                        printDocType === doc.id
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      {doc.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Table of Doors */}
-              <div>
-                <table className="w-full text-left border-collapse border border-slate-800">
-                  <thead>
-                    <tr className="bg-slate-900 text-slate-300 border-b border-slate-800 text-[10px] uppercase font-bold">
-                      <th className="p-2 border-r border-slate-800">#</th>
-                      <th className="p-2 border-r border-slate-800">Door Model &amp; Specs</th>
-                      <th className="p-2 border-r border-slate-800">Dimensions &amp; Area</th>
-                      <th className="p-2 border-r border-slate-800 text-center">Qty</th>
-                      <th className="p-2 border-r border-slate-800 text-right">Unit Rate (₹)</th>
-                      <th className="p-2 text-right">Total Amount (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/80">
-                    {previewQuote.itemRows && previewQuote.itemRows.length > 0 ? (
-                      previewQuote.itemRows.map((row, i) => {
-                        const model = doorModels.find((m) => m.id === row.modelId) || {
-                          code: 'EXM-DOOR',
-                          title: 'FRP Door',
-                          finish: 'Standard',
-                        };
-                        const wTop = row.widthTop ?? row.width ?? 0;
-                        const wBottom = row.widthBottom ?? wTop;
-                        const wTopFrac = row.widthTopFraction || row.widthFraction || '0';
-                        const wBtmFrac = row.widthBottomFraction || wTopFrac;
-
-                        const sqft = calculateSqFt(
-                          row.height,
-                          wTop,
-                          wBottom,
-                          row.unit,
-                          row.heightFraction,
-                          wTopFrac,
-                          wBtmFrac
-                        );
-                        const dimDisplay = formatDimensionDisplay(
-                          row.height,
-                          wTop,
-                          wBottom,
-                          row.unit,
-                          row.heightFraction,
-                          wTopFrac,
-                          wBtmFrac
-                        );
-                        const lineTotal = (Number(row.qty) || 0) * row.rate;
-
-                        return (
-                          <tr key={i} className="text-[11px] text-slate-300">
-                            <td className="p-2 border-r border-slate-800 text-center font-mono">{i + 1}</td>
-                            <td className="p-2 border-r border-slate-800">
-                              <span className="font-bold text-white">
-                                {model.code} - {model.title}
-                              </span>
-                              <div className="text-[10px] text-slate-400">Finish: {model.finish}</div>
-                            </td>
-                            <td className="p-2 border-r border-slate-800 font-mono">
-                              {dimDisplay}{' '}
-                              <span className="text-slate-400 text-[10px]">({sqft} sqft)</span>
-                            </td>
-                            <td className="p-2 border-r border-slate-800 text-center font-bold">{row.qty} Pcs</td>
-                            <td className="p-2 border-r border-slate-800 text-right font-mono">
-                              ₹{row.rate.toLocaleString('en-IN')}
-                            </td>
-                            <td className="p-2 text-right font-mono font-bold text-slate-100">
-                              ₹{lineTotal.toLocaleString('en-IN')}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr className="text-[11px] text-slate-300">
-                        <td className="p-2 border-r border-slate-800 text-center font-mono">1</td>
-                        <td className="p-2 border-r border-slate-800 font-bold text-white">
-                          {previewQuote.itemsSummary}
-                        </td>
-                        <td className="p-2 border-r border-slate-800 font-mono">205 &times; 75 cm</td>
-                        <td className="p-2 border-r border-slate-800 text-center font-bold">Standard Batch</td>
-                        <td className="p-2 border-r border-slate-800 text-right font-mono">
-                          ₹{previewQuote.subtotal.toLocaleString('en-IN')}
-                        </td>
-                        <td className="p-2 text-right font-mono font-bold text-slate-100">
-                          ₹{previewQuote.subtotal.toLocaleString('en-IN')}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Financial Summary */}
-              <div className="flex justify-end pt-2">
-                <div className="w-64 space-y-1.5 text-xs bg-slate-900/80 p-3 rounded-lg border border-slate-800">
-                  <div className="flex justify-between text-slate-400">
-                    <span>Subtotal:</span>
-                    <span className="font-mono font-medium text-slate-200">
-                      ₹{previewQuote.subtotal.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>GST ({previewQuote.gstRate}%):</span>
-                    <span className="font-mono font-medium text-slate-200">
-                      ₹{previewQuote.gstAmount.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-white font-bold border-t border-slate-700 pt-1.5 text-sm">
-                    <span>Grand Total:</span>
-                    <span className="font-mono text-emerald-400">
-                      ₹{previewQuote.grandTotal.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-rose-300 font-semibold border-t border-slate-800 pt-1 text-[11px]">
-                    <span>{previewQuote.advancePercent}% Advance Required:</span>
-                    <span className="font-mono">
-                      ₹{previewQuote.advanceAmount.toLocaleString('en-IN')}
-                    </span>
-                  </div>
+              {/* Theme Selector (3 Tally + 2 Vyapar) */}
+              <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+                <div className="flex items-center gap-1 text-[11px] font-bold text-slate-300">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Print Theme:</span>
                 </div>
-              </div>
-
-              {/* Terms & Conditions */}
-              <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-3 space-y-1">
-                <p className="font-bold text-slate-300">Terms &amp; Conditions:</p>
-                <p>1. 50% advance along with confirmed work order; 30% before factory despatch; balance 20% on site installation.</p>
-                <p>2. Manufactured in accordance with IS 14856:2000 standard specifications for high-impact water resistance.</p>
-                <p>3. Delivery lead time: 3 to 4 weeks from final site measurement sign-off.</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(
+                    [
+                      { id: 'tally-classic', label: '🏛️ Tally Classic (സിമ്പിൾ)' },
+                      { id: 'tally-modern', label: '📊 Tally Modern (പ്രൈം)' },
+                      { id: 'tally-formal', label: '📋 Tally Formal (ജിഎസ്ടി)' },
+                      { id: 'vyapar-elegant', label: '🎨 Vyapar Elegant (കളർ)' },
+                      { id: 'vyapar-modern', label: '🏷️ Vyapar Modern (ക്ലീൻ)' },
+                    ] as const
+                  ).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => handleSelectTheme(t.id)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                        printTheme === t.id
+                          ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
+                          : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="p-3 bg-slate-900 border-t border-slate-800 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPreviewQuote(null)}
-                className="px-4 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white rounded-lg cursor-pointer"
-              >
-                Close
-              </button>
+            {/* Printable Sheet Body */}
+            <div id="printableQuoteArea" className="p-4 sm:p-6 overflow-y-auto bg-slate-950/90 text-slate-900 flex justify-center">
+              <div className="w-full max-w-4xl bg-white shadow-2xl rounded-lg overflow-hidden border border-slate-200">
+                <PrintDocumentHub
+                  theme={printTheme}
+                  documentType={printDocType}
+                  quotation={previewQuote}
+                  doorModels={doorModels}
+                  customer={
+                    customers.find((c) => c.name === previewQuote.customerName) ||
+                    customers.find((c) => c.id === selectedCustomerId)
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Modal Bottom Status Bar */}
+            <div className="p-3 bg-[#0a0f1d] border-t border-slate-800 flex justify-between items-center text-xs">
+              <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>
+                  Active Theme: <strong className="text-white uppercase">{printTheme.replace('-', ' ')}</strong> | Mode: <strong className="text-cyan-400 uppercase">{printDocType}</strong> (Saved)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewQuote(null)}
+                  className="px-4 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white rounded-lg cursor-pointer transition"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2177,6 +2110,28 @@ export function QuotationHub() {
           </div>
         </div>
       )}
+      {/* Print Media Isolation Styles */}
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #printableQuoteArea,
+          #printableQuoteArea * {
+            visibility: visible !important;
+          }
+          #printableQuoteArea {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            box-shadow: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
