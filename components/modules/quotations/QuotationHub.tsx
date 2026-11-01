@@ -43,13 +43,113 @@ export interface HubDoorModel {
   finish: string;
 }
 
+// 16th-inch fractions specification for door carpentry & manufacturing
+export const INCH_FRACTION_OPTIONS = [
+  { value: '0', label: '0" (Exact)', dec: 0 },
+  { value: '1/16', label: '1/16"', dec: 1 / 16 },
+  { value: '1/8', label: '1/8"', dec: 2 / 16 },
+  { value: '3/16', label: '3/16"', dec: 3 / 16 },
+  { value: '1/4', label: '1/4"', dec: 4 / 16 },
+  { value: '5/16', label: '5/16"', dec: 5 / 16 },
+  { value: '3/8', label: '3/8"', dec: 6 / 16 },
+  { value: '7/16', label: '7/16"', dec: 7 / 16 },
+  { value: '1/2', label: '1/2"', dec: 8 / 16 },
+  { value: '9/16', label: '9/16"', dec: 9 / 16 },
+  { value: '5/8', label: '5/8"', dec: 10 / 16 },
+  { value: '11/16', label: '11/16"', dec: 11 / 16 },
+  { value: '3/4', label: '3/4"', dec: 12 / 16 },
+  { value: '13/16', label: '13/16"', dec: 13 / 16 },
+  { value: '7/8', label: '7/8"', dec: 14 / 16 },
+  { value: '15/16', label: '15/16"', dec: 15 / 16 },
+];
+
+export function parseInchFraction(fracStr?: string): number {
+  if (!fracStr || fracStr === '0' || fracStr === '0/8' || fracStr === '0/16') return 0;
+  const match = INCH_FRACTION_OPTIONS.find((f) => f.value === fracStr);
+  if (match) return match.dec;
+  const parts = fracStr.split('/');
+  if (parts.length === 2) {
+    const n = parseFloat(parts[0]);
+    const d = parseFloat(parts[1]);
+    return d > 0 ? n / d : 0;
+  }
+  return 0;
+}
+
+export function decimalToInchFraction(decimalInches: number): { whole: number; fraction: string } {
+  const whole = Math.floor(decimalInches);
+  const rem = decimalInches - whole;
+  const sixteenths = Math.round(rem * 16);
+  if (sixteenths <= 0) return { whole, fraction: '0' };
+  if (sixteenths >= 16) return { whole: whole + 1, fraction: '0' };
+  if (sixteenths % 8 === 0) return { whole, fraction: `${sixteenths / 8}/2` }; // 1/2
+  if (sixteenths % 4 === 0) return { whole, fraction: `${sixteenths / 4}/4` }; // 1/4, 3/4
+  if (sixteenths % 2 === 0) return { whole, fraction: `${sixteenths / 2}/8` }; // 1/8, 3/8, 5/8, 7/8
+  return { whole, fraction: `${sixteenths}/16` };
+}
+
+export function formatDimensionDisplay(
+  height: number,
+  widthTop: number,
+  widthBottomOrUnit?: number | 'cm' | 'mm' | 'inch',
+  unitOrHFrac?: 'cm' | 'mm' | 'inch' | string,
+  hFracOrWTopFrac?: string,
+  wTopFracOrWBtmFrac?: string,
+  wBottomFrac?: string
+): string {
+  // If called with legacy 5 args: (h, w, unit, hFrac, wFrac)
+  if (typeof widthBottomOrUnit === 'string') {
+    const unit = widthBottomOrUnit as 'cm' | 'mm' | 'inch';
+    const hFrac = typeof unitOrHFrac === 'string' ? unitOrHFrac : '0';
+    const wFrac = typeof hFracOrWTopFrac === 'string' ? hFracOrWTopFrac : '0';
+
+    if (unit === 'inch') {
+      const hText = hFrac && hFrac !== '0' ? `${height} ${hFrac}"` : `${height}"`;
+      const wText = wFrac && wFrac !== '0' ? `${widthTop} ${wFrac}"` : `${widthTop}"`;
+      return `${hText} × ${wText}`;
+    }
+    return `${height} × ${widthTop} ${unit}`;
+  }
+
+  // Called with 7 args: (h, wTop, wBtm, unit, hFrac, wTopFrac, wBtmFrac)
+  const wBtm = typeof widthBottomOrUnit === 'number' && !isNaN(widthBottomOrUnit) ? widthBottomOrUnit : widthTop;
+  const unit = (typeof unitOrHFrac === 'string' && ['cm', 'mm', 'inch'].includes(unitOrHFrac))
+    ? (unitOrHFrac as 'cm' | 'mm' | 'inch')
+    : 'inch';
+  const hFrac = typeof hFracOrWTopFrac === 'string' ? hFracOrWTopFrac : '0';
+  const wTopFrac = typeof wTopFracOrWBtmFrac === 'string' ? wTopFracOrWBtmFrac : '0';
+  const wBtmFrac = typeof wBottomFrac === 'string' ? wBottomFrac : wTopFrac;
+
+  if (unit === 'inch') {
+    const hText = hFrac && hFrac !== '0' ? `${height} ${hFrac}"` : `${height}"`;
+    const wTopText = wTopFrac && wTopFrac !== '0' ? `${widthTop} ${wTopFrac}"` : `${widthTop}"`;
+    const wBtmText = wBtmFrac && wBtmFrac !== '0' ? `${wBtm} ${wBtmFrac}"` : `${wBtm}"`;
+
+    if (wTopText === wBtmText) {
+      return `${hText} × ${wTopText}`;
+    }
+    return `${hText} × [Top: ${wTopText} / Btm: ${wBtmText}]`;
+  }
+
+  if (widthTop === wBtm) {
+    return `${height} × ${widthTop} ${unit}`;
+  }
+  return `${height} × [Top: ${widthTop} / Btm: ${wBtm}] ${unit}`;
+}
+
 // Quotation Item Row Draft
 export interface QuoteItemRow {
   id: number;
   modelId: string;
   unit: 'cm' | 'mm' | 'inch';
   height: number;
+  heightFraction?: string;
+  widthTop?: number;
+  widthTopFraction?: string;
+  widthBottom?: number;
+  widthBottomFraction?: string;
   width: number;
+  widthFraction?: string;
   qty: number;
   rate: number;
 }
@@ -210,8 +310,8 @@ export function QuotationHub() {
   const [gstMode, setGstMode] = useState<'without' | 'excluded' | 'included'>('excluded');
   const [customGstPercent, setCustomGstPercent] = useState<number>(18);
   const [quoteItemRows, setQuoteItemRows] = useState<QuoteItemRow[]>([
-    { id: 1, modelId: INITIAL_MODELS[0].id, unit: 'cm', height: 205, width: 75, qty: 10, rate: INITIAL_MODELS[0].rate },
-    { id: 2, modelId: INITIAL_MODELS[1].id, unit: 'cm', height: 205, width: 80, qty: 5, rate: INITIAL_MODELS[1].rate },
+    { id: 1, modelId: INITIAL_MODELS[0].id, unit: 'cm', height: 205, heightFraction: '0', widthTop: 75, widthTopFraction: '0', widthBottom: 75, widthBottomFraction: '0', width: 75, widthFraction: '0', qty: 10, rate: INITIAL_MODELS[0].rate },
+    { id: 2, modelId: INITIAL_MODELS[1].id, unit: 'cm', height: 205, heightFraction: '0', widthTop: 80, widthTopFraction: '0', widthBottom: 80, widthBottomFraction: '0', width: 80, widthFraction: '0', qty: 5, rate: INITIAL_MODELS[1].rate },
   ]);
 
   // Modals
@@ -269,17 +369,36 @@ export function QuotationHub() {
   };
 
   // Helpers
-  const calculateSqFt = (h: number, w: number, unit: 'cm' | 'mm' | 'inch'): string => {
+  const calculateSqFt = (
+    h: number,
+    wTop: number,
+    wBottom?: number,
+    unit: 'cm' | 'mm' | 'inch' = 'cm',
+    hFrac?: string,
+    wTopFrac?: string,
+    wBottomFrac?: string
+  ): string => {
+    const wBtm = wBottom !== undefined && !isNaN(wBottom) ? wBottom : wTop;
     let hInches = h;
-    let wInches = w;
-    if (unit === 'cm') {
+    let wTopInches = wTop;
+    let wBtmInches = wBtm;
+
+    if (unit === 'inch') {
+      hInches = h + parseInchFraction(hFrac);
+      wTopInches = wTop + parseInchFraction(wTopFrac);
+      wBtmInches = wBtm + parseInchFraction(wBottomFrac ?? wTopFrac);
+    } else if (unit === 'cm') {
       hInches = h / 2.54;
-      wInches = w / 2.54;
+      wTopInches = wTop / 2.54;
+      wBtmInches = wBtm / 2.54;
     } else if (unit === 'mm') {
       hInches = h / 25.4;
-      wInches = w / 25.4;
+      wTopInches = wTop / 25.4;
+      wBtmInches = wBtm / 25.4;
     }
-    return ((hInches * wInches) / 144).toFixed(2);
+
+    const avgWidthInches = (wTopInches + wBtmInches) / 2;
+    return ((hInches * avgWidthInches) / 144).toFixed(2);
   };
 
   // Calculations for Active Form
@@ -316,7 +435,13 @@ export function QuotationHub() {
         modelId: firstModel.id,
         unit: 'cm',
         height: 205,
+        heightFraction: '0',
+        widthTop: 75,
+        widthTopFraction: '0',
+        widthBottom: 75,
+        widthBottomFraction: '0',
         width: 75,
+        widthFraction: '0',
         qty: 1,
         rate: firstModel.rate,
       },
@@ -330,18 +455,60 @@ export function QuotationHub() {
     // Handle unit conversion if unit changes
     if (updates.unit && updates.unit !== currentRow.unit) {
       let h = currentRow.height;
-      let w = currentRow.width;
+      let wT = currentRow.widthTop ?? currentRow.width ?? 0;
+      let wB = currentRow.widthBottom ?? wT;
       const oldUnit = currentRow.unit;
       const newUnit = updates.unit;
 
-      if (oldUnit === 'mm') { h /= 10; w /= 10; }
-      else if (oldUnit === 'inch') { h *= 2.54; w *= 2.54; }
+      let hInches = h;
+      let wTInches = wT;
+      let wBInches = wB;
 
-      if (newUnit === 'mm') { h *= 10; w *= 10; }
-      else if (newUnit === 'inch') { h /= 2.54; w /= 2.54; }
+      if (oldUnit === 'inch') {
+        hInches += parseInchFraction(currentRow.heightFraction);
+        wTInches += parseInchFraction(currentRow.widthTopFraction || currentRow.widthFraction);
+        wBInches += parseInchFraction(currentRow.widthBottomFraction || currentRow.widthTopFraction || currentRow.widthFraction);
+      } else if (oldUnit === 'cm') {
+        hInches = h / 2.54;
+        wTInches = wT / 2.54;
+        wBInches = wB / 2.54;
+      } else if (oldUnit === 'mm') {
+        hInches = h / 25.4;
+        wTInches = wT / 25.4;
+        wBInches = wB / 25.4;
+      }
 
-      updates.height = Math.round(h * 10) / 10;
-      updates.width = Math.round(w * 10) / 10;
+      if (newUnit === 'inch') {
+        const hDecomp = decimalToInchFraction(hInches);
+        const wtDecomp = decimalToInchFraction(wTInches);
+        const wbDecomp = decimalToInchFraction(wBInches);
+        updates.height = hDecomp.whole;
+        updates.heightFraction = hDecomp.fraction;
+        updates.widthTop = wtDecomp.whole;
+        updates.widthTopFraction = wtDecomp.fraction;
+        updates.widthBottom = wbDecomp.whole;
+        updates.widthBottomFraction = wbDecomp.fraction;
+        updates.width = wtDecomp.whole;
+        updates.widthFraction = wtDecomp.fraction;
+      } else if (newUnit === 'cm') {
+        updates.height = Math.round(hInches * 2.54 * 10) / 10;
+        updates.widthTop = Math.round(wTInches * 2.54 * 10) / 10;
+        updates.widthBottom = Math.round(wBInches * 2.54 * 10) / 10;
+        updates.width = updates.widthTop;
+        updates.heightFraction = '0';
+        updates.widthTopFraction = '0';
+        updates.widthBottomFraction = '0';
+        updates.widthFraction = '0';
+      } else if (newUnit === 'mm') {
+        updates.height = Math.round(hInches * 25.4);
+        updates.widthTop = Math.round(wTInches * 25.4);
+        updates.widthBottom = Math.round(wBInches * 25.4);
+        updates.width = updates.widthTop;
+        updates.heightFraction = '0';
+        updates.widthTopFraction = '0';
+        updates.widthBottomFraction = '0';
+        updates.widthFraction = '0';
+      }
     }
 
     // Auto-update rate when model changes
@@ -365,7 +532,21 @@ export function QuotationHub() {
   const handleClearAll = () => {
     const firstModel = doorModels[0];
     setQuoteItemRows([
-      { id: 1, modelId: firstModel.id, unit: 'cm', height: 205, width: 75, qty: 1, rate: firstModel.rate },
+      {
+        id: 1,
+        modelId: firstModel.id,
+        unit: 'cm',
+        height: 205,
+        heightFraction: '0',
+        widthTop: 75,
+        widthTopFraction: '0',
+        widthBottom: 75,
+        widthBottomFraction: '0',
+        width: 75,
+        widthFraction: '0',
+        qty: 1,
+        rate: firstModel.rate,
+      },
     ]);
     showToast('Form Reset', 'Quotation items reset to 1 standard door specification.', 'info');
   };
@@ -831,8 +1012,8 @@ export function QuotationHub() {
                   <thead>
                     <tr className="bg-[#11182c] border-b border-slate-800 text-[11px] font-bold text-slate-300">
                       <th className="p-3 w-48">Door Model (മോഡൽ)</th>
-                      <th className="p-3 w-32">Unit (അളവ് യൂണിറ്റ്)</th>
-                      <th className="p-3 w-48">Dimensions (H &times; W)</th>
+                      <th className="p-3 w-28">Unit (യൂണിറ്റ്)</th>
+                      <th className="p-3 w-64">Dimensions (H &times; Top/Btm W)</th>
                       <th className="p-3 w-20 text-center">Qty</th>
                       <th className="p-3 w-32 text-right">Price / Rate (₹)</th>
                       <th className="p-3 w-28 text-right">Line Total</th>
@@ -841,7 +1022,20 @@ export function QuotationHub() {
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
                     {quoteItemRows.map((row, idx) => {
-                      const sqft = calculateSqFt(row.height, row.width, row.unit);
+                      const wTop = row.widthTop ?? row.width ?? 0;
+                      const wBottom = row.widthBottom ?? wTop;
+                      const wTopFrac = row.widthTopFraction || row.widthFraction || '0';
+                      const wBtmFrac = row.widthBottomFraction || wTopFrac;
+
+                      const sqft = calculateSqFt(
+                        row.height,
+                        wTop,
+                        wBottom,
+                        row.unit,
+                        row.heightFraction,
+                        wTopFrac,
+                        wBtmFrac
+                      );
                       const lineTotal = (row.qty * row.rate).toLocaleString('en-IN');
 
                       return (
@@ -873,24 +1067,139 @@ export function QuotationHub() {
                           </td>
 
                           <td className="p-2.5">
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="number"
-                                value={row.height}
-                                onChange={(e) => handleUpdateRow(idx, { height: parseFloat(e.target.value) || 0 })}
-                                className="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
-                                title={`Height (${row.unit})`}
-                              />
-                              <span className="text-slate-400">&times;</span>
-                              <input
-                                type="number"
-                                value={row.width}
-                                onChange={(e) => handleUpdateRow(idx, { width: parseFloat(e.target.value) || 0 })}
-                                className="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
-                                title={`Width (${row.unit})`}
-                              />
-                              <span className="text-[10px] text-slate-400 font-mono">({sqft} sqft)</span>
-                            </div>
+                            {row.unit === 'inch' ? (
+                              <div className="space-y-1.5 py-0.5">
+                                {/* Height */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-400 font-bold w-12">Height:</span>
+                                  <input
+                                    type="number"
+                                    value={row.height}
+                                    onChange={(e) => handleUpdateRow(idx, { height: parseFloat(e.target.value) || 0 })}
+                                    className="w-14 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
+                                    title="Height (inches)"
+                                  />
+                                  <select
+                                    value={row.heightFraction || '0'}
+                                    onChange={(e) => handleUpdateRow(idx, { heightFraction: e.target.value })}
+                                    className="bg-[#131b2e] border border-slate-700 rounded p-1 text-[11px] font-mono text-cyan-300 cursor-pointer"
+                                    title="Height Fraction (1/16, 1/8, etc.)"
+                                  >
+                                    {INCH_FRACTION_OPTIONS.map((f) => (
+                                      <option key={f.value} value={f.value}>
+                                        {f.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Top Width */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-cyan-400 font-bold w-12">W (Top):</span>
+                                  <input
+                                    type="number"
+                                    value={wTop}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      if (wBottom === wTop) {
+                                        handleUpdateRow(idx, { widthTop: val, widthBottom: val, width: val });
+                                      } else {
+                                        handleUpdateRow(idx, { widthTop: val, width: val });
+                                      }
+                                    }}
+                                    className="w-14 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
+                                    title="Top Width (inches)"
+                                  />
+                                  <select
+                                    value={wTopFrac}
+                                    onChange={(e) => {
+                                      const frac = e.target.value;
+                                      if (wBtmFrac === wTopFrac) {
+                                        handleUpdateRow(idx, { widthTopFraction: frac, widthBottomFraction: frac, widthFraction: frac });
+                                      } else {
+                                        handleUpdateRow(idx, { widthTopFraction: frac, widthFraction: frac });
+                                      }
+                                    }}
+                                    className="bg-[#131b2e] border border-slate-700 rounded p-1 text-[11px] font-mono text-cyan-300 cursor-pointer"
+                                    title="Top Width Fraction"
+                                  >
+                                    {INCH_FRACTION_OPTIONS.map((f) => (
+                                      <option key={f.value} value={f.value}>
+                                        {f.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Bottom Width */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-cyan-400 font-bold w-12">W (Btm):</span>
+                                  <input
+                                    type="number"
+                                    value={wBottom}
+                                    onChange={(e) => handleUpdateRow(idx, { widthBottom: parseFloat(e.target.value) || 0 })}
+                                    className="w-14 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
+                                    title="Bottom Width (inches)"
+                                  />
+                                  <select
+                                    value={wBtmFrac}
+                                    onChange={(e) => handleUpdateRow(idx, { widthBottomFraction: e.target.value })}
+                                    className="bg-[#131b2e] border border-slate-700 rounded p-1 text-[11px] font-mono text-cyan-300 cursor-pointer"
+                                    title="Bottom Width Fraction"
+                                  >
+                                    {INCH_FRACTION_OPTIONS.map((f) => (
+                                      <option key={f.value} value={f.value}>
+                                        {f.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <span className="text-[10px] text-emerald-400 font-mono ml-1 font-semibold whitespace-nowrap">({sqft} sqft)</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5 py-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-400 font-bold w-12">Height:</span>
+                                  <input
+                                    type="number"
+                                    value={row.height}
+                                    onChange={(e) => handleUpdateRow(idx, { height: parseFloat(e.target.value) || 0 })}
+                                    className="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
+                                    title={`Height (${row.unit})`}
+                                  />
+                                  <span className="text-[10px] text-slate-400 font-mono">{row.unit}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-cyan-400 font-bold w-12">W (Top):</span>
+                                  <input
+                                    type="number"
+                                    value={wTop}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      if (wBottom === wTop) {
+                                        handleUpdateRow(idx, { widthTop: val, widthBottom: val, width: val });
+                                      } else {
+                                        handleUpdateRow(idx, { widthTop: val, width: val });
+                                      }
+                                    }}
+                                    className="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
+                                    title={`Top Width (${row.unit})`}
+                                  />
+                                  <span className="text-[10px] text-slate-400 font-mono">{row.unit}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-cyan-400 font-bold w-12">W (Btm):</span>
+                                  <input
+                                    type="number"
+                                    value={wBottom}
+                                    onChange={(e) => handleUpdateRow(idx, { widthBottom: parseFloat(e.target.value) || 0 })}
+                                    className="w-16 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-mono text-white"
+                                    title={`Bottom Width (${row.unit})`}
+                                  />
+                                  <span className="text-[10px] text-emerald-400 font-mono ml-1 font-semibold whitespace-nowrap">({sqft} sqft)</span>
+                                </div>
+                              </div>
+                            )}
                           </td>
 
                           <td className="p-2.5 text-center">
@@ -1449,7 +1758,29 @@ export function QuotationHub() {
                           title: 'FRP Door',
                           finish: 'Standard',
                         };
-                        const sqft = calculateSqFt(row.height, row.width, row.unit);
+                        const wTop = row.widthTop ?? row.width ?? 0;
+                        const wBottom = row.widthBottom ?? wTop;
+                        const wTopFrac = row.widthTopFraction || row.widthFraction || '0';
+                        const wBtmFrac = row.widthBottomFraction || wTopFrac;
+
+                        const sqft = calculateSqFt(
+                          row.height,
+                          wTop,
+                          wBottom,
+                          row.unit,
+                          row.heightFraction,
+                          wTopFrac,
+                          wBtmFrac
+                        );
+                        const dimDisplay = formatDimensionDisplay(
+                          row.height,
+                          wTop,
+                          wBottom,
+                          row.unit,
+                          row.heightFraction,
+                          wTopFrac,
+                          wBtmFrac
+                        );
                         const lineTotal = row.qty * row.rate;
 
                         return (
@@ -1462,7 +1793,7 @@ export function QuotationHub() {
                               <div className="text-[10px] text-slate-400">Finish: {model.finish}</div>
                             </td>
                             <td className="p-2 border-r border-slate-800 font-mono">
-                              {row.height} &times; {row.width} {row.unit}{' '}
+                              {dimDisplay}{' '}
                               <span className="text-slate-400 text-[10px]">({sqft} sqft)</span>
                             </td>
                             <td className="p-2 border-r border-slate-800 text-center font-bold">{row.qty} Pcs</td>
