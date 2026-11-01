@@ -21,11 +21,17 @@ import {
   SalesOrdersView,
   SalesAndReturnView,
   ProductionView,
+  BomAndRecipeView,
+  QualityControlView,
+  PlantMaintenanceView,
+  SubcontractingView,
   InventoryView,
   PurchasesView,
+  GatePassView,
+  DispatchInstallationView,
+  SiteInstallationView,
   AccountsGstView,
   EmployeesView,
-  DispatchInstallationView,
   MarketingView,
   ReportsView,
   SettingsView,
@@ -337,11 +343,16 @@ export default function Home() {
             {currentTab === 'sales-orders' && <SalesOrdersView />}
             {currentTab === 'sales' && <SalesAndReturnView />}
             {currentTab === 'production' && <ProductionView />}
+            {currentTab === 'bom' && <BomAndRecipeView />}
+            {currentTab === 'quality' && <QualityControlView />}
+            {currentTab === 'maintenance' && <PlantMaintenanceView />}
+            {currentTab === 'job-work' && <SubcontractingView />}
             {currentTab === 'inventory' && <InventoryView />}
             {currentTab === 'purchases' && <PurchasesView />}
-            {currentTab === 'accounts' && <AccountsGstView />}
-            {currentTab === 'employees' && <EmployeesView />}
+            {currentTab === 'gate-pass' && <GatePassView />}
             {currentTab === 'dispatch' && <DispatchInstallationView />}
+            {currentTab === 'installation' && <SiteInstallationView />}
+            {currentTab === 'accounts' && <AccountsGstView />}
             {currentTab === 'marketing' && <MarketingView />}
             {currentTab === 'reports' && <ReportsView />}
             {currentTab === 'settings' && <SettingsView />}

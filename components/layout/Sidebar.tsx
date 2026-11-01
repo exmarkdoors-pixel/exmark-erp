@@ -22,7 +22,12 @@ import {
   ShieldCheck,
   Flame,
   Layers,
-  X
+  X,
+  FlaskConical,
+  Wrench,
+  Repeat,
+  ClipboardCheck,
+  Ticket,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/erp';
 import { UserRole, canAccessModule } from '@/lib/auth/roles';
@@ -49,6 +54,7 @@ interface NavItemConfig {
 }
 
 const NAV_ITEMS: NavItemConfig[] = [
+  // Core Commercial
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, category: 'Core' },
   { id: 'customers', label: 'Customers', icon: Users, badge: '128', category: 'Core' },
   { id: 'crm', label: 'CRM & Leads', icon: Target, badge: '9 New', badgeColor: 'bg-amber-500/20 text-amber-300', category: 'Core' },
@@ -56,14 +62,26 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'measurements', label: 'Door Measurements', icon: Ruler, category: 'Core' },
   { id: 'sales-orders', label: 'Sales Orders', icon: ShoppingBag, badge: '18 Active', category: 'Core' },
   { id: 'sales', label: 'Sales & Returns', icon: ReceiptText, badge: 'GST Billed', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Core' },
-  { id: 'production', label: 'Production', icon: Factory, badge: '142 Units', badgeColor: 'bg-blue-500/20 text-blue-300', category: 'Operations' },
-  { id: 'inventory', label: 'Inventory', icon: Boxes, badge: '2 Low', badgeColor: 'bg-orange-500/20 text-orange-300', category: 'Operations' },
-  { id: 'purchases', label: 'Purchases', icon: Layers, category: 'Operations' },
-  { id: 'accounts', label: 'Accounts & GST', icon: ReceiptIndianRupee, category: 'Operations' },
-  { id: 'employees', label: 'Employees', icon: UserCheck, category: 'Operations' },
-  { id: 'dispatch', label: 'Dispatch & Installation', icon: Truck, category: 'Operations' },
-  { id: 'marketing', label: 'Marketing', icon: Megaphone, category: 'Admin' },
-  { id: 'reports', label: 'Reports', icon: BarChart3, category: 'Admin' },
+
+  // Manufacturing & Engineering
+  { id: 'production', label: 'Production Floor', icon: Factory, badge: '142 Units', badgeColor: 'bg-blue-500/20 text-blue-300', category: 'Operations' },
+  { id: 'bom', label: 'BOM & Recipes', icon: FlaskConical, badge: 'Std Cost', badgeColor: 'bg-purple-500/20 text-purple-300', category: 'Operations' },
+  { id: 'quality', label: 'Quality Control (QA)', icon: ShieldCheck, badge: 'IQC/IPQC', badgeColor: 'bg-teal-500/20 text-teal-300', category: 'Operations' },
+  { id: 'maintenance', label: 'Plant Maintenance', icon: Wrench, badge: '8 Presses', badgeColor: 'bg-amber-500/20 text-amber-300', category: 'Operations' },
+  { id: 'job-work', label: 'Subcontracting', icon: Repeat, badge: 'Sec 143', badgeColor: 'bg-indigo-500/20 text-indigo-300', category: 'Operations' },
+
+  // Supply Chain & Fulfillment
+  { id: 'inventory', label: 'Inventory Stock', icon: Boxes, badge: '2 Low', badgeColor: 'bg-orange-500/20 text-orange-300', category: 'Operations' },
+  { id: 'purchases', label: 'Purchases & POs', icon: Layers, category: 'Operations' },
+  { id: 'gate-pass', label: 'Gate Pass & Fleet', icon: Ticket, badge: 'RGP/NRGP', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
+  { id: 'dispatch', label: 'Dispatch & Fleet', icon: Truck, category: 'Operations' },
+  { id: 'installation', label: 'Site Installation', icon: ClipboardCheck, badge: 'Punch List', badgeColor: 'bg-cyan-500/20 text-cyan-300', category: 'Operations' },
+
+  // Finance & Governance
+  { id: 'accounts', label: 'Accounts & GST', icon: ReceiptIndianRupee, category: 'Admin' },
+  { id: 'employees', label: 'Employees & Roster', icon: UserCheck, category: 'Admin' },
+  { id: 'marketing', label: 'Marketing Racks', icon: Megaphone, category: 'Admin' },
+  { id: 'reports', label: 'Reports & Analytics', icon: BarChart3, category: 'Admin' },
   { id: 'settings', label: 'Settings', icon: Settings, category: 'Admin' },
 ];
 

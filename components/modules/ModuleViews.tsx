@@ -53,6 +53,12 @@ import LeadsPipeline from './crm/LeadsPipeline';
 import { QuotationHub } from './quotations/QuotationHub';
 import { QuotationBuilder } from './quotations/QuotationBuilder';
 import SalesAndReturnHub from './sales/SalesAndReturnHub';
+import BomAndRecipeHub from './engineering/BomAndRecipeHub';
+import QualityControlHub from './quality/QualityControlHub';
+import PlantMaintenanceHub from './maintenance/PlantMaintenanceHub';
+import SubcontractingHub from './jobwork/SubcontractingHub';
+import SiteInstallationHub from './fieldservice/SiteInstallationHub';
+import GatePassHub from './logistics/GatePassHub';
 import { JobCardModal } from './production/JobCardModal';
 import { StickerPrintModal } from './production/StickerPrintModal';
 import { QcInspectionModal } from './production/QcInspectionModal';
@@ -1022,6 +1028,48 @@ export function SalesOrdersView() {
  * ------------------------------------------------------------- */
 export function SalesAndReturnView() {
   return <SalesAndReturnHub />;
+}
+
+/* -------------------------------------------------------------
+ * 5C. BOM & RECIPE ENGINEERING VIEW (SAP PP-BD / Odoo PLM)
+ * ------------------------------------------------------------- */
+export function BomAndRecipeView() {
+  return <BomAndRecipeHub />;
+}
+
+/* -------------------------------------------------------------
+ * 5D. QUALITY CONTROL & ASSURANCE VIEW (SAP QM / ISO 9001)
+ * ------------------------------------------------------------- */
+export function QualityControlView() {
+  return <QualityControlHub />;
+}
+
+/* -------------------------------------------------------------
+ * 5E. PLANT MAINTENANCE & OEE VIEW (SAP PM / TPM)
+ * ------------------------------------------------------------- */
+export function PlantMaintenanceView() {
+  return <PlantMaintenanceHub />;
+}
+
+/* -------------------------------------------------------------
+ * 5F. SUBCONTRACTING & JOB WORK VIEW (GST Section 143)
+ * ------------------------------------------------------------- */
+export function SubcontractingView() {
+  return <SubcontractingHub />;
+}
+
+/* -------------------------------------------------------------
+ * 5G. GATE PASS & LOGISTICS VIEW (SAP LE-TRA)
+ * ------------------------------------------------------------- */
+export function GatePassView() {
+  return <GatePassHub />;
+}
+
+/* -------------------------------------------------------------
+ * 5H. SITE INSTALLATION & PUNCH LIST VIEW (Dynamics 365 FSM)
+ * ------------------------------------------------------------- */
+export function SiteInstallationView() {
+  return <SiteInstallationHub />;
 }
 
 /* -------------------------------------------------------------
