@@ -132,7 +132,7 @@ export default function Sidebar({
 
       {/* Main Sidebar Element */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-[#070D1E] text-slate-300 border-r border-slate-800/80 transition-all duration-300 ease-in-out select-none shadow-2xl ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-[#070D1E] text-slate-300 border-r border-slate-800/80 transition-all duration-300 ease-in-out select-none shadow-2xl print:hidden ${
           /* Desktop Width */
           isCollapsed ? 'lg:w-20' : 'lg:w-64'
         } ${

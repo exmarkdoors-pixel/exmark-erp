@@ -35,6 +35,7 @@ import {
   Download,
   QrCode,
   Zap,
+  X,
 } from 'lucide-react';
 import {
   DEMO_PRODUCTION_LINES,
@@ -59,6 +60,7 @@ import PlantMaintenanceHub from './maintenance/PlantMaintenanceHub';
 import SubcontractingHub from './jobwork/SubcontractingHub';
 import SiteInstallationHub from './fieldservice/SiteInstallationHub';
 import GatePassHub from './logistics/GatePassHub';
+import { ReportPrintDocumentHub, ReportPrintTheme } from './reports/ReportPrintDocumentHub';
 import { JobCardModal } from './production/JobCardModal';
 import { StickerPrintModal } from './production/StickerPrintModal';
 import { QcInspectionModal } from './production/QcInspectionModal';
@@ -2525,6 +2527,23 @@ export function ReportsView() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isWhatsAppOpen, setIsWhatsAppOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const [printTheme, setPrintTheme] = useState<ReportPrintTheme>('tally-classic');
+
+  // Load saved theme
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('exmark_report_print_theme') as ReportPrintTheme;
+      if (saved) setPrintTheme(saved);
+    } catch {}
+  }, []);
+
+  const handleSelectTheme = (t: ReportPrintTheme) => {
+    setPrintTheme(t);
+    try {
+      localStorage.setItem('exmark_report_print_theme', t);
+    } catch {}
+  };
 
   useEffect(() => {
     let active = true;
@@ -2545,7 +2564,7 @@ export function ReportsView() {
   }, [selectedReportCode]);
 
   const handlePrint = () => {
-    window.print();
+    setIsPrintModalOpen(true);
   };
 
   const handleExportCsv = () => {
@@ -2577,16 +2596,26 @@ export function ReportsView() {
   };
 
   const REPORT_OPTIONS = [
-    { code: 'SALES_BY_DISTRICT', title: 'District Sales & Dealer Volume' },
-    { code: 'PRODUCTION_EFFICIENCY', title: 'Plant Line Output & QC Yield' },
+    { code: 'SALES_BY_DISTRICT', title: 'District Sales & Dealer Turnover' },
+    { code: 'GST_INVOICES_RETURNS', title: 'GST Invoices & Sales Returns (Sec 34)' },
+    { code: 'PRODUCTION_EFFICIENCY', title: 'Plant Output & QC First-Pass Yield' },
+    { code: 'INVENTORY_VALUATION', title: 'Raw Materials & Chemical Valuation' },
     { code: 'OUTSTANDING_RECEIVABLES_AGING', title: 'Receivables Aging (>30, >60, >90 Days)' },
+    { code: 'PLANT_OEE_MAINTENANCE', title: 'Machinery Uptime & OEE Audit' },
     { code: 'FRP_MODEL_MARGINS', title: 'FRP Door Model Profitability' },
+  ];
+
+  const REPORT_THEMES: { id: ReportPrintTheme; label: string; desc: string }[] = [
+    { id: 'tally-classic', label: 'Tally Classic', desc: 'Accounting Grid' },
+    { id: 'tally-modern', label: 'Tally Modern', desc: 'Corporate Clean' },
+    { id: 'tally-formal', label: 'Tally Formal', desc: 'Audit Standard' },
+    { id: 'vyapar-executive', label: 'Vyapar Executive', desc: 'Brand Red Accent' },
   ];
 
   return (
     <div className="space-y-6">
       {toastMessage && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2 print:hidden">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -2597,30 +2626,30 @@ export function ReportsView() {
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-red-500" />
-            Executive Business Reports & Analytics
+            Executive Business Reports &amp; Analytics
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            FRP door sales, production capacity, receivables aging & dealer performance across Kerala
+            FRP door sales, production capacity, receivables aging &amp; dealer performance across Kerala
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsWhatsAppOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
           >
             <Share2 className="w-3.5 h-3.5" /> Share via WhatsApp
           </button>
           <button
             onClick={handleExportCsv}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-700"
           >
             <Download className="w-3.5 h-3.5 text-emerald-500" /> Export Excel / CSV
           </button>
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-md shadow-red-900/30"
           >
-            <Printer className="w-3.5 h-3.5 text-red-500" /> Print / Export PDF
+            <Printer className="w-3.5 h-3.5" /> Print / Export PDF (A4)
           </button>
         </div>
       </div>
@@ -2634,9 +2663,9 @@ export function ReportsView() {
               setIsLoading(true);
               setSelectedReportCode(opt.code);
             }}
-            className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               selectedReportCode === opt.code
-                ? 'bg-red-600 text-white shadow-xs'
+                ? 'bg-red-600 text-white shadow-xs font-bold'
                 : 'bg-white dark:bg-[#0B132B] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -2645,8 +2674,8 @@ export function ReportsView() {
         ))}
       </div>
 
-      {/* Report Output Content */}
-      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 print:border-none print:shadow-none print:p-0">
+      {/* Main Screen View (hidden during print when modal or clean sheet is active) */}
+      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 print:hidden">
         <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
           <div className="flex justify-between items-start">
             <div>
@@ -2657,18 +2686,27 @@ export function ReportsView() {
                 {reportResult?.title || 'Business Intelligence Report'}
               </h3>
             </div>
-            <span className="text-[11px] text-slate-400 font-mono">
-              Generated: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-400 font-mono">
+                Generated: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </span>
+              <button
+                onClick={() => setIsPrintModalOpen(true)}
+                className="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1 cursor-pointer border border-slate-700"
+              >
+                <Printer className="w-3.5 h-3.5 text-red-400" />
+                Format PDF
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Summary Metrics */}
+        {/* Summary Metrics Strip */}
         {reportResult && reportResult.summaryMetrics && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
             {Object.entries(reportResult.summaryMetrics).map(([key, val]) => (
               <div key={key}>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block truncate">
                   {key.replace(/([A-Z])/g, ' $1')}
                 </span>
                 <span className="text-sm font-black font-mono text-slate-900 dark:text-white">{val}</span>
@@ -2677,7 +2715,7 @@ export function ReportsView() {
           </div>
         )}
 
-        {/* Dynamic Table */}
+        {/* Dynamic Table on screen */}
         {isLoading ? (
           <div className="p-8 text-center text-xs text-slate-400">Compiling report data...</div>
         ) : !reportResult || reportResult.rows.length === 0 ? (
@@ -2687,6 +2725,7 @@ export function ReportsView() {
             <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
               <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase text-[10px]">
                 <tr>
+                  <th className="p-3 w-10 text-center">#</th>
                   {Object.keys(reportResult.rows[0]).map((colKey) => (
                     <th key={colKey} className="p-3">
                       {colKey.replace(/([A-Z])/g, ' $1')}
@@ -2697,6 +2736,7 @@ export function ReportsView() {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {reportResult.rows.map((row, idx) => (
                   <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
+                    <td className="p-3 text-center text-slate-500 font-mono text-[11px]">{idx + 1}</td>
                     {Object.values(row).map((cellVal, cIdx) => (
                       <td
                         key={cIdx}
@@ -2718,6 +2758,123 @@ export function ReportsView() {
           </div>
         )}
       </div>
+
+      {/* On-Page Fallback Print Target (Only visible when browser print is triggered directly without modal) */}
+      {!isPrintModalOpen && reportResult && (
+        <div className="hidden print:block printable-document-modal w-full bg-white text-slate-900">
+          <ReportPrintDocumentHub
+            theme={printTheme}
+            reportResult={reportResult}
+            reportTitle={reportResult.title}
+            reportCode={selectedReportCode}
+          />
+        </div>
+      )}
+
+      {/* ============================================================
+       * PRINT & PDF DOCUMENT HUB MODAL (Tally & Vyapar Multi-Theme)
+       * ============================================================ */}
+      {isPrintModalOpen && reportResult && (
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm overflow-y-auto printable-document-modal">
+          <div className="bg-[#0f172a] border border-slate-700 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[96vh]">
+            {/* Top Modal Header Bar */}
+            <div className="p-3.5 border-b border-slate-800 flex justify-between items-center bg-[#131d35] print:hidden">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                  {selectedReportCode}
+                </span>
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <Printer className="w-4 h-4 text-red-400" />
+                  <span>Executive Report Print &amp; PDF Hub (A4 Layout)</span>
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-xs font-bold text-white rounded-lg flex items-center gap-1.5 shadow-md shadow-red-900/40 transition cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Document (A4)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPrintModalOpen(false)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Print Theme Switcher Toolbar */}
+            <div className="border-b border-slate-800 bg-[#090e1a] p-3 flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 font-semibold">Print Theme Layout:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {REPORT_THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => handleSelectTheme(t.id)}
+                      className={`px-3 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                        printTheme === t.id
+                          ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-400'
+                          : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Paper: <strong>A4 Portrait</strong> (Ready for print or PDF export)</span>
+              </div>
+            </div>
+
+            {/* Printable Paper Canvas Preview */}
+            <div id="printableReportArea" className="p-4 sm:p-6 overflow-y-auto bg-slate-950/90 flex justify-center print:p-0 print:bg-white">
+              <div className="w-full max-w-4xl bg-white shadow-2xl rounded-lg overflow-hidden border border-slate-200 print:shadow-none print:border-none print:rounded-none">
+                <ReportPrintDocumentHub
+                  theme={printTheme}
+                  reportResult={reportResult}
+                  reportTitle={reportResult.title}
+                  reportCode={selectedReportCode}
+                />
+              </div>
+            </div>
+
+            {/* Modal Bottom Status Bar */}
+            <div className="p-3 bg-[#0a0f1d] border-t border-slate-800 flex justify-between items-center text-xs print:hidden">
+              <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                <span>
+                  Active Layout: <strong className="text-white uppercase">{printTheme.replace('-', ' ')}</strong> | Total Rows: <strong className="text-red-400">{reportResult.rows.length}</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer transition flex items-center gap-1"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  Excel / CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPrintModalOpen(false)}
+                  className="px-4 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white rounded-lg cursor-pointer transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <WhatsAppSendModal
         isOpen={isWhatsAppOpen}

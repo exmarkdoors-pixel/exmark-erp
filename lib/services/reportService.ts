@@ -66,6 +66,52 @@ export const SYSTEM_REPORTS: ReportDefinition[] = [
       { key: 'totalRevenue', label: 'Total Revenue', format: 'currency' },
     ],
   },
+  {
+    id: 'rep-gst-sales-returns',
+    reportCode: 'GST_INVOICES_RETURNS',
+    title: 'GST Tax Invoices & Sales Returns Reconciliation (Section 34)',
+    category: 'FINANCE',
+    description: 'Commercial B2B/B2C invoices, credit notes, 18% GST reversals, and net sales reconciliation.',
+    columns: [
+      { key: 'particulars', label: 'Customer / Voucher Ref' },
+      { key: 'grossInvoiced', label: 'Gross Billed (INR)', format: 'currency' },
+      { key: 'creditNotesReversed', label: 'Credit Notes / Returns', format: 'currency' },
+      { key: 'netTaxableSales', label: 'Net Taxable Sales', format: 'currency' },
+      { key: 'gst18Collected', label: 'Net 18% GST', format: 'currency' },
+      { key: 'status', label: 'Ledger Status', format: 'text' },
+    ],
+  },
+  {
+    id: 'rep-inv-valuation',
+    reportCode: 'INVENTORY_VALUATION',
+    title: 'Raw Material Bay & Chemical Stock Valuation Audit',
+    category: 'PRODUCTION',
+    description: 'Stock valuation of resin, woven roving, PU foam cores, WPC pellets, and hardware.',
+    columns: [
+      { key: 'materialName', label: 'Chemical / Raw Material' },
+      { key: 'category', label: 'Category' },
+      { key: 'currentStock', label: 'Available Stock', format: 'text' },
+      { key: 'unitRate', label: 'Standard Rate (INR)', format: 'currency' },
+      { key: 'totalValuation', label: 'Total Stock Value', format: 'currency' },
+      { key: 'reorderStatus', label: 'Stock Status', format: 'text' },
+    ],
+  },
+  {
+    id: 'rep-plant-oee',
+    reportCode: 'PLANT_OEE_MAINTENANCE',
+    title: 'Plant Machinery Uptime & OEE Audit Report',
+    category: 'PRODUCTION',
+    description: 'Overall Equipment Effectiveness (Availability x Performance x Quality) for presses and CNCs.',
+    columns: [
+      { key: 'machineName', label: 'Plant Equipment' },
+      { key: 'runHours', label: 'Total Run Hours', format: 'number' },
+      { key: 'availability', label: 'Availability (%)', format: 'text' },
+      { key: 'performance', label: 'Performance (%)', format: 'text' },
+      { key: 'qualityRate', label: 'Quality (%)', format: 'text' },
+      { key: 'oeeIndex', label: 'OEE Index (%)', format: 'text' },
+      { key: 'maintenanceStatus', label: 'PM Status', format: 'text' },
+    ],
+  },
 ];
 
 export async function generateReport(
@@ -203,6 +249,79 @@ export async function generateReport(
       summaryMetrics: {
         totalFRPRevenue: `₹${totalFRPRevenue.toLocaleString('en-IN')}`,
         activeQuotes: quotes.length,
+      },
+      rows,
+    };
+  }
+
+  if (reportCode === 'GST_INVOICES_RETURNS') {
+    const rows = [
+      { particulars: 'Kochi Luxury Villas Pvt Ltd (INV-2026-101)', grossInvoiced: 133340, creditNotesReversed: 20060, netTaxableSales: 95763, gst18Collected: 17237, status: 'RECONCILED' },
+      { particulars: 'Er. Jacob Roy / Roy Architects (INV-2026-102)', grossInvoiced: 85000, creditNotesReversed: 0, netTaxableSales: 72034, gst18Collected: 12966, status: 'PAID IN FULL' },
+      { particulars: 'Calicut Builders Consortium (INV-2026-103)', grossInvoiced: 215000, creditNotesReversed: 14500, netTaxableSales: 169915, gst18Collected: 30585, status: 'PARTIAL REC' },
+      { particulars: 'Dr. Anita Menon Residence (INV-2026-104)', grossInvoiced: 48600, creditNotesReversed: 0, netTaxableSales: 41186, gst18Collected: 7414, status: 'PAID IN FULL' },
+    ];
+    const totalGross = rows.reduce((sum, r) => sum + r.grossInvoiced, 0);
+    const totalReturns = rows.reduce((sum, r) => sum + r.creditNotesReversed, 0);
+    const totalNetSales = totalGross - totalReturns;
+
+    return {
+      reportCode,
+      title: repDef.title,
+      generatedAt: new Date().toISOString(),
+      filterApplied: filter || {},
+      summaryMetrics: {
+        grossBilled: `₹${totalGross.toLocaleString('en-IN')}`,
+        totalReturnsReversed: `₹${totalReturns.toLocaleString('en-IN')}`,
+        netRealizedSales: `₹${totalNetSales.toLocaleString('en-IN')}`,
+      },
+      rows,
+    };
+  }
+
+  if (reportCode === 'INVENTORY_VALUATION') {
+    const rows = [
+      { materialName: 'Isophthalic Resin (UV Grade Tanker)', category: 'Resin & Chemicals', currentStock: '3,850 kg', unitRate: 185, totalValuation: 712250, reorderStatus: 'ADEQUATE' },
+      { materialName: 'Woven Roving Fabric 600 GSM', category: 'Fiberglass', currentStock: '1,420 sqm', unitRate: 165, totalValuation: 234300, reorderStatus: 'ADEQUATE' },
+      { materialName: 'Chopped Strand Mat (CSM 450 GSM)', category: 'Fiberglass', currentStock: '980 sqm', unitRate: 140, totalValuation: 137200, reorderStatus: 'REORDER DUE' },
+      { materialName: 'PU Foam High-Density Core (45 kg/m³)', category: 'Core & Filler', currentStock: '420 cu.ft', unitRate: 480, totalValuation: 201600, reorderStatus: 'ADEQUATE' },
+      { materialName: 'Virgin WPC Extrusion Granules', category: 'Polymer Compound', currentStock: '6,200 kg', unitRate: 115, totalValuation: 713000, reorderStatus: 'OPTIMAL' },
+      { materialName: 'Teak Woodgrain UV Gelcoat Pigment', category: 'Coatings', currentStock: '240 kg', unitRate: 340, totalValuation: 81600, reorderStatus: 'ADEQUATE' },
+    ];
+    const totalVal = rows.reduce((sum, r) => sum + r.totalValuation, 0);
+
+    return {
+      reportCode,
+      title: repDef.title,
+      generatedAt: new Date().toISOString(),
+      filterApplied: filter || {},
+      summaryMetrics: {
+        totalStockValuation: `₹${totalVal.toLocaleString('en-IN')}`,
+        activeSkus: rows.length,
+        criticalReorders: 1,
+      },
+      rows,
+    };
+  }
+
+  if (reportCode === 'PLANT_OEE_MAINTENANCE') {
+    const rows = [
+      { machineName: 'Hydraulic Compression Press #1 (200T)', runHours: 3420, availability: '97.2%', performance: '95.0%', qualityRate: '99.4%', oeeIndex: '91.8%', maintenanceStatus: 'HEALTHY' },
+      { machineName: 'Hydraulic Compression Press #2 (180T)', runHours: 2980, availability: '95.5%', performance: '93.8%', qualityRate: '98.9%', oeeIndex: '88.6%', maintenanceStatus: 'HEALTHY' },
+      { machineName: '3-Axis Heavy CNC Router #1', runHours: 1850, availability: '92.0%', performance: '91.5%', qualityRate: '99.8%', oeeIndex: '84.0%', maintenanceStatus: 'PM DUE' },
+      { machineName: 'Hydraulic Heated Press #3 (160T)', runHours: 4100, availability: '78.4%', performance: '85.0%', qualityRate: '97.2%', oeeIndex: '64.8%', maintenanceStatus: 'SEAL REPAIR' },
+      { machineName: 'Screw Air Compressor Unit (10 Bar)', runHours: 5200, availability: '99.0%', performance: '98.5%', qualityRate: '100.0%', oeeIndex: '97.5%', maintenanceStatus: 'OPTIMAL' },
+    ];
+
+    return {
+      reportCode,
+      title: repDef.title,
+      generatedAt: new Date().toISOString(),
+      filterApplied: filter || {},
+      summaryMetrics: {
+        averagePlantOee: '85.3%',
+        worldClassBenchmark: '85.0%',
+        totalMachinesLogged: rows.length,
       },
       rows,
     };

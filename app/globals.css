@@ -37,3 +37,102 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(225, 29, 72, 0.5);
 }
+
+/* =============================================================
+ * PRINT & PDF EXPORT OPTIMIZATIONS (A4 Standard)
+ * ============================================================= */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 10mm 12mm 10mm;
+  }
+
+  /* Force clean white background and crisp dark text for paper */
+  html,
+  body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10pt !important;
+    line-height: 1.35 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Completely suppress navigation, sidebars, headers, floating modals background */
+  aside,
+  header,
+  nav,
+  .print\:hidden,
+  [data-print-hidden="true"],
+  .backdrop-blur-sm,
+  .backdrop-blur-md {
+    display: none !important;
+  }
+
+  /* Remove sidebar offsets & constraints */
+  main,
+  div[class*="pl-"],
+  div[class*="lg:pl-"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Table layout for pagination */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    page-break-inside: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  th, td {
+    padding: 5px 8px !important;
+  }
+
+  /* Ensure modal printable sheet fills page when modal is active */
+  .printable-document-modal {
+    position: static !important;
+    inset: auto !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .printable-document-modal > div {
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Remove screen borders and shadows */
+  .shadow-xl,
+  .shadow-2xl,
+  .shadow-md,
+  .shadow-lg {
+    box-shadow: none !important;
+  }
+}

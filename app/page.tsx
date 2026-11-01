@@ -184,7 +184,7 @@ export default function Home() {
 
         {/* Main Content Area */}
         <div
-          className={`flex-1 flex flex-col transition-all duration-300 min-w-0 ${
+          className={`flex-1 flex flex-col transition-all duration-300 min-w-0 print:pl-0 print:m-0 ${
             isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'
           }`}
         >
@@ -199,7 +199,7 @@ export default function Home() {
           />
 
           {/* Main Body Content */}
-          <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+          <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6 print:p-0 print:m-0 print:max-w-none">
             {/* Dashboard View */}
             {currentTab === 'dashboard' && (
               <>
