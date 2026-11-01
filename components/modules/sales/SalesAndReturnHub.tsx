@@ -266,6 +266,26 @@ export default function SalesAndReturnHub() {
   const [filterDistrict, setFilterDistrict] = useState('ALL');
   const [filterPayment, setFilterPayment] = useState('ALL');
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isZeroed = localStorage.getItem('exmark_data_zeroed');
+      if (isZeroed === 'true') {
+        setInvoices([]);
+        setReturns([]);
+        return;
+      }
+      fetch('/api/finance/invoices')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json && Array.isArray(json.data) && json.data.length === 0) {
+            setInvoices([]);
+            setReturns([]);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   // Modals
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [selectedInvoiceForReturn, setSelectedInvoiceForReturn] = useState<SalesInvoice | null>(null);

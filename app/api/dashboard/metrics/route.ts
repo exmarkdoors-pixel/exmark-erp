@@ -86,6 +86,7 @@ export async function GET() {
       warranties?: unknown[];
     }>('fulfillment-store.json', { dispatches: [], installations: [], warranties: [] });
     const purchases = safeReadJson<Array<{ id: string }>>('purchases-store.json', []);
+    const inventory = safeReadJson<Array<{ id: string; currentStock?: number }>>('inventory-store.json', []);
 
     // 2. Compute exact financial totals
     const invoicesList = finance.invoices || [];
@@ -246,7 +247,7 @@ export async function GET() {
       measurements: `${measurements.length} Sites`,
       salesOrders: `${production.length} Orders`,
       production: `${totalProductionDoors} Doors`,
-      inventory: '6 Items',
+      inventory: `${inventory.filter((i) => (i.currentStock || 0) > 0).length} Stock`,
       purchases: `${purchases.length} POs`,
       accounts: `₹${(totalReceivables / 100000).toFixed(1)}L Due`,
       employees: `${employees.length} Staff`,

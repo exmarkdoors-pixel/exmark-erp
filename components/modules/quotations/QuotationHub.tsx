@@ -403,7 +403,25 @@ export function QuotationHub() {
         setQuotations([]);
         setLeads([]);
         setSalesOrders([]);
+        setCustomers([]);
+        setSelectedCustomerId('');
         setQuoteItemRows([createZeroRow(1, INITIAL_MODELS[0]?.id)]);
+      } else {
+        // Fetch actual live customers from store
+        fetch('/api/customers')
+          .then((res) => res.json())
+          .then((json) => {
+            if (json && Array.isArray(json.data)) {
+              if (json.data.length === 0) {
+                setCustomers([]);
+                setSelectedCustomerId('');
+              } else {
+                setCustomers(json.data);
+                if (json.data[0]) setSelectedCustomerId(json.data[0].id);
+              }
+            }
+          })
+          .catch(() => {});
       }
     }
   }, []);

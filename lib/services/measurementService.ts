@@ -255,21 +255,21 @@ function ensureFileStore(): SiteMeasurementRecord[] {
     }
 
     if (!fs.existsSync(STORE_PATH)) {
-      fs.writeFileSync(STORE_PATH, JSON.stringify(INITIAL_RECORDS, null, 2), 'utf8');
-      cachedRecords = INITIAL_RECORDS;
+      fs.writeFileSync(STORE_PATH, '[]', 'utf8');
+      cachedRecords = [];
       return cachedRecords;
     }
 
     const raw = fs.readFileSync(STORE_PATH, 'utf8');
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       cachedRecords = parsed;
       return parsed;
     }
-    return INITIAL_RECORDS;
+    return [];
   } catch (err) {
     console.error('[MeasurementService] Failed to read store:', err);
-    return cachedRecords || INITIAL_RECORDS;
+    return cachedRecords || [];
   }
 }
 

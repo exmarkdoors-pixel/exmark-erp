@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Target,
   ArrowRight,
@@ -212,6 +212,26 @@ export default function LeadsPipeline() {
   const [activeTab, setActiveTab] = useState<'PIPELINE' | 'ORDERS'>('PIPELINE');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isZeroed = localStorage.getItem('exmark_data_zeroed');
+      if (isZeroed === 'true') {
+        setLeads([]);
+        setSalesOrders([]);
+        return;
+      }
+      // Check live database store
+      fetch('/api/crm/leads')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json && Array.isArray(json.data) && json.data.length === 0) {
+            setLeads([]);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   // New Lead form state
   const [newTitle, setNewTitle] = useState('');
