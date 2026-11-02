@@ -186,7 +186,7 @@ export class PureVectorPdf {
 
   output(type: 'blob' | 'arraybuffer' = 'blob'): Blob | ArrayBuffer {
     const uint8 = this.buildPdf();
-    if (type === 'arraybuffer') return uint8.buffer;
+    if (type === 'arraybuffer') return uint8.buffer as ArrayBuffer;
     return new Blob([uint8 as any], { type: 'application/pdf' });
   }
 

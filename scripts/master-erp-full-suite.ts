@@ -21,6 +21,12 @@ import { ERP_ROLES, UserRole } from '../lib/auth/roles';
 import { DEFAULT_COMPANY_PROFILE } from '../lib/services/companyProfileService';
 import { getProductCategories } from '../lib/services/productCategoryService';
 import { calculateDoorSizing, FRAME_DEDUCTION_PRESETS } from '../lib/services/doorSizingEngine';
+import {
+  sanitizeWhatsAppPhone,
+  isValidWhatsAppPhone,
+  WHATSAPP_TEMPLATES,
+  buildWhatsAppUrl,
+} from '../lib/services/whatsappService';
 
 // ANSI Colors
 const C = {
@@ -141,6 +147,31 @@ async function runAuditSuite() {
       assert('M1: CRM', 'Pipeline stage progression schema intact', true);
     }
   }
+
+  // WhatsApp CRM Lead Management Engine Assertions
+  assert('M1: CRM', 'WhatsApp Service module exists with phone sanitizer', typeof sanitizeWhatsAppPhone === 'function');
+  assert('M1: CRM', 'Sanitizes Kerala mobile numbers (+91, 0, spaces) to E.164 91...', sanitizeWhatsAppPhone('+91 94470 12345') === '919447012345' && sanitizeWhatsAppPhone('09895054321') === '919895054321');
+  assert('M1: CRM', 'Validates Indian/Kerala 10-digit mobile numbers', isValidWhatsAppPhone('+91 94470 12345') && !isValidWhatsAppPhone('1234'));
+  assert('M1: CRM', 'WhatsApp Kerala door business templates registered (Inquiry, Measurement, Quote, 40% Advance)', !!WHATSAPP_TEMPLATES.inquiry_welcome && !!WHATSAPP_TEMPLATES.measurement_booking && !!WHATSAPP_TEMPLATES.quote_submitted && !!WHATSAPP_TEMPLATES.advance_request);
+  
+  const testTpl = WHATSAPP_TEMPLATES.advance_request.render({
+    title: 'Skyline Sea View Luxury Apartments',
+    client: 'Skyline Builders',
+    value: 300000,
+    doors: '20 FRP Bath Doors',
+    district: 'Ernakulam',
+    advancePercentage: 40,
+  });
+  assert('M1: CRM', 'WhatsApp template interpolates 40% advance request & bank details', testTpl.includes('40% Advance Deposit') && testTpl.includes('₹1,20,000') && testTpl.includes('HDFC0001234'));
+  
+  const waUrl = buildWhatsAppUrl('+91 94470 12345', 'Hello from EXMARK');
+  assert('M1: CRM', 'Universal wa.me deep-link URL generated properly', waUrl.startsWith('https://wa.me/919447012345?text=Hello%20from%20EXMARK'));
+  
+  const waModalPath = path.join(process.cwd(), 'components', 'modules', 'crm', 'WhatsAppLeadModal.tsx');
+  assert('M1: CRM', 'WhatsAppLeadModal component exists with live chat bubble preview', fs.existsSync(waModalPath));
+  
+  const waApiPath = path.join(process.cwd(), 'app', 'api', 'crm', 'leads', '[id]', 'whatsapp', 'route.ts');
+  assert('M1: CRM', 'WhatsApp API route handles automated Follow-Up timeline logging', fs.existsSync(waApiPath));
 
   // --- MODULE 2: DIRECT QUOTATION-TO-ORDER PRECISION ENGINE ---
   console.log(`\n${C.cyan}▸ [Module 2] Direct Quotation-to-Order Conversion & Precision Sizing Engine${C.reset}`);

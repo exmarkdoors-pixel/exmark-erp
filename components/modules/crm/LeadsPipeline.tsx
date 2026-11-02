@@ -25,7 +25,9 @@ import {
   RotateCcw,
   FileText,
   CreditCard,
+  MessageSquare,
 } from 'lucide-react';
+import { WhatsAppLeadModal } from './WhatsAppLeadModal';
 
 // 1. കൃത്യമായ സ്റ്റേജ് ക്രമം നിർവ്വചിക്കുക (Exact definitions as requested)
 export const PIPELINE_STAGES = [
@@ -251,6 +253,17 @@ export default function LeadsPipeline() {
   // Follow-up notes modal state
   const [activeLeadForNotes, setActiveLeadForNotes] = useState<LeadItem | null>(null);
   const [followUpNoteText, setFollowUpNoteText] = useState<string>('');
+
+  // WhatsApp Lead Dispatcher modal state
+  const [activeLeadForWhatsApp, setActiveLeadForWhatsApp] = useState<LeadItem | null>(null);
+
+  const handleWhatsAppLogged = (leadId: string, notes: string) => {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === leadId ? { ...l, notes: `${notes} (${new Date().toLocaleTimeString('en-IN')})` } : l))
+    );
+    setToastMessage(`WhatsApp dispatch successfully recorded in CRM follow-up timeline!`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   // 2. സ്റ്റെപ്പ് ബൈ സ്റ്റെപ്പ് ആയി അടുത്ത ഘട്ടത്തിലേക്ക് മാറ്റുന്ന ഫങ്ഷൻ
   const handleFollowUp = (e: React.MouseEvent, leadId: string) => {
@@ -625,8 +638,20 @@ export default function LeadsPipeline() {
                       {/* Client, District & Doors */}
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">
                         <div className="font-semibold text-slate-700 dark:text-slate-300">{lead.client}</div>
-                        <div className="flex items-center gap-1 text-[10px]">
+                        <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
                           <span>{lead.phone}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveLeadForWhatsApp(lead);
+                            }}
+                            className="px-1.5 py-0.5 rounded text-[9px] font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 cursor-pointer inline-flex items-center gap-1 transition-all"
+                            title={`Instant WhatsApp chat with ${lead.contactPerson || lead.client}`}
+                          >
+                            <MessageSquare className="w-2.5 h-2.5 text-emerald-400" />
+                            <span>WhatsApp</span>
+                          </button>
                           <span>&bull;</span>
                           <span className="text-amber-400 font-semibold">{lead.district}</span>
                         </div>
@@ -657,6 +682,19 @@ export default function LeadsPipeline() {
                               <span>↺ Reverse</span>
                             </button>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveLeadForWhatsApp(lead);
+                            }}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1 cursor-pointer transition-all"
+                            title="Compose and send WhatsApp message to client"
+                          >
+                            <MessageSquare className="w-2.5 h-2.5 text-emerald-400" />
+                            <span>WhatsApp</span>
+                          </button>
 
                           <button
                             type="button"
@@ -1200,6 +1238,29 @@ export default function LeadsPipeline() {
           </div>
         </div>
       )}
+      {/* WHATSAPP LEAD DISPATCHER MODAL */}
+      <WhatsAppLeadModal
+        isOpen={!!activeLeadForWhatsApp}
+        onClose={() => setActiveLeadForWhatsApp(null)}
+        lead={
+          activeLeadForWhatsApp
+            ? {
+                id: activeLeadForWhatsApp.id,
+                leadCode: activeLeadForWhatsApp.leadCode,
+                title: activeLeadForWhatsApp.title,
+                client: activeLeadForWhatsApp.client,
+                contactPerson: activeLeadForWhatsApp.contactPerson || activeLeadForWhatsApp.client,
+                phone: activeLeadForWhatsApp.phone,
+                district: activeLeadForWhatsApp.district,
+                doors: activeLeadForWhatsApp.doors,
+                doorCount: activeLeadForWhatsApp.doorCount,
+                value: activeLeadForWhatsApp.value,
+                stage: activeLeadForWhatsApp.stage,
+              }
+            : null
+        }
+        onMessageLogged={handleWhatsAppLogged}
+      />
     </div>
   );
 }
