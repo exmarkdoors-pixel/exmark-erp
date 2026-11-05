@@ -1,11 +1,15 @@
 appId: com.exmark.erp
 productName: EXMARK ERP
+npmRebuild: false
+nodeGypRebuild: false
+asar: true
 directories:
   output: dist
 files:
   - package.json
   - electron/**/*
   - public/**/*
+  - "!node_modules/**/*"
 win:
   target:
     - target: nsis
