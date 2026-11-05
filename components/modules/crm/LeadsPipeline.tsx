@@ -27,9 +27,14 @@ import {
   CreditCard,
   MessageSquare,
   UserPlus,
+  QrCode,
+  Zap,
 } from 'lucide-react';
 import { WhatsAppLeadModal } from './WhatsAppLeadModal';
+import { WhatsAppLoginModal } from './WhatsAppLoginModal';
+import { ConvertLeadModal } from './ConvertLeadModal';
 import { Customer } from '@/lib/services/customerService';
+import { WhatsAppSession, DEFAULT_WHATSAPP_SESSION } from '@/lib/services/whatsappService';
 
 // 1. കൃത്യമായ സ്റ്റേജ് ക്രമം നിർവ്വചിക്കുക (Exact definitions as requested)
 export const PIPELINE_STAGES = [
@@ -223,6 +228,13 @@ export default function LeadsPipeline() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [alsoCreateCustomer, setAlsoCreateCustomer] = useState(false);
 
+  // WhatsApp Session State & Login Modal
+  const [waSession, setWaSession] = useState<WhatsAppSession>(DEFAULT_WHATSAPP_SESSION);
+  const [isWaLoginOpen, setIsWaLoginOpen] = useState(false);
+
+  // Convert Lead Modal state
+  const [activeLeadForConvert, setActiveLeadForConvert] = useState<LeadItem | null>(null);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const isZeroed = localStorage.getItem('exmark_data_zeroed');
@@ -278,6 +290,16 @@ export default function LeadsPipeline() {
           }
         })
         .catch(() => {});
+
+      // Fetch WhatsApp Session
+      fetch('/api/crm/whatsapp/session')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && json.session) {
+            setWaSession(json.session);
+          }
+        })
+        .catch(() => {});
     }
   }, []);
 
@@ -308,6 +330,37 @@ export default function LeadsPipeline() {
       prev.map((l) => (l.id === leadId ? { ...l, notes: `${notes} (${new Date().toLocaleTimeString('en-IN')})` } : l))
     );
     setToastMessage(`WhatsApp dispatch successfully recorded in CRM follow-up timeline!`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleLeadConverted = (
+    leadId: string,
+    conversionType: 'CUSTOMER' | 'MEASUREMENT' | 'QUOTATION' | 'ORDER',
+    details: { customerId?: string; quoteNo?: string; orderId?: string }
+  ) => {
+    if (conversionType === 'CUSTOMER') {
+      setLeads((prev) =>
+        prev.map((l) => (l.id === leadId ? { ...l, customerId: details.customerId } : l))
+      );
+      setToastMessage('🎉 Lead successfully registered as a formal Customer in database!');
+    } else if (conversionType === 'MEASUREMENT') {
+      setLeads((prev) =>
+        prev.map((l) => (l.id === leadId ? { ...l, stage: 'measurement' } : l))
+      );
+      setToastMessage('📐 Site tape measurement booked with engineer! Lead advanced.');
+    } else if (conversionType === 'QUOTATION') {
+      setLeads((prev) =>
+        prev.map((l) => (l.id === leadId ? { ...l, stage: 'quotation' } : l))
+      );
+      setToastMessage(`📋 Formal GST quotation (${details.quoteNo || 'QTE-2026'}) created! Lead advanced.`);
+    } else if (conversionType === 'ORDER') {
+      const targetLead = leads.find((l) => l.id === leadId);
+      if (targetLead) {
+        convertToSalesOrder(targetLead);
+        setLeads((prev) => prev.filter((l) => l.id !== leadId));
+        setToastMessage(`🎉 Lead converted to Production Sales Order (${details.orderId || 'SO-2026'})!`);
+      }
+    }
     setTimeout(() => setToastMessage(null), 4000);
   };
 
@@ -694,6 +747,29 @@ export default function LeadsPipeline() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* WhatsApp Connection Status Pill */}
+          <button
+            type="button"
+            onClick={() => setIsWaLoginOpen(true)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 border shadow-sm ${
+              waSession.connected
+                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/50'
+                : 'bg-rose-950/40 border-rose-500/40 text-rose-400 hover:bg-rose-900/50 animate-pulse'
+            }`}
+            title="Manage EXMARK WhatsApp connection, pair phone or scan QR"
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                waSession.connected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
+              }`}
+            />
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">
+              {waSession.connected ? `WhatsApp: ${waSession.phoneNumber || '+91 94470 12345'}` : 'Pair WhatsApp'}
+            </span>
+            <span className="sm:hidden">WhatsApp</span>
+          </button>
+
           {/* Navigation Segment Tabs */}
           <div className="inline-flex p-1 bg-slate-100 dark:bg-[#070D1E] rounded-xl border border-slate-200 dark:border-slate-800">
             <button
@@ -900,6 +976,19 @@ export default function LeadsPipeline() {
                           >
                             <FileText className="w-2.5 h-2.5" />
                             <span>Notes</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveLeadForConvert(lead);
+                            }}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-950/40 hover:bg-amber-900/50 text-amber-400 border border-amber-500/30 inline-flex items-center gap-1 cursor-pointer transition-all"
+                            title="Convert this lead to Customer, Measurement, Quotation, or Sales Order"
+                          >
+                            <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                            <span>Convert</span>
                           </button>
 
                           <button
@@ -1484,6 +1573,22 @@ export default function LeadsPipeline() {
             : null
         }
         onMessageLogged={handleWhatsAppLogged}
+      />
+
+      {/* WHATSAPP LOGIN & DEVICE PAIRING MODAL */}
+      <WhatsAppLoginModal
+        isOpen={isWaLoginOpen}
+        onClose={() => setIsWaLoginOpen(false)}
+        session={waSession}
+        onSessionUpdated={(updated) => setWaSession(updated)}
+      />
+
+      {/* MULTI-ACTION CONVERT LEAD MODAL */}
+      <ConvertLeadModal
+        isOpen={!!activeLeadForConvert}
+        onClose={() => setActiveLeadForConvert(null)}
+        lead={activeLeadForConvert}
+        onConverted={handleLeadConverted}
       />
     </div>
   );

@@ -31,16 +31,39 @@ export type WhatsAppTemplateKey =
   | 'advance_request'
   | 'production_update'
   | 'dispatch_alert'
+  | 'forward_engineer'
+  | 'forward_production'
+  | 'forward_accounts'
   | 'custom';
 
 export interface WhatsAppTemplate {
   key: WhatsAppTemplateKey;
   title: string;
-  category: 'Inquiry' | 'Site Visit' | 'Quotation' | 'Finance' | 'Production' | 'Dispatch' | 'General';
+  category: 'Inquiry' | 'Site Visit' | 'Quotation' | 'Finance' | 'Production' | 'Dispatch' | 'Forward' | 'General';
   description: string;
   iconName: string;
   render: (ctx: WhatsAppTemplateContext) => string;
 }
+
+export interface WhatsAppSession {
+  connected: boolean;
+  phoneNumber: string;
+  accountName: string;
+  deviceName: string;
+  batteryLevel: number;
+  lastSyncedAt: string;
+  apiMode: 'WEB_DIRECT' | 'CLOUD_API';
+}
+
+export const DEFAULT_WHATSAPP_SESSION: WhatsAppSession = {
+  connected: true,
+  phoneNumber: '+91 94470 12345',
+  accountName: 'EXMARK DOORS Official Plant HQ',
+  deviceName: 'Chrome 124 (Windows Desktop)',
+  batteryLevel: 94,
+  lastSyncedAt: new Date().toISOString(),
+  apiMode: 'WEB_DIRECT',
+};
 
 /**
  * Sanitizes phone numbers into clean E.164 format without '+' or special characters.
@@ -213,6 +236,77 @@ export const WHATSAPP_TEMPLATES: Record<WhatsAppTemplateKey, WhatsAppTemplate> =
         `🚪 *Door Count:* ${ctx.doorCount || ctx.doors || 'As per delivery challan'}\n` +
         `📍 *Destination:* ${ctx.district || 'Site Location'}\n\n` +
         `Please ensure site unloading personnel are ready upon truck arrival. Thank you for choosing EXMARK!`
+      );
+    },
+  },
+
+  forward_engineer: {
+    key: 'forward_engineer',
+    title: 'Forward to Site Engineer (Measurement Visit)',
+    category: 'Forward',
+    description: 'Forward site address, client contact, and door counts to measurement team.',
+    iconName: 'Ruler',
+    render: (ctx) => {
+      return (
+        `👷‍♂️ *SITE MEASUREMENT WORK ORDER — EXMARK*\n\n` +
+        `Dear Site Engineer,\n` +
+        `Please conduct site tape measurement for:\n\n` +
+        `🏢 *Project:* ${ctx.title}\n` +
+        `👤 *Client:* ${ctx.client} (${ctx.contactPerson || 'Site Contact'})\n` +
+        `📞 *Client Phone:* ${ctx.phone || 'N/A'}\n` +
+        `📍 *District / Town:* ${ctx.district || 'Kerala'}\n` +
+        `🚪 *Est. Doors:* ${ctx.doorCount || ctx.doors || '20 Openings'}\n` +
+        `📋 *Inquiry Code:* ${ctx.leadCode || 'CRM-LEAD'}\n\n` +
+        `_Task: Measure opening widths, heights, frame rebate depths, and hinge mortise side. Submit sizes to factory portal._`
+      );
+    },
+  },
+
+  forward_production: {
+    key: 'forward_production',
+    title: 'Forward to Production Supervisor (Press Schedule)',
+    category: 'Forward',
+    description: 'Forward door quantities, finish, and press specifications to plant supervisor.',
+    iconName: 'Layers',
+    render: (ctx) => {
+      return (
+        `🏭 *FACTORY PRODUCTION NOTICE — EXMARK DOORS*\n\n` +
+        `Attention: Plant Production Floor Supervisor,\n` +
+        `New order batch released for manufacturing:\n\n` +
+        `📋 *Project:* ${ctx.title}\n` +
+        `🏢 *Client:* ${ctx.client}\n` +
+        `🚪 *Doors Specification:* ${ctx.doors || 'FRP Solid Core Doors'}\n` +
+        `🔢 *Quantity:* ${ctx.doorCount || 20} Units\n` +
+        `📍 *Site Location:* ${ctx.district || 'Kerala'}\n` +
+        `🏷️ *QC Standard:* IS 14856:2000 (FRP Door Shutters)\n\n` +
+        `_Action: Prepare resin formulation batch, cut fiberglass CSM sheets, and schedule hydraulic hot press cycle._`
+      );
+    },
+  },
+
+  forward_accounts: {
+    key: 'forward_accounts',
+    title: 'Forward to Accounts Team (Advance Verification)',
+    category: 'Forward',
+    description: 'Forward quotation total and advance deposit verification to accounts team.',
+    iconName: 'CreditCard',
+    render: (ctx) => {
+      const formattedVal = ctx.value ? `₹${ctx.value.toLocaleString('en-IN')}` : 'To be confirmed';
+      const adv = ctx.advanceAmount
+        ? `₹${ctx.advanceAmount.toLocaleString('en-IN')}`
+        : ctx.value
+        ? `₹${Math.round(ctx.value * 0.4).toLocaleString('en-IN')}`
+        : '40% of order value';
+      return (
+        `💼 *ACCOUNTS & BILLING BRIEF — EXMARK*\n\n` +
+        `Attention: Accounts Department,\n` +
+        `Advance deposit verification request:\n\n` +
+        `🏢 *Project:* ${ctx.title}\n` +
+        `👤 *Client:* ${ctx.client} (${ctx.phone || ''})\n` +
+        `💰 *Total Quote Value:* ${formattedVal}\n` +
+        `💵 *Required 40% Advance:* ${adv}\n` +
+        `📋 *Ref Code:* ${ctx.leadCode || 'CRM-ORDER'}\n\n` +
+        `_Action: Verify bank UTR or UPI receipt and issue official 18% GST advance invoice._`
       );
     },
   },

@@ -20,6 +20,7 @@ import {
   Building2,
   Check,
   AlertCircle,
+  UserCheck,
 } from 'lucide-react';
 import {
   WHATSAPP_TEMPLATES,
@@ -65,19 +66,24 @@ export function WhatsAppLeadModal({
   const [showHistory, setShowHistory] = useState(false);
   const [historyItems, setHistoryItems] = useState<Array<{ id: string; followUpDate: string; notes: string }>>([]);
   const [customPhone, setCustomPhone] = useState('');
+  const [recipientRole, setRecipientRole] = useState<'CLIENT' | 'SITE_ENGINEER' | 'FACTORY_SUPERVISOR' | 'ACCOUNTS' | 'CUSTOM'>('CLIENT');
+  const [recipientLabel, setRecipientLabel] = useState('');
 
   // Sync state when lead or template changes
   useEffect(() => {
     if (!lead) return;
 
-    setCustomPhone(lead.phone || '');
+    if (recipientRole === 'CLIENT') {
+      setCustomPhone(lead.phone || '');
+      setRecipientLabel(lead.contactPerson || lead.client);
+    }
 
     const ctx: WhatsAppTemplateContext = {
       leadCode: lead.leadCode,
       title: lead.title,
       client: lead.client,
       contactPerson: lead.contactPerson || lead.client,
-      phone: lead.phone,
+      phone: customPhone || lead.phone,
       district: lead.district,
       doors: lead.doors,
       doorCount: lead.doorCount,
@@ -90,7 +96,29 @@ export function WhatsAppLeadModal({
     if (template) {
       setMessageText(template.render(ctx));
     }
-  }, [lead, selectedTemplateKey]);
+  }, [lead, selectedTemplateKey, recipientRole]);
+
+  const handleSelectRecipientRole = (role: 'CLIENT' | 'SITE_ENGINEER' | 'FACTORY_SUPERVISOR' | 'ACCOUNTS' | 'CUSTOM') => {
+    if (!lead) return;
+    setRecipientRole(role);
+    if (role === 'CLIENT') {
+      setCustomPhone(lead.phone);
+      setRecipientLabel(lead.contactPerson || lead.client);
+      setSelectedTemplateKey('inquiry_welcome');
+    } else if (role === 'SITE_ENGINEER') {
+      setCustomPhone('+91 98471 22334');
+      setRecipientLabel('Er. Rahul Varma (Site Engineer)');
+      setSelectedTemplateKey('forward_engineer');
+    } else if (role === 'FACTORY_SUPERVISOR') {
+      setCustomPhone('+91 97455 66778');
+      setRecipientLabel('Plant Head Sasi (Factory Floor)');
+      setSelectedTemplateKey('forward_production');
+    } else if (role === 'ACCOUNTS') {
+      setCustomPhone('+91 98950 11223');
+      setRecipientLabel('Accounts Officer Biju');
+      setSelectedTemplateKey('forward_accounts');
+    }
+  };
 
   // Fetch previous WhatsApp history for this lead
   useEffect(() => {
@@ -200,6 +228,9 @@ export function WhatsAppLeadModal({
     advance_request: <CreditCard className="w-3.5 h-3.5 text-emerald-400" />,
     production_update: <Layers className="w-3.5 h-3.5 text-blue-400" />,
     dispatch_alert: <Truck className="w-3.5 h-3.5 text-rose-400" />,
+    forward_engineer: <Ruler className="w-3.5 h-3.5 text-amber-400" />,
+    forward_production: <Layers className="w-3.5 h-3.5 text-cyan-400" />,
+    forward_accounts: <CreditCard className="w-3.5 h-3.5 text-purple-400" />,
     custom: <MessageSquare className="w-3.5 h-3.5 text-slate-400" />,
   };
 
@@ -237,6 +268,68 @@ export function WhatsAppLeadModal({
 
         {/* MODAL BODY */}
         <div className="p-4 sm:p-5 space-y-4 overflow-y-auto text-xs flex-1">
+          {/* RECIPIENT MODE & FORWARD SELECTOR BAR */}
+          <div className="bg-gradient-to-r from-slate-900 via-[#101b33] to-slate-900 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between flex-wrap gap-2">
+            <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>Forward / Dispatch To:</span>
+            </span>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => handleSelectRecipientRole('CLIENT')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                  recipientRole === 'CLIENT'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Client / Buyer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectRecipientRole('SITE_ENGINEER')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                  recipientRole === 'SITE_ENGINEER'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <Ruler className="w-3.5 h-3.5" />
+                <span>Site Engineer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectRecipientRole('FACTORY_SUPERVISOR')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                  recipientRole === 'FACTORY_SUPERVISOR'
+                    ? 'bg-cyan-600 text-white shadow-sm'
+                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Plant Supervisor</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectRecipientRole('ACCOUNTS')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                  recipientRole === 'ACCOUNTS'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Accounts</span>
+              </button>
+            </div>
+          </div>
+
           {/* TARGET RECIPIENT & PHONE ROW */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800">
             <div>
@@ -244,9 +337,11 @@ export function WhatsAppLeadModal({
                 Recipient Contact
               </label>
               <div className="font-bold text-white text-xs truncate">
-                {lead.contactPerson || lead.client}
+                {recipientLabel || lead.contactPerson || lead.client}
               </div>
-              <div className="text-[10px] text-slate-400">{lead.client}</div>
+              <div className="text-[10px] text-slate-400">
+                {recipientRole === 'CLIENT' ? lead.client : `Internal Team (${recipientRole})`}
+              </div>
             </div>
 
             <div>
