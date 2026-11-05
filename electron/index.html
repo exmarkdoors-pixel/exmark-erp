@@ -360,6 +360,347 @@
     </div>
   </div>
 
+  <!-- MODAL: CREATE NEW QUOTATION & FRP AUTO COST CALCULATOR -->
+  <div id="createQuoteModal" class="fixed inset-0 bg-black/85 z-[75] flex items-center justify-center p-3 hidden backdrop-blur-sm">
+    <div class="bg-[#111827] border border-slate-700 w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-blue-500 animate-pulse"></span>
+          <h3 class="font-bold text-white text-sm">Create New Quotation / FRP Auto Cost Calculator (80×210 cm)</h3>
+        </div>
+        <button onclick="closeCreateQuoteModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs overflow-y-auto">
+        <!-- Customer & Site Info -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Customer / Builder Name *</label>
+            <input id="quoteCustomerName" type="text" class="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2.5 text-white text-xs focus:border-blue-500 focus:outline-none" placeholder="e.g. Skyline Builders">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Contact Phone (WhatsApp) *</label>
+            <input id="quoteCustomerPhone" type="text" class="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2.5 text-white text-xs focus:border-blue-500 focus:outline-none" placeholder="e.g. 9447012345">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Site Location / District *</label>
+            <input id="quoteSiteLocation" type="text" class="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2.5 text-white text-xs focus:border-blue-500 focus:outline-none" placeholder="e.g. Edappally, Ernakulam">
+          </div>
+        </div>
+
+        <!-- FRP Auto Cost Calculator Live Card -->
+        <div class="bg-[#0b1120] border border-blue-900/60 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span class="font-bold text-blue-300 text-xs flex items-center gap-1.5">
+              <span>⚡</span> FRP Door Auto Sizing & Rate Calculator (80×210 cm Rule Engine)
+            </span>
+            <button onclick="openFrpSettingsModal()" class="text-amber-400 hover:text-amber-300 text-[11px] font-semibold flex items-center gap-1">
+              ⚙️ Edit Rates (A-E / ₹250)
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Door Category</label>
+              <select id="calcDoorCategory" onchange="runAutoCostCalculator()" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white font-bold text-xs focus:border-blue-500 focus:outline-none">
+                <option value="A">Category A (₹7,000 / pc)</option>
+                <option value="B">Category B (₹7,600 / pc)</option>
+                <option value="C">Category C (₹8,200 / pc)</option>
+                <option value="D">Category D (₹8,800 / pc)</option>
+                <option value="E">Category E (₹9,500 / pc)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Measurement Unit</label>
+              <select id="calcUnit" onchange="runAutoCostCalculator()" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white text-xs focus:border-blue-500 focus:outline-none">
+                <option value="cm">Centimeters (cm)</option>
+                <option value="inch">Inches (in)</option>
+                <option value="mm">Millimeters (mm)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Width (Standard Max 80 cm)</label>
+              <input id="calcWidth" type="number" step="0.1" value="80" oninput="runAutoCostCalculator()" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white font-bold text-xs focus:border-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Height (Standard Max 210 cm)</label>
+              <input id="calcHeight" type="number" step="0.1" value="210" oninput="runAutoCostCalculator()" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white font-bold text-xs focus:border-blue-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Door Model / Tag / Finish</label>
+              <input id="calcDoorModel" type="text" value="FRP Heavy Molded Shutter (Rose Wood)" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white text-xs focus:border-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Quantity (Shutters)</label>
+              <input id="calcQuantity" type="number" min="1" value="10" oninput="runAutoCostCalculator()" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white font-bold text-xs focus:border-blue-500 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Live Breakdown Result Box -->
+          <div id="calcResultBox" class="bg-slate-900/90 border border-slate-800 rounded-lg p-3 text-xs">
+            <!-- Dynamically populated by runAutoCostCalculator() -->
+          </div>
+        </div>
+
+        <!-- Grand Total & Advance Deposit Gate -->
+        <div class="bg-[#131b2e] border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div class="text-[11px] text-slate-400">Total Quotation Value (incl. 18% GST)</div>
+            <div id="quoteGrandTotalDisplay" class="text-2xl font-black text-emerald-400">₹0</div>
+            <div id="quoteAdvanceRequiredDisplay" class="text-xs text-amber-400 font-semibold mt-0.5">Mandatory 40% Advance Lock: ₹0</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="closeCreateQuoteModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-700">Cancel</button>
+            <button onclick="saveNewQuotation()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5">
+              <span>💾</span> Save Quotation & Add to Registry
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: FRP RATE CARD & PRICING SETTINGS -->
+  <div id="frpPricingSettingsModal" class="fixed inset-0 bg-black/85 z-[85] flex items-center justify-center p-3 hidden backdrop-blur-sm">
+    <div class="bg-[#111827] border border-amber-600/60 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-amber-400"></span>
+          <h3 class="font-bold text-white text-sm">FRP Pricing Settings (നിരക്കുകൾ തിരുത്തുക)</h3>
+        </div>
+        <button onclick="closeFrpSettingsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        <p class="text-slate-400 text-[11px]">
+          ഭാവിയേക്കുള്ള കൊട്ടേഷൻ നിരക്കുകൾ മാറ്റാം. പരമാവധി അളവ് (80×210 cm), പീസ് റേറ്റുകൾ (Cat A–E), അധിക സ്ക്വയർ ഫീറ്റ് നിരക്ക് (₹250) എന്നിവ ക്രമീകരിക്കുക:
+        </p>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Max Standard Width (cm)</label>
+            <input id="settingMaxWidth" type="number" value="80" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white font-bold text-xs focus:border-amber-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Max Standard Height (cm)</label>
+            <input id="settingMaxHeight" type="number" value="210" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white font-bold text-xs focus:border-amber-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-slate-300 font-semibold">Standard Piece Rates (Within 80×210 cm)</label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div>
+              <span class="text-[10px] text-slate-400">Cat A (₹)</span>
+              <input id="settingRateA" type="number" value="7000" class="w-full bg-[#131b2e] border border-slate-700 rounded p-1.5 text-white font-bold text-xs">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-400">Cat B (₹)</span>
+              <input id="settingRateB" type="number" value="7600" class="w-full bg-[#131b2e] border border-slate-700 rounded p-1.5 text-white font-bold text-xs">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-400">Cat C (₹)</span>
+              <input id="settingRateC" type="number" value="8200" class="w-full bg-[#131b2e] border border-slate-700 rounded p-1.5 text-white font-bold text-xs">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-400">Cat D (₹)</span>
+              <input id="settingRateD" type="number" value="8800" class="w-full bg-[#131b2e] border border-slate-700 rounded p-1.5 text-white font-bold text-xs">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-400">Cat E (₹)</span>
+              <input id="settingRateE" type="number" value="9500" class="w-full bg-[#131b2e] border border-slate-700 rounded p-1.5 text-white font-bold text-xs">
+            </div>
+            <div>
+              <span class="text-[10px] text-amber-400 font-semibold">Extra Sq.Ft Rate (₹)</span>
+              <input id="settingExtraSqft" type="number" value="250" class="w-full bg-[#131b2e] border border-amber-600/50 rounded p-1.5 text-amber-300 font-bold text-xs">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Below Standard Size Calculation</label>
+          <select id="settingBelowMode" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white text-xs focus:border-amber-500 focus:outline-none">
+            <option value="DIVIDED_RATE">Proportional Divided Square Feet Rate (ശുപാർശ ചെയ്യുന്നത്)</option>
+            <option value="BASE_MINIMUM">Full Base Piece Rate Minimum</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-800 bg-[#141d33] flex justify-end gap-2">
+        <button onclick="closeFrpSettingsModal()" class="px-3 py-1.5 bg-slate-800 text-slate-300 rounded text-xs">Cancel</button>
+        <button onclick="saveFrpSettings()" class="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-bold shadow">
+          Save Settings (സൂക്ഷിക്കുക)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: WHATSAPP QR LOGIN & LIVE INTEGRATION -->
+  <div id="whatsAppQrModal" class="fixed inset-0 bg-black/85 z-[85] flex items-center justify-center p-3 hidden backdrop-blur-sm">
+    <div class="bg-[#111827] border border-emerald-600/60 w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+          <h3 class="font-bold text-white text-sm">WhatsApp Business Gateway & QR Login</h3>
+        </div>
+        <button onclick="closeWhatsAppModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-5 text-center space-y-4 text-xs">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-700/80 text-emerald-300 font-semibold text-[11px]">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active WhatsApp Number: +91 94470 12345
+        </div>
+
+        <div class="bg-white p-4 rounded-xl inline-block shadow-inner mx-auto">
+          <!-- WhatsApp QR Code graphic -->
+          <svg class="w-40 h-40 mx-auto text-slate-900" viewBox="0 0 100 100" fill="currentColor">
+            <rect width="30" height="30" x="5" y="5" fill="#000"/>
+            <rect width="20" height="20" x="10" y="10" fill="#fff"/>
+            <rect width="10" height="10" x="15" y="15" fill="#000"/>
+            <rect width="30" height="30" x="65" y="5" fill="#000"/>
+            <rect width="20" height="20" x="70" y="10" fill="#fff"/>
+            <rect width="10" height="10" x="75" y="15" fill="#000"/>
+            <rect width="30" height="30" x="5" y="65" fill="#000"/>
+            <rect width="20" height="20" x="10" y="70" fill="#fff"/>
+            <rect width="10" height="10" x="15" y="75" fill="#000"/>
+            <rect width="10" height="10" x="45" y="45" fill="#25D366"/>
+            <rect width="8" height="8" x="40" y="15" fill="#000"/>
+            <rect width="8" height="8" x="52" y="25" fill="#000"/>
+            <rect width="8" height="8" x="70" y="45" fill="#000"/>
+            <rect width="8" height="8" x="45" y="75" fill="#000"/>
+            <rect width="8" height="8" x="60" y="65" fill="#000"/>
+            <rect width="8" height="8" x="80" y="80" fill="#000"/>
+          </svg>
+        </div>
+
+        <p class="text-slate-300 font-medium">
+          വാട്‌സ്ആപ്പ് ആപ്പ് തുറന്ന് <strong>Linked Devices</strong> തെരഞ്ഞെടുത്ത് ഈ ക്യുആർ കോഡ് സ്കാൻ ചെയ്യുക.
+        </p>
+        <p class="text-slate-400 text-[11px]">
+          ഇൻക്വയറി, കൊട്ടേഷൻ, 40% അഡ്വാൻസ് പേയ്മെന്റ് റിക്വസ്റ്റ് എന്നിവ ക്ലയന്റിന് നേരിട്ട് അയക്കാം.
+        </p>
+
+        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800 text-left text-[11px] space-y-1 text-slate-300">
+          <div class="font-bold text-white">Default Message Template:</div>
+          <div class="text-slate-400 italic">"EXMARK FRP Doors: പ്രിയ ഉപഭോക്താവേ, അങ്ങയുടെ ഓർഡർ പ്രൊഡക്ഷനിലേക്ക് മാറ്റുന്നതിന് 40% അഡ്വാൻസ് അടയ്ക്കാൻ അഭ്യർത്ഥിക്കുന്നു."</div>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-800 bg-[#141d33] flex justify-between items-center">
+        <span class="text-[11px] text-emerald-400">● Status: Gateway Ready</span>
+        <button onclick="closeWhatsAppModal()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold shadow">
+          Done (ശരി)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONVERT LEAD TO CUSTOMER -->
+  <div id="convertLeadModal" class="fixed inset-0 bg-black/85 z-[80] flex items-center justify-center p-3 hidden backdrop-blur-sm">
+    <div class="bg-[#111827] border border-cyan-600/60 w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-cyan-400"></span>
+          <h3 class="font-bold text-white text-sm">Convert Lead to Permanent Customer</h3>
+        </div>
+        <button onclick="closeConvertLeadModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-3 text-xs">
+        <input type="hidden" id="convertLeadTargetId">
+        <div>
+          <label class="block text-slate-300 mb-1 font-semibold">Customer / Company Name</label>
+          <input id="convertCustName" type="text" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2.5 text-white font-bold focus:border-cyan-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-slate-300 mb-1 font-semibold">Contact Mobile (WhatsApp)</label>
+          <input id="convertCustPhone" type="text" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2.5 text-white focus:border-cyan-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-slate-300 mb-1 font-semibold">Primary Site Address / District</label>
+          <input id="convertCustSite" type="text" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2.5 text-white focus:border-cyan-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-slate-300 mb-1 font-semibold">Customer Category</label>
+          <select id="convertCustCategory" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2.5 text-white focus:border-cyan-500 focus:outline-none">
+            <option value="BUILDER">Civil Contractor / Builder</option>
+            <option value="ARCHITECT">Architect / Interior Designer</option>
+            <option value="DEALER">Dealer / Showroom Retailer</option>
+            <option value="INDIVIDUAL">Individual Home Owner</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-800 bg-[#141d33] flex justify-end gap-2">
+        <button onclick="closeConvertLeadModal()" class="px-3 py-1.5 bg-slate-800 text-slate-300 rounded text-xs">Cancel</button>
+        <button onclick="submitConvertLeadToCustomer()" class="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold shadow">
+          Create & Link Customer Profile (കസ്റ്റമറാക്കി മാറ്റുക)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: FORWARD LEAD VIA WHATSAPP -->
+  <div id="forwardLeadModal" class="fixed inset-0 bg-black/85 z-[80] flex items-center justify-center p-3 hidden backdrop-blur-sm">
+    <div class="bg-[#111827] border border-purple-600/60 w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-purple-400"></span>
+          <h3 class="font-bold text-white text-sm">Forward Lead via WhatsApp</h3>
+        </div>
+        <button onclick="closeForwardLeadModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-3 text-xs">
+        <input type="hidden" id="forwardLeadTargetId">
+        <div class="bg-slate-900/80 p-3 rounded border border-slate-800">
+          <div class="font-bold text-white" id="forwardLeadTitle">Lead Title</div>
+          <div class="text-[11px] text-slate-400 mt-1" id="forwardLeadDesc">Details</div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 mb-1 font-semibold">Forward To Official/Team Member</label>
+          <select id="forwardRecipientSelect" onchange="onForwardRecipientChange()" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white focus:border-purple-500 focus:outline-none">
+            <option value="9447012345">Plant Supervisor (Kozhikode Unit) — 9447012345</option>
+            <option value="9846011223">Site Engineer (Ernakulam District) — 9846011223</option>
+            <option value="9745033445">Accounts & Billing Officer — 9745033445</option>
+            <option value="CUSTOM">Custom WhatsApp Number...</option>
+          </select>
+        </div>
+
+        <div id="forwardCustomNumberWrapper" class="hidden">
+          <label class="block text-slate-300 mb-1 font-semibold">Enter 10-Digit Mobile Number</label>
+          <input id="forwardCustomNumber" type="text" placeholder="9XXXXXXXXX" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white focus:border-purple-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-slate-300 mb-1 font-semibold">Notes / Handover Message</label>
+          <textarea id="forwardNotes" rows="2" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white text-xs focus:border-purple-500 focus:outline-none" placeholder="Please inspect site measurement and prepare technical drawing..."></textarea>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-800 bg-[#141d33] flex justify-end gap-2">
+        <button onclick="closeForwardLeadModal()" class="px-3 py-1.5 bg-slate-800 text-slate-300 rounded text-xs">Cancel</button>
+        <button onclick="executeForwardLead()" class="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-bold shadow flex items-center gap-1.5">
+          <span>📤</span> Open WhatsApp & Forward
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- SIDEBAR NAVIGATION -->
   <aside class="w-64 bg-[#0b1120] border-r border-slate-800 flex flex-col justify-between shrink-0">
     <div>
@@ -479,6 +820,25 @@
 
   <!-- MAIN VIEWPORT -->
   <main class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Desktop Server Connection Status & Quick Switcher -->
+    <div id="desktopServerBanner" class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-indigo-800/40 px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          Standalone Offline Workstation Mode
+        </span>
+        <span class="text-slate-400 text-[11px] hidden lg:inline">Operating locally with full FRP auto calculator & offline data. Connect to central server:</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="if(window.electronAPI){window.electronAPI.setServerUrl('https://exmark-erp-staging.onrender.com');}else{location.href='https://exmark-erp-staging.onrender.com';}" class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] shadow flex items-center gap-1 transition">
+          🌐 Connect Cloud ERP (Render)
+        </button>
+        <button onclick="if(window.electronAPI){window.electronAPI.setServerUrl('http://127.0.0.1:3000');}else{location.href='http://127.0.0.1:3000';}" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-[11px] flex items-center gap-1 transition">
+          💻 Connect Localhost (Port 3000)
+        </button>
+      </div>
+    </div>
 
     <!-- Top Header -->
     <header class="h-14 border-b border-slate-800 bg-[#0b1120] px-6 flex items-center justify-between shrink-0">
@@ -824,14 +1184,19 @@
 
       <!-- ================= 5. CRM PIPELINE VIEW ================= -->
       <section id="sectionCrm" class="space-y-6 hidden">
-        <div class="bg-[#131b2e] border border-slate-800 rounded-xl p-4 flex justify-between items-center">
+        <div class="bg-[#131b2e] border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <h2 class="font-bold text-white text-sm">Kerala CRM & Leads Pipeline</h2>
             <p class="text-xs text-slate-400 mt-0.5">Track builder inquiries from initial contact to confirmed sales orders</p>
           </div>
-          <button id="crmAddNewLeadBtn" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold">
-            + Add New Lead
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="openWhatsAppModal()" class="px-3 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition">
+              📱 WhatsApp Business Integration (QR / Web)
+            </button>
+            <button id="crmAddNewLeadBtn" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold shadow">
+              + Add New Lead
+            </button>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="crmKanbanColumns">
@@ -846,15 +1211,20 @@
           <div>
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full bg-blue-500"></span>
-              <h2 class="font-bold text-white text-base">Quotations & Estimations (കൊട്ടേഷൻ)</h2>
+              <h2 class="font-bold text-white text-base">Quotations & Estimations (കൊട്ടേഷൻ & FRP Auto Cost Calculator)</h2>
             </div>
             <p class="text-xs text-slate-400 mt-1">
-              Create and review door estimates. Approved quotations bond directly into Confirmed Sales Orders.
+              Kerala FRP Doors Auto Cost Calculator: Standard max 80×210 cm (18.08 sq.ft), Category A–E (₹7000–₹9500), Extra sq.ft @ ₹250/sq.ft.
             </p>
           </div>
-          <button onclick="openCreateQuoteModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5">
-            + Create New Quotation
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="openFrpSettingsModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-600/40 rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition">
+              ⚙️ Rate Card Settings (നിരക്കുകൾ മാറ്റുക)
+            </button>
+            <button onclick="openCreateQuoteModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition">
+              + Create New Quotation
+            </button>
+          </div>
         </div>
 
         <div class="bg-[#131b2e] border border-slate-800 rounded-xl overflow-hidden shadow-xl">
@@ -1775,7 +2145,18 @@
           card.innerHTML = `
             <div class="font-bold text-white text-xs">${lead.title}</div>
             <div class="text-[11px] text-slate-400">${lead.client} • ${lead.site}</div>
-            <div class="flex justify-between items-center text-xs pt-1">
+            <div class="flex items-center gap-1.5 pt-1">
+              <a href="https://wa.me/919447012345?text=Hello%20${encodeURIComponent(lead.client)}%2C%20regarding%20your%20EXMARK%20FRP%20doors%20requirement%20for%20${encodeURIComponent(lead.site)}" target="_blank" class="px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-800 rounded text-[10px] font-bold hover:bg-emerald-900 transition flex items-center gap-1">
+                <span>💬</span> WhatsApp
+              </a>
+              <button onclick="openForwardLeadModal('${lead.id}')" class="px-2 py-0.5 bg-purple-950 text-purple-300 border border-purple-800 rounded text-[10px] font-bold hover:bg-purple-900 transition">
+                <span>📤</span> Forward
+              </button>
+              <button onclick="openConvertLeadModal('${lead.id}')" class="px-2 py-0.5 bg-cyan-950 text-cyan-300 border border-cyan-800 rounded text-[10px] font-bold hover:bg-cyan-900 transition">
+                <span>👤</span> Convert
+              </button>
+            </div>
+            <div class="flex justify-between items-center text-xs pt-1 border-t border-slate-800/80">
               <span class="font-bold text-emerald-400">${lead.value}</span>
               <button onclick="advanceLeadStage('${lead.id}')" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold text-[10px] shadow">
                 ${stg.key === 'negotiation' ? 'Convert to Order 📦' : 'Advance →'}
@@ -2930,8 +3311,334 @@
       showToast(`Store Material Issue Slip for Order ${b.orderId} prepared for print!`, 'success');
     });
 
+    // ================= FRP DOOR AUTO COST CALCULATOR & RATE CARD =================
+    const DEFAULT_FRP_RATES = {
+      maxWidthCm: 80,
+      maxHeightCm: 210,
+      extraSqftRate: 250,
+      categoryPieceRates: {
+        A: 7000,
+        B: 7600,
+        C: 8200,
+        D: 8800,
+        E: 9500
+      },
+      belowSizeCalculationMode: 'DIVIDED_RATE'
+    };
+
+    function getLocalFrpRates() {
+      try {
+        const stored = localStorage.getItem('exmark_frp_rates');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          return { ...DEFAULT_FRP_RATES, ...parsed, categoryPieceRates: { ...DEFAULT_FRP_RATES.categoryPieceRates, ...(parsed.categoryPieceRates || {}) } };
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+      return DEFAULT_FRP_RATES;
+    }
+
+    function saveLocalFrpRates(rates) {
+      try {
+        localStorage.setItem('exmark_frp_rates', JSON.stringify(rates));
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    window.calculateFrpPrice = function(params) {
+      const settings = getLocalFrpRates();
+      const category = params.category || 'A';
+      const basePieceRate = settings.categoryPieceRates[category] || 7000;
+
+      let hInches = params.height;
+      let wInches = params.width;
+
+      if (params.unit === 'cm') {
+        hInches = params.height / 2.54;
+        wInches = params.width / 2.54;
+      } else if (params.unit === 'mm') {
+        hInches = params.height / 25.4;
+        wInches = params.width / 25.4;
+      }
+
+      const hCm = parseFloat((hInches * 2.54).toFixed(1));
+      const wCm = parseFloat((wInches * 2.54).toFixed(1));
+      const actualSqft = parseFloat(((hInches * wInches) / 144).toFixed(2));
+
+      const standardMaxWCm = settings.maxWidthCm || 80;
+      const standardMaxHCm = settings.maxHeightCm || 210;
+      const standardSqft = parseFloat(((standardMaxWCm * standardMaxHCm) / 929.0304).toFixed(2)); // ~18.08 sq.ft
+
+      const isExtraSize = actualSqft > standardSqft;
+      const isBelowSize = actualSqft < standardSqft;
+
+      let extraSqft = 0;
+      let extraCost = 0;
+      let dividedRate = basePieceRate;
+      let finalUnitRate = basePieceRate;
+      let breakdown = '';
+
+      if (isExtraSize) {
+        extraSqft = parseFloat((actualSqft - standardSqft).toFixed(2));
+        extraCost = Math.round(extraSqft * settings.extraSqftRate);
+        finalUnitRate = basePieceRate + extraCost;
+        breakdown = `Base ₹${basePieceRate.toLocaleString('en-IN')} (80×210 cm) + Extra ${extraSqft} sq.ft @ ₹${settings.extraSqftRate}/sq.ft (+₹${extraCost.toLocaleString('en-IN')})`;
+      } else if (isBelowSize) {
+        if (settings.belowSizeCalculationMode === 'DIVIDED_RATE') {
+          const sqftUnitRate = basePieceRate / standardSqft;
+          dividedRate = Math.round(actualSqft * sqftUnitRate);
+          finalUnitRate = dividedRate;
+          breakdown = `Below Standard (${actualSqft} sq.ft vs ${standardSqft} sq.ft) — Divided Rate @ ₹${sqftUnitRate.toFixed(1)}/sq.ft`;
+        } else {
+          finalUnitRate = basePieceRate;
+          breakdown = `Below Standard (${actualSqft} sq.ft) — Base Piece Minimum ₹${basePieceRate.toLocaleString('en-IN')}`;
+        }
+      } else {
+        finalUnitRate = basePieceRate;
+        breakdown = `Standard Size (within ${standardMaxWCm}×${standardMaxHCm} cm) — Fixed Piece Rate ₹${basePieceRate.toLocaleString('en-IN')}`;
+      }
+
+      return {
+        category,
+        basePieceRate,
+        finalUnitRate,
+        hCm,
+        wCm,
+        actualSqft,
+        standardSqft,
+        isExtraSize,
+        isBelowSize,
+        extraSqft,
+        extraCost,
+        dividedRate,
+        breakdown
+      };
+    };
+
+    window.runAutoCostCalculator = function() {
+      const cat = document.getElementById('calcDoorCategory').value;
+      const unit = document.getElementById('calcUnit').value;
+      const w = parseFloat(document.getElementById('calcWidth').value) || 80;
+      const h = parseFloat(document.getElementById('calcHeight').value) || 210;
+      const qty = parseInt(document.getElementById('calcQuantity').value) || 1;
+
+      const res = calculateFrpPrice({ category: cat, unit, width: w, height: h });
+      const lineSubtotal = res.finalUnitRate * qty;
+      const gst18 = Math.round(lineSubtotal * 0.18);
+      const grandTotal = lineSubtotal + gst18;
+      const advance40 = Math.round(grandTotal * 0.40);
+
+      const box = document.getElementById('calcResultBox');
+      box.innerHTML = `
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <div>
+            <div class="font-bold text-white flex items-center gap-2">
+              <span class="text-base text-cyan-400">₹${res.finalUnitRate.toLocaleString('en-IN')}</span> / shutter
+              <span class="text-[10px] px-2 py-0.5 rounded ${res.isExtraSize ? 'bg-rose-950 text-rose-300 border border-rose-800' : res.isBelowSize ? 'bg-amber-950 text-amber-300 border border-amber-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'}">
+                ${res.isExtraSize ? '⚠️ Extra Size Door' : res.isBelowSize ? 'ℹ️ Below Size (Divided Rate)' : '✓ Standard 80×210 cm'}
+              </span>
+            </div>
+            <div class="text-[11px] text-slate-300 mt-0.5 font-medium">${res.breakdown}</div>
+            <div class="text-[10px] text-slate-400">Door Area: ${res.actualSqft} Sq.Ft (${res.wCm}×${res.hCm} cm) • Standard Threshold: ${res.standardSqft} Sq.Ft (80×210 cm)</div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="text-[11px] text-slate-400">Line Subtotal (${qty} pcs)</div>
+            <div class="text-sm font-bold text-white">₹${lineSubtotal.toLocaleString('en-IN')}</div>
+            <div class="text-[10px] text-slate-400">+ 18% GST: ₹${gst18.toLocaleString('en-IN')}</div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('quoteGrandTotalDisplay').textContent = `₹${grandTotal.toLocaleString('en-IN')}`;
+      document.getElementById('quoteAdvanceRequiredDisplay').textContent = `Mandatory 40% Advance Lock: ₹${advance40.toLocaleString('en-IN')}`;
+      
+      return { res, lineSubtotal, gst18, grandTotal, advance40 };
+    };
+
     window.openCreateQuoteModal = function() {
-      showToast('Opening New Quotation Form...', 'info');
+      document.getElementById('createQuoteModal').classList.remove('hidden');
+      runAutoCostCalculator();
+    };
+
+    window.closeCreateQuoteModal = function() {
+      document.getElementById('createQuoteModal').classList.add('hidden');
+    };
+
+    window.saveNewQuotation = function() {
+      const client = document.getElementById('quoteCustomerName').value.trim();
+      const phone = document.getElementById('quoteCustomerPhone').value.trim();
+      const site = document.getElementById('quoteSiteLocation').value.trim();
+      const model = document.getElementById('calcDoorModel').value.trim() || 'FRP Heavy Molded Door';
+      const qty = parseInt(document.getElementById('calcQuantity').value) || 1;
+
+      if (!client || !site) {
+        showToast('Please enter Customer Name and Site Location!', 'error');
+        return;
+      }
+
+      const calc = runAutoCostCalculator();
+      const quoteId = `QT-2026-${state.quotations.length + 104}`;
+
+      const newQuote = {
+        id: quoteId,
+        client,
+        site,
+        phone,
+        doorsDesc: `${qty} Sets ${model} (${calc.res.category} Grade - ${calc.res.wCm}×${calc.res.hCm} cm)`,
+        grossValue: calc.grandTotal,
+        status: 'Draft Quotation',
+        doorsList: [
+          {
+            tag: model,
+            hInch: Math.round(calc.res.hCm / 2.54),
+            hFrac: 0,
+            wInch: Math.round(calc.res.wCm / 2.54),
+            wFrac: 0,
+            profile: `FRP Grade ${calc.res.category}`,
+            finish: model,
+            lock: 'Mortise Lock',
+            hand: 'RH Inside',
+            qty
+          }
+        ]
+      };
+
+      state.quotations.unshift(newQuote);
+      renderQuotations();
+      closeCreateQuoteModal();
+      showToast(`Quotation ${quoteId} created for ₹${calc.grandTotal.toLocaleString('en-IN')} with FRP Auto Calculation!`, 'success');
+    };
+
+    window.openFrpSettingsModal = function() {
+      const s = getLocalFrpRates();
+      document.getElementById('settingMaxWidth').value = s.maxWidthCm;
+      document.getElementById('settingMaxHeight').value = s.maxHeightCm;
+      document.getElementById('settingRateA').value = s.categoryPieceRates.A;
+      document.getElementById('settingRateB').value = s.categoryPieceRates.B;
+      document.getElementById('settingRateC').value = s.categoryPieceRates.C;
+      document.getElementById('settingRateD').value = s.categoryPieceRates.D;
+      document.getElementById('settingRateE').value = s.categoryPieceRates.E;
+      document.getElementById('settingExtraSqft').value = s.extraSqftRate;
+      document.getElementById('settingBelowMode').value = s.belowSizeCalculationMode;
+      document.getElementById('frpPricingSettingsModal').classList.remove('hidden');
+    };
+
+    window.closeFrpSettingsModal = function() {
+      document.getElementById('frpPricingSettingsModal').classList.add('hidden');
+    };
+
+    window.saveFrpSettings = function() {
+      const updated = {
+        maxWidthCm: parseFloat(document.getElementById('settingMaxWidth').value) || 80,
+        maxHeightCm: parseFloat(document.getElementById('settingMaxHeight').value) || 210,
+        extraSqftRate: parseFloat(document.getElementById('settingExtraSqft').value) || 250,
+        categoryPieceRates: {
+          A: parseFloat(document.getElementById('settingRateA').value) || 7000,
+          B: parseFloat(document.getElementById('settingRateB').value) || 7600,
+          C: parseFloat(document.getElementById('settingRateC').value) || 8200,
+          D: parseFloat(document.getElementById('settingRateD').value) || 8800,
+          E: parseFloat(document.getElementById('settingRateE').value) || 9500
+        },
+        belowSizeCalculationMode: document.getElementById('settingBelowMode').value
+      };
+      saveLocalFrpRates(updated);
+      closeFrpSettingsModal();
+      showToast('FRP Rate Card settings saved successfully!', 'success');
+      if (!document.getElementById('createQuoteModal').classList.contains('hidden')) {
+        runAutoCostCalculator();
+      }
+    };
+
+    // WhatsApp Modals
+    window.openWhatsAppModal = function() {
+      document.getElementById('whatsAppQrModal').classList.remove('hidden');
+    };
+    window.closeWhatsAppModal = function() {
+      document.getElementById('whatsAppQrModal').classList.add('hidden');
+    };
+
+    // Convert Lead to Customer Modal
+    window.openConvertLeadModal = function(leadId) {
+      const lead = state.crmLeads.find(l => l.id === leadId);
+      if (!lead) return;
+      document.getElementById('convertLeadTargetId').value = leadId;
+      document.getElementById('convertCustName').value = lead.client;
+      document.getElementById('convertCustPhone').value = lead.phone || '9447012345';
+      document.getElementById('convertCustSite').value = lead.site;
+      document.getElementById('convertLeadModal').classList.remove('hidden');
+    };
+    window.closeConvertLeadModal = function() {
+      document.getElementById('convertLeadModal').classList.add('hidden');
+    };
+    window.submitConvertLeadToCustomer = function() {
+      const name = document.getElementById('convertCustName').value.trim();
+      const phone = document.getElementById('convertCustPhone').value.trim();
+      const site = document.getElementById('convertCustSite').value.trim();
+      const cat = document.getElementById('convertCustCategory').value;
+      const leadId = document.getElementById('convertLeadTargetId').value;
+
+      if (!name) {
+        showToast('Please enter Customer Name!', 'error');
+        return;
+      }
+
+      state.customers.unshift({
+        id: `CUST-2026-0${state.customers.length + 51}`,
+        name,
+        contactPerson: name,
+        phone,
+        site,
+        category: cat,
+        ordersCount: 0,
+        linkedLeadId: leadId
+      });
+
+      renderCustomers();
+      closeConvertLeadModal();
+      showToast(`Customer "${name}" created and linked to Lead ${leadId}!`, 'success');
+    };
+
+    // Forward Lead Modal
+    window.openForwardLeadModal = function(leadId) {
+      const lead = state.crmLeads.find(l => l.id === leadId);
+      if (!lead) return;
+      document.getElementById('forwardLeadTargetId').value = leadId;
+      document.getElementById('forwardLeadTitle').textContent = `${lead.title} (${lead.id})`;
+      document.getElementById('forwardLeadDesc').textContent = `Client: ${lead.client} • Site: ${lead.site} • Value: ${lead.value}`;
+      document.getElementById('forwardLeadModal').classList.remove('hidden');
+    };
+    window.closeForwardLeadModal = function() {
+      document.getElementById('forwardLeadModal').classList.add('hidden');
+    };
+    window.onForwardRecipientChange = function() {
+      const val = document.getElementById('forwardRecipientSelect').value;
+      const wrapper = document.getElementById('forwardCustomNumberWrapper');
+      if (val === 'CUSTOM') {
+        wrapper.classList.remove('hidden');
+      } else {
+        wrapper.classList.add('hidden');
+      }
+    };
+    window.executeForwardLead = function() {
+      const sel = document.getElementById('forwardRecipientSelect').value;
+      const phone = sel === 'CUSTOM' ? document.getElementById('forwardCustomNumber').value.trim() : sel;
+      const notes = document.getElementById('forwardNotes').value.trim();
+      const leadId = document.getElementById('forwardLeadTargetId').value;
+      const lead = state.crmLeads.find(l => l.id === leadId);
+
+      if (!phone || phone.length < 10) {
+        showToast('Please enter a valid 10-digit mobile number!', 'error');
+        return;
+      }
+
+      const text = `*EXMARK FRP DOORS — LEAD HANDOVER*%0A*Lead:* ${encodeURIComponent(lead ? lead.title : leadId)}%0A*Client:* ${encodeURIComponent(lead ? lead.client : '')}%0A*Site:* ${encodeURIComponent(lead ? lead.site : '')}%0A*Value:* ${encodeURIComponent(lead ? lead.value : '')}%0A*Notes:* ${encodeURIComponent(notes || 'Handed over for technical inspection')}`;
+      const url = `https://wa.me/91${phone.replace(/[^0-9]/g, '').slice(-10)}?text=${text}`;
+
+      closeForwardLeadModal();
+      window.open(url, '_blank');
+      showToast(`Lead ${leadId} forwarded via WhatsApp!`, 'success');
     };
 
     // Update views dictionary

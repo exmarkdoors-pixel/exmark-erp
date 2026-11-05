@@ -1,5 +1,6 @@
 appId: com.exmark.erp
 productName: EXMARK ERP
+compression: normal
 npmRebuild: false
 nodeGypRebuild: false
 asar: true

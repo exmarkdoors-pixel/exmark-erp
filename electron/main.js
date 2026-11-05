@@ -126,6 +126,14 @@ function createMainWindow() {
     mainWindow.show();
   });
 
+  // Strip restrictive headers to ensure seamless rendering of print previews & embedded ERP forms
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = { ...(details.responseHeaders || {}) };
+    delete responseHeaders['x-frame-options'];
+    delete responseHeaders['X-Frame-Options'];
+    callback({ cancel: false, responseHeaders });
+  });
+
   const menuTemplate = [
     {
       label: 'EXMARK ERP',
@@ -133,45 +141,103 @@ function createMainWindow() {
         { label: 'About EXMARK Doors', role: 'about' },
         { type: 'separator' },
         {
-          label: 'Desktop Terminal Home',
+          label: 'Desktop Terminal Home (Offline Workstation)',
           accelerator: 'CmdOrCtrl+H',
           click: () => loadLocalDesktopApp(),
         },
         {
-          label: 'Open Cloud Staging Platform',
+          label: 'Open Cloud ERP Platform (Render)',
           accelerator: 'CmdOrCtrl+O',
-          click: () => loadRemoteUrl(getStoredServerUrl()),
+          click: () => {
+            saveServerUrl(CLOUD_STAGING_URL);
+            loadRemoteUrl(CLOUD_STAGING_URL);
+          },
+        },
+        {
+          label: 'Connect to Localhost Server (Port 3000)',
+          accelerator: 'CmdOrCtrl+L',
+          click: () => {
+            saveServerUrl(LOCAL_DEV_URL);
+            loadRemoteUrl(LOCAL_DEV_URL);
+          },
         },
         { type: 'separator' },
         { label: 'Quit Application', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
       ],
     },
     {
+      label: 'Server Connection',
+      submenu: [
+        {
+          label: '🌐 Cloud Enterprise Server (Render)',
+          accelerator: 'CmdOrCtrl+1',
+          click: () => {
+            saveServerUrl(CLOUD_STAGING_URL);
+            loadRemoteUrl(CLOUD_STAGING_URL);
+          },
+        },
+        {
+          label: '💻 Local Developer Server (http://127.0.0.1:3000)',
+          accelerator: 'CmdOrCtrl+2',
+          click: () => {
+            saveServerUrl(LOCAL_DEV_URL);
+            loadRemoteUrl(LOCAL_DEV_URL);
+          },
+        },
+        {
+          label: '🔌 Offline Standalone Workstation Mode',
+          accelerator: 'CmdOrCtrl+3',
+          click: () => loadLocalDesktopApp(),
+        },
+        { type: 'separator' },
+        {
+          label: '🔄 Reconnect Current Server',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: () => loadRemoteUrl(getStoredServerUrl()),
+        },
+      ],
+    },
+    {
       label: 'Operations',
       submenu: [
         {
+          label: 'CRM & WhatsApp Leads Pipeline',
+          click: () => loadRemoteUrl(`${getStoredServerUrl()}/?tab=crm`),
+        },
+        {
+          label: 'Quotations & FRP Auto Pricing (80x210 cm)',
+          click: () => loadRemoteUrl(`${getStoredServerUrl()}/?tab=quotations`),
+        },
+        {
+          label: 'Sales Orders & 40% Advance Gatekeeper',
+          click: () => loadRemoteUrl(`${getStoredServerUrl()}/?tab=orders`),
+        },
+        {
+          label: 'BOM & Material Requisition Store Slip',
+          click: () => loadRemoteUrl(`${getStoredServerUrl()}/?tab=bom`),
+        },
+        {
           label: 'Job Cards & Cutting Deductions',
           accelerator: 'CmdOrCtrl+P',
-          click: () => {
-            const url = `${getStoredServerUrl()}/?tab=production`;
-            loadRemoteUrl(url);
-          },
+          click: () => loadRemoteUrl(`${getStoredServerUrl()}/?tab=production`),
         },
         {
-          label: 'Fleet Dispatches',
+          label: 'Quality Control (IS 14856:2000 Inspection)',
+          click: () => loadRemoteUrl(`${getStoredServerUrl()}/?tab=qc`),
+        },
+        {
+          label: 'Batch Sticker Printing (A4 12-Up & Thermal)',
+          click: () => loadRemoteUrl(`${getStoredServerUrl()}/?tab=batchPrint`),
+        },
+        {
+          label: 'Fleet Dispatches & Gate Passes',
           accelerator: 'CmdOrCtrl+D',
-          click: () => {
-            const url = `${getStoredServerUrl()}/?tab=dispatch`;
-            loadRemoteUrl(url);
-          },
+          click: () => loadRemoteUrl(`${getStoredServerUrl()}/?tab=dispatch`),
         },
         {
-          label: 'GST Accounts & Invoices',
+          label: 'GST Accounts & Invoices (18% GST)',
           accelerator: 'CmdOrCtrl+I',
-          click: () => {
-            const url = `${getStoredServerUrl()}/?tab=accounts`;
-            loadRemoteUrl(url);
-          },
+          click: () => loadRemoteUrl(`${getStoredServerUrl()}/?tab=accounts`),
         },
       ],
     },
@@ -238,17 +304,19 @@ function createMainWindow() {
   // Default launch sequence:
   // 1. If EXMARK_SERVER_URL is explicitly passed in environment, use that
   // 2. Otherwise auto-detect if local ERP server (http://127.0.0.1:3000) is running
-  // 3. Fall back to bundled offline workstation UI immediately
+  // 3. If local server is not running, connect directly to configured cloud ERP platform
+  // 4. Fall back to bundled offline workstation UI only if network/server is completely unreachable
   if (process.env.EXMARK_SERVER_URL) {
     loadRemoteUrl(process.env.EXMARK_SERVER_URL);
   } else {
     checkLocalServer((isLocalActive) => {
       if (isLocalActive) {
-        console.log('[Desktop Main] Localhost Next.js server detected on port 3000. Loading full ERP.');
+        console.log('[Desktop Main] Localhost Next.js server detected on port 3000. Loading full local ERP.');
         loadRemoteUrl(LOCAL_DEV_URL);
       } else {
-        console.log('[Desktop Main] Local server not running on port 3000. Loading bundled offline workstation UI.');
-        loadLocalDesktopApp();
+        const targetServer = getStoredServerUrl();
+        console.log(`[Desktop Main] Local server not running on port 3000. Connecting to primary ERP platform: ${targetServer}`);
+        loadRemoteUrl(targetServer);
       }
     });
   }
