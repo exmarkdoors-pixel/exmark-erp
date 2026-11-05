@@ -27,6 +27,13 @@ import {
   FileCheck,
   Percent,
 } from 'lucide-react';
+import {
+  FrpDoorCategory,
+  FrpRateCardSettings,
+  DEFAULT_FRP_RATE_CARD,
+  calculateFrpDoorPrice,
+} from '@/lib/services/frpPricingEngine';
+import { FrpPricingSettingsModal } from './FrpPricingSettingsModal';
 
 // Customer interface
 export interface HubCustomer {
@@ -189,6 +196,8 @@ export interface QuoteItemRow {
   widthFraction?: string;
   qty: number;
   rate: number;
+  frpCategory?: FrpDoorCategory | 'CUSTOM';
+  autoPriceBreakdown?: string;
 }
 
 // Saved Quotation Record
@@ -357,6 +366,7 @@ export function QuotationHub() {
     widthFraction: '0',
     qty: 0,
     rate: 0,
+    frpCategory: 'A',
   });
 
   // Entities
@@ -366,14 +376,50 @@ export function QuotationHub() {
   const [leads, setLeads] = useState<HubLead[]>(INITIAL_LEADS);
   const [salesOrders, setSalesOrders] = useState<HubSalesOrder[]>(INITIAL_ORDERS);
 
+  // FRP Auto-Pricing Settings & Modal State
+  const [frpSettings, setFrpSettings] = useState<FrpRateCardSettings>(DEFAULT_FRP_RATE_CARD);
+  const [isFrpSettingsOpen, setIsFrpSettingsOpen] = useState(false);
+
   // Active Quote Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(INITIAL_CUSTOMERS[0].id);
   const [advancePercent, setAdvancePercent] = useState<number>(50);
   const [gstMode, setGstMode] = useState<'without' | 'excluded' | 'included'>('excluded');
   const [customGstPercent, setCustomGstPercent] = useState<number>(18);
   const [quoteItemRows, setQuoteItemRows] = useState<QuoteItemRow[]>([
-    { id: 1, modelId: INITIAL_MODELS[0].id, unit: 'cm', height: 205, heightFraction: '0', widthTop: 75, widthTopFraction: '0', widthBottom: 75, widthBottomFraction: '0', width: 75, widthFraction: '0', qty: 10, rate: INITIAL_MODELS[0].rate },
-    { id: 2, modelId: INITIAL_MODELS[1].id, unit: 'cm', height: 205, heightFraction: '0', widthTop: 80, widthTopFraction: '0', widthBottom: 80, widthBottomFraction: '0', width: 80, widthFraction: '0', qty: 5, rate: INITIAL_MODELS[1].rate },
+    {
+      id: 1,
+      modelId: INITIAL_MODELS[0].id,
+      unit: 'cm',
+      height: 210,
+      heightFraction: '0',
+      widthTop: 80,
+      widthTopFraction: '0',
+      widthBottom: 80,
+      widthBottomFraction: '0',
+      width: 80,
+      widthFraction: '0',
+      qty: 10,
+      rate: 7000,
+      frpCategory: 'A',
+      autoPriceBreakdown: 'Standard Size (80×210 cm) — Fixed Piece Rate ₹7,000',
+    },
+    {
+      id: 2,
+      modelId: INITIAL_MODELS[1].id,
+      unit: 'cm',
+      height: 210,
+      heightFraction: '0',
+      widthTop: 80,
+      widthTopFraction: '0',
+      widthBottom: 80,
+      widthBottomFraction: '0',
+      width: 80,
+      widthFraction: '0',
+      qty: 5,
+      rate: 7600,
+      frpCategory: 'B',
+      autoPriceBreakdown: 'Standard Size (80×210 cm) — Fixed Piece Rate ₹7,600',
+    },
   ]);
 
   // Modals & Print Options
@@ -419,6 +465,16 @@ export function QuotationHub() {
                 setCustomers(json.data);
                 if (json.data[0]) setSelectedCustomerId(json.data[0].id);
               }
+            }
+          })
+          .catch(() => {});
+
+        // Fetch FRP auto-pricing rate card rules
+        fetch('/api/quotations/pricing-rules')
+          .then((res) => res.json())
+          .then((json) => {
+            if (json && json.settings) {
+              setFrpSettings(json.settings);
             }
           })
           .catch(() => {});
@@ -507,22 +563,33 @@ export function QuotationHub() {
   const handleAddRow = () => {
     const nextId = quoteItemRows.length + 1;
     const firstModel = doorModels[0];
+    const defaultCat: FrpDoorCategory = 'A';
+    const autoCalc = calculateFrpDoorPrice({
+      category: defaultCat,
+      height: 210,
+      widthTop: 80,
+      widthBottom: 80,
+      unit: 'cm',
+      settings: frpSettings,
+    });
     setQuoteItemRows([
       ...quoteItemRows,
       {
         id: nextId,
         modelId: firstModel.id,
         unit: 'cm',
-        height: 205,
+        height: 210,
         heightFraction: '0',
-        widthTop: 75,
+        widthTop: 80,
         widthTopFraction: '0',
-        widthBottom: 75,
+        widthBottom: 80,
         widthBottomFraction: '0',
-        width: 75,
+        width: 80,
         widthFraction: '0',
         qty: 1,
-        rate: firstModel.rate,
+        rate: autoCalc.finalUnitRate,
+        frpCategory: defaultCat,
+        autoPriceBreakdown: autoCalc.breakdown,
       },
     ]);
   };
@@ -590,10 +657,48 @@ export function QuotationHub() {
       }
     }
 
-    // Auto-update rate when model changes
-    if (updates.modelId && updates.modelId !== currentRow.modelId) {
+    // Auto-update rate when model changes (only if category not set or custom)
+    if (updates.modelId && updates.modelId !== currentRow.modelId && (!currentRow.frpCategory || currentRow.frpCategory === 'CUSTOM')) {
       const found = doorModels.find((m) => m.id === updates.modelId);
       if (found) updates.rate = found.rate;
+    }
+
+    // Auto-pricing engine calculation for FRP doors (Category A-E)
+    const activeCategory = updates.frpCategory !== undefined ? updates.frpCategory : currentRow.frpCategory;
+    const isDimensionOrCatChange =
+      updates.height !== undefined ||
+      updates.widthTop !== undefined ||
+      updates.widthBottom !== undefined ||
+      updates.width !== undefined ||
+      updates.unit !== undefined ||
+      updates.heightFraction !== undefined ||
+      updates.widthTopFraction !== undefined ||
+      updates.widthBottomFraction !== undefined ||
+      updates.frpCategory !== undefined;
+
+    if (activeCategory && activeCategory !== 'CUSTOM' && isDimensionOrCatChange && updates.rate === undefined) {
+      const nextH = updates.height !== undefined ? updates.height : currentRow.height;
+      const nextWT = updates.widthTop !== undefined ? updates.widthTop : (currentRow.widthTop ?? currentRow.width ?? 0);
+      const nextWB = updates.widthBottom !== undefined ? updates.widthBottom : (currentRow.widthBottom ?? nextWT);
+      const nextUnit = updates.unit !== undefined ? updates.unit : currentRow.unit;
+      const nextHFrac = updates.heightFraction !== undefined ? updates.heightFraction : currentRow.heightFraction;
+      const nextWTFrac = updates.widthTopFraction !== undefined ? updates.widthTopFraction : (currentRow.widthTopFraction || currentRow.widthFraction);
+      const nextWBFrac = updates.widthBottomFraction !== undefined ? updates.widthBottomFraction : (currentRow.widthBottomFraction || nextWTFrac);
+
+      const priceResult = calculateFrpDoorPrice({
+        category: activeCategory as FrpDoorCategory,
+        height: nextH,
+        widthTop: nextWT,
+        widthBottom: nextWB,
+        unit: nextUnit,
+        heightFraction: nextHFrac,
+        widthTopFraction: nextWTFrac,
+        widthBottomFraction: nextWBFrac,
+        settings: frpSettings,
+      });
+
+      updates.rate = priceResult.finalUnitRate;
+      updates.autoPriceBreakdown = priceResult.breakdown;
     }
 
     updated[index] = { ...currentRow, ...updates };
@@ -1221,6 +1326,15 @@ export function QuotationHub() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={() => setIsFrpSettingsOpen(true)}
+                    className="text-xs font-semibold text-amber-300 hover:text-amber-200 bg-amber-950/60 border border-amber-600/50 hover:border-amber-500 px-3 py-1 rounded-lg flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                    title="FRP Door Auto-Cost Rules (80×210 cm, Categories A-E, Extra ₹250/sq.ft, Divided Rate)"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>⚙️ FRP Auto-Cost (80×210 cm)</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setIsAddDoorModelOpen(true)}
                     className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 bg-cyan-950/40 border border-cyan-800/40 px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer"
                   >
@@ -1242,11 +1356,12 @@ export function QuotationHub() {
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-[#11182c] border-b border-slate-800 text-[11px] font-bold text-slate-300">
-                      <th className="p-3 w-48">Door Model (മോഡൽ)</th>
-                      <th className="p-3 w-28">Unit (യൂണിറ്റ്)</th>
-                      <th className="p-3 w-64">Dimensions (H &times; Top/Btm W)</th>
-                      <th className="p-3 w-20 text-center">Qty</th>
-                      <th className="p-3 w-32 text-right">Price / Rate (₹)</th>
+                      <th className="p-3 w-44">Door Model (മോഡൽ)</th>
+                      <th className="p-3 w-36">Category (A–E)</th>
+                      <th className="p-3 w-24">Unit (യൂണിറ്റ്)</th>
+                      <th className="p-3 w-60">Dimensions (H &times; Top/Btm W)</th>
+                      <th className="p-3 w-16 text-center">Qty</th>
+                      <th className="p-3 w-36 text-right">Price / Rate (₹)</th>
                       <th className="p-3 w-28 text-right">Line Total</th>
                       <th className="p-3 w-12 text-center">Action</th>
                     </tr>
@@ -1283,6 +1398,26 @@ export function QuotationHub() {
                                 </option>
                               ))}
                             </select>
+                          </td>
+
+                          <td className="p-2.5">
+                            <select
+                              value={row.frpCategory || 'A'}
+                              onChange={(e) => handleUpdateRow(idx, { frpCategory: e.target.value as FrpDoorCategory | 'CUSTOM' })}
+                              className="w-full bg-[#131b2e] border border-amber-500/40 rounded p-1.5 text-xs text-amber-300 font-bold focus:border-amber-400 cursor-pointer"
+                            >
+                              <option value="A">Cat A (₹{frpSettings.categoryPieceRates.A.toLocaleString('en-IN')})</option>
+                              <option value="B">Cat B (₹{frpSettings.categoryPieceRates.B.toLocaleString('en-IN')})</option>
+                              <option value="C">Cat C (₹{frpSettings.categoryPieceRates.C.toLocaleString('en-IN')})</option>
+                              <option value="D">Cat D (₹{frpSettings.categoryPieceRates.D.toLocaleString('en-IN')})</option>
+                              <option value="E">Cat E (₹{frpSettings.categoryPieceRates.E.toLocaleString('en-IN')})</option>
+                              <option value="CUSTOM">Custom / Manual</option>
+                            </select>
+                            {row.frpCategory && row.frpCategory !== 'CUSTOM' && (
+                              <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">
+                                Base: ₹{(frpSettings.categoryPieceRates[row.frpCategory as FrpDoorCategory] || 7000).toLocaleString('en-IN')} / pc
+                              </span>
+                            )}
                           </td>
 
                           <td className="p-2.5">
@@ -1469,6 +1604,14 @@ export function QuotationHub() {
                                 className="w-24 bg-[#131b2e] border border-slate-700 rounded p-1 text-xs text-right font-bold text-emerald-400"
                               />
                             </div>
+                            {row.autoPriceBreakdown && (
+                              <div
+                                className="text-[9.5px] text-amber-300/90 font-mono mt-1 text-right max-w-[150px] ml-auto truncate cursor-help bg-amber-950/40 px-1 py-0.5 rounded border border-amber-800/30"
+                                title={row.autoPriceBreakdown}
+                              >
+                                ⚡ {row.autoPriceBreakdown.split('—')[0]}
+                              </div>
+                            )}
                           </td>
 
                           <td className="p-2.5 text-right font-mono font-bold text-slate-200">
@@ -2662,6 +2805,41 @@ export function QuotationHub() {
           </div>
         </div>
       )}
+
+      {/* FRP DOOR AUTO-PRICING SETTINGS MODAL */}
+      <FrpPricingSettingsModal
+        isOpen={isFrpSettingsOpen}
+        onClose={() => setIsFrpSettingsOpen(false)}
+        currentSettings={frpSettings}
+        onSettingsSaved={(newSettings: FrpRateCardSettings) => {
+          setFrpSettings(newSettings);
+          // Recalculate all quoteItemRows with the new rate card
+          setQuoteItemRows((prev) =>
+            prev.map((r) => {
+              if (!r.frpCategory || r.frpCategory === 'CUSTOM') return r;
+              const wT = r.widthTop ?? r.width ?? 0;
+              const wB = r.widthBottom ?? wT;
+              const calc = calculateFrpDoorPrice({
+                category: r.frpCategory,
+                height: r.height,
+                widthTop: wT,
+                widthBottom: wB,
+                unit: r.unit,
+                heightFraction: r.heightFraction,
+                widthTopFraction: r.widthTopFraction || r.widthFraction,
+                widthBottomFraction: r.widthBottomFraction,
+                settings: newSettings,
+              });
+              return {
+                ...r,
+                rate: calc.finalUnitRate,
+                autoPriceBreakdown: calc.breakdown,
+              };
+            })
+          );
+          showToast('FRP Rate Card Updated', 'Updated rates and sq.ft prices applied to all category items.');
+        }}
+      />
 
       {/* Print Media Isolation Styles */}
       <style jsx global>{`

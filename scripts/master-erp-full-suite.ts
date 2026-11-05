@@ -27,6 +27,11 @@ import {
   WHATSAPP_TEMPLATES,
   buildWhatsAppUrl,
 } from '../lib/services/whatsappService';
+import {
+  calculateFrpDoorPrice,
+  DEFAULT_FRP_RATE_CARD,
+  getFrpRateCardSettings,
+} from '../lib/services/frpPricingEngine';
 
 // ANSI Colors
 const C = {
@@ -221,6 +226,34 @@ async function runAuditSuite() {
       assert('M3: Quotations', 'Ready for live quotation generation with 18% GST', true);
     }
   }
+
+  // FRP Door Auto Cost Calculator (80x210 cm Standard, Categories A-E, Extra Sq.Ft @ ₹250, Divided Rate)
+  const rateCard = getFrpRateCardSettings();
+  assert('M3: Quotations', 'FRP Rate Card loads default standard threshold 80x210 cm', rateCard.maxWidthCm === 80 && rateCard.maxHeightCm === 210);
+  assert('M3: Quotations', 'Standard Piece Rates: Cat A ₹7000, Cat B ₹7600, Cat C ₹8200, Cat D ₹8800, Cat E ₹9500', 
+    rateCard.categoryPieceRates.A === 7000 &&
+    rateCard.categoryPieceRates.B === 7600 &&
+    rateCard.categoryPieceRates.C === 8200 &&
+    rateCard.categoryPieceRates.D === 8800 &&
+    rateCard.categoryPieceRates.E === 9500
+  );
+
+  // Test 1: Standard size door (80x210 cm)
+  const calcStdA = calculateFrpDoorPrice({ category: 'A', height: 210, widthTop: 80, unit: 'cm' });
+  assert('M3: Quotations', 'Standard 80x210 cm Category A door calculates exact base piece rate ₹7,000', calcStdA.finalUnitRate === 7000);
+
+  const calcStdB = calculateFrpDoorPrice({ category: 'B', height: 210, widthTop: 80, unit: 'cm' });
+  assert('M3: Quotations', 'Standard 80x210 cm Category B door calculates exact base piece rate ₹7,600', calcStdB.finalUnitRate === 7600);
+
+  // Test 2: Extra size door (e.g. 90x220 cm) -> actual sqft: (90*220)/929.0304 = 21.31 sqft.
+  // Standard sqft: (80*210)/929.0304 = 18.08 sqft. Extra sqft = 3.23 sqft.
+  // Extra cost = Math.round(3.23 * 250) = 808. Final = 7000 + 808 = 7808.
+  const calcExtra = calculateFrpDoorPrice({ category: 'A', height: 220, widthTop: 90, unit: 'cm' });
+  assert('M3: Quotations', 'Extra size door (90x220 cm) correctly adds extra sq.ft charge @ ₹250/sq.ft', calcExtra.isExtraSize && calcExtra.extraCost > 0 && calcExtra.finalUnitRate > 7000);
+
+  // Test 3: Below size door with divided rate mode (e.g. 70x180 cm)
+  const calcBelow = calculateFrpDoorPrice({ category: 'A', height: 180, widthTop: 70, unit: 'cm' });
+  assert('M3: Quotations', 'Below-size door (70x180 cm) calculates proportional divided square feet rate', calcBelow.isBelowSize && calcBelow.finalUnitRate < 7000);
 
   // --- MODULE 4: SALES ORDERS & 40% ADVANCE GATEKEEPER ---
   console.log(`\n${C.cyan}▸ [Module 4] Sales Orders & 40% Advance Payment Gatekeeper${C.reset}`);
