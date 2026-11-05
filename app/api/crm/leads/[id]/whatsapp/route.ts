@@ -112,6 +112,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       whatsappUrl,
+      waUrl: whatsappUrl,
       sanitizedPhone,
       followUp: loggedFollowUp,
     });

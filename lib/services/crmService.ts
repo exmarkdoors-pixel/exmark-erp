@@ -22,11 +22,15 @@ export interface Lead {
   leadCode: string;
   customerId?: string | null;
   title: string;
+  client?: string;
   contactPerson: string;
   phone: string;
   district: string;
   stage: LeadStage;
   estimatedValue?: number | null;
+  value?: number | null;
+  doors?: string;
+  doorCount?: number;
   assignedToId?: string | null;
   notes?: string;
   followUps: FollowUp[];

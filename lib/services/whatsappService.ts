@@ -8,7 +8,7 @@ export interface WhatsAppTemplateContext {
   title: string;
   client: string;
   contactPerson?: string;
-  phone: string;
+  phone?: string;
   district?: string;
   doors?: string;
   doorCount?: number;

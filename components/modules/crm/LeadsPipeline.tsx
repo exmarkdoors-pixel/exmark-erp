@@ -26,8 +26,10 @@ import {
   FileText,
   CreditCard,
   MessageSquare,
+  UserPlus,
 } from 'lucide-react';
 import { WhatsAppLeadModal } from './WhatsAppLeadModal';
+import { Customer } from '@/lib/services/customerService';
 
 // 1. കൃത്യമായ സ്റ്റേജ് ക്രമം നിർവ്വചിക്കുക (Exact definitions as requested)
 export const PIPELINE_STAGES = [
@@ -68,6 +70,7 @@ export const SALES_ORDER_STEPS = [
 export interface LeadItem {
   id: string;
   leadCode?: string;
+  customerId?: string | null;
   title: string;
   client: string;
   contactPerson?: string;
@@ -215,20 +218,63 @@ export default function LeadsPipeline() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
 
+  // Existing registered customers list (from /api/customers)
+  const [customersList, setCustomersList] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [alsoCreateCustomer, setAlsoCreateCustomer] = useState(false);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const isZeroed = localStorage.getItem('exmark_data_zeroed');
       if (isZeroed === 'true') {
         setLeads([]);
         setSalesOrders([]);
-        return;
+      } else {
+        // Check live database store
+        fetch('/api/crm/leads')
+          .then((res) => res.json())
+          .then((json) => {
+            if (json && Array.isArray(json.data)) {
+              if (json.data.length === 0) {
+                setLeads([]);
+              } else {
+                const mappedLeads: LeadItem[] = json.data.map((l: any) => {
+                  let mappedStage: LeadItem['stage'] = 'inquiries';
+                  if (l.stage === 'MEASUREMENT_SCHEDULED' || l.stage === 'measurement') mappedStage = 'measurement';
+                  else if (l.stage === 'QUOTE_SENT' || l.stage === 'quotation') mappedStage = 'quotation';
+                  else if (l.stage === 'NEGOTIATION' || l.stage === 'negotiation') mappedStage = 'negotiation';
+
+                  return {
+                    id: l.id,
+                    leadCode: l.leadCode,
+                    customerId: l.customerId,
+                    title: l.title,
+                    client: l.client || l.contactPerson || l.title,
+                    contactPerson: l.contactPerson || l.client,
+                    phone: l.phone,
+                    district: l.district,
+                    doors: l.doors || 'FRP & WPC Doors',
+                    doorCount: l.doorCount || 20,
+                    value: l.value || l.estimatedValue || 150000,
+                    stage: mappedStage,
+                    notes: l.notes,
+                    createdAt: l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'),
+                    updatedAt: l.updatedAt,
+                  };
+                });
+                setLeads(mappedLeads);
+              }
+            }
+          })
+          .catch(() => {});
       }
-      // Check live database store
-      fetch('/api/crm/leads')
+
+      // Fetch registered customers
+      fetch('/api/customers')
         .then((res) => res.json())
         .then((json) => {
-          if (json && Array.isArray(json.data) && json.data.length === 0) {
-            setLeads([]);
+          if (json && json.success && Array.isArray(json.data)) {
+            setCustomersList(json.data);
           }
         })
         .catch(() => {});
@@ -472,31 +518,154 @@ export default function LeadsPipeline() {
     setActiveLeadForNotes(null);
   };
 
-  const handleCreateNewLead = (e: React.FormEvent) => {
+  const handleSelectCustomer = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    const found = customersList.find((c) => c.id === customerId);
+    if (found) {
+      setNewClient(found.firmName || found.name);
+      setNewPhone(found.phone);
+      if (found.district) setNewDistrict(found.district);
+    }
+  };
+
+  const handleCreateNewLead = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newClient.trim()) return;
 
-    const newLead: LeadItem = {
-      id: `lead-${Date.now()}`,
-      leadCode: `LEAD-KL-${Math.floor(800 + Math.random() * 200)}`,
+    let targetCustomerId = selectedCustomerId || null;
+
+    // If user asked to also save as customer
+    if (alsoCreateCustomer && !targetCustomerId) {
+      try {
+        const custRes = await fetch('/api/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newClient.trim(),
+            phone: newPhone.trim() || '+91 94470 00000',
+            district: newDistrict,
+            town: newDistrict,
+            type: 'BUILDER',
+            creditLimit: 100000,
+          }),
+        });
+        const custJson = await custRes.json();
+        if (custJson.success && custJson.data) {
+          targetCustomerId = custJson.data.id;
+          setCustomersList((prev) => [custJson.data, ...prev]);
+        }
+      } catch (err) {
+        console.warn('Failed to auto-create customer:', err);
+      }
+    }
+
+    const payload = {
       title: newTitle.trim(),
       client: newClient.trim(),
+      contactPerson: newClient.trim(),
       phone: newPhone.trim() || '+91 94470 00000',
       district: newDistrict,
       doors: newDoors.trim() || 'FRP & WPC Doors',
       doorCount: parseInt(newDoors) || 20,
       value: parseFloat(newValue) || 150000,
-      stage: 'inquiries',
-      createdAt: new Date().toLocaleDateString('en-IN'),
+      stage: 'NEW',
+      customerId: targetCustomerId,
     };
 
-    setLeads((prev) => [newLead, ...prev]);
-    setIsNewLeadOpen(false);
-    setNewTitle('');
-    setNewClient('');
-    setNewPhone('');
-    setToastMessage(`New lead "${newLead.title}" added to pipeline!`);
-    setTimeout(() => setToastMessage(null), 3000);
+    try {
+      const res = await fetch('/api/crm/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      const savedLead: LeadItem =
+        data.success && data.data
+          ? {
+              id: data.data.id,
+              leadCode: data.data.leadCode,
+              customerId: data.data.customerId,
+              title: data.data.title,
+              client: data.data.client || data.data.contactPerson,
+              contactPerson: data.data.contactPerson,
+              phone: data.data.phone,
+              district: data.data.district,
+              doors: data.data.doors || newDoors,
+              doorCount: data.data.doorCount || parseInt(newDoors) || 20,
+              value: data.data.value || parseFloat(newValue) || 150000,
+              stage: 'inquiries',
+              createdAt: new Date().toLocaleDateString('en-IN'),
+            }
+          : {
+              id: `lead-${Date.now()}`,
+              leadCode: `LEAD-KL-${Math.floor(800 + Math.random() * 200)}`,
+              customerId: targetCustomerId,
+              title: newTitle.trim(),
+              client: newClient.trim(),
+              phone: newPhone.trim() || '+91 94470 00000',
+              district: newDistrict,
+              doors: newDoors.trim() || 'FRP & WPC Doors',
+              doorCount: parseInt(newDoors) || 20,
+              value: parseFloat(newValue) || 150000,
+              stage: 'inquiries',
+              createdAt: new Date().toLocaleDateString('en-IN'),
+            };
+
+      setLeads((prev) => [savedLead, ...prev]);
+      setIsNewLeadOpen(false);
+      setNewTitle('');
+      setNewClient('');
+      setNewPhone('');
+      setSelectedCustomerId('');
+      setAlsoCreateCustomer(false);
+      setToastMessage(`🎉 New lead "${savedLead.title}" added to CRM pipeline!`);
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch (err: any) {
+      setToastMessage(`Error adding lead: ${err.message}`);
+      setTimeout(() => setToastMessage(null), 3500);
+    }
+  };
+
+  const handleConvertLeadToCustomer = async (lead: LeadItem) => {
+    try {
+      const res = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: lead.client || lead.title,
+          phone: lead.phone || '+91 94470 00000',
+          district: lead.district || 'Ernakulam',
+          town: lead.district || 'Ernakulam',
+          type: 'BUILDER',
+          creditLimit: 100000,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to create customer');
+      }
+      const customer = data.data;
+
+      // Link lead on backend
+      if (lead.id.startsWith('lead-api-')) {
+        await fetch(`/api/crm/leads/${lead.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerId: customer.id }),
+        }).catch(() => {});
+      }
+
+      setLeads((prev) =>
+        prev.map((l) => (l.id === lead.id ? { ...l, customerId: customer.id } : l))
+      );
+      setCustomersList((prev) => [customer, ...prev]);
+
+      setToastMessage(`🎉 Lead "${lead.client}" saved as registered Customer (${customer.customerCode})!`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      setToastMessage(`Failed to register customer: ${err.message}`);
+      setTimeout(() => setToastMessage(null), 4000);
+    }
   };
 
   const totalPipelineValue = leads.reduce((sum, l) => sum + (l.value || 0), 0);
@@ -668,7 +837,31 @@ export default function LeadsPipeline() {
 
                       {/* Action Buttons: Reverse, Follow-up Notes, Advance / Convert */}
                       <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-1.5 flex-wrap">
-                        <span className="font-mono text-[9px] text-slate-500">{lead.leadCode || lead.id}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[9px] text-slate-500">{lead.leadCode || lead.id}</span>
+                          {lead.customerId ? (
+                            <span
+                              className="px-1.5 py-0.5 rounded text-[8px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/25 inline-flex items-center gap-0.5"
+                              title="Linked to Customer database"
+                            >
+                              <CheckCircle2 className="w-2.5 h-2.5 text-blue-400" />
+                              <span>Customer</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConvertLeadToCustomer(lead);
+                              }}
+                              className="px-1.5 py-0.5 rounded text-[8px] font-bold text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-600 border border-blue-500/30 inline-flex items-center gap-0.5 cursor-pointer transition-all"
+                              title="Save this lead as registered Customer in Customers database"
+                            >
+                              <UserPlus className="w-2.5 h-2.5" />
+                              <span>+ Customer</span>
+                            </button>
+                          )}
+                        </div>
 
                         <div className="flex items-center gap-1.5">
                           {idx > 0 && (
@@ -931,6 +1124,22 @@ export default function LeadsPipeline() {
 
             <form onSubmit={handleCreateNewLead} className="space-y-3 text-xs">
               <div>
+                <label className="block text-slate-400 font-bold mb-1">Select from Registered Customers (Optional)</label>
+                <select
+                  value={selectedCustomerId}
+                  onChange={(e) => handleSelectCustomer(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#0B132B] text-slate-200 rounded-xl border border-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="">-- Manual Client / Direct Kerala Inquiry --</option>
+                  {customersList.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.firmName ? `(${c.firmName})` : ''} — {c.town || c.district} ({c.phone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-slate-400 font-bold mb-1">Project / Inquiry Title *</label>
                 <input
                   type="text"
@@ -1020,6 +1229,21 @@ export default function LeadsPipeline() {
                   />
                 </div>
               </div>
+
+              {!selectedCustomerId && (
+                <div className="flex items-center gap-2 pt-1 pb-1">
+                  <input
+                    type="checkbox"
+                    id="alsoCreateCustomerCheck"
+                    checked={alsoCreateCustomer}
+                    onChange={(e) => setAlsoCreateCustomer(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-700 focus:ring-0 cursor-pointer"
+                  />
+                  <label htmlFor="alsoCreateCustomerCheck" className="text-slate-300 font-medium cursor-pointer">
+                    Also register this client as a formal Customer in the Customers database
+                  </label>
+                </div>
+              )}
 
               <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
                 <button

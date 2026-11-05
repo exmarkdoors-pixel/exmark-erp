@@ -32,27 +32,44 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    if (!body.title?.trim()) {
+    const title = body.title?.trim();
+    const client = body.client?.trim() || body.contactPerson?.trim() || title;
+    const contactPerson = body.contactPerson?.trim() || client;
+    const phone = body.phone?.trim();
+    const district = body.district?.trim() || 'Ernakulam';
+
+    if (!title) {
       return NextResponse.json({ success: false, error: 'Lead Title/Project Name is required' }, { status: 400 });
     }
-    if (!body.contactPerson?.trim()) {
-      return NextResponse.json({ success: false, error: 'Contact Person is required' }, { status: 400 });
+    if (!contactPerson) {
+      return NextResponse.json({ success: false, error: 'Contact Person or Client Name is required' }, { status: 400 });
     }
-    if (!body.phone?.trim()) {
+    if (!phone) {
       return NextResponse.json({ success: false, error: 'Phone number is required' }, { status: 400 });
     }
-    if (!body.district?.trim()) {
-      return NextResponse.json({ success: false, error: 'Kerala District is required' }, { status: 400 });
-    }
+
+    // Map frontend stage keys to LeadStage enum if needed
+    let stage: LeadStage = 'NEW';
+    if (body.stage === 'measurement' || body.stage === 'MEASUREMENT_SCHEDULED') stage = 'MEASUREMENT_SCHEDULED';
+    else if (body.stage === 'quotation' || body.stage === 'QUOTE_SENT') stage = 'QUOTE_SENT';
+    else if (body.stage === 'negotiation' || body.stage === 'NEGOTIATION') stage = 'NEGOTIATION';
+    else if (body.stage === 'WON') stage = 'WON';
+    else if (body.stage === 'LOST') stage = 'LOST';
+
+    const numValue = body.value ? Number(body.value) : (body.estimatedValue ? Number(body.estimatedValue) : null);
 
     const lead = await createLead({
       customerId: body.customerId || null,
-      title: body.title.trim(),
-      contactPerson: body.contactPerson.trim(),
-      phone: body.phone.trim(),
-      district: body.district.trim(),
-      stage: body.stage || 'NEW',
-      estimatedValue: body.estimatedValue ? Number(body.estimatedValue) : null,
+      title,
+      client,
+      contactPerson,
+      phone,
+      district,
+      stage,
+      estimatedValue: numValue,
+      value: numValue,
+      doors: body.doors?.trim() || undefined,
+      doorCount: body.doorCount ? Number(body.doorCount) : undefined,
       assignedToId: body.assignedToId || null,
       notes: body.notes?.trim() || undefined,
     });
