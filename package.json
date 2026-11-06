@@ -6,7 +6,7 @@
   "author": "EXMARK DOORS PRIVATE LIMITED",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "node scripts/deploy-migrate.mjs && next build",
     "start": "next start",
     "lint": "eslint",

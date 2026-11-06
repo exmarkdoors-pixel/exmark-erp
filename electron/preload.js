@@ -10,5 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getServerUrl: () => ipcRenderer.invoke('get-server-url'),
   setServerUrl: (url) => ipcRenderer.invoke('set-server-url', url),
   retryConnection: () => ipcRenderer.invoke('retry-connection'),
+  checkLocalServer: () => ipcRenderer.invoke('check-local-server'),
+  startLocalServer: () => ipcRenderer.invoke('start-local-server'),
   printPage: () => window.print(),
 });

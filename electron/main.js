@@ -6,8 +6,10 @@ const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const { spawn, execSync } = require('child_process');
 
 let mainWindow = null;
+let localServerProcess = null;
 const CLOUD_STAGING_URL = 'https://exmark-erp-staging.onrender.com';
 const LOCAL_DEV_URL = 'http://127.0.0.1:3000';
 
@@ -34,6 +36,66 @@ function checkLocalServer(callback) {
   } catch {
     callback(false);
   }
+}
+
+function startLocalServer(callback) {
+  checkLocalServer((isAlreadyRunning) => {
+    if (isAlreadyRunning) {
+      console.log('[Desktop Main] Local server is already running on port 3000.');
+      if (callback) callback(true);
+      return;
+    }
+
+    const potentialRoots = [
+      process.cwd(),
+      app.getAppPath(),
+      path.join(__dirname, '..'),
+      path.join(process.resourcesPath || '', 'app')
+    ];
+
+    const projectRoot = potentialRoots.find(p => p && fs.existsSync(path.join(p, 'package.json')));
+    if (!projectRoot) {
+      console.warn('[Desktop Main] Cannot auto-start local server: package.json not found');
+      if (callback) callback(false);
+      return;
+    }
+
+    console.log(`[Desktop Main] Auto-spawning local Next.js server at: ${projectRoot}`);
+    const isWindows = process.platform === 'win32';
+    const npmCmd = isWindows ? 'npm.cmd' : 'npm';
+
+    try {
+      localServerProcess = spawn(npmCmd, ['run', 'dev'], {
+        cwd: projectRoot,
+        stdio: 'ignore',
+        shell: true,
+        detached: false
+      });
+
+      localServerProcess.on('error', (err) => {
+        console.warn('[Desktop Main] Failed to spawn local server:', err.message);
+        localServerProcess = null;
+      });
+
+      localServerProcess.on('exit', () => {
+        localServerProcess = null;
+      });
+
+      let elapsed = 0;
+      const pollTimer = setInterval(() => {
+        elapsed++;
+        checkLocalServer((ready) => {
+          if (ready || elapsed >= 20) {
+            clearInterval(pollTimer);
+            if (callback) callback(ready);
+          }
+        });
+      }, 1000);
+    } catch (err) {
+      console.error('[Desktop Main] Error spawning server:', err.message);
+      if (callback) callback(false);
+    }
+  });
 }
 
 function getConfigFilePath() {
@@ -158,7 +220,16 @@ function createMainWindow() {
           accelerator: 'CmdOrCtrl+L',
           click: () => {
             saveServerUrl(LOCAL_DEV_URL);
-            loadRemoteUrl(LOCAL_DEV_URL);
+            checkLocalServer((isUp) => {
+              if (isUp) {
+                loadRemoteUrl(LOCAL_DEV_URL);
+              } else {
+                console.log('[Desktop Main] Local server not active. Auto-booting localhost:3000...');
+                startLocalServer(() => {
+                  loadRemoteUrl(LOCAL_DEV_URL);
+                });
+              }
+            });
           },
         },
         { type: 'separator' },
@@ -181,7 +252,16 @@ function createMainWindow() {
           accelerator: 'CmdOrCtrl+2',
           click: () => {
             saveServerUrl(LOCAL_DEV_URL);
-            loadRemoteUrl(LOCAL_DEV_URL);
+            checkLocalServer((isUp) => {
+              if (isUp) {
+                loadRemoteUrl(LOCAL_DEV_URL);
+              } else {
+                console.log('[Desktop Main] Local server not active. Auto-booting localhost:3000...');
+                startLocalServer(() => {
+                  loadRemoteUrl(LOCAL_DEV_URL);
+                });
+              }
+            });
           },
         },
         {
@@ -344,6 +424,37 @@ ipcMain.handle('load-local-app', () => {
 });
 ipcMain.handle('open-devtools', () => {
   if (mainWindow) mainWindow.webContents.openDevTools();
+});
+ipcMain.handle('check-local-server', async () => {
+  return new Promise((resolve) => {
+    checkLocalServer((isActive) => resolve(isActive));
+  });
+});
+ipcMain.handle('start-local-server', async () => {
+  return new Promise((resolve) => {
+    startLocalServer((started) => {
+      if (started) {
+        saveServerUrl(LOCAL_DEV_URL);
+        loadRemoteUrl(LOCAL_DEV_URL);
+      }
+      resolve(started);
+    });
+  });
+});
+
+app.on('before-quit', () => {
+  if (localServerProcess) {
+    try {
+      if (process.platform === 'win32' && localServerProcess.pid) {
+        execSync(`taskkill /pid ${localServerProcess.pid} /T /F`, { stdio: 'ignore' });
+      } else {
+        localServerProcess.kill();
+      }
+    } catch {
+      // Ignored
+    }
+    localServerProcess = null;
+  }
 });
 
 app.on('window-all-closed', () => {
