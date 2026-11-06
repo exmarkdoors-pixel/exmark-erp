@@ -255,6 +255,78 @@ async function runAuditSuite() {
   const calcBelow = calculateFrpDoorPrice({ category: 'A', height: 180, widthTop: 70, unit: 'cm' });
   assert('M3: Quotations', 'Below-size door (70x180 cm) calculates proportional divided square feet rate', calcBelow.isBelowSize && calcBelow.finalUnitRate < 7000);
 
+  // Test 4: Square Feet Price Adjustment in Settings (e.g. adjust to ₹320/sq.ft)
+  const adjustedSettings = {
+    ...DEFAULT_FRP_RATE_CARD,
+    extraSqftRate: 320,
+  };
+  const calcAdjustedSqft = calculateFrpDoorPrice({
+    category: 'A',
+    height: 220,
+    widthTop: 90,
+    unit: 'cm',
+    settings: adjustedSettings,
+  });
+  assert('M3: Quotations', 'Editable Extra Sq.Ft rate (₹320/sq.ft) recalculates extra size price accurately',
+    calcAdjustedSqft.extraCost === Math.round(calcAdjustedSqft.extraSqft * 320) && calcAdjustedSqft.finalUnitRate === (7000 + calcAdjustedSqft.extraCost)
+  );
+
+  // Test 5: Lock Options Add-on Pricing (e.g. Mortise 60mm Brass @ ₹850)
+  const calcWithLock = calculateFrpDoorPrice({
+    category: 'A',
+    height: 210,
+    widthTop: 80,
+    unit: 'cm',
+    lockId: 'lock-mortise-60',
+  });
+  assert('M3: Quotations', 'Lock hardware option adds configured price (e.g. Mortise Lock +₹850) to unit price',
+    calcWithLock.finalUnitRate === (7000 + 850) && calcWithLock.breakdown.includes('Lock (+₹850)')
+  );
+
+  // Test 6: Colour / Finish Options Add-on Pricing (e.g. Metallic Bronze @ +₹350)
+  const calcWithColour = calculateFrpDoorPrice({
+    category: 'A',
+    height: 210,
+    widthTop: 80,
+    unit: 'cm',
+    colourId: 'col-metallic-bronze',
+  });
+  assert('M3: Quotations', 'Colour / finish option adds configured surcharge (e.g. Metallic Bronze +₹350) to unit price',
+    calcWithColour.finalUnitRate === (7000 + 350) && calcWithColour.breakdown.includes('Finish (+₹350)')
+  );
+
+  // Test 7: Combined Calculation (Extra Size + Lock + Colour)
+  const calcCombined = calculateFrpDoorPrice({
+    category: 'B', // base 7600
+    height: 220,
+    widthTop: 90,
+    unit: 'cm',
+    lockId: 'lock-multipoint', // +1450
+    colourId: 'col-metallic-bronze', // +350
+  });
+  assert('M3: Quotations', 'Combined calculation accurately bonds Base (Cat B ₹7,600) + Extra Sq.Ft + Lock + Finish',
+    calcCombined.finalUnitRate === (7600 + calcCombined.extraCost + 1450 + 350)
+  );
+
+  // Test 8: Quotation CRUD Lifecycle (Create, Edit, Delete capabilities in UI & Services)
+  const quotationHubPath = path.join(process.cwd(), 'components', 'modules', 'quotations', 'QuotationHub.tsx');
+  const quoteHubContent = fs.readFileSync(quotationHubPath, 'utf8');
+  assert('M3: Quotations', 'QuotationHub supports Edit flow (handleEditQuotation & editingQuoteId)',
+    quoteHubContent.includes('handleEditQuotation') && quoteHubContent.includes('editingQuoteId')
+  );
+  assert('M3: Quotations', 'QuotationHub supports Delete flow (handleDeleteQuotation with confirmation)',
+    quoteHubContent.includes('handleDeleteQuotation')
+  );
+  assert('M3: Quotations', 'QuotationHub renders Colour and Lock selection in door item rows',
+    quoteHubContent.includes('colourId') && quoteHubContent.includes('lockId')
+  );
+
+  const quoteDeleteRoutePath = path.join(process.cwd(), 'app', 'api', 'quotations', '[id]', 'route.ts');
+  const quoteDeleteContent = fs.readFileSync(quoteDeleteRoutePath, 'utf8');
+  assert('M3: Quotations', 'API route supports DELETE /api/quotations/[id] and PUT /api/quotations/[id]',
+    quoteDeleteContent.includes('export async function DELETE') && quoteDeleteContent.includes('export async function PUT')
+  );
+
   // --- MODULE 4: SALES ORDERS & 40% ADVANCE GATEKEEPER ---
   console.log(`\n${C.cyan}▸ [Module 4] Sales Orders & 40% Advance Payment Gatekeeper${C.reset}`);
   const ordersRoutePath = path.join(process.cwd(), 'app', 'api', 'orders', 'route.ts');

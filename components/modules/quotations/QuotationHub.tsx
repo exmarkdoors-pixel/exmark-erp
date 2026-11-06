@@ -26,11 +26,18 @@ import {
   Layers,
   FileCheck,
   Percent,
+  Edit2,
+  Lock,
+  Palette,
 } from 'lucide-react';
 import {
   FrpDoorCategory,
   FrpRateCardSettings,
   DEFAULT_FRP_RATE_CARD,
+  DEFAULT_LOCK_OPTIONS,
+  DEFAULT_COLOUR_OPTIONS,
+  LockOption,
+  ColourOption,
   calculateFrpDoorPrice,
 } from '@/lib/services/frpPricingEngine';
 import { FrpPricingSettingsModal } from './FrpPricingSettingsModal';
@@ -198,6 +205,10 @@ export interface QuoteItemRow {
   rate: number;
   frpCategory?: FrpDoorCategory | 'CUSTOM';
   autoPriceBreakdown?: string;
+  lockId?: string;
+  lockPrice?: number;
+  colourId?: string;
+  colourExtraRate?: number;
 }
 
 // Saved Quotation Record
@@ -351,23 +362,34 @@ export function QuotationHub() {
   const [activeTab, setActiveTab] = useState<'quotations' | 'pipeline' | 'salesOrders'>('quotations');
   const [audioEnabled, setAudioEnabled] = useState(true);
 
+  // Active Quotation Editing state (CRUD)
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+
   // Helper to create a clean zero-baseline draft row
-  const createZeroRow = (id = 1, modelId = ''): QuoteItemRow => ({
-    id,
-    modelId: modelId || INITIAL_MODELS[0]?.id || 'MOD-101',
-    unit: 'inch',
-    height: 0,
-    heightFraction: '0',
-    widthTop: 0,
-    widthTopFraction: '0',
-    widthBottom: 0,
-    widthBottomFraction: '0',
-    width: 0,
-    widthFraction: '0',
-    qty: 0,
-    rate: 0,
-    frpCategory: 'A',
-  });
+  const createZeroRow = (id = 1, modelId = ''): QuoteItemRow => {
+    const defaultLock = (frpSettings.locks && frpSettings.locks[0]) || DEFAULT_LOCK_OPTIONS[0];
+    const defaultColour = (frpSettings.colours && frpSettings.colours[0]) || DEFAULT_COLOUR_OPTIONS[0];
+    return {
+      id,
+      modelId: modelId || INITIAL_MODELS[0]?.id || 'MOD-101',
+      unit: 'inch',
+      height: 0,
+      heightFraction: '0',
+      widthTop: 0,
+      widthTopFraction: '0',
+      widthBottom: 0,
+      widthBottomFraction: '0',
+      width: 0,
+      widthFraction: '0',
+      qty: 0,
+      rate: 0,
+      frpCategory: 'A',
+      lockId: defaultLock?.id || 'lock-none',
+      lockPrice: defaultLock?.price || 0,
+      colourId: defaultColour?.id || 'col-teak-matte',
+      colourExtraRate: defaultColour?.extraRate || 0,
+    };
+  };
 
   // Entities
   const [customers, setCustomers] = useState<HubCustomer[]>(INITIAL_CUSTOMERS);
@@ -402,6 +424,10 @@ export function QuotationHub() {
       rate: 7000,
       frpCategory: 'A',
       autoPriceBreakdown: 'Standard Size (80×210 cm) — Fixed Piece Rate ₹7,000',
+      lockId: 'lock-none',
+      lockPrice: 0,
+      colourId: 'col-teak-matte',
+      colourExtraRate: 0,
     },
     {
       id: 2,
@@ -419,6 +445,10 @@ export function QuotationHub() {
       rate: 7600,
       frpCategory: 'B',
       autoPriceBreakdown: 'Standard Size (80×210 cm) — Fixed Piece Rate ₹7,600',
+      lockId: 'lock-none',
+      lockPrice: 0,
+      colourId: 'col-rosewood-gloss',
+      colourExtraRate: 0,
     },
   ]);
 
@@ -564,14 +594,22 @@ export function QuotationHub() {
     const nextId = quoteItemRows.length + 1;
     const firstModel = doorModels[0];
     const defaultCat: FrpDoorCategory = 'A';
+    const defaultLock = (frpSettings.locks && frpSettings.locks[0]) || DEFAULT_LOCK_OPTIONS[0];
+    const defaultColour = (frpSettings.colours && frpSettings.colours[0]) || DEFAULT_COLOUR_OPTIONS[0];
+
     const autoCalc = calculateFrpDoorPrice({
       category: defaultCat,
       height: 210,
       widthTop: 80,
       widthBottom: 80,
       unit: 'cm',
+      lockId: defaultLock?.id,
+      lockPrice: defaultLock?.price,
+      colourId: defaultColour?.id,
+      colourExtraRate: defaultColour?.extraRate,
       settings: frpSettings,
     });
+
     setQuoteItemRows([
       ...quoteItemRows,
       {
@@ -590,6 +628,10 @@ export function QuotationHub() {
         rate: autoCalc.finalUnitRate,
         frpCategory: defaultCat,
         autoPriceBreakdown: autoCalc.breakdown,
+        lockId: defaultLock?.id || 'lock-none',
+        lockPrice: defaultLock?.price || 0,
+        colourId: defaultColour?.id || 'col-teak-matte',
+        colourExtraRate: defaultColour?.extraRate || 0,
       },
     ]);
   };
@@ -663,9 +705,23 @@ export function QuotationHub() {
       if (found) updates.rate = found.rate;
     }
 
+    // Auto-sync hardware lock price
+    if (updates.lockId !== undefined && updates.lockId !== currentRow.lockId) {
+      const activeLocks = frpSettings.locks && frpSettings.locks.length > 0 ? frpSettings.locks : DEFAULT_LOCK_OPTIONS;
+      const foundLock = activeLocks.find((l) => l.id === updates.lockId);
+      updates.lockPrice = foundLock ? foundLock.price : 0;
+    }
+
+    // Auto-sync colour extra surcharge
+    if (updates.colourId !== undefined && updates.colourId !== currentRow.colourId) {
+      const activeColours = frpSettings.colours && frpSettings.colours.length > 0 ? frpSettings.colours : DEFAULT_COLOUR_OPTIONS;
+      const foundCol = activeColours.find((c) => c.id === updates.colourId);
+      updates.colourExtraRate = foundCol ? (foundCol.extraRate || 0) : 0;
+    }
+
     // Auto-pricing engine calculation for FRP doors (Category A-E)
     const activeCategory = updates.frpCategory !== undefined ? updates.frpCategory : currentRow.frpCategory;
-    const isDimensionOrCatChange =
+    const isDimensionOrSpecChange =
       updates.height !== undefined ||
       updates.widthTop !== undefined ||
       updates.widthBottom !== undefined ||
@@ -674,9 +730,13 @@ export function QuotationHub() {
       updates.heightFraction !== undefined ||
       updates.widthTopFraction !== undefined ||
       updates.widthBottomFraction !== undefined ||
-      updates.frpCategory !== undefined;
+      updates.frpCategory !== undefined ||
+      updates.lockId !== undefined ||
+      updates.lockPrice !== undefined ||
+      updates.colourId !== undefined ||
+      updates.colourExtraRate !== undefined;
 
-    if (activeCategory && activeCategory !== 'CUSTOM' && isDimensionOrCatChange && updates.rate === undefined) {
+    if (activeCategory && activeCategory !== 'CUSTOM' && isDimensionOrSpecChange && updates.rate === undefined) {
       const nextH = updates.height !== undefined ? updates.height : currentRow.height;
       const nextWT = updates.widthTop !== undefined ? updates.widthTop : (currentRow.widthTop ?? currentRow.width ?? 0);
       const nextWB = updates.widthBottom !== undefined ? updates.widthBottom : (currentRow.widthBottom ?? nextWT);
@@ -684,6 +744,10 @@ export function QuotationHub() {
       const nextHFrac = updates.heightFraction !== undefined ? updates.heightFraction : currentRow.heightFraction;
       const nextWTFrac = updates.widthTopFraction !== undefined ? updates.widthTopFraction : (currentRow.widthTopFraction || currentRow.widthFraction);
       const nextWBFrac = updates.widthBottomFraction !== undefined ? updates.widthBottomFraction : (currentRow.widthBottomFraction || nextWTFrac);
+      const nextLockId = updates.lockId !== undefined ? updates.lockId : currentRow.lockId;
+      const nextLockPrice = updates.lockPrice !== undefined ? updates.lockPrice : currentRow.lockPrice;
+      const nextColourId = updates.colourId !== undefined ? updates.colourId : currentRow.colourId;
+      const nextColourExtraRate = updates.colourExtraRate !== undefined ? updates.colourExtraRate : currentRow.colourExtraRate;
 
       const priceResult = calculateFrpDoorPrice({
         category: activeCategory as FrpDoorCategory,
@@ -694,6 +758,10 @@ export function QuotationHub() {
         heightFraction: nextHFrac,
         widthTopFraction: nextWTFrac,
         widthBottomFraction: nextWBFrac,
+        lockId: nextLockId,
+        lockPrice: nextLockPrice,
+        colourId: nextColourId,
+        colourExtraRate: nextColourExtraRate,
         settings: frpSettings,
       });
 
@@ -719,7 +787,81 @@ export function QuotationHub() {
     showToast('Workbench Cleared to Zero', 'All door quantities, dimensions, and rates set to 0 (₹0).', 'info');
   };
 
-  // Save Quotation
+  // Edit Existing Quotation (CRUD - Edit)
+  const handleEditQuotation = (q: HubQuotation) => {
+    setEditingQuoteId(q.id);
+    setActiveTab('quotations');
+
+    const foundCust = customers.find((c) => c.name.toLowerCase() === q.customerName.toLowerCase());
+    if (foundCust) {
+      setSelectedCustomerId(foundCust.id);
+    }
+
+    setGstMode(q.gstMode || 'excluded');
+    setCustomGstPercent(q.gstRate || 18);
+    setAdvancePercent(q.advancePercent || 50);
+
+    if (q.itemRows && q.itemRows.length > 0) {
+      setQuoteItemRows(q.itemRows);
+    } else {
+      const defaultLock = (frpSettings.locks && frpSettings.locks[0]) || DEFAULT_LOCK_OPTIONS[0];
+      const defaultColour = (frpSettings.colours && frpSettings.colours[0]) || DEFAULT_COLOUR_OPTIONS[0];
+      setQuoteItemRows([
+        {
+          id: 1,
+          modelId: INITIAL_MODELS[0]?.id || 'MOD-101',
+          unit: 'cm',
+          height: 210,
+          heightFraction: '0',
+          widthTop: 80,
+          widthTopFraction: '0',
+          widthBottom: 80,
+          widthBottomFraction: '0',
+          width: 80,
+          widthFraction: '0',
+          qty: 1,
+          rate: q.subtotal > 0 ? q.subtotal : 7000,
+          frpCategory: 'A',
+          autoPriceBreakdown: `Imported from ${q.id}`,
+          lockId: defaultLock?.id,
+          lockPrice: defaultLock?.price || 0,
+          colourId: defaultColour?.id,
+          colourExtraRate: defaultColour?.extraRate || 0,
+        },
+      ]);
+    }
+
+    playBeep(580, 0.1);
+    showToast('Editing Quotation', `Loaded ${q.id} into workbench. Modify specifications and click "Update Quotation".`, 'info');
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 100, behavior: 'smooth' });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingQuoteId(null);
+    showToast('Edit Mode Cancelled', 'Quotation generator returned to standard new draft mode.', 'info');
+  };
+
+  // Delete Quotation (CRUD - Delete)
+  const handleDeleteQuotation = async (id: string) => {
+    if (!window.confirm(`Are you sure you want to delete quotation ${id}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await fetch(`/api/quotations/${id}`, { method: 'DELETE' });
+    } catch {
+      // offline fallback
+    }
+    setQuotations((prev) => prev.filter((q) => q.id !== id));
+    if (editingQuoteId === id) {
+      setEditingQuoteId(null);
+    }
+    playBeep(420, 0.1);
+    showToast('Quotation Deleted', `Quotation ${id} was permanently removed.`);
+  };
+
+  // Save or Update Quotation (CRUD - Create & Update)
   const handleSaveQuotation = () => {
     const totalDoors = quoteItemRows.reduce((acc, r) => acc + (Number(r.qty) || 0), 0);
     if (totalDoors <= 0) {
@@ -729,8 +871,36 @@ export function QuotationHub() {
     }
 
     const cust = customers.find((c) => c.id === selectedCustomerId) || { name: 'Direct Client', location: 'Kerala' };
-    const newQuoteId = `QT-2026-0${quotations.length + 109}`;
 
+    if (editingQuoteId) {
+      // UPDATE EXISTING QUOTATION
+      const existingQuote = quotations.find((q) => q.id === editingQuoteId);
+      const updatedQuote: HubQuotation = {
+        id: editingQuoteId,
+        customerName: cust.name,
+        location: cust.location,
+        itemsSummary: `${totalDoors} FRP & WPC Doors (${quoteItemRows.length} Sizes)`,
+        gstMode,
+        gstRate: effectiveGstPercent,
+        subtotal: Math.round(itemsSubtotal),
+        gstAmount: Math.round(gstAmount),
+        grandTotal: Math.round(grandTotal),
+        advancePercent,
+        advanceAmount: Math.round(advanceAmount),
+        date: existingQuote?.date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        itemRows: [...quoteItemRows],
+      };
+
+      setQuotations(quotations.map((q) => (q.id === editingQuoteId ? updatedQuote : q)));
+      setEditingQuoteId(null);
+      playBeep(680, 0.12);
+      showToast('Quotation Updated Successfully', `${editingQuoteId} for ${cust.name} has been updated.`);
+      setPreviewQuote(updatedQuote);
+      return;
+    }
+
+    // CREATE NEW QUOTATION
+    const newQuoteId = `QT-2026-0${quotations.length + 109}`;
     const newQuote: HubQuotation = {
       id: newQuoteId,
       customerName: cust.name,
@@ -1212,27 +1382,69 @@ export function QuotationHub() {
       {/* VIEW 1: QUOTATIONS HUB & FORM VIEW */}
       {activeTab === 'quotations' && (
         <div className="p-5 overflow-y-auto space-y-5 flex-1">
+          {/* EDITING QUOTATION ACTIVE BANNER */}
+          {editingQuoteId && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/60 via-[#191924] to-[#10172a] border-2 border-amber-500/50 shadow-xl flex items-center justify-between gap-3 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                  <Edit2 className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h4 className="font-black text-sm text-amber-300 flex items-center gap-2">
+                    <span>Editing Quotation:</span>
+                    <span className="font-mono bg-amber-500/20 px-2 py-0.5 rounded text-white border border-amber-500/40">
+                      {editingQuoteId}
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-amber-200/80">
+                    Modify client, door sizes, categories, lock hardware, finishes, or rates below, then click &ldquo;Update Quotation&rdquo;.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs border border-slate-700 transition cursor-pointer"
+                >
+                  Cancel Edit
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* QUOTATION CREATOR WORKBENCH */}
           <div className="bg-[#10172a] border border-slate-800 rounded-xl p-5 shadow-xl space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div className="flex items-center gap-3">
                 <span className="w-8 h-8 rounded-lg bg-rose-600/20 text-rose-400 border border-rose-500/30 flex items-center justify-center font-bold text-sm">
-                  📝
+                  {editingQuoteId ? '✏️' : '📝'}
                 </span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-white">Create A New Quotation (ക്രിയേറ്റ് എ ന്യൂ കൊട്ടേഷൻ)</h3>
+                    <h3 className="text-sm font-bold text-white">
+                      {editingQuoteId ? `Edit Quotation (${editingQuoteId})` : 'Create A New Quotation (ക്രിയേറ്റ് എ ന്യൂ കൊട്ടേഷൻ)'}
+                    </h3>
                     <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                      QT-2026-0{quotations.length + 109}
+                      {editingQuoteId || `QT-2026-0${quotations.length + 109}`}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400">
-                    Configure customer, door schedule, dimensions (cm/mm/inch), price per door &amp; GST option
+                    Configure customer, door schedule, dimensions (cm/mm/inch), lock hardware, colours &amp; GST
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
+                {editingQuoteId && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleClearAllToZero}
@@ -1247,7 +1459,7 @@ export function QuotationHub() {
                   onClick={handleSaveQuotation}
                   className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg shadow-rose-900/30 flex items-center gap-1.5 transition cursor-pointer"
                 >
-                  <span>Save &amp; Generate Quote</span>
+                  <span>{editingQuoteId ? 'Update Quotation' : 'Save & Generate Quote'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1356,8 +1568,10 @@ export function QuotationHub() {
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-[#11182c] border-b border-slate-800 text-[11px] font-bold text-slate-300">
-                      <th className="p-3 w-44">Door Model (മോഡൽ)</th>
-                      <th className="p-3 w-36">Category (A–E)</th>
+                      <th className="p-3 w-40">Door Model (മോഡൽ)</th>
+                      <th className="p-3 w-32">Category (A–E)</th>
+                      <th className="p-3 w-36">Colour / Finish (നിറം)</th>
+                      <th className="p-3 w-36">Lock Hardware (പൂട്ട്)</th>
                       <th className="p-3 w-24">Unit (യൂണിറ്റ്)</th>
                       <th className="p-3 w-60">Dimensions (H &times; Top/Btm W)</th>
                       <th className="p-3 w-16 text-center">Qty</th>
@@ -1418,6 +1632,44 @@ export function QuotationHub() {
                                 Base: ₹{(frpSettings.categoryPieceRates[row.frpCategory as FrpDoorCategory] || 7000).toLocaleString('en-IN')} / pc
                               </span>
                             )}
+                          </td>
+
+                          <td className="p-2.5">
+                            <select
+                              value={row.colourId || (frpSettings.colours?.[0]?.id || 'col-teak-matte')}
+                              onChange={(e) => handleUpdateRow(idx, { colourId: e.target.value })}
+                              className="w-full bg-[#131b2e] border border-emerald-500/30 rounded p-1.5 text-xs text-emerald-300 font-semibold focus:border-emerald-400 cursor-pointer"
+                            >
+                              {(frpSettings.colours && frpSettings.colours.length > 0 ? frpSettings.colours : DEFAULT_COLOUR_OPTIONS).map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name} {c.extraRate && c.extraRate > 0 ? `(+₹${c.extraRate})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            {row.colourExtraRate && row.colourExtraRate > 0 ? (
+                              <span className="text-[10px] text-emerald-400 block mt-0.5 font-mono">
+                                +₹{row.colourExtraRate.toLocaleString('en-IN')} finish
+                              </span>
+                            ) : null}
+                          </td>
+
+                          <td className="p-2.5">
+                            <select
+                              value={row.lockId || (frpSettings.locks?.[0]?.id || 'lock-none')}
+                              onChange={(e) => handleUpdateRow(idx, { lockId: e.target.value })}
+                              className="w-full bg-[#131b2e] border border-cyan-500/30 rounded p-1.5 text-xs text-cyan-300 font-semibold focus:border-cyan-400 cursor-pointer"
+                            >
+                              {(frpSettings.locks && frpSettings.locks.length > 0 ? frpSettings.locks : DEFAULT_LOCK_OPTIONS).map((l) => (
+                                <option key={l.id} value={l.id}>
+                                  {l.name} {l.price > 0 ? `(+₹${l.price})` : '(Incl)'}
+                                </option>
+                              ))}
+                            </select>
+                            {row.lockPrice && row.lockPrice > 0 ? (
+                              <span className="text-[10px] text-cyan-400 block mt-0.5 font-mono">
+                                +₹{row.lockPrice.toLocaleString('en-IN')} hardware
+                              </span>
+                            ) : null}
                           </td>
 
                           <td className="p-2.5">
@@ -1859,20 +2111,40 @@ export function QuotationHub() {
                           ₹{q.advanceAmount.toLocaleString('en-IN')} ({q.advancePercent}%)
                         </td>
                         <td className="p-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (q.id.startsWith('INV-')) {
-                                setPrintDocType('salesInvoice');
-                              } else {
-                                setPrintDocType('quotation');
-                              }
-                              setPreviewQuote(q);
-                            }}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded border border-slate-700 transition cursor-pointer"
-                          >
-                            View &amp; Print
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (q.id.startsWith('INV-')) {
+                                  setPrintDocType('salesInvoice');
+                                } else {
+                                  setPrintDocType('quotation');
+                                }
+                                setPreviewQuote(q);
+                              }}
+                              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded border border-slate-700 transition cursor-pointer"
+                              title="View & Print Document"
+                            >
+                              Print
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEditQuotation(q)}
+                              className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 text-xs rounded border border-amber-500/30 transition cursor-pointer flex items-center gap-1"
+                              title="Edit Quotation (specs, sizes, rates)"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteQuotation(q.id)}
+                              className="p-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 text-xs rounded border border-rose-500/30 transition cursor-pointer"
+                              title="Delete Quotation"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -2828,6 +3100,10 @@ export function QuotationHub() {
                 heightFraction: r.heightFraction,
                 widthTopFraction: r.widthTopFraction || r.widthFraction,
                 widthBottomFraction: r.widthBottomFraction,
+                lockId: r.lockId,
+                lockPrice: r.lockPrice,
+                colourId: r.colourId,
+                colourExtraRate: r.colourExtraRate,
                 settings: newSettings,
               });
               return {

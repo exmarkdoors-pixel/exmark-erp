@@ -41,6 +41,22 @@ if (typeof window === 'undefined') {
 
 export type FrpDoorCategory = 'A' | 'B' | 'C' | 'D' | 'E';
 
+export interface LockOption {
+  id: string;
+  name: string;
+  type?: string;
+  price: number;
+  description?: string;
+}
+
+export interface ColourOption {
+  id: string;
+  name: string;
+  code?: string;
+  extraRate?: number;
+  category?: 'WOOD_GRAIN' | 'SOLID_COLOR' | 'METALLIC' | 'CUSTOM';
+}
+
 export interface FrpRateCardSettings {
   maxWidthCm: number;        // default: 80
   maxHeightCm: number;       // default: 210
@@ -53,8 +69,30 @@ export interface FrpRateCardSettings {
     E: number;               // default: 9500
   };
   belowSizeCalculationMode: 'DIVIDED_RATE' | 'BASE_MINIMUM'; // default: 'DIVIDED_RATE'
+  locks?: LockOption[];
+  colours?: ColourOption[];
   updatedAt?: string;
 }
+
+export const DEFAULT_LOCK_OPTIONS: LockOption[] = [
+  { id: 'lock-none', name: 'Provision Only (No Hardware)', type: 'None', price: 0, description: 'Standard lock hole cutout mortise provision only' },
+  { id: 'lock-mortise-60', name: 'Mortise Lock 60mm Brass Double Throw', type: 'Mortise', price: 850, description: 'Heavy brass mortise latch + 3 keys' },
+  { id: 'lock-cyl-privacy', name: 'Cylindrical Knob Lock (Bathroom Privacy)', type: 'Cylindrical', price: 450, description: 'Stainless steel cylindrical keyless privacy knob' },
+  { id: 'lock-baby-latch', name: 'Baby Latch / Tower Bolt Kit', type: 'Latch', price: 300, description: 'Dual brass baby latches + strike plate' },
+  { id: 'lock-magnetic', name: 'Heavy Duty Magnetic Roller Catch', type: 'Magnetic', price: 250, description: 'Silent magnetic closure mechanism' },
+  { id: 'lock-multipoint', name: 'Multipoint High Security Lock System', type: 'Security', price: 1450, description: '3-point master shootbolt lock' },
+];
+
+export const DEFAULT_COLOUR_OPTIONS: ColourOption[] = [
+  { id: 'col-teak-matte', name: 'Natural Teak Matte', code: '#8B5A2B', extraRate: 0, category: 'WOOD_GRAIN' },
+  { id: 'col-rosewood-gloss', name: 'Rose Wood Glossy', code: '#58111A', extraRate: 0, category: 'WOOD_GRAIN' },
+  { id: 'col-white-gloss', name: 'Pure White Glossy', code: '#F8F9FA', extraRate: 0, category: 'SOLID_COLOR' },
+  { id: 'col-mahogany-dark', name: 'Mahogany Dark Grain', code: '#420D09', extraRate: 0, category: 'WOOD_GRAIN' },
+  { id: 'col-eeti-wood', name: 'Eeti Wood Deep Grain', code: '#3B2219', extraRate: 0, category: 'WOOD_GRAIN' },
+  { id: 'col-slate-grey', name: 'Slate Grey Solid', code: '#475569', extraRate: 0, category: 'SOLID_COLOR' },
+  { id: 'col-ivory-cream', name: 'Ivory Cream Solid', code: '#FFFDD0', extraRate: 0, category: 'SOLID_COLOR' },
+  { id: 'col-metallic-bronze', name: 'Metallic Bronze Luxury', code: '#A97142', extraRate: 350, category: 'METALLIC' },
+];
 
 export const DEFAULT_FRP_RATE_CARD: FrpRateCardSettings = {
   maxWidthCm: 80,
@@ -68,6 +106,8 @@ export const DEFAULT_FRP_RATE_CARD: FrpRateCardSettings = {
     E: 9500,
   },
   belowSizeCalculationMode: 'DIVIDED_RATE',
+  locks: DEFAULT_LOCK_OPTIONS,
+  colours: DEFAULT_COLOUR_OPTIONS,
 };
 
 function getStorePath(): string {
@@ -99,6 +139,8 @@ export function getFrpRateCardSettings(): FrpRateCardSettings {
         ...DEFAULT_FRP_RATE_CARD.categoryPieceRates,
         ...(parsed.categoryPieceRates || {}),
       },
+      locks: Array.isArray(parsed.locks) && parsed.locks.length > 0 ? parsed.locks : DEFAULT_LOCK_OPTIONS,
+      colours: Array.isArray(parsed.colours) && parsed.colours.length > 0 ? parsed.colours : DEFAULT_COLOUR_OPTIONS,
     };
   } catch {
     return DEFAULT_FRP_RATE_CARD;
@@ -120,6 +162,8 @@ export function saveFrpRateCardSettings(settings: Partial<FrpRateCardSettings>):
         ...current.categoryPieceRates,
         ...(settings.categoryPieceRates || {}),
       },
+      locks: settings.locks !== undefined ? settings.locks : current.locks || DEFAULT_LOCK_OPTIONS,
+      colours: settings.colours !== undefined ? settings.colours : current.colours || DEFAULT_COLOUR_OPTIONS,
       updatedAt: new Date().toISOString(),
     };
     const dir = pathModule.dirname(storePath);
@@ -145,6 +189,10 @@ export interface FrpPricingResult {
   extraSqft: number;
   extraCost: number;
   dividedRate: number;
+  lockId?: string;
+  lockPrice: number;
+  colourId?: string;
+  colourExtraRate: number;
   breakdown: string;
 }
 
@@ -174,6 +222,10 @@ export function calculateFrpDoorPrice(params: {
   heightFraction?: string;
   widthTopFraction?: string;
   widthBottomFraction?: string;
+  lockId?: string;
+  lockPrice?: number;
+  colourId?: string;
+  colourExtraRate?: number;
   settings?: FrpRateCardSettings;
 }): FrpPricingResult {
   const settings = params.settings || getFrpRateCardSettings();
@@ -245,6 +297,35 @@ export function calculateFrpDoorPrice(params: {
     breakdown = `Standard Size (within ${standardMaxWCm}×${standardMaxHCm} cm) — Fixed Piece Rate ₹${basePieceRate.toLocaleString('en-IN')}`;
   }
 
+  // Calculate Lock Hardware & Colour Surcharges
+  const locks = settings.locks || DEFAULT_LOCK_OPTIONS;
+  const colours = settings.colours || DEFAULT_COLOUR_OPTIONS;
+
+  let lockPrice = 0;
+  if (params.lockPrice !== undefined && !isNaN(params.lockPrice)) {
+    lockPrice = params.lockPrice;
+  } else if (params.lockId) {
+    const l = locks.find((x) => x.id === params.lockId);
+    if (l) lockPrice = l.price;
+  }
+
+  let colourExtraRate = 0;
+  if (params.colourExtraRate !== undefined && !isNaN(params.colourExtraRate)) {
+    colourExtraRate = params.colourExtraRate;
+  } else if (params.colourId) {
+    const c = colours.find((x) => x.id === params.colourId);
+    if (c) colourExtraRate = c.extraRate || 0;
+  }
+
+  finalUnitRate += lockPrice + colourExtraRate;
+
+  if (lockPrice > 0) {
+    breakdown += ` + Lock (+₹${lockPrice.toLocaleString('en-IN')})`;
+  }
+  if (colourExtraRate > 0) {
+    breakdown += ` + Finish (+₹${colourExtraRate.toLocaleString('en-IN')})`;
+  }
+
   return {
     category,
     basePieceRate,
@@ -258,6 +339,10 @@ export function calculateFrpDoorPrice(params: {
     extraSqft,
     extraCost,
     dividedRate,
+    lockId: params.lockId,
+    lockPrice,
+    colourId: params.colourId,
+    colourExtraRate,
     breakdown,
   };
 }

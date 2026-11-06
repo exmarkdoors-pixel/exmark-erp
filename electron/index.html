@@ -432,12 +432,39 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
-              <label class="block text-slate-400 mb-1 text-[11px]">Door Model / Tag / Finish</label>
-              <input id="calcDoorModel" type="text" value="FRP Heavy Molded Shutter (Rose Wood)" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white text-xs focus:border-blue-500 focus:outline-none">
+              <label class="block text-slate-400 mb-1 text-[11px]">Door Model / Tag</label>
+              <input id="calcDoorModel" type="text" value="FRP Heavy Molded Shutter" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white text-xs focus:border-blue-500 focus:outline-none">
             </div>
             <div>
               <label class="block text-slate-400 mb-1 text-[11px]">Quantity (Shutters)</label>
               <input id="calcQuantity" type="number" min="1" value="10" oninput="runAutoCostCalculator()" class="w-full bg-[#131b2e] border border-slate-700 rounded p-2 text-white font-bold text-xs focus:border-blue-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Colour / Finish (നിറം)</label>
+              <select id="calcColourOption" onchange="runAutoCostCalculator()" class="w-full bg-[#131b2e] border border-emerald-500/40 rounded p-2 text-emerald-300 font-semibold text-xs focus:border-emerald-400 focus:outline-none">
+                <option value="col-teak-matte" data-extra="0">Natural Teak Matte (Included)</option>
+                <option value="col-rosewood-gloss" data-extra="0" selected>Rose Wood Glossy (Included)</option>
+                <option value="col-white-gloss" data-extra="0">Pure White Glossy (Included)</option>
+                <option value="col-mahogany-dark" data-extra="0">Mahogany Dark Grain (Included)</option>
+                <option value="col-eeti-wood" data-extra="0">Eeti Wood Deep Grain (Included)</option>
+                <option value="col-slate-grey" data-extra="0">Slate Grey Solid (Included)</option>
+                <option value="col-ivory-cream" data-extra="0">Ivory Cream Solid (Included)</option>
+                <option value="col-metallic-bronze" data-extra="350">Metallic Bronze Luxury (+₹350)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 text-[11px]">Lock Hardware (പൂട്ട്)</label>
+              <select id="calcLockOption" onchange="runAutoCostCalculator()" class="w-full bg-[#131b2e] border border-cyan-500/40 rounded p-2 text-cyan-300 font-semibold text-xs focus:border-cyan-400 focus:outline-none">
+                <option value="lock-none" data-price="0">Provision Only (No Hardware - ₹0)</option>
+                <option value="lock-mortise-60" data-price="850" selected>Mortise Lock 60mm Brass (+₹850)</option>
+                <option value="lock-cyl-privacy" data-price="450">Cylindrical Knob Lock (+₹450)</option>
+                <option value="lock-baby-latch" data-price="300">Baby Latch / Tower Bolt Kit (+₹300)</option>
+                <option value="lock-magnetic" data-price="250">Magnetic Roller Catch (+₹250)</option>
+                <option value="lock-multipoint" data-price="1450">Multipoint Security Lock (+₹1,450)</option>
+              </select>
             </div>
           </div>
 
@@ -2979,9 +3006,17 @@
             </span>
           </td>
           <td class="p-3 text-right">
-            <button onclick="bondQuoteToSalesOrder('${quote.id}')" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold text-xs shadow flex items-center gap-1 inline-flex">
-              Convert to Sales Order (40% Adv) ➡️
-            </button>
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="editQuotationOffline('${quote.id}')" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-xs font-semibold border border-amber-500/40" title="Edit Quotation Specs & Rates">
+                Edit
+              </button>
+              <button onclick="deleteQuotationOffline('${quote.id}')" class="px-2.5 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded text-xs font-semibold border border-rose-500/40" title="Delete Quotation">
+                Delete
+              </button>
+              <button onclick="bondQuoteToSalesOrder('${quote.id}')" class="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold text-xs shadow flex items-center gap-1 inline-flex">
+                Convert (40% Adv) ➡️
+              </button>
+            </div>
           </td>
         `;
         tbody.appendChild(tr);
@@ -3400,6 +3435,18 @@
         breakdown = `Standard Size (within ${standardMaxWCm}×${standardMaxHCm} cm) — Fixed Piece Rate ₹${basePieceRate.toLocaleString('en-IN')}`;
       }
 
+      // Add Lock Price & Colour Extra Surcharge
+      const lockPrice = params.lockPrice || 0;
+      const colourExtraRate = params.colourExtraRate || 0;
+      finalUnitRate += lockPrice + colourExtraRate;
+
+      if (lockPrice > 0) {
+        breakdown += ` + Lock (+₹${lockPrice.toLocaleString('en-IN')})`;
+      }
+      if (colourExtraRate > 0) {
+        breakdown += ` + Finish (+₹${colourExtraRate.toLocaleString('en-IN')})`;
+      }
+
       return {
         category,
         basePieceRate,
@@ -3424,7 +3471,17 @@
       const h = parseFloat(document.getElementById('calcHeight').value) || 210;
       const qty = parseInt(document.getElementById('calcQuantity').value) || 1;
 
-      const res = calculateFrpPrice({ category: cat, unit, width: w, height: h });
+      const lockSel = document.getElementById('calcLockOption');
+      const lockOpt = lockSel ? lockSel.options[lockSel.selectedIndex] : null;
+      const lockPrice = lockOpt ? (parseFloat(lockOpt.dataset.price) || 0) : 0;
+      const lockName = lockOpt ? lockOpt.text : 'Standard';
+
+      const colourSel = document.getElementById('calcColourOption');
+      const colourOpt = colourSel ? colourSel.options[colourSel.selectedIndex] : null;
+      const colourExtraRate = colourOpt ? (parseFloat(colourOpt.dataset.extra) || 0) : 0;
+      const colourName = colourOpt ? colourOpt.text : 'Natural Teak';
+
+      const res = calculateFrpPrice({ category: cat, unit, width: w, height: h, lockPrice, colourExtraRate });
       const lineSubtotal = res.finalUnitRate * qty;
       const gst18 = Math.round(lineSubtotal * 0.18);
       const grandTotal = lineSubtotal + gst18;
@@ -3454,16 +3511,37 @@
       document.getElementById('quoteGrandTotalDisplay').textContent = `₹${grandTotal.toLocaleString('en-IN')}`;
       document.getElementById('quoteAdvanceRequiredDisplay').textContent = `Mandatory 40% Advance Lock: ₹${advance40.toLocaleString('en-IN')}`;
       
-      return { res, lineSubtotal, gst18, grandTotal, advance40 };
+      return { res, lineSubtotal, gst18, grandTotal, advance40, lockName, colourName };
     };
 
     window.openCreateQuoteModal = function() {
+      state.editingQuoteId = null;
       document.getElementById('createQuoteModal').classList.remove('hidden');
       runAutoCostCalculator();
     };
 
     window.closeCreateQuoteModal = function() {
+      state.editingQuoteId = null;
       document.getElementById('createQuoteModal').classList.add('hidden');
+    };
+
+    window.editQuotationOffline = function(quoteId) {
+      const q = state.quotations.find(x => x.id === quoteId);
+      if (!q) return;
+      state.editingQuoteId = quoteId;
+      document.getElementById('quoteCustomerName').value = q.client || '';
+      document.getElementById('quoteCustomerPhone').value = q.phone || '';
+      document.getElementById('quoteSiteLocation').value = q.site || '';
+      document.getElementById('createQuoteModal').classList.remove('hidden');
+      runAutoCostCalculator();
+      showToast(`Loaded quotation ${quoteId} for editing specs and rates.`, 'info');
+    };
+
+    window.deleteQuotationOffline = function(quoteId) {
+      if (!confirm(`Are you sure you want to delete quotation ${quoteId}?`)) return;
+      state.quotations = state.quotations.filter(x => x.id !== quoteId);
+      renderQuotations();
+      showToast(`Quotation ${quoteId} has been deleted.`, 'success');
     };
 
     window.saveNewQuotation = function() {
@@ -3479,6 +3557,23 @@
       }
 
       const calc = runAutoCostCalculator();
+
+      if (state.editingQuoteId) {
+        const existing = state.quotations.find(q => q.id === state.editingQuoteId);
+        if (existing) {
+          existing.client = client;
+          existing.site = site;
+          existing.phone = phone;
+          existing.doorsDesc = `${qty} Sets ${model} (${calc.res.category} Grade - ${calc.res.wCm}×${calc.res.hCm} cm, ${calc.colourName.split('(')[0].trim()})`;
+          existing.grossValue = calc.grandTotal;
+          renderQuotations();
+          closeCreateQuoteModal();
+          showToast(`Quotation ${state.editingQuoteId} updated successfully with new specifications!`, 'success');
+          state.editingQuoteId = null;
+          return;
+        }
+      }
+
       const quoteId = `QT-2026-${state.quotations.length + 104}`;
 
       const newQuote = {
@@ -3486,7 +3581,7 @@
         client,
         site,
         phone,
-        doorsDesc: `${qty} Sets ${model} (${calc.res.category} Grade - ${calc.res.wCm}×${calc.res.hCm} cm)`,
+        doorsDesc: `${qty} Sets ${model} (${calc.res.category} Grade - ${calc.res.wCm}×${calc.res.hCm} cm, ${calc.colourName.split('(')[0].trim()})`,
         grossValue: calc.grandTotal,
         status: 'Draft Quotation',
         doorsList: [
@@ -3497,8 +3592,8 @@
             wInch: Math.round(calc.res.wCm / 2.54),
             wFrac: 0,
             profile: `FRP Grade ${calc.res.category}`,
-            finish: model,
-            lock: 'Mortise Lock',
+            finish: calc.colourName.split('(')[0].trim(),
+            lock: calc.lockName.split('(')[0].trim(),
             hand: 'RH Inside',
             qty
           }

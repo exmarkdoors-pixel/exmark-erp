@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
       extraSqftRate: body.extraSqftRate !== undefined ? Number(body.extraSqftRate) : undefined,
       categoryPieceRates: body.categoryPieceRates || undefined,
       belowSizeCalculationMode: body.belowSizeCalculationMode || undefined,
+      locks: Array.isArray(body.locks) ? body.locks : undefined,
+      colours: Array.isArray(body.colours) ? body.colours : undefined,
     });
 
     return NextResponse.json({ success: true, settings: updated });
