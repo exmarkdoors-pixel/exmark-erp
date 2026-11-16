@@ -253,6 +253,8 @@ export function calculateSqFt(
 export interface QuoteItemRow {
   id: number;
   modelId: string;
+  modelCode?: string;
+  modelTitle?: string;
   unit: 'cm' | 'mm' | 'inch';
   height: number;
   heightFraction?: string;
@@ -305,6 +307,7 @@ export interface HubQuotation {
   targetDeliveryDate?: string;
   deliveryDistrict?: string;
   itemRows?: QuoteItemRow[];
+  items?: Array<{ doorModel?: string; quantity?: number; heightMm?: number; widthMm?: number; unitPrice?: number; [key: string]: any }>;
   includeInstallation?: boolean;
   installationMode?: 'PER_DOOR' | 'FIXED_LUMP_SUM';
   installationRate?: number;
@@ -658,8 +661,16 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
               ? Number(((r.widthBottom ?? r.widthTop ?? r.width ?? 78.11)).toFixed(2))
               : Number(((((r.widthBottom ?? r.widthTop ?? r.width ?? 781)) / 10)).toFixed(2));
 
-          const modelObj = doorModels.find((m) => m.id === r.modelId);
-          const modelCode = modelObj?.code || modelObj?.title || 'EXM-A-118';
+          const rawItem = q.items && q.items[rIdx];
+          const modelObj = doorModels.find((m) => m.id === r.modelId || m.code === r.modelId);
+          const modelCode =
+            rawItem?.doorModel ||
+            r.modelCode ||
+            r.modelTitle ||
+            modelObj?.code ||
+            modelObj?.title ||
+            r.modelId ||
+            'EXM-A-101';
           const activeLocksPool =
             frpSettings.locks && frpSettings.locks.length > 0 ? frpSettings.locks : DEFAULT_LOCK_OPTIONS;
           const activeColoursPool =
@@ -725,7 +736,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             id: `door-${q.id}-${idx + 1}`,
             doorId: `EXM-DR-2026-${numSuffix}${String(idx + 1).padStart(2, '0')}`,
             doorNumber: `Door #${idx + 1}`,
-            model: 'EXM-A-118',
+            model: q.items?.[idx]?.doorModel || q.items?.[0]?.doorModel || 'EXM-A-101',
             rawHeightMm: 2032,
             rawWidthMm: 781,
             rawWidthBottomMm: 781,
@@ -936,6 +947,34 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                     }
               )
             );
+          }
+        })
+        .catch(() => {});
+
+      // Sync central door model catalog (standard + quotation custom models)
+      fetch('/api/door-models')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
+            setDoorModels((prev) => {
+              const existingCodes = new Set(prev.map((m) => m.code.toUpperCase()));
+              const toAdd: HubDoorModel[] = [];
+              for (const apiM of json.data) {
+                if (!existingCodes.has(apiM.code.toUpperCase())) {
+                  existingCodes.add(apiM.code.toUpperCase());
+                  toAdd.push({
+                    id: `MOD-${apiM.code}`,
+                    code: apiM.code,
+                    title: apiM.name,
+                    material: 'FRP',
+                    rate: apiM.defaultPrice || 7000,
+                    finish: 'Standard Factory Finish',
+                    category: (apiM.category ? apiM.category.replace('CAT_', '') : 'A') as any,
+                  });
+                }
+              }
+              return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+            });
           }
         })
         .catch(() => {});
@@ -1519,8 +1558,10 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
 
     // Auto-detect Category & price when model changes (e.g. EXM-A-101 -> Cat A, EXM-B-201 -> Cat B @ ₹7,600, C, D, F/E)
     if (updates.modelId && updates.modelId !== currentRow.modelId) {
-      const found = doorModels.find((m) => m.id === updates.modelId);
+      const found = doorModels.find((m) => m.id === updates.modelId || m.code === updates.modelId);
       if (found) {
+        updates.modelCode = found.code;
+        updates.modelTitle = found.title;
         const detectedCat = found.category || detectCategoryFromModelCode(found.code);
         if (detectedCat) {
           updates.frpCategory = detectedCat;
@@ -1903,7 +1944,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
         const factor = r.unit === 'inch' ? 25.4 : r.unit === 'cm' ? 10 : 1;
         return {
           doorCategory: modelObj?.material === 'WPC' ? 'WPC_DOORS' : 'FRP_DOORS',
-          doorModel: modelObj?.code || modelObj?.title || 'EXM-A-101',
+          doorModel: modelObj?.code || r.modelCode || r.modelTitle || modelObj?.title || r.modelId || 'EXM-A-101',
           heightMm: Math.round((Number(r.height) || 210) * factor),
           widthMm: Math.round((Number(r.widthTop ?? r.width) || 80) * factor),
           thicknessMm: 32,
@@ -2188,6 +2229,18 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     setIsAddDoorModelOpen(false);
     playBeep(620, 0.1);
     showToast('Model Added to Catalog', `${code} (${title}) is now available in door selectors!`);
+
+    apiFetch('/api/door-models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        name: title,
+        category: detectCategoryFromModelCode(code),
+        defaultPrice: parseFloat(newModelRate) || 7000,
+        description: `${newModelMaterial} Door Model (${newModelFinish || 'Factory Finish'})`,
+      }),
+    }).catch(() => {});
 
     setNewModelCode('');
     setNewModelTitle('');

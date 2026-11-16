@@ -26,6 +26,11 @@ import {
 import { CustomFrameManagerModal } from './CustomFrameManagerModal';
 import { CustomToleranceManagerModal } from './CustomToleranceManagerModal';
 import { cmToTapeInch, parseTapeInchToCm, computeStickerSizes } from '@/lib/utils/doorStickerFormula';
+import {
+  DoorModelOption,
+  STANDARD_DOOR_MODELS,
+  detectCategoryFromModelCode,
+} from '@/lib/services/doorModelCatalogService';
 
 interface StickerPrintModalProps {
   isOpen: boolean;
@@ -130,6 +135,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
   // Persistence Feedback
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [doorModels, setDoorModels] = useState<DoorModelOption[]>(STANDARD_DOOR_MODELS);
 
   const loadFrames = async () => {
     try {
@@ -158,6 +164,15 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
           }
         })
         .catch(() => {});
+
+      fetch('/api/door-models')
+        .then((r) => r.json())
+        .then((json) => {
+          if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
+            setDoorModels(json.data);
+          }
+        })
+        .catch(() => {});
     }
   }, [isOpen]);
 
@@ -173,13 +188,13 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
       return {
         id: d.id,
         doorId: d.doorId,
-        modelName: d.model || 'EXM-A-118',
+        modelName: d.model || order.doors?.[0]?.model || 'EXM-A-101',
         roomTag: d.doorNumber || `Door #${idx + 1}`,
         frameTypeId: d.frameTypeId || defaultFrame.id,
         rawHeightCm: rawHCm,
         rawWidthTopCm: rawTopCm,
         rawWidthBtmCm: rawBtmCm,
-        widthLinked: d.widthLinked ?? rawTopCm === rawBtmCm,
+        widthLinked: d.widthLinked !== undefined ? d.widthLinked : Math.abs(rawTopCm - rawBtmCm) < 0.05,
         lockType: d.lockType || 'Baby Latch',
         hingeSide: d.handing === 'LH' ? 'L' : 'R',
         swing: d.swing || 'INWARD',
@@ -212,7 +227,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
     const newRow: FloorDoorRow = {
       id: `dr-${Date.now()}-${nextIdx}`,
       doorId: `EXM-DR-2026-${String(nextIdx).padStart(4, '0')}`,
-      modelName: rows[rows.length - 1]?.modelName || 'EXM-A-118',
+      modelName: rows[rows.length - 1]?.modelName || order.doors?.[0]?.model || 'EXM-A-101',
       roomTag: `Door #${nextIdx}`,
       frameTypeId: defaultFrame?.id || 'FRM-MINI',
       rawHeightCm: 203.2,
@@ -758,15 +773,26 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                           <div className="flex items-center gap-1">
                             <input
                               type="text"
+                              list="floor-sticker-door-models"
                               value={row.modelName}
-                              onChange={(e) => updateRow(row.id, { modelName: e.target.value })}
+                              onChange={(e) => updateRow(row.id, { modelName: e.target.value.toUpperCase() })}
                               className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded font-bold text-white uppercase text-xs"
-                              placeholder="EXM-A-118"
+                              placeholder="Select or enter model (e.g. EXM-A-101)..."
                             />
-                            <span title="Model Code" className="p-1 bg-slate-800 border border-slate-700 rounded text-slate-400 shrink-0">
-                              <FileText className="w-3.5 h-3.5" />
+                            <span
+                              title={detectCategoryFromModelCode(row.modelName).replace('CAT_', 'Category ')}
+                              className="px-1.5 py-1 bg-indigo-950/80 border border-indigo-700/60 rounded text-[9px] font-black text-indigo-300 shrink-0 uppercase"
+                            >
+                              {detectCategoryFromModelCode(row.modelName).replace('CAT_', 'Cat ')}
                             </span>
                           </div>
+                          <datalist id="floor-sticker-door-models">
+                            {doorModels.map((m) => (
+                              <option key={m.code} value={m.code}>
+                                {m.code} — {m.name} ({m.categoryLabel} ₹{m.defaultPrice.toLocaleString('en-IN')})
+                              </option>
+                            ))}
+                          </datalist>
                           <input
                             type="text"
                             value={row.roomTag}

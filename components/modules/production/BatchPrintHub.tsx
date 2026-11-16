@@ -256,6 +256,9 @@ export default function BatchPrintHub({
             doorId?: string;
             rawHeightMm?: number;
             rawWidthMm?: number;
+            rawWidthBottomMm?: number;
+            rawWidthTopCm?: number;
+            rawWidthBtmCm?: number;
             finishedHeightMm?: number;
             finishedWidthMm?: number;
             model?: string;
@@ -273,17 +276,27 @@ export default function BatchPrintHub({
           jobCardNumber: p.jobCardNumber,
           totalAmount: 180000,
           doorsDesc: `${p.doors?.length || 1} Door Sets (${p.doorCategory?.replace('_', ' ') || 'FRP Doors'})`,
-          doorsList: (p.doors || []).map((d, idx) => ({
-            tag: d.doorNumber || `#D${idx + 1}`,
-            frameSize: `${((d.rawHeightMm || 2100) / 10).toFixed(1)} × ${((d.rawWidthMm || 900) / 10).toFixed(1)} cm`,
-            shutterSize: `${((d.finishedHeightMm || 2080) / 10).toFixed(1)} × ${((d.finishedWidthMm || 820) / 10).toFixed(1)} cm`,
-            tape: `${((d.rawHeightMm || 2100) / 25.4).toFixed(1)}" × ${((d.rawWidthMm || 900) / 25.4).toFixed(1)}"`,
-            profile: d.model || 'FRP Molded 30mm',
-            finish: d.finishColor || 'Natural Teak (EXGC-510)',
-            lock: d.lockType || 'Mortise Lock 60mm',
-            hand: d.handing === 'LH' ? 'LH Inside' : 'RH Inside',
-            qty: 1,
-          })),
+          doorsList: (p.doors || []).map((d, idx) => {
+            const rawTopCm = d.rawWidthTopCm ?? (d.rawWidthMm ? d.rawWidthMm / 10 : 80);
+            const rawBtmCm = d.rawWidthBtmCm ?? (d.rawWidthBottomMm ? d.rawWidthBottomMm / 10 : rawTopCm);
+            const finTopWCm = (d.finishedWidthMm ? d.finishedWidthMm / 10 : Math.max(0, rawTopCm - 7.6));
+            const finBtmWCm = (d.rawWidthBottomMm ? (d.rawWidthBottomMm / 10) - 7.6 : finTopWCm);
+            return {
+              tag: d.doorNumber || `#D${idx + 1}`,
+              frameSize: `${((d.rawHeightMm || 2100) / 10).toFixed(1)} × ${rawTopCm.toFixed(1)}${Math.abs(rawTopCm - rawBtmCm) >= 0.05 ? ` / ${rawBtmCm.toFixed(1)}` : ''} cm`,
+              shutterSize: `${((d.finishedHeightMm || 2080) / 10).toFixed(1)} × ${finTopWCm.toFixed(1)}${Math.abs(finTopWCm - finBtmWCm) >= 0.05 ? ` / ${finBtmWCm.toFixed(1)}` : ''} cm`,
+              tape: `${((d.rawHeightMm || 2100) / 25.4).toFixed(1)}" × ${((d.rawWidthMm || 900) / 25.4).toFixed(1)}"`,
+              profile: d.model || 'EXM-A-101',
+              finish: d.finishColor || 'Natural Teak (EXGC-510)',
+              lock: d.lockType || 'Mortise Lock 60mm',
+              hand: d.handing === 'LH' ? 'LH Inside' : 'RH Inside',
+              finTopW: finTopWCm,
+              finBtmW: finBtmWCm,
+              finTopWText: `-${finTopWCm.toFixed(1)}`,
+              finBtmWText: `-${finBtmWCm.toFixed(1)}`,
+              qty: 1,
+            };
+          }),
         }));
 
         setOrders((prev) => {

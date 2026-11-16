@@ -473,13 +473,21 @@ export async function generate12LStickerPdf(
       doc.line(boxX + c1W, boxY, boxX + c1W, boxY + boxH);
       doc.line(boxX + c1W + c2W, boxY, boxX + c1W + c2W, boxY + boxH);
 
-      // Heights and Widths formatted with minus sign as in factory
-      const finHNum = item.finH || parseFloat(item.finHText || '0') || (item.heightMm ? item.heightMm / 10 : 0);
-      const finTopWNum = item.finTopW || parseFloat(item.finTopWText || '0') || (item.widthMm ? item.widthMm / 10 : 0);
-      const finBtmWNum = item.finBtmW || parseFloat(item.finBtmWText || '0') || finTopWNum;
+      // Heights and Widths formatted with minus sign as in factory (clean leading '-' or non-numeric chars)
+      const cleanNum = (val?: string | number): number => {
+        if (typeof val === 'number') return Math.abs(val);
+        if (!val) return 0;
+        const cleaned = String(val).replace(/[^\d.]/g, '');
+        return parseFloat(cleaned) || 0;
+      };
+
+      const finHNum = cleanNum(item.finH) || cleanNum(item.finHText) || (item.heightMm ? item.heightMm / 10 : 205.5);
+      const finTopWNum = cleanNum(item.finTopW) || cleanNum(item.finTopWText) || (item.widthMm ? item.widthMm / 10 : 82.4);
+      const finBtmWNum = cleanNum(item.finBtmW) || cleanNum(item.finBtmWText) || finTopWNum;
+
       const hCut = `-${finHNum > 0 ? finHNum.toFixed(1) : '205.5'}`;
       const topCut = `-${finTopWNum > 0 ? finTopWNum.toFixed(1) : '82.4'}`;
-      const btmCut = `-${finBtmWNum > 0 ? finBtmWNum.toFixed(1) : topCut.replace('-', '')}`;
+      const btmCut = `-${finBtmWNum > 0 ? finBtmWNum.toFixed(1) : finTopWNum.toFixed(1)}`;
 
       // Cell 1: H-LEFT or H-RIGHT
       doc.setFont('helvetica', 'bold');
