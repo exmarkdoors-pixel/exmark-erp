@@ -200,6 +200,22 @@ async function main() {
   ];
   fs.writeFileSync(path.join(releaseDir, 'RELEASE-INFO.txt'), infoLines.join('\r\n'), 'utf8');
 
+  // Copy Offline SQL Server setup utilities to C:\EXMARK-Releases\
+  const scriptsDir = path.join(rootDir, 'scripts');
+  const sqlHelperFiles = [
+    'setup-offline-sql-server.bat',
+    'backup-offline-sql.bat',
+    'README-SQL-SERVER-SETUP.txt',
+  ];
+  for (const f of sqlHelperFiles) {
+    const src = path.join(scriptsDir, f);
+    const dest = path.join(releaseDir, f);
+    if (fs.existsSync(src)) {
+      copyAtomic(src, dest);
+      console.log(`  ✓ Copied offline SQL helper: ${f} -> ${dest}`);
+    }
+  }
+
   const shortcutPath = createDesktopShortcut(releaseDir);
   if (shortcutPath) {
     console.log(`  ✓ Desktop Shortcut Ready: ${shortcutPath}`);

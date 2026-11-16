@@ -36,7 +36,9 @@
     "start:factory": "node scripts/start-local-server.mjs --port 4000 --host 0.0.0.0 --watch",
     "start:factory:open": "node scripts/start-local-server.mjs --port 4000 --host 0.0.0.0 --open --watch",
     "reset-admin-password": "tsx scripts/reset-super-admin-password.ts",
-    "backup": "tsx scripts/backup-agent.ts"
+    "backup": "tsx scripts/backup-agent.ts",
+    "db:offline-setup": "tsx scripts/setup-offline-sql-server.ts",
+    "db:sql-dump": "tsx scripts/backup-offline-sql.ts"
   },
   "dependencies": {
     "@capacitor/geolocation": "^8.2.4",
