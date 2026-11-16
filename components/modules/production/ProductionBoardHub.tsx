@@ -1861,6 +1861,10 @@ export function ProductionBoardHub() {
             doors: batchDoors,
           });
         }}
+        onOrderUpdated={(updated) => {
+          setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+          setSelectedSplitBatchOrder(updated);
+        }}
       />
     </div>
   );

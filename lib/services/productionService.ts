@@ -691,3 +691,43 @@ export async function stampDoorsMoldingGang(
   writeStore(all);
   return updated;
 }
+
+export async function recallDoorsFromFloor(
+  orderId: string,
+  doorIds?: string[]
+): Promise<ProductionOrder> {
+  await assertWriteAllowed('recall doors from floor');
+
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === orderId || o.jobCardNumber === orderId || o.prodOrderNumber === orderId);
+  if (idx === -1) throw new Error(`Production order ${orderId} not found`);
+
+  const order = all[idx];
+  const nowIso = new Date().toISOString();
+  const doorIdSet = doorIds && doorIds.length > 0 ? new Set(doorIds) : null;
+
+  const updatedDoors = order.doors.map((door) => {
+    if (!doorIdSet || doorIdSet.has(door.id) || doorIdSet.has(door.doorId)) {
+      return {
+        ...door,
+        moldedByGangId: undefined,
+        moldedByGangName: undefined,
+        moldedAt: undefined,
+        moldingNotes: `Recalled from floor on ${nowIso.slice(0, 10)}`,
+      };
+    }
+    return door;
+  });
+
+  const anyMolded = updatedDoors.some((d) => d.moldedByGangId);
+  const updated: ProductionOrder = {
+    ...order,
+    status: anyMolded ? 'MOLDING' : 'QUEUED',
+    doors: updatedDoors,
+    updatedAt: nowIso,
+  };
+
+  all[idx] = updated;
+  writeStore(all);
+  return updated;
+}

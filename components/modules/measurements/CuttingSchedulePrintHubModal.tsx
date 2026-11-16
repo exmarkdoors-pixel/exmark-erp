@@ -20,8 +20,16 @@ import {
   ChevronDown,
   Layers,
   Download,
+  Camera,
+  Check,
+  RefreshCw,
+  UploadCloud,
+  ExternalLink,
+  Video,
+  VideoOff,
 } from 'lucide-react';
 import { cmToTapeInch, parseTapeInchToCm, computeStickerSizes } from '@/lib/utils/doorStickerFormula';
+import { STANDARD_DOOR_MODELS, detectCategoryFromModelCode, DoorModelOption } from '@/lib/services/doorModelCatalogService';
 
 export interface FrameCategoryItem {
   id: string;
@@ -220,6 +228,147 @@ export function CuttingSchedulePrintHubModal({
   const [qrSelectedDoorId, setQrSelectedDoorId] = useState<string>('');
   const [qrPhysicalH, setQrPhysicalH] = useState('');
   const [qrPhysicalW, setQrPhysicalW] = useState('');
+
+  // Door Model Sync & Quotations
+  const [doorModels, setDoorModels] = useState<DoorModelOption[]>(STANDARD_DOOR_MODELS);
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [showImportQuoteModal, setShowImportQuoteModal] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // In-App Camera Scanner State
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [manualScanInput, setManualScanInput] = useState('');
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const streamRef = React.useRef<MediaStream | null>(null);
+
+  // Fetch synchronized door models from quotation service & approved quotations
+  useEffect(() => {
+    let active = true;
+    fetch('/api/door-models')
+      .then((res) => res.json())
+      .then((json) => {
+        if (active && json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setDoorModels(json.data);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/quotations')
+      .then((res) => res.json())
+      .then((json) => {
+        if (active && json.success && Array.isArray(json.data)) {
+          setQuotations(json.data);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
+
+  const startCamera = async () => {
+    try {
+      setCameraError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      setCameraActive(true);
+    } catch (err: any) {
+      setCameraError(err.message || 'Camera permission denied or camera device not found.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+  };
+
+  const handleProcessScannedCode = (input: string) => {
+    if (!input.trim()) return;
+    const clean = input.trim();
+    // Match door by ID, barcode, or door number
+    const match = currentParty.doors.find(
+      (d, idx) =>
+        d.id === clean ||
+        clean.includes(d.id) ||
+        clean.includes(`DOOR#${idx + 1}`) ||
+        clean.includes(`door=${idx + 1}`) ||
+        clean.toUpperCase().includes(d.modelName.toUpperCase())
+    );
+
+    if (match) {
+      setQrSelectedDoorId(match.id);
+      setToastMsg(`Door matched: ${match.roomTag} (${match.modelName})`);
+    } else {
+      setToastMsg(`Scanned: "${clean}". No matching door in current party.`);
+    }
+    setTimeout(() => setToastMsg(null), 3500);
+  };
+
+  const handleImportQuotation = (quote: any) => {
+    const importedDoors: CuttingDoorItem[] = [];
+    let dCount = 1;
+    (quote.items || []).forEach((item: any, itmIdx: number) => {
+      const rawH = item.heightMm ? Number((item.heightMm / 10).toFixed(1)) : 200;
+      const rawW = item.widthMm ? Number((item.widthMm / 10).toFixed(1)) : 80;
+      const qty = item.quantity || 1;
+      for (let q = 1; q <= qty; q++) {
+        importedDoors.push({
+          id: `door-imp-${quote.id}-${itmIdx}-${q}-${Date.now()}`,
+          date: new Date().toISOString().slice(0, 10),
+          modelName: item.doorModel || 'EXM-A-101',
+          doorThickness: '30mm',
+          roomTag: `Door ${dCount}`,
+          frameTypeId: 'fr-4x2',
+          rawHeightCm: rawH,
+          rawWidthTopCm: rawW,
+          rawWidthBtmCm: rawW,
+          widthLinked: true,
+          extraHAdjCm: 0,
+          extraWAdjCm: 0,
+          lockCategory: item.lockType || 'Baby Latch',
+          lockSubLabel: (item.lockType || 'BABY LATCH').toUpperCase(),
+          hingeSide: 'R',
+          finishCategory: 'MICA',
+          finishShade: (item.finishColor || 'Natural Teak').toUpperCase(),
+          stickerRemark: `${item.doorModel || 'DOOR'}, 30MM, ${item.lockType || 'LATCH'}`,
+          siteRemark: `Imported from Quote ${quote.quoteNumber}`,
+          qcScanned: false,
+        });
+        dCount++;
+      }
+    });
+
+    setParties((prev) =>
+      prev.map((p, idx) =>
+        idx === currentPartyIdx
+          ? {
+              ...p,
+              partyName: quote.customerName || p.partyName,
+              siteLocation: quote.location || p.siteLocation,
+              jobCardNumber: quote.quoteNumber || p.jobCardNumber,
+              doors: importedDoors.length > 0 ? importedDoors : p.doors,
+            }
+          : p
+      )
+    );
+    setShowImportQuoteModal(false);
+    setToastMsg(`Successfully imported ${importedDoors.length} doors from Quotation ${quote.quoteNumber}!`);
+    setTimeout(() => setToastMsg(null), 4000);
+  };
 
   // Print Hub State
   const [showPrintHub, setShowPrintHub] = useState(false);
@@ -452,6 +601,13 @@ export function CuttingSchedulePrintHubModal({
           {/* TOP ACTION PILLS */}
           <div className="flex flex-wrap items-center gap-2">
             <button
+              onClick={() => setShowImportQuoteModal(true)}
+              className="px-2.5 py-1.5 rounded-md bg-emerald-700 hover:bg-emerald-600 text-xs font-bold text-white flex items-center gap-1.5 shadow transition cursor-pointer"
+              title="Import Doors from Approved Quotation"
+            >
+              📋 Import from Quotation
+            </button>
+            <button
               onClick={() => {
                 setHubTab('a4-landscape');
                 setShowPrintHub(true);
@@ -484,7 +640,7 @@ export function CuttingSchedulePrintHubModal({
               onClick={() => setShowQrModal(true)}
               className="px-2.5 py-1.5 rounded-md bg-purple-600 hover:bg-purple-500 text-xs font-semibold text-white flex items-center gap-1.5 shadow transition"
             >
-              📷 Scan & Verify QR
+              📷 Scan &amp; Verify QR
             </button>
             <button
               onClick={onClose}
@@ -494,6 +650,19 @@ export function CuttingSchedulePrintHubModal({
             </button>
           </div>
         </div>
+
+        {/* NOTIFICATION TOAST BANNER */}
+        {toastMsg && (
+          <div className="bg-emerald-950/90 border-b border-emerald-500/50 px-4 py-2 text-xs font-bold text-emerald-300 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>{toastMsg}</span>
+            </div>
+            <button onClick={() => setToastMsg(null)} className="text-emerald-400 hover:text-white cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* WORKSPACE BODY */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -675,12 +844,22 @@ export function CuttingSchedulePrintHubModal({
 
                         {/* Model & Room Tag */}
                         <td className="p-2.5 space-y-1">
-                          <input
-                            type="text"
-                            value={d.modelName}
-                            onChange={(e) => handleUpdateDoor(d.id, { modelName: e.target.value })}
-                            className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded font-bold text-white uppercase text-xs"
-                          />
+                          <div className="space-y-0.5">
+                            <input
+                              type="text"
+                              list="exmark-model-catalog"
+                              value={d.modelName}
+                              onChange={(e) => handleUpdateDoor(d.id, { modelName: e.target.value })}
+                              placeholder="Model (e.g. EXM-A-101)"
+                              className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded font-bold text-white uppercase text-xs focus:border-amber-400"
+                            />
+                            <div className="flex items-center justify-between text-[9px] px-0.5">
+                              <span className="font-bold text-amber-400">
+                                {detectCategoryFromModelCode(d.modelName).replace('CAT_', 'Cat ')}
+                              </span>
+                              <span className="text-slate-500 font-mono">Synced</span>
+                            </div>
+                          </div>
                           <input
                             type="text"
                             value={d.roomTag}
@@ -934,6 +1113,15 @@ export function CuttingSchedulePrintHubModal({
                 )}
               </tbody>
             </table>
+
+            {/* DYNAMIC DOOR MODEL CATALOG AUTOCOMPLETE (SYNCED FROM QUOTATIONS) */}
+            <datalist id="exmark-model-catalog">
+              {doorModels.map((m) => (
+                <option key={m.code} value={m.code}>
+                  {m.code} — {m.name} ({m.categoryLabel}) {m.isCustom ? '★ Custom' : ''}
+                </option>
+              ))}
+            </datalist>
           </div>
         </div>
 
@@ -1149,6 +1337,67 @@ export function CuttingSchedulePrintHubModal({
         )}
 
         {/* ============================================================== */}
+        {/* MODAL: IMPORT FROM APPROVED QUOTATION */}
+        {/* ============================================================== */}
+        {showImportQuoteModal && (
+          <div className="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-4">
+            <div className="w-full max-w-2xl bg-[#0F172A] rounded-2xl border border-emerald-500/60 shadow-2xl p-5 space-y-4 max-h-[85vh] flex flex-col">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">📋</span>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">Import Doors from Approved Quotation</h3>
+                    <p className="text-[11px] text-slate-400">Instantly populate door dimensions, models, locks, and finishes from sales quotations.</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowImportQuoteModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-2">
+                {quotations.length === 0 ? (
+                  <div className="p-8 text-center text-slate-500 text-xs">
+                    No saved quotations found. Create a quotation in the Quotations Hub first.
+                  </div>
+                ) : (
+                  quotations.map((q) => {
+                    const totalQty = (q.items || []).reduce((acc: number, it: any) => acc + (it.quantity || 1), 0);
+                    return (
+                      <div
+                        key={q.id}
+                        className="p-3 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-emerald-500/50 rounded-xl flex items-center justify-between gap-3 transition"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-emerald-400 text-xs">{q.quoteNumber}</span>
+                            <span className="font-black text-white text-xs uppercase">{q.customerName}</span>
+                            <span className="text-[10px] px-2 py-0.2 rounded bg-slate-800 text-slate-300 font-bold border border-slate-700">
+                              {q.status || 'DRAFT'}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            Location: {q.location || 'Site Location'} • Total: <strong className="text-white">{totalQty} Doors</strong> ({(q.items || []).length} items)
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleImportQuotation(q)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow transition cursor-pointer flex items-center gap-1 shrink-0"
+                        >
+                          <UploadCloud className="w-3.5 h-3.5" />
+                          <span>Load Order</span>
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
         {/* MODAL 4: INLINE TAPE INPUT */}
         {/* ============================================================== */}
         {showTapeModal && (
@@ -1210,19 +1459,96 @@ export function CuttingSchedulePrintHubModal({
           <div className="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-4">
             <div className="w-full max-w-2xl bg-[#0F172A] rounded-2xl border border-slate-700 shadow-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 className="font-bold text-white text-sm">📱 Mobile / ERP QR Code Scanner &amp; Site Verification</h3>
-                <button onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-white">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400">📱</span>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">Mobile / Universal Camera QR Scanner &amp; Door Passport</h3>
+                    <p className="text-[11px] text-slate-400">Scannable by ANY phone camera (iOS/Android/WhatsApp) to authenticate finished doors.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    stopCamera();
+                    setShowQrModal(false);
+                  }}
+                  className="text-slate-400 hover:text-white cursor-pointer"
+                >
                   <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* LIVE CAMERA TOGGLE & VIEWFINDER */}
+              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-white">
+                    <Camera className="w-4 h-4 text-purple-400" />
+                    <span>In-App Device Camera Scanner</span>
+                  </div>
+                  {cameraActive ? (
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow"
+                    >
+                      <VideoOff className="w-3.5 h-3.5" /> Stop Camera
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow"
+                    >
+                      <Video className="w-3.5 h-3.5" /> Start Live Camera
+                    </button>
+                  )}
+                </div>
+
+                {cameraActive && (
+                  <div className="relative rounded-xl overflow-hidden border-2 border-purple-500 bg-black aspect-video flex items-center justify-center">
+                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 border-2 border-dashed border-emerald-400/80 m-8 rounded-xl pointer-events-none flex items-center justify-center">
+                      <span className="bg-black/70 text-emerald-300 text-[11px] font-mono font-bold px-2.5 py-1 rounded-md">
+                        Center Door QR Code in Viewfinder
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {cameraError && (
+                  <div className="p-2.5 bg-rose-950/80 border border-rose-500/50 rounded-lg text-rose-300 text-xs font-medium">
+                    ⚠️ {cameraError} (You can also use manual search or point any phone camera at the sticker).
+                  </div>
+                )}
+              </div>
+
+              {/* QUICK MANUAL SCAN / SERIAL SEARCH */}
+              <div className="flex items-center gap-2 bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                <input
+                  type="text"
+                  value={manualScanInput}
+                  onChange={(e) => setManualScanInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleProcessScannedCode(manualScanInput);
+                  }}
+                  placeholder="Scan barcode with handheld gun or paste Door ID / Room Tag..."
+                  className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleProcessScannedCode(manualScanInput)}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                >
+                  Find Door
                 </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-purple-950/30 p-3.5 rounded-xl border border-purple-500/40">
                 <div>
-                  <label className="text-xs font-bold text-purple-300">1. Select / Scan Door</label>
+                  <label className="text-xs font-bold text-purple-300">1. Selected Door in Party</label>
                   <select
                     value={qrSelectedDoorId || (currentParty.doors[0]?.id || '')}
                     onChange={(e) => setQrSelectedDoorId(e.target.value)}
-                    className="w-full mt-1 px-3 py-2 bg-slate-900 border border-purple-400/50 rounded-lg text-xs font-bold text-white"
+                    className="w-full mt-1 px-3 py-2 bg-slate-900 border border-purple-400/50 rounded-lg text-xs font-bold text-white cursor-pointer"
                   >
                     {currentParty.doors.map((d, i) => (
                       <option key={d.id} value={d.id}>
@@ -1300,7 +1626,9 @@ export function CuttingSchedulePrintHubModal({
                   }
                 }
 
-                const qrSvg = generateSvgQr(`EXMARK|${currentParty.partyName}|DOOR#${targetIdx}|${targetDoor.roomTag}|${c.finH}x${c.finTopW}`, 84);
+                const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000';
+                const passportUrl = `${origin}/track/${encodeURIComponent(targetDoor.id)}?order=${encodeURIComponent(currentParty.jobCardNumber || currentParty.partyName)}&door=${encodeURIComponent(targetIdx)}&model=${encodeURIComponent(targetDoor.modelName)}&color=${encodeURIComponent(targetDoor.finishShade)}&lock=${encodeURIComponent(targetDoor.lockSubLabel || targetDoor.lockCategory)}&frameH=${targetDoor.rawHeightCm}&frameW=${targetDoor.rawWidthTopCm}&doorH=${c.finH}&doorWTop=${c.finTopW}&doorWBtm=${c.finBtmW}&h=${targetDoor.hingeSide}`;
+                const qrSvg = generateSvgQr(passportUrl, 84);
 
                 return (
                   <div className="space-y-3">
@@ -1311,7 +1639,7 @@ export function CuttingSchedulePrintHubModal({
                           📦 AFTER-PACKING SITE VERIFICATION PASS
                         </span>
                         <span className="px-2 py-0.5 bg-blue-600 text-white rounded text-xs font-black">
-                          DOOR #{targetIdx}
+                          DOOR #{targetIdx} OF {currentParty.doors.length}
                         </span>
                       </div>
                       <div className="p-4 flex flex-wrap items-center justify-between gap-4">
@@ -1323,13 +1651,24 @@ export function CuttingSchedulePrintHubModal({
                             <strong>Model:</strong> {targetDoor.modelName} ({targetDoor.doorThickness}, {targetDoor.finishShade})
                           </div>
                           <div>
-                            <strong>Frame Opening:</strong> {targetDoor.rawHeightCm} × {targetDoor.rawWidthTopCm} cm ({cmToTapeInch(targetDoor.rawHeightCm)})
+                            <strong>Outer Frame Opening:</strong> {targetDoor.rawHeightCm} × {targetDoor.rawWidthTopCm} cm ({cmToTapeInch(targetDoor.rawHeightCm)})
                           </div>
                           <div className="p-2 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-bold">
                             CONFIRM FINISH DOOR (PACKED): ~{c.finH} × ~{c.finTopW} cm (Clearance: H-{c.hMinusMm}mm, W-{c.wMinusMm}mm)
                           </div>
                           <div>
                             <strong>Hinge &amp; Lock:</strong> {targetDoor.hingeSide} ({c.hLabel}) | {targetDoor.lockSubLabel}
+                          </div>
+                          <div className="pt-2 flex items-center gap-2">
+                            <a
+                              href={passportUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition shadow cursor-pointer"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              <span>🌐 Open Live Mobile Door Passport</span>
+                            </a>
                           </div>
                         </div>
                         <div className="flex flex-col items-center">
@@ -1816,11 +2155,10 @@ export function CuttingSchedulePrintHubModal({
                                     );
                                   }
 
-                                  // FORMAT 2: AFTER-PACKING SITE VERIFICATION PASS + QR
-                                  const qrSvg = generateSvgQr(
-                                    `EXMARK|${currentParty.partyName}|DOOR#${num}|${d.roomTag}|${c.finH}x${c.finTopW}`,
-                                    56
-                                  );
+                                  // FORMAT 2: AFTER-PACKING SITE VERIFICATION PASS + UNIVERSAL MOBILE CAMERA QR
+                                  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000';
+                                  const passportUrl = `${origin}/track/${encodeURIComponent(d.id)}?order=${encodeURIComponent(currentParty.jobCardNumber || currentParty.partyName)}&door=${encodeURIComponent(num)}&model=${encodeURIComponent(d.modelName)}&color=${encodeURIComponent(d.finishShade)}&lock=${encodeURIComponent(d.lockSubLabel || d.lockCategory)}&frameH=${d.rawHeightCm}&frameW=${d.rawWidthTopCm}&doorH=${c.finH}&doorWTop=${c.finTopW}&doorWBtm=${c.finBtmW}&h=${d.hingeSide}`;
+                                  const qrSvg = generateSvgQr(passportUrl, 56);
                                   return (
                                     <div
                                       key={d.id}
@@ -1877,6 +2215,7 @@ export function CuttingSchedulePrintHubModal({
 
                                           <div className="col-span-2 p-0.5 flex flex-col items-center justify-center bg-white text-center">
                                             <div dangerouslySetInnerHTML={{ __html: qrSvg }} />
+                                            <span className="text-[6px] font-mono font-bold text-slate-700">SCAN QR</span>
                                           </div>
                                         </div>
                                       </div>

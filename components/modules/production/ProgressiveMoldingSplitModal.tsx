@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Flame,
@@ -14,8 +14,14 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
+  Undo2,
+  UserCheck,
+  CheckSquare,
+  Square,
+  RotateCcw,
 } from 'lucide-react';
 import type { ProductionOrder, ProductionDoorItem } from '@/lib/services/productionService';
+import type { Contractor } from '@/lib/services/contractorService';
 
 interface ProgressiveMoldingSplitModalProps {
   isOpen: boolean;
@@ -24,14 +30,7 @@ interface ProgressiveMoldingSplitModalProps {
   onOpenStickersForBatch: (doors: ProductionDoorItem[]) => void;
   onOpenLockSlipForBatch: (order: ProductionOrder, doors: ProductionDoorItem[]) => void;
   onOpenChallanForBatch: (order: ProductionOrder, doors: ProductionDoorItem[]) => void;
-}
-
-interface ShiftBatch {
-  id: string;
-  name: string;
-  targetDoorsCount: number;
-  selectedDoorIndices: number[];
-  status: 'PENDING' | 'IN_MOLDING' | 'MOLDED_TRANSFERRED' | 'COMPLETED';
+  onOrderUpdated?: (order: ProductionOrder) => void;
 }
 
 export function ProgressiveMoldingSplitModal({
@@ -41,73 +40,187 @@ export function ProgressiveMoldingSplitModal({
   onOpenStickersForBatch,
   onOpenLockSlipForBatch,
   onOpenChallanForBatch,
+  onOrderUpdated,
 }: ProgressiveMoldingSplitModalProps) {
-  const [activeBatchIndex, setActiveBatchIndex] = useState<number>(0);
+  const [currentOrder, setCurrentOrder] = useState<ProductionOrder | null>(order);
+  const [selectedDoorIds, setSelectedDoorIds] = useState<string[]>([]);
+  const [gangs, setGangs] = useState<Contractor[]>([]);
+  const [selectedGangId, setSelectedGangId] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  if (!isOpen || !order) return null;
+  // Sync with order prop
+  useEffect(() => {
+    setCurrentOrder(order);
+    if (order && Array.isArray(order.doors)) {
+      // By default select pending doors (up to 6 for the first shift heat)
+      const pendingDoorIds = order.doors
+        .filter((d) => !d.moldedByGangId)
+        .slice(0, 6)
+        .map((d) => d.id || d.doorId);
+      setSelectedDoorIds(pendingDoorIds);
+    }
+  }, [order, isOpen]);
 
-  const doors = order.doors || [];
+  // Fetch molding gang teams
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch('/api/contractors?trade=MOLDING')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setGangs(json.data);
+          if (json.data.length > 0 && !selectedGangId) {
+            setSelectedGangId(json.data[0].id);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [isOpen]);
+
+  if (!isOpen || !currentOrder) return null;
+
+  const doors = currentOrder.doors || [];
   const totalDoors = doors.length;
 
-  // Default suggested 3-shift progression (e.g. 20 doors -> Day 1: 6, Day 2: 8, Day 3: 6)
-  const defaultBatch1Count = Math.min(6, totalDoors);
-  const remainingAfterB1 = Math.max(0, totalDoors - defaultBatch1Count);
-  const defaultBatch2Count = Math.min(8, remainingAfterB1);
-  const defaultBatch3Count = Math.max(0, remainingAfterB1 - defaultBatch2Count);
+  const selectedDoors = doors.filter((d) =>
+    selectedDoorIds.includes(d.id || d.doorId)
+  );
 
-  // Setup batches
-  const batches: ShiftBatch[] = [
-    {
-      id: 'batch-1',
-      name: 'Shift Heat 1 (Day 1)',
-      targetDoorsCount: defaultBatch1Count,
-      selectedDoorIndices: Array.from({ length: defaultBatch1Count }, (_, i) => i),
-      status: 'MOLDED_TRANSFERRED',
-    },
-    ...(defaultBatch2Count > 0
-      ? [
-          {
-            id: 'batch-2',
-            name: 'Shift Heat 2 (Day 2)',
-            targetDoorsCount: defaultBatch2Count,
-            selectedDoorIndices: Array.from(
-              { length: defaultBatch2Count },
-              (_, i) => defaultBatch1Count + i
-            ),
-            status: 'IN_MOLDING' as const,
-          },
-        ]
-      : []),
-    ...(defaultBatch3Count > 0
-      ? [
-          {
-            id: 'batch-3',
-            name: 'Shift Heat 3 (Day 3)',
-            targetDoorsCount: defaultBatch3Count,
-            selectedDoorIndices: Array.from(
-              { length: defaultBatch3Count },
-              (_, i) => defaultBatch1Count + defaultBatch2Count + i
-            ),
-            status: 'PENDING' as const,
-          },
-        ]
-      : []),
-  ];
+  // Quick Preset Selection Handlers
+  const selectCount = (count: number) => {
+    const pendingDoors = doors.filter((d) => !d.moldedByGangId);
+    const targetDoors = pendingDoors.length > 0 ? pendingDoors : doors;
+    const ids = targetDoors.slice(0, count).map((d) => d.id || d.doorId);
+    setSelectedDoorIds(ids);
+  };
 
-  const currentBatch = batches[activeBatchIndex] || batches[0];
-  const currentBatchDoors = currentBatch.selectedDoorIndices
-    .map((idx) => doors[idx])
-    .filter(Boolean);
+  const selectAll = () => {
+    setSelectedDoorIds(doors.map((d) => d.id || d.doorId));
+  };
 
-  // Chemical calculation for current batch (average 7.5kg resin, 0.9kg gel, 150g catalyst per door)
-  const batchResinKg = Number((currentBatchDoors.length * 7.5).toFixed(1));
-  const batchGelKg = Number((currentBatchDoors.length * 0.9).toFixed(1));
-  const batchCatalystGrams = Math.round(currentBatchDoors.length * 150);
-  const batchCsmKg = Number((currentBatchDoors.length * 2.8).toFixed(1));
+  const clearSelection = () => {
+    setSelectedDoorIds([]);
+  };
+
+  const toggleDoorSelection = (doorId: string) => {
+    setSelectedDoorIds((prev) =>
+      prev.includes(doorId) ? prev.filter((id) => id !== doorId) : [...prev, doorId]
+    );
+  };
+
+  // Zero-Waste Chemical Formula (average 7.5kg resin, 0.9kg gel, 150g catalyst, 2.8kg CSM per door)
+  const batchResinKg = Number((selectedDoors.length * 7.5).toFixed(1));
+  const batchGelKg = Number((selectedDoors.length * 0.9).toFixed(1));
+  const batchCatalystGrams = Math.round(selectedDoors.length * 150);
+  const batchCsmKg = Number((selectedDoors.length * 2.8).toFixed(1));
+
+  const selectedGang = gangs.find((g) => g.id === selectedGangId);
+  const unitRate = 500; // Standard molding rate per door with frame
+  const totalContractLabor = selectedDoors.length * unitRate;
+
+  // 1. Assign to Molding Gang & Credit Piece-Rate
+  const handleAssignToGang = async () => {
+    if (selectedDoors.length === 0) {
+      setStatusMessage({ text: 'Please select at least 1 door to assign.', type: 'error' });
+      return;
+    }
+    if (!selectedGang) {
+      setStatusMessage({ text: 'Please select a Molding Gang contractor.', type: 'error' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
+
+    try {
+      const doorAssignments = selectedDoors.map((d) => ({
+        doorId: d.id || d.doorId,
+        gangId: selectedGang.id,
+        gangName: selectedGang.name,
+        moldingNotes: `Heat Batch ${new Date().toISOString().split('T')[0]}`,
+      }));
+
+      const res = await fetch(`/api/production/${currentOrder.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ASSIGN_MOLDING_GANG',
+          doorAssignments,
+          gangId: selectedGang.id,
+          operation: 'MOLDING_DOOR_WITH_FRAME',
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to assign doors to molding gang.');
+      }
+
+      setCurrentOrder(json.data);
+      if (onOrderUpdated) onOrderUpdated(json.data);
+
+      setStatusMessage({
+        text: `✓ Successfully assigned ${selectedDoors.length} doors to ${selectedGang.name}! (₹${totalContractLabor.toLocaleString('en-IN')} piece-rate credited).`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      setStatusMessage({ text: err.message || 'Error updating order.', type: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 2. Recall / Roll Back Doors from Floor (ഫ്ലോറിൽ നിന്ന് ഓർഡർ തിരികെ വലിക്കുക)
+  const handleRecallFromFloor = async () => {
+    if (selectedDoors.length === 0) {
+      setStatusMessage({ text: 'Select which doors to pull back from the floor.', type: 'error' });
+      return;
+    }
+
+    if (
+      !confirm(
+        `Are you sure you want to PULL BACK ${selectedDoors.length} doors from the molding floor? This will reset them to Pending Molding and free up the hydraulic press.`
+      )
+    ) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
+
+    try {
+      const res = await fetch(`/api/production/${currentOrder.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'RECALL_FROM_FLOOR',
+          doorIds: selectedDoorIds,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to pull back doors from floor.');
+      }
+
+      setCurrentOrder(json.data);
+      if (onOrderUpdated) onOrderUpdated(json.data);
+
+      setStatusMessage({
+        text: `↩️ Pulled back ${selectedDoors.length} doors from the molding floor! Order reset to Pending Queue.`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      setStatusMessage({ text: err.message || 'Error recalling doors.', type: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl max-h-[94vh] overflow-y-auto bg-[#070D1E] text-slate-100 rounded-2xl shadow-2xl border border-slate-700 flex flex-col">
+      <div className="relative w-full max-w-5xl max-h-[94vh] overflow-y-auto bg-[#070D1E] text-slate-100 rounded-2xl shadow-2xl border border-slate-700 flex flex-col">
         {/* Top Header */}
         <div className="sticky top-0 z-20 flex items-center justify-between px-5 py-3.5 bg-[#0B132B] border-b border-slate-800">
           <div className="flex items-center gap-2.5">
@@ -116,13 +229,16 @@ export function ProgressiveMoldingSplitModal({
             </div>
             <div>
               <h2 className="text-sm font-black text-white flex items-center gap-2">
-                <span>PROGRESSIVE SPLIT-BATCH MOLDING PLAN</span>
+                <span>FLEXIBLE DOOR-BY-DOOR MOLDING &amp; CONTRACTOR ASSIGNMENT</span>
                 <span className="px-2 py-0.2 rounded text-[10px] bg-rose-950 text-rose-300 border border-rose-700 font-mono">
                   {totalDoors} DOORS TOTAL
                 </span>
+                <span className="px-2 py-0.2 rounded text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-700 font-mono">
+                  {currentOrder.jobCardNumber}
+                </span>
               </h2>
               <p className="text-[11px] text-slate-400">
-                Pipelined molding cycle: mold partial batches daily, dispense fresh chemicals &amp; start lock routing immediately
+                Party: <strong className="text-white">{currentOrder.customerName}</strong> • Select flexible subsets (e.g. 6 today, 5 tomorrow, 4 next day) &amp; assign contractor contract
               </p>
             </div>
           </div>
@@ -138,182 +254,292 @@ export function ProgressiveMoldingSplitModal({
 
         {/* Modal Body */}
         <div className="p-5 space-y-4">
-          {/* Order Info & Pot-life Safety Alert */}
-          <div className="bg-amber-950/30 border border-amber-600/50 rounded-xl p-3 text-xs text-amber-200 flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <div className="font-bold text-amber-300">
-                Critical Chemical Pot-Life Safety Rule (20–30 Minute Gelation Window)
-              </div>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                For a <strong>{totalDoors}-door order</strong>, mixing all chemicals at once causes catastrophic resin solidification and waste.
-                Dispense resin and catalyst in shift batches for only today&apos;s scheduled press heats.
-                Molded doors from Day 1 can move directly to carpentry lock routing on Day 2 morning while Heat 2 cures!
-              </p>
+          {/* Status Message Banner */}
+          {statusMessage && (
+            <div
+              className={`p-3 rounded-xl text-xs font-bold flex items-center justify-between ${
+                statusMessage.type === 'success'
+                  ? 'bg-emerald-950/80 border border-emerald-500/60 text-emerald-300'
+                  : 'bg-rose-950/80 border border-rose-500/60 text-rose-300'
+              }`}
+            >
+              <span>{statusMessage.text}</span>
+              <button
+                onClick={() => setStatusMessage(null)}
+                className="text-slate-400 hover:text-white cursor-pointer ml-2"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Quick Selection Toolbar */}
+          <div className="bg-[#0B132B] border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-300">Quick Select Batch:</span>
+              <button
+                type="button"
+                onClick={() => selectCount(4)}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
+              >
+                Select 4 Doors
+              </button>
+              <button
+                type="button"
+                onClick={() => selectCount(5)}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
+              >
+                Select 5 Doors
+              </button>
+              <button
+                type="button"
+                onClick={() => selectCount(6)}
+                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition cursor-pointer shadow-xs"
+              >
+                Select 6 Doors
+              </button>
+              <button
+                type="button"
+                onClick={() => selectCount(8)}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
+              >
+                Select 8 Doors
+              </button>
+              <button
+                type="button"
+                onClick={selectAll}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
+              >
+                All ({totalDoors})
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="px-2 py-1 text-slate-400 hover:text-white text-xs font-semibold cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-bold font-mono">
+                {selectedDoors.length} of {totalDoors} Doors Selected
+              </span>
             </div>
           </div>
 
-          {/* Shift Batch Selector Tabs */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {batches.map((b, idx) => {
-              const isSelected = activeBatchIndex === idx;
-              return (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => setActiveBatchIndex(idx)}
-                  className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-2 ${
-                    isSelected
-                      ? 'bg-rose-950/40 border-rose-500 shadow-md ring-1 ring-rose-500/50'
-                      : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-xs text-white">{b.name}</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">
-                      {b.targetDoorsCount} Doors
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[10.5px]">
-                    {b.status === 'MOLDED_TRANSFERRED' && (
-                      <span className="text-emerald-400 font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Molded • In Lock Prep
-                      </span>
-                    )}
-                    {b.status === 'IN_MOLDING' && (
-                      <span className="text-amber-400 font-bold flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        Today&apos;s Press Heat
-                      </span>
-                    )}
-                    {b.status === 'PENDING' && (
-                      <span className="text-slate-400 font-medium">Scheduled Next Shift</span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Active Batch Control Card */}
-          <div className="bg-[#0B132B] border border-slate-800 rounded-xl p-4 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
-              <div>
-                <h3 className="font-black text-sm text-white flex items-center gap-2">
-                  <span>{currentBatch.name} Workspace</span>
-                  <span className="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700 text-[10px] font-mono">
-                    {currentBatchDoors.length} Doors Active
-                  </span>
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  Target Door Range: Doors #{currentBatch.selectedDoorIndices[0] + 1} to #
-                  {currentBatch.selectedDoorIndices[currentBatch.selectedDoorIndices.length - 1] + 1}
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => onOpenStickersForBatch(currentBatchDoors)}
-                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                  title="Print stickers only for this batch (prevents loose stickers lying on dusty floor)"
-                >
-                  <Printer className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Print {currentBatchDoors.length} Stickers</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onOpenLockSlipForBatch(order, currentBatchDoors)}
-                  className="px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                  title="Send molded doors to Carpentry station for lock cutout & mortising"
-                >
-                  <Lock className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Lock Setting Slip</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onOpenChallanForBatch(order, currentBatchDoors)}
-                  className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  title="Generate partial delivery challan for this completed batch"
-                >
-                  <Truck className="w-3.5 h-3.5 text-white" />
-                  <span>Partial Challan ({currentBatchDoors.length} Doors)</span>
-                </button>
-              </div>
+          {/* Interactive Door-by-Door Selection Grid */}
+          <div className="bg-[#0B132B] border border-slate-800 rounded-xl overflow-hidden">
+            <div className="p-3 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between text-xs">
+              <span className="font-extrabold text-slate-200 uppercase tracking-wide">
+                Select Individual Doors for Today&apos;s Molding Heat:
+              </span>
+              <span className="text-slate-400 text-[11px]">
+                Click checkbox or row to toggle door inclusion
+              </span>
             </div>
 
-            {/* Daily Chemical Dispense Requisition for Today's Batch */}
-            <div className="bg-[#101935] border border-slate-700 rounded-lg p-3">
-              <div className="flex items-center justify-between text-xs font-black text-slate-200 uppercase mb-2">
+            <div className="p-3 max-h-56 overflow-y-auto space-y-1.5 custom-scrollbar">
+              {doors.map((door, idx) => {
+                const doorId = door.id || door.doorId;
+                const isSelected = selectedDoorIds.includes(doorId);
+                const isAlreadyMolded = Boolean(door.moldedByGangId);
+
+                return (
+                  <div
+                    key={doorId}
+                    onClick={() => toggleDoorSelection(doorId)}
+                    className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition cursor-pointer ${
+                      isSelected
+                        ? 'bg-rose-950/40 border-rose-500 ring-1 ring-rose-500/40 text-white'
+                        : isAlreadyMolded
+                        ? 'bg-emerald-950/20 border-emerald-900/50 text-slate-300'
+                        : 'bg-slate-900/70 border-slate-800/80 hover:border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="text-rose-400">
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-rose-400" />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-500" />
+                        )}
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-slate-800 font-mono font-black text-rose-300 text-[11px]">
+                        DOOR #{idx + 1}
+                      </span>
+                      <strong className="text-white text-xs">{door.doorNumber || `Door #${idx + 1}`}</strong>
+                      <span className="text-slate-400 text-[11px]">
+                        ({((door.finishedHeightMm || 2080) / 10).toFixed(0)} × {((door.finishedWidthMm || 820) / 10).toFixed(0)} cm)
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                        {door.model || 'FRP 30mm'}
+                      </span>
+                      {(door as any).roomTag && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">
+                          {(door as any).roomTag}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        Lock: <strong className="text-slate-200">{door.lockType || 'Baby Latch'}</strong>
+                      </span>
+                      <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${door.handing === 'LH' ? 'bg-blue-950 text-blue-300' : 'bg-purple-950 text-purple-300'}`}>
+                        {door.handing || 'RH'}
+                      </span>
+
+                      {/* Molding Status Badge */}
+                      {isAlreadyMolded ? (
+                        <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-600 text-emerald-300 text-[10px] font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span>Molded ({door.moldedByGangName || 'Gang'})</span>
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-700/60 text-amber-300 text-[10px] font-bold">
+                          Pending Press
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Dynamic Chemical Requisition & Contractor Assignment Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Box 1: Store Chemical Requisition for Selected Doors */}
+            <div className="bg-[#0B132B] border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-black text-slate-200 uppercase">
                 <span className="flex items-center gap-1.5 text-cyan-300">
                   <Sparkles className="w-3.5 h-3.5" />
-                  Store Chemical Requisition (Dispense Today Only for {currentBatchDoors.length} Doors)
+                  Store Chemical Requisition ({selectedDoors.length} Doors)
                 </span>
                 <span className="text-[10px] text-emerald-400 font-bold">Zero Waste Formula</span>
               </div>
+              <p className="text-[11px] text-slate-400">
+                Dispense resin and catalyst for only today&apos;s selected doors to prevent pot-life gelation waste:
+              </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                 <div className="p-2 bg-slate-900 rounded border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block uppercase">Resin</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Resin</span>
                   <strong className="text-amber-300 font-mono text-sm">{batchResinKg} Kg</strong>
                 </div>
                 <div className="p-2 bg-slate-900 rounded border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block uppercase">Gelcoat</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Gelcoat</span>
                   <strong className="text-amber-300 font-mono text-sm">{batchGelKg} Kg</strong>
                 </div>
                 <div className="p-2 bg-slate-900 rounded border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block uppercase">Catalyst (MEKP)</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">MEKP Catalyst</span>
                   <strong className="text-cyan-300 font-mono text-sm">{batchCatalystGrams} gm</strong>
                 </div>
                 <div className="p-2 bg-slate-900 rounded border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block uppercase">Fiber CSM</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Fiber CSM</span>
                   <strong className="text-slate-200 font-mono text-sm">{batchCsmKg} Kg</strong>
                 </div>
               </div>
             </div>
 
-            {/* Doors Included in this Batch */}
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                Door Specifications in This Batch:
-              </span>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-                {currentBatchDoors.map((door, idx) => {
-                  const globalIdx = currentBatch.selectedDoorIndices[idx];
-                  return (
-                    <div
-                      key={door.id || idx}
-                      className="p-2 bg-slate-900/80 rounded-lg border border-slate-800 flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded bg-slate-800 font-mono font-bold text-[10px] text-rose-400">
-                          #{globalIdx + 1}
-                        </span>
-                        <strong className="text-white">{door.doorNumber || `Door #${globalIdx + 1}`}</strong>
-                        <span className="text-slate-400 text-[11px]">
-                          ({((door.finishedHeightMm || 2080) / 10).toFixed(0)} × {((door.finishedWidthMm || 820) / 10).toFixed(0)} cm)
-                        </span>
-                        {(door as any).roomTag && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">
-                            {(door as any).roomTag}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-300 font-medium">
-                          {door.lockType || 'Baby Latch'}
-                        </span>
-                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${door.handing === 'LH' ? 'bg-blue-950 text-blue-300' : 'bg-purple-950 text-purple-300'}`}>
-                          {door.handing || 'RH'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Box 2: Contractor Gang Assignment & Piece-Rate */}
+            <div className="bg-[#0B132B] border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-black text-slate-200 uppercase">
+                <span className="flex items-center gap-1.5 text-rose-300">
+                  <UserCheck className="w-3.5 h-3.5" />
+                  Assign Contractor &amp; Piece-Rate
+                </span>
+                <span className="text-[10px] text-amber-400 font-bold font-mono">
+                  ₹{unitRate} / Door Set
+                </span>
               </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                  Select Molding Gang Contractor:
+                </label>
+                <select
+                  value={selectedGangId}
+                  onChange={(e) => setSelectedGangId(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-bold text-white cursor-pointer"
+                >
+                  {gangs.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} — ({g.tradeLabel})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="p-2 bg-slate-900/90 rounded border border-slate-800 flex items-center justify-between text-xs">
+                <span className="text-slate-400">Total Contract Labor Value:</span>
+                <span className="font-mono font-black text-emerald-400 text-sm">
+                  {selectedDoors.length} × ₹{unitRate} = ₹{totalContractLabor.toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              <div className="pt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isSubmitting || selectedDoors.length === 0}
+                  onClick={handleAssignToGang}
+                  className="flex-1 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow cursor-pointer disabled:opacity-50"
+                >
+                  <Flame className="w-4 h-4" />
+                  <span>🚀 Assign {selectedDoors.length} Doors &amp; Start Molding</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions & Floor Recall / Rollback Section */}
+          <div className="bg-[#0B132B] border border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => onOpenStickersForBatch(selectedDoors)}
+                disabled={selectedDoors.length === 0}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Print 12L stickers only for selected doors"
+              >
+                <Printer className="w-3.5 h-3.5 text-rose-400" />
+                <span>Print {selectedDoors.length} Stickers</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onOpenLockSlipForBatch(currentOrder, selectedDoors)}
+                disabled={selectedDoors.length === 0}
+                className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Generate separate Lock Setting Slip for post-molding carpentry"
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-400" />
+                <span>Lock Setting Slip</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onOpenChallanForBatch(currentOrder, selectedDoors)}
+                disabled={selectedDoors.length === 0}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                <Truck className="w-3.5 h-3.5 text-white" />
+                <span>Partial Delivery Challan</span>
+              </button>
+            </div>
+
+            {/* 1-Click Pull Back / Roll Back Action */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isSubmitting || selectedDoors.length === 0}
+                onClick={handleRecallFromFloor}
+                className="px-3.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-600 text-amber-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                title="Pull back order doors from floor to free up the press for urgent orders"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                <span>↩️ Pull Back from Floor (Roll Back)</span>
+              </button>
             </div>
           </div>
         </div>

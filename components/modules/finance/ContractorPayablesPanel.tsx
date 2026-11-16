@@ -14,12 +14,14 @@ import {
   Phone,
   ArrowUpRight,
   TrendingUp,
-  FileText
+  FileText,
+  Edit,
 } from 'lucide-react';
 import { Contractor, ContractorRateCard, ContractorPayoutVoucher, ContractorTrade } from '@/lib/services/contractorService';
 import { ContractorPayoutModal } from './ContractorPayoutModal';
 import { ContractorWeeklyStatementModal } from './ContractorWeeklyStatementModal';
 import { ContractorRateCardModal } from './ContractorRateCardModal';
+import { ContractorFormModal } from './ContractorFormModal';
 
 export function ContractorPayablesPanel() {
   const [contractors, setContractors] = useState<Contractor[]>([]);
@@ -27,7 +29,9 @@ export function ContractorPayablesPanel() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedContractorForPayout, setSelectedContractorForPayout] = useState<Contractor | null>(null);
   const [selectedContractorForStatement, setSelectedContractorForStatement] = useState<Contractor | null>(null);
+  const [selectedContractorForEdit, setSelectedContractorForEdit] = useState<Contractor | null>(null);
   const [isRateCardModalOpen, setIsRateCardModalOpen] = useState<boolean>(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fetchContractors = () => {
@@ -46,6 +50,12 @@ export function ContractorPayablesPanel() {
   useEffect(() => {
     fetchContractors();
   }, []);
+
+  const handleContractorSaved = (contractor: Contractor) => {
+    fetchContractors();
+    setToastMessage(`Contractor profile "${contractor.name}" saved with opening balance ₹${(contractor.openingBalance || 0).toLocaleString('en-IN')}.`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   const handlePayoutSaved = (voucher: ContractorPayoutVoucher) => {
     fetchContractors();
@@ -104,6 +114,15 @@ export function ContractorPayablesPanel() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setSelectedContractorForEdit(null);
+              setIsFormModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition shadow cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Onboard Contractor / Gang
+          </button>
           <button
             onClick={() => setIsRateCardModalOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
@@ -181,6 +200,7 @@ export function ContractorPayablesPanel() {
                 <th className="p-3.5">Trade / Operation</th>
                 <th className="p-3.5">Disbursement Info (UPI / Bank)</th>
                 <th className="p-3.5 text-center">Doors Finished</th>
+                <th className="p-3.5 text-right">Opening Bal.</th>
                 <th className="p-3.5 text-right">Total Earned</th>
                 <th className="p-3.5 text-right">Paid to Date</th>
                 <th className="p-3.5 text-right">Balance Due</th>
@@ -190,11 +210,11 @@ export function ContractorPayablesPanel() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">Loading contractor accounts...</td>
+                  <td colSpan={9} className="p-8 text-center text-slate-400">Loading contractor accounts...</td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">No contractors found matching selected filter.</td>
+                  <td colSpan={9} className="p-8 text-center text-slate-400">No contractors found matching selected filter.</td>
                 </tr>
               ) : (
                 filtered.map((c) => (
@@ -224,6 +244,20 @@ export function ContractorPayablesPanel() {
                     <td className="p-3.5 text-center font-bold font-mono text-slate-800 dark:text-slate-200">
                       {c.totalDoorsCompleted}
                     </td>
+                    <td className="p-3.5 text-right font-mono text-xs">
+                      {c.openingBalance ? (
+                        <div>
+                          <span className="font-bold text-amber-700 dark:text-amber-400">
+                            ₹{c.openingBalance.toLocaleString('en-IN')}
+                          </span>
+                          <span className={`block text-[9px] font-semibold ${c.openingBalanceType === 'RECEIVABLE' ? 'text-blue-500' : 'text-amber-500'}`}>
+                            {c.openingBalanceType === 'RECEIVABLE' ? 'Adv. Taken' : 'Payable'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-[10px]">₹0</span>
+                      )}
+                    </td>
                     <td className="p-3.5 text-right font-mono font-semibold text-slate-900 dark:text-white">
                       ₹{c.totalEarned.toLocaleString('en-IN')}
                     </td>
@@ -236,6 +270,17 @@ export function ContractorPayablesPanel() {
                     <td className="p-3.5 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
+                          onClick={() => {
+                            setSelectedContractorForEdit(c);
+                            setIsFormModalOpen(true);
+                          }}
+                          className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1"
+                          title="Edit Profile & Migration Balances"
+                        >
+                          <Edit className="w-3 h-3 text-slate-500" />
+                          <span>Edit</span>
+                        </button>
+                        <button
                           onClick={() => setSelectedContractorForPayout(c)}
                           className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
                           title="Record disbursement / advance"
@@ -247,7 +292,7 @@ export function ContractorPayablesPanel() {
                           className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                           title="Weekly Work Report & PDF Statement"
                         >
-                          Statement PDF
+                          Statement
                         </button>
                       </div>
                     </td>
@@ -277,6 +322,16 @@ export function ContractorPayablesPanel() {
         isOpen={isRateCardModalOpen}
         onClose={() => setIsRateCardModalOpen(false)}
         onSaved={handleRateCardSaved}
+      />
+
+      <ContractorFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => {
+          setIsFormModalOpen(false);
+          setSelectedContractorForEdit(null);
+        }}
+        contractorToEdit={selectedContractorForEdit}
+        onSaved={handleContractorSaved}
       />
     </div>
   );

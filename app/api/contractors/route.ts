@@ -51,6 +51,10 @@ export async function POST(req: NextRequest) {
       bankAccount: body.bankAccount,
       ifscCode: body.ifscCode,
       bankName: body.bankName,
+      openingBalance: typeof body.openingBalance === 'number' ? body.openingBalance : parseFloat(body.openingBalance) || 0,
+      openingBalanceType: body.openingBalanceType || 'PAYABLE',
+      openingBalanceDate: body.openingBalanceDate,
+      openingBalanceNotes: body.openingBalanceNotes,
     });
 
     return NextResponse.json({ success: true, data: contractor }, { status: 201 });

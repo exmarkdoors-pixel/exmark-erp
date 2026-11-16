@@ -107,6 +107,62 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
+    if (body.action === 'RECALL_FROM_FLOOR') {
+      const { recallDoorsFromFloor } = await import('@/lib/services/productionService');
+      const updated = await recallDoorsFromFloor(id, body.doorIds);
+      return NextResponse.json({
+        success: true,
+        data: updated,
+        message: 'Order doors successfully pulled back from floor and returned to Pending Molding.',
+      });
+    }
+
+    if (body.action === 'ASSIGN_MOLDING_GANG') {
+      const { stampDoorsMoldingGang } = await import('@/lib/services/productionService');
+      const assignments = (body.doorAssignments || []).map((a: any) => ({
+        doorId: a.doorId,
+        gangId: a.gangId,
+        gangName: a.gangName,
+        moldingNotes: a.moldingNotes,
+      }));
+      const updated = await stampDoorsMoldingGang(id, assignments);
+
+      // Record piece-rate credit if gangId is supplied and not skipped
+      let creditedCount = 0;
+      if (body.gangId && !body.skipCredit) {
+        const { getContractorById, recordPieceRateCreditIfUnpaid } = await import('@/lib/services/contractorService');
+        const contractor = getContractorById(body.gangId);
+        if (contractor) {
+          for (const a of assignments) {
+            const doorObj = updated.doors.find((d) => d.id === a.doorId || d.doorId === a.doorId);
+            if (doorObj) {
+              const res = recordPieceRateCreditIfUnpaid({
+                contractorId: contractor.id,
+                orderId: updated.id,
+                orderNumber: updated.prodOrderNumber || updated.id,
+                jobCardNumber: updated.jobCardNumber,
+                doorId: doorObj.doorId || doorObj.id,
+                doorNumber: doorObj.doorNumber,
+                doorModel: doorObj.model,
+                operation: body.operation || 'MOLDING_ONLY_DOOR',
+                quantity: 1,
+                notes: `Molding Shift Heat Batch (${doorObj.doorNumber})`,
+                maxOrderDoorCount: updated.doors.length,
+              });
+              if (res.created) creditedCount++;
+            }
+          }
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: updated,
+        creditedCount,
+        message: `Assigned ${assignments.length} doors to molding gang (${creditedCount} piece-rate credited).`,
+      });
+    }
+
     if (body.action === 'MARK_BOQ_ISSUED') {
       const updated = await markProductionBoqIssued(id);
       return NextResponse.json({ success: true, data: updated });

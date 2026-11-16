@@ -61,6 +61,10 @@ export interface Contractor {
   totalEarned: number;
   totalPaid: number;
   balancePayable: number;
+  openingBalance?: number;
+  openingBalanceType?: 'PAYABLE' | 'RECEIVABLE';
+  openingBalanceDate?: string;
+  openingBalanceNotes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -385,6 +389,21 @@ function resolveTradeLabel(trade: ContractorTrade, teamScope?: FloorGangScope): 
   return tradeLabels[trade] || trade;
 }
 
+export function recalculateContractorBalance(contractor: Contractor, store: ContractorStore): number {
+  const initOpening = (contractor.openingBalance || 0) * (contractor.openingBalanceType === 'RECEIVABLE' ? -1 : 1);
+  const totalEarned = store.workRecords
+    .filter((w) => w.contractorId === contractor.id)
+    .reduce((sum, w) => sum + w.totalAmount, 0);
+  const totalPaid = store.payouts
+    .filter((p) => p.contractorId === contractor.id)
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  contractor.totalEarned = totalEarned;
+  contractor.totalPaid = totalPaid;
+  contractor.balancePayable = initOpening + totalEarned - totalPaid;
+  return contractor.balancePayable;
+}
+
 export function createContractor(input: {
   name: string;
   phone: string;
@@ -398,6 +417,10 @@ export function createContractor(input: {
   bankAccount?: string;
   ifscCode?: string;
   bankName?: string;
+  openingBalance?: number;
+  openingBalanceType?: 'PAYABLE' | 'RECEIVABLE';
+  openingBalanceDate?: string;
+  openingBalanceNotes?: string;
 }): Contractor {
   const store = readStore();
   const nextNum = store.contractors.length + 1;
@@ -405,6 +428,10 @@ export function createContractor(input: {
 
   const normalizedStage =
     input.primaryStage?.trim() === 'FINISHING_GRAINS' ? 'PAINT_SECTION' : input.primaryStage?.trim() || undefined;
+
+  const openingAmount = typeof input.openingBalance === 'number' ? input.openingBalance : 0;
+  const openingType = input.openingBalanceType || 'PAYABLE';
+  const initialBalance = openingAmount * (openingType === 'RECEIVABLE' ? -1 : 1);
 
   const newContractor: Contractor = {
     id,
@@ -427,7 +454,11 @@ export function createContractor(input: {
     totalDoorsCompleted: 0,
     totalEarned: 0,
     totalPaid: 0,
-    balancePayable: 0,
+    openingBalance: openingAmount,
+    openingBalanceType: openingType,
+    openingBalanceDate: input.openingBalanceDate || new Date().toISOString().split('T')[0],
+    openingBalanceNotes: input.openingBalanceNotes?.trim() || undefined,
+    balancePayable: initialBalance,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -461,6 +492,11 @@ export function updateContractor(id: string, updates: Partial<Contractor>): Cont
         : current.tradeLabel),
     updatedAt: new Date().toISOString(),
   };
+
+  // Recalculate balance whenever opening balance or trade changes
+  if (updates.openingBalance !== undefined || updates.openingBalanceType !== undefined) {
+    recalculateContractorBalance(store.contractors[idx], store);
+  }
 
   writeStore(store);
   return store.contractors[idx];
@@ -854,9 +890,10 @@ export function getContractorWeeklyStatement(
     (p) => p.contractorId === contractorId && p.timestamp < startTime
   );
 
+  const initOpening = (contractor.openingBalance || 0) * (contractor.openingBalanceType === 'RECEIVABLE' ? -1 : 1);
   const earnedPrior = workPrior.reduce((sum, w) => sum + w.totalAmount, 0);
   const paidPrior = payoutsPrior.reduce((sum, p) => sum + p.amount, 0);
-  const openingBalance = earnedPrior - paidPrior;
+  const openingBalance = initOpening + earnedPrior - paidPrior;
 
   const totalDoorsInPeriod = workInPeriod.reduce((sum, w) => sum + w.quantity, 0);
   const totalEarnedInPeriod = workInPeriod.reduce((sum, w) => sum + w.totalAmount, 0);

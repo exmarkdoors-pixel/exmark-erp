@@ -58,6 +58,8 @@ export interface ExpandedSticker {
   tag: string;
   unitIndex: number;
   totalUnitsInTag: number;
+  doorNumberInOrder?: number;
+  totalDoorsInOrder?: number;
   shutterSize: string;
   frameSize: string;
   tape: string;
@@ -67,7 +69,103 @@ export interface ExpandedSticker {
   hand: string;
   barcode: string;
   remark?: string;
+  finTopW?: number;
+  finBtmW?: number;
+  finH?: number;
+  finTopWText?: string;
+  finBtmWText?: string;
+  finHText?: string;
+  isTapered?: boolean;
 }
+
+export function extractTopBtmWidths(st: {
+  shutterSize?: string;
+  tape?: string;
+  finTopW?: number;
+  finBtmW?: number;
+  finTopWText?: string;
+  finBtmWText?: string;
+}): { topW: number; btmW: number; topText: string; btmText: string; isTapered: boolean } {
+  if (st.finTopW !== undefined && st.finBtmW !== undefined) {
+    const isTapered = Math.abs(st.finTopW - st.finBtmW) >= 0.05;
+    return {
+      topW: st.finTopW,
+      btmW: st.finBtmW,
+      topText: st.finTopWText || `-${st.finTopW.toFixed(1)}`,
+      btmText: st.finBtmWText || `-${st.finBtmW.toFixed(1)}`,
+      isTapered,
+    };
+  }
+
+  // Parse from shutterSize or tape string (e.g. "T:78.5 / B:78.4" or "T: 78.5, B: 78.4")
+  const combined = `${st.shutterSize || ''} ${st.tape || ''}`;
+  const topMatch = combined.match(/T(?:OP)?[:\s-]*([0-9.]+)/i);
+  const btmMatch = combined.match(/B(?:TM|OTTOM)?[:\s-]*([0-9.]+)/i);
+
+  if (topMatch && btmMatch) {
+    const tw = parseFloat(topMatch[1]);
+    const bw = parseFloat(btmMatch[1]);
+    const isTapered = Math.abs(tw - bw) >= 0.05;
+    return {
+      topW: tw,
+      btmW: bw,
+      topText: `-${tw.toFixed(1)}`,
+      btmText: `-${bw.toFixed(1)}`,
+      isTapered,
+    };
+  }
+
+  // Fallback to standard 2-part split (e.g. "205.5 x 82.4")
+  const parts = (st.shutterSize || '').replace(/[^0-9.x×]/gi, '').split(/[x×]/);
+  const defaultW = parts[1] ? parseFloat(parts[1]) : 82.4;
+  return {
+    topW: defaultW,
+    btmW: defaultW,
+    topText: `-${defaultW.toFixed(1)}`,
+    btmText: `-${defaultW.toFixed(1)}`,
+    isTapered: false,
+  };
+}
+
+export interface PaperCalibrationPreset {
+  name: string;
+  topMarginMm: number;
+  leftMarginMm: number;
+  rowGapMm: number;
+  colGapMm: number;
+  labelWidthMm: number;
+  labelHeightMm: number;
+}
+
+export const PAPER_PRESETS: Record<string, PaperCalibrationPreset> = {
+  'Oddy 12L Borderless (105 x 49.5 mm)': {
+    name: 'Oddy 12L Borderless (105 x 49.5 mm)',
+    topMarginMm: 0,
+    leftMarginMm: 0,
+    rowGapMm: 0,
+    colGapMm: 0,
+    labelWidthMm: 105,
+    labelHeightMm: 49.5,
+  },
+  'Standard A4 12-Up Die-Cut (105 x 48 mm)': {
+    name: 'Standard A4 12-Up Die-Cut (105 x 48 mm)',
+    topMarginMm: 4.5,
+    leftMarginMm: 0,
+    rowGapMm: 1,
+    colGapMm: 0,
+    labelWidthMm: 105,
+    labelHeightMm: 48,
+  },
+  'Desmat 12L Precision Cut (105 x 49 mm)': {
+    name: 'Desmat 12L Precision Cut (105 x 49 mm)',
+    topMarginMm: 1.5,
+    leftMarginMm: 0,
+    rowGapMm: 0,
+    colGapMm: 0,
+    labelWidthMm: 105,
+    labelHeightMm: 49,
+  },
+};
 
 export interface BatchPrintHubProps {
   initialSelectedOrderIds?: string[];
@@ -98,6 +196,42 @@ export default function BatchPrintHub({
   const [nudgeXmm, setNudgeXmm] = useState<number>(-2.5);
   const [nudgeYmm, setNudgeYmm] = useState<number>(-3.0);
   const [safeMarginBuffer, setSafeMarginBuffer] = useState<boolean>(true);
+
+  // Load saved calibration preferences from localStorage if available
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedX = localStorage.getItem('exmark_sticker_nudge_x');
+      if (savedX !== null) setNudgeXmm(parseFloat(savedX) || 0);
+      const savedY = localStorage.getItem('exmark_sticker_nudge_y');
+      if (savedY !== null) setNudgeYmm(parseFloat(savedY) || 0);
+      const savedPaper = localStorage.getItem('exmark_sticker_paper');
+      if (savedPaper && PAPER_PRESETS[savedPaper]) setCalibrationPaper(savedPaper);
+    }
+  }, []);
+
+  // Persist calibration adjustments
+  const handleUpdateNudgeX = (val: number | ((prev: number) => number)) => {
+    setNudgeXmm((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      const rounded = Math.round(next * 10) / 10;
+      if (typeof window !== 'undefined') localStorage.setItem('exmark_sticker_nudge_x', String(rounded));
+      return rounded;
+    });
+  };
+
+  const handleUpdateNudgeY = (val: number | ((prev: number) => number)) => {
+    setNudgeYmm((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      const rounded = Math.round(next * 10) / 10;
+      if (typeof window !== 'undefined') localStorage.setItem('exmark_sticker_nudge_y', String(rounded));
+      return rounded;
+    });
+  };
+
+  const handleSelectPaper = (paperName: string) => {
+    setCalibrationPaper(paperName);
+    if (typeof window !== 'undefined') localStorage.setItem('exmark_sticker_paper', paperName);
+  };
 
   useEffect(() => {
     let active = true;
@@ -206,11 +340,16 @@ export default function BatchPrintHub({
     const list: ExpandedSticker[] = [];
     orders.forEach((ord) => {
       if (!selectedOrderIds.includes(ord.id)) return;
+      const totalDoorsInThisOrder = ord.doorsList.reduce((sum, d) => sum + (d.qty || 1), 0);
+      let orderDoorNum = 1;
       let doorIdx = 1;
+
       ord.doorsList.forEach((door, dIdx) => {
         for (let q = 1; q <= door.qty; q++) {
           const uniqueKey = `${ord.id}-${door.tag}-${dIdx}-${q}`;
           const remarkKey = `${ord.id}-${door.tag}-${q}`;
+          const widths = extractTopBtmWidths({ shutterSize: door.shutterSize, tape: door.tape });
+
           list.push({
             id: uniqueKey,
             orderId: ord.id,
@@ -221,6 +360,8 @@ export default function BatchPrintHub({
             tag: door.tag,
             unitIndex: q,
             totalUnitsInTag: door.qty,
+            doorNumberInOrder: orderDoorNum,
+            totalDoorsInOrder: totalDoorsInThisOrder,
             shutterSize: door.shutterSize,
             frameSize: door.frameSize,
             tape: door.tape,
@@ -229,6 +370,11 @@ export default function BatchPrintHub({
             lock: door.lock,
             hand: door.hand,
             barcode: `*EXM-${ord.orderNumber.slice(-3)}-D0${doorIdx}-${q.toString().padStart(2, '0')}*`,
+            finTopW: widths.topW,
+            finBtmW: widths.btmW,
+            finTopWText: widths.topText,
+            finBtmWText: widths.btmText,
+            isTapered: widths.isTapered,
             remark:
               doorRemarks[uniqueKey] !== undefined
                 ? doorRemarks[uniqueKey]
@@ -236,6 +382,7 @@ export default function BatchPrintHub({
                 ? doorRemarks[remarkKey]
                 : (door.remark || ''),
           });
+          orderDoorNum++;
         }
         doorIdx++;
       });
@@ -247,24 +394,33 @@ export default function BatchPrintHub({
     try {
       setIsDownloadingPdf(true);
       const { generate12LStickerPdf, generateThermal4x2Pdf } = await import('@/lib/utils/pdfStickerEngine');
-      const printableItems = stickers.map((st, idx) => ({
-        id: st.id || `stk-${idx}`,
-        orderNumber: st.orderNumber,
-        jobCardNumber: st.jobCardNumber,
-        customerName: st.customerName,
-        siteName: st.siteName,
-        doorNumber: idx + 1,
-        totalDoorsInOrder: stickers.length,
-        shutterSize: st.shutterSize,
-        tape: st.tape,
-        profile: st.profile,
-        finish: st.finish,
-        hand: st.hand,
-        hingeSide: st.hand.startsWith('LH') ? 'L' : 'R',
-        lock: st.lock,
-        remark: st.remark, // Strictly conditional: only populated if non-empty!
-        barcode: st.barcode,
-      }));
+      const preset = PAPER_PRESETS[calibrationPaper] || PAPER_PRESETS['Oddy 12L Borderless (105 x 49.5 mm)'];
+      const printableItems = stickers.map((st, idx) => {
+        const widths = extractTopBtmWidths(st);
+        return {
+          id: st.id || `stk-${idx}`,
+          orderNumber: st.orderNumber,
+          jobCardNumber: st.jobCardNumber,
+          customerName: st.customerName,
+          siteName: st.siteName,
+          doorNumber: st.doorNumberInOrder || (idx + 1),
+          totalDoorsInOrder: st.totalDoorsInOrder || stickers.length,
+          shutterSize: st.shutterSize,
+          tape: st.tape,
+          profile: st.profile,
+          finish: st.finish,
+          hand: st.hand,
+          hingeSide: (st.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R',
+          lock: st.lock,
+          remark: st.remark, // Strictly conditional: only populated if non-empty!
+          barcode: st.barcode,
+          finTopW: widths.topW,
+          finBtmW: widths.btmW,
+          finTopWText: widths.topText,
+          finBtmWText: widths.btmText,
+          isTapered: widths.isTapered,
+        };
+      });
 
       if (stickerFormat === 'THERMAL_ROLL') {
         const pdf = await generateThermal4x2Pdf(printableItems, { companyName: 'EXMARK DOORS' });
@@ -277,6 +433,10 @@ export default function BatchPrintHub({
           nudgeXmm,
           nudgeYmm,
           safeMarginBufferActive: safeMarginBuffer,
+          topMarginMm: preset.topMarginMm,
+          leftMarginMm: preset.leftMarginMm,
+          rowGapMm: preset.rowGapMm,
+          colGapMm: preset.colGapMm,
         });
         pdf.save(`EXMARK_12L_${gridLayout}_${new Date().toISOString().slice(0, 10)}.pdf`);
         setToastMessage(`12L (${gridLayout.toUpperCase()}) Top-Left Vector PDF downloaded!`);
@@ -755,7 +915,7 @@ export default function BatchPrintHub({
                           </label>
                           <select
                             value={calibrationPaper}
-                            onChange={(e) => setCalibrationPaper(e.target.value)}
+                            onChange={(e) => handleSelectPaper(e.target.value)}
                             className="w-full bg-[#131b2e] border border-slate-700 hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold cursor-pointer"
                           >
                             <option value="Oddy 12L Borderless (105 x 49.5 mm)">Oddy 12L Borderless (105 x 49.5 mm)</option>
@@ -772,21 +932,21 @@ export default function BatchPrintHub({
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
-                              onClick={() => setNudgeXmm((prev) => Math.round((prev - 0.5) * 10) / 10)}
+                              onClick={() => handleUpdateNudgeX((prev) => prev - 0.5)}
                               className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
                             >
                               ◄ -0.5mm
                             </button>
                             <button
                               type="button"
-                              onClick={() => setNudgeXmm(0)}
+                              onClick={() => handleUpdateNudgeX(0)}
                               className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700 rounded-lg font-bold transition cursor-pointer"
                             >
                               Reset (0)
                             </button>
                             <button
                               type="button"
-                              onClick={() => setNudgeXmm((prev) => Math.round((prev + 0.5) * 10) / 10)}
+                              onClick={() => handleUpdateNudgeX((prev) => prev + 0.5)}
                               className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
                             >
                               +0.5mm ►
@@ -802,21 +962,21 @@ export default function BatchPrintHub({
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
-                              onClick={() => setNudgeYmm((prev) => Math.round((prev - 0.5) * 10) / 10)}
+                              onClick={() => handleUpdateNudgeY((prev) => prev - 0.5)}
                               className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
                             >
                               ▲ -0.5mm
                             </button>
                             <button
                               type="button"
-                              onClick={() => setNudgeYmm(0)}
+                              onClick={() => handleUpdateNudgeY(0)}
                               className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700 rounded-lg font-bold transition cursor-pointer"
                             >
                               Reset (0)
                             </button>
                             <button
                               type="button"
-                              onClick={() => setNudgeYmm((prev) => Math.round((prev + 0.5) * 10) / 10)}
+                              onClick={() => handleUpdateNudgeY((prev) => prev + 0.5)}
                               className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
                             >
                               +0.5mm ▼
@@ -838,98 +998,106 @@ export default function BatchPrintHub({
                     <div className="space-y-8 print:space-y-0">
                       {Array.from({ length: totalSheets }).map((_, sIdx) => {
                         const sheetStickers = stickers.slice(sIdx * 12, (sIdx + 1) * 12);
-                        const cardHeightMm = gridLayout === '2x6' ? '46.5mm' : '69mm';
+                        const preset = PAPER_PRESETS[calibrationPaper] || PAPER_PRESETS['Oddy 12L Borderless (105 x 49.5 mm)'];
+                        const cardHeightMm = gridLayout === '2x6' ? `${preset.labelHeightMm}mm` : '69mm';
+                        const cardWidthMm = gridLayout === '2x6' ? `${preset.labelWidthMm}mm` : '68mm';
                         return (
                           <div
                             key={sIdx}
                             className="sheet-12l bg-white border border-slate-300 rounded-xl shadow-sm break-after-page print:border-none print:shadow-none print:rounded-none print:m-0"
                             style={{
                               width: '210mm',
-                              minHeight: '295mm',
-                              padding: '4mm',
+                              minHeight: '297mm',
+                              paddingTop: `${preset.topMarginMm}mm`,
+                              paddingBottom: `${preset.topMarginMm}mm`,
+                              paddingLeft: `${preset.leftMarginMm}mm`,
+                              paddingRight: `${preset.leftMarginMm}mm`,
                               margin: '0 auto',
                               boxSizing: 'border-box',
                               transform: `translate(${nudgeXmm}mm, ${nudgeYmm}mm)`,
                               display: 'grid',
                               gridTemplateColumns:
                                 gridLayout === '2x6'
-                                  ? 'repeat(2, minmax(0, 1fr))'
+                                  ? `repeat(2, ${cardWidthMm})`
                                   : 'repeat(3, minmax(0, 1fr))',
                               gridAutoRows: cardHeightMm,
+                              rowGap: `${preset.rowGapMm}mm`,
+                              columnGap: `${preset.colGapMm}mm`,
                               alignContent: 'start',
-                              gap: '2mm',
                             }}
                           >
                             {sheetStickers.map((st, idx) => {
-                              const globalNum = sIdx * 12 + idx + 1;
                               const hSide = (st.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R';
                               const hLabel = hSide === 'R' ? 'H-LEFT' : 'H-RIGHT';
                               const hasRemark = st.remark && st.remark.trim().length > 0;
+                              const widths = extractTopBtmWidths(st);
+                              const doorNumText = st.doorNumberInOrder || (idx + 1);
+                              const totalDoorText = st.totalDoorsInOrder || stickers.length;
 
-                              // Parse finished height and width for cutting box (e.g. 205.5 x 82.4)
+                              // Parse finished height for cutting box
                               const parts = (st.shutterSize || '').replace(/[^0-9.x×]/gi, '').split(/[x×]/);
                               const finHVal = parts[0] ? parseFloat(parts[0]) : 205.5;
-                              const finWVal = parts[1] ? parseFloat(parts[1]) : 82.4;
                               const finHText = `-${(finHVal > 50 ? finHVal : finHVal * 2.54).toFixed(1)}`;
-                              const finWText = `-${(finWVal > 30 ? finWVal : finWVal * 2.54).toFixed(1)}`;
 
                               return (
                                 <div
                                   key={idx}
-                                  className="sticker-card-12l border border-slate-700 font-sans bg-white rounded-lg p-2 flex flex-col justify-between overflow-hidden"
+                                  className="sticker-card-12l border border-slate-700 font-sans bg-white rounded-lg flex flex-col justify-between overflow-hidden"
                                   style={{
+                                    width: cardWidthMm,
                                     height: cardHeightMm,
                                     maxHeight: cardHeightMm,
                                     boxSizing: 'border-box',
-                                    fontSize: '8.5px',
+                                    padding: safeMarginBuffer ? '2.5mm 3.5mm' : '1.5mm 2.5mm',
+                                    fontSize: '8px',
                                     lineHeight: 1.15,
                                     pageBreakInside: 'avoid',
                                     breakInside: 'avoid',
                                   }}
                                 >
                                   {/* Line 1: Party (Left) + Job Card Badge (Right) */}
-                                  <div className="flex justify-between items-center gap-1.5">
-                                    <div className="flex items-baseline gap-1.5 min-w-0">
-                                      <span className="text-[8.5px] text-slate-500 font-normal shrink-0">Party</span>
-                                      <span className="font-black text-[10.5px] text-slate-950 uppercase truncate">
+                                  <div className="flex justify-between items-center gap-1">
+                                    <div className="flex items-baseline gap-1 min-w-0 max-w-[130px]">
+                                      <span className="text-[8px] text-slate-500 font-normal shrink-0">Party</span>
+                                      <span className="font-black text-[10px] text-slate-950 uppercase truncate">
                                         {st.customerName}
                                       </span>
                                     </div>
-                                    <span className="font-mono text-[8.5px] font-bold px-1.5 py-0.2 rounded border border-slate-700 bg-slate-50 text-slate-900 shrink-0">
+                                    <span className="font-mono text-[8px] font-bold px-1.5 py-0.2 rounded border border-slate-700 bg-slate-50 text-slate-900 shrink-0">
                                       {st.jobCardNumber || st.orderNumber}
                                     </span>
                                   </div>
 
                                   {/* Line 2: Model (Left) + Circled Door Number (Right) */}
-                                  <div className="flex justify-between items-center gap-1.5">
-                                    <div className="flex items-baseline gap-1.5 min-w-0">
-                                      <span className="text-[8px] text-slate-500 font-normal shrink-0">Model</span>
-                                      <span className="font-bold text-[10px] text-slate-900 uppercase truncate">
+                                  <div className="flex justify-between items-center gap-1">
+                                    <div className="flex items-baseline gap-1 min-w-0 max-w-[135px]">
+                                      <span className="text-[7.5px] text-slate-500 font-normal shrink-0">Model</span>
+                                      <span className="font-bold text-[9.5px] text-slate-900 uppercase truncate">
                                         {st.profile || st.tag || 'EXM-A-101'}
                                       </span>
                                     </div>
-                                    <span className="w-5 h-5 rounded-full border border-slate-700 flex items-center justify-center font-bold text-[9px] text-slate-950 shrink-0">
-                                      {globalNum}
+                                    <span className="w-5 h-5 rounded-full border border-slate-800 flex items-center justify-center font-black text-[9px] text-slate-950 shrink-0 bg-slate-100" title={`Door ${doorNumText} of ${totalDoorText}`}>
+                                      {doorNumText}
                                     </span>
                                   </div>
 
                                   {/* Line 3: H: (R) • LOCK: BABY LATCH • CLR: NATURAL TEAK */}
-                                  <div className="flex items-center gap-1.5 text-[8px]">
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <span className="text-slate-600">H:</span>
+                                  <div className="flex items-center gap-1 text-[7.5px]">
+                                    <div className="flex items-center gap-0.5 shrink-0">
+                                      <span className="text-slate-600 font-bold">H:</span>
                                       <span className="w-4 h-4 rounded-full border border-slate-700 flex items-center justify-center font-bold text-[8px] text-slate-950">
                                         {hSide}
                                       </span>
                                     </div>
 
-                                    <div className="border border-slate-400 rounded px-1.5 py-0.2 flex items-center gap-1 bg-slate-50 min-w-0 flex-1">
-                                      <span className="text-slate-500 text-[7px] shrink-0">LOCK:</span>
-                                      <span className="font-bold text-slate-900 truncate uppercase text-[8px]">{st.lock || 'Baby Latch'}</span>
+                                    <div className="border border-slate-400 rounded px-1 py-0.2 flex items-center gap-0.5 bg-slate-50 min-w-0 flex-1 overflow-hidden">
+                                      <span className="text-slate-500 text-[6.5px] shrink-0">LOCK:</span>
+                                      <span className="font-bold text-slate-900 truncate uppercase text-[7.5px]">{st.lock || 'Baby Latch'}</span>
                                     </div>
 
-                                    <div className="border border-slate-400 rounded px-1.5 py-0.2 flex items-center gap-1 bg-slate-50 min-w-0 flex-1">
-                                      <span className="text-slate-500 text-[7px] shrink-0">CLR:</span>
-                                      <span className="font-bold text-slate-900 truncate uppercase text-[8px]">{st.finish || 'Teak'}</span>
+                                    <div className="border border-slate-400 rounded px-1 py-0.2 flex items-center gap-0.5 bg-slate-50 min-w-0 flex-1 overflow-hidden">
+                                      <span className="text-slate-500 text-[6.5px] shrink-0">CLR:</span>
+                                      <span className="font-bold text-slate-900 truncate uppercase text-[7.5px]">{st.finish || 'Teak'}</span>
                                     </div>
                                   </div>
 
@@ -937,32 +1105,32 @@ export default function BatchPrintHub({
                                   <div className="border border-slate-800 rounded grid grid-cols-12 overflow-hidden bg-slate-50/50">
                                     {/* Cell 1: H-LEFT or H-RIGHT */}
                                     <div className="col-span-5 border-r border-slate-800 p-1 flex flex-col justify-between">
-                                      <span className="text-[7.5px] font-bold text-slate-700 uppercase">{hLabel}</span>
-                                      <span className="font-mono text-xs font-black text-slate-950 text-right">{finHText}</span>
+                                      <span className="text-[7px] font-bold text-slate-700 uppercase">{hLabel}</span>
+                                      <span className="font-mono text-[11px] font-black text-slate-950 text-right">{finHText}</span>
                                     </div>
 
                                     {/* Cell 2: Stacked TOP and BTM */}
                                     <div className="col-span-4 border-r border-slate-800 divide-y divide-slate-800">
                                       <div className="px-1 py-0.2 flex items-center justify-between">
-                                        <span className="text-[7px] font-bold text-slate-600">TOP</span>
-                                        <span className="font-mono text-[9.5px] font-bold text-slate-950">{finWText}</span>
+                                        <span className="text-[6.5px] font-bold text-slate-600">TOP</span>
+                                        <span className="font-mono text-[9px] font-bold text-slate-950">{widths.topText}</span>
                                       </div>
                                       <div className="px-1 py-0.2 flex items-center justify-between">
-                                        <span className="text-[7px] font-bold text-slate-600">BTM</span>
-                                        <span className="font-mono text-[9.5px] font-bold text-slate-950">{finWText}</span>
+                                        <span className="text-[6.5px] font-bold text-slate-600">BTM</span>
+                                        <span className="font-mono text-[9px] font-bold text-slate-950">{widths.btmText}</span>
                                       </div>
                                     </div>
 
                                     {/* Cell 3: QR Code Icon / Sequence */}
                                     <div className="col-span-3 flex flex-col items-center justify-center p-0.5 bg-white">
-                                      <QrCode className="w-5 h-5 text-slate-900" />
-                                      <span className="text-[6.5px] font-mono font-bold text-slate-700">#{globalNum}</span>
+                                      <QrCode className="w-4 h-4 text-slate-900" />
+                                      <span className="text-[6px] font-mono font-bold text-slate-700">#{doorNumText}/{totalDoorText}</span>
                                     </div>
                                   </div>
 
                                   {/* Line 5: STRICT CONDITIONAL REMARK CONTAINER */}
                                   {hasRemark && (
-                                    <div className="p-0.5 px-1 rounded bg-amber-50 border border-amber-400 text-amber-900 text-[7px] font-bold leading-tight flex items-start gap-1">
+                                    <div className="p-0.5 px-1 rounded bg-amber-50 border border-amber-400 text-amber-900 text-[6.5px] font-bold leading-tight flex items-start gap-1 max-w-full overflow-hidden">
                                       <span className="text-amber-800 font-black shrink-0">REMARK:</span>
                                       <span className="truncate">{st.remark!.trim()}</span>
                                     </div>

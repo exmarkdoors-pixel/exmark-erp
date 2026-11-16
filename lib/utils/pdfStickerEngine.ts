@@ -350,7 +350,7 @@ export async function generate12LStickerPdf(
     const usableW = 210 - leftMargin * 2 - colGap * (cols - 1);
     const usableH = 297 - topMargin * 2 - rowGap * (rows - 1);
     const labelWidth = Number((usableW / cols).toFixed(2));
-    const labelHeight = Math.min(48, Number((usableH / rows).toFixed(2)));
+    const labelHeight = Math.min(49.5, Number((usableH / rows).toFixed(2)));
 
     const nudgeX = settings.nudgeXmm ?? 0;
     const nudgeY = settings.nudgeYmm ?? 0;
@@ -527,7 +527,7 @@ export async function generate12LStickerPdf(
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(5.2);
       doc.setTextColor(100, 116, 139);
-      doc.text(`#${item.doorNumber}`, qrX + qrSize / 2, boxY + boxH - 1.2, { align: 'center' });
+      doc.text(`#${item.doorNumber}/${item.totalDoorsInOrder || 1}`, qrX + qrSize / 2, boxY + boxH - 1.2, { align: 'center' });
 
       // Conditional Remark (if non-empty)
       if (hasRemark) {
