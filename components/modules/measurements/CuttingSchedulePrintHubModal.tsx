@@ -29,7 +29,7 @@ import {
   VideoOff,
 } from 'lucide-react';
 import { cmToTapeInch, parseTapeInchToCm, computeStickerSizes } from '@/lib/utils/doorStickerFormula';
-import { STANDARD_DOOR_MODELS, detectCategoryFromModelCode, DoorModelOption } from '@/lib/services/doorModelCatalogService';
+import { STANDARD_DOOR_MODELS, detectCategoryFromModelCode, DoorModelOption } from '@/lib/types/doorModelCatalog';
 
 export interface FrameCategoryItem {
   id: string;

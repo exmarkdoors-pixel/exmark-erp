@@ -30,7 +30,7 @@ import {
   DoorModelOption,
   STANDARD_DOOR_MODELS,
   detectCategoryFromModelCode,
-} from '@/lib/services/doorModelCatalogService';
+} from '@/lib/types/doorModelCatalog';
 
 interface StickerPrintModalProps {
   isOpen: boolean;
