@@ -27,8 +27,8 @@ function getCustomStorePath(): string {
 function readCustomStore(): DoorModelOption[] {
   try {
     const file = getCustomStorePath();
-    if (fs.existsSync(file)) {
-      const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (fs.existsSync(/*turbopackIgnore: true*/ file)) {
+      const parsed = JSON.parse(fs.readFileSync(/*turbopackIgnore: true*/ file, 'utf8'));
       if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
@@ -60,8 +60,8 @@ export function saveCustomDoorModel(model: Partial<DoorModelOption>): DoorModelO
 
   try {
     const file = getCustomStorePath();
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(current, null, 2), 'utf8');
+    fs.mkdirSync(/*turbopackIgnore: true*/ path.dirname(file), { recursive: true });
+    fs.writeFileSync(/*turbopackIgnore: true*/ file, JSON.stringify(current, null, 2), 'utf8');
   } catch (err) {
     console.warn('[DoorModelCatalog] Failed to persist custom model:', err);
   }

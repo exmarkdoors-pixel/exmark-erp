@@ -344,7 +344,7 @@ export default function Navbar({
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 bg-[#0B132B] border-b border-slate-800 shadow-md print:hidden">
       {/* Left: Mobile Toggle + Breadcrumb / Title */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <button
           onClick={onOpenMobileSidebar}
           className="p-2 -ml-1 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800 lg:hidden focus:outline-none"
@@ -353,12 +353,12 @@ export default function Navbar({
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 font-medium">
             <span>EXMARK</span>
             <span>/</span>
           </div>
-          <h1 className="text-base sm:text-lg font-bold text-white capitalize tracking-tight flex items-center gap-2">
+          <h1 className="text-base sm:text-lg font-bold text-white capitalize tracking-tight flex items-center gap-2 whitespace-nowrap">
             {currentTabName}
           </h1>
           <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">

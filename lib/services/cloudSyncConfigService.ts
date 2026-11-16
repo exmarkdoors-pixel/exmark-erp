@@ -104,13 +104,13 @@ export function detectLocalGoogleDriveFolders(): string[] {
   for (const driveLetter of ['G', 'H', 'D', 'E']) {
     for (const sub of ['My Drive', 'Google Drive']) {
       const p = `${driveLetter}:\\${sub}`;
-      if (fs.existsSync(p)) candidates.push(path.join(p, 'EXMARK-ERP-Cloud'));
+      if (fs.existsSync(/*turbopackIgnore: true*/ p)) candidates.push(path.join(p, 'EXMARK-ERP-Cloud'));
     }
   }
 
   for (const sub of ['Google Drive', 'GoogleDrive', 'My Drive', 'OneDrive']) {
-    const p = path.join(home, sub);
-    if (fs.existsSync(p)) candidates.push(path.join(p, 'EXMARK-ERP-Cloud'));
+    const p = path.join(/*turbopackIgnore: true*/ home, sub);
+    if (fs.existsSync(/*turbopackIgnore: true*/ p)) candidates.push(path.join(p, 'EXMARK-ERP-Cloud'));
   }
 
   return Array.from(new Set(candidates));

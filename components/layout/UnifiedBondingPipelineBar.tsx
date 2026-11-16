@@ -129,7 +129,7 @@ export default function UnifiedBondingPipelineBar({
               </span>
             </div>
             <p className="text-[10px] text-slate-400">
-              Quotation $\rightarrow$ Advance Lock & 12L Stickers $\rightarrow$ Molding $\rightarrow$ Cutting/QC $\rightarrow$ Painting $\rightarrow$ Delivery Challan $\rightarrow$ Site Fitting • <span className="text-amber-400 font-medium">Billing: Future Phase</span>
+              Quotation → Advance Lock & 12L Stickers → Molding → Cutting/QC → Painting → Delivery Challan → Site Fitting • <span className="text-amber-400 font-medium">Billing: Future Phase</span>
             </p>
           </div>
         </div>

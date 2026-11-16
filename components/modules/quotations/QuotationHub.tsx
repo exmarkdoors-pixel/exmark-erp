@@ -4122,7 +4122,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
               if (savedQuotesViewMode === 'cards') {
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {filteredQuotes.map((q) => {
+                    {filteredQuotes.map((q, qIdx) => {
                       const isSiteQuote =
                         q.quotationCategory === 'SITE_MEASUREMENT' ||
                         Boolean(q.siteMeasurementRef) ||
@@ -4132,7 +4132,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
 
                       return (
                         <div
-                          key={q.id}
+                          key={`${q.id}-${qIdx}`}
                           className="bg-slate-900/70 border border-slate-800 hover:border-slate-700/80 rounded-xl p-4 flex flex-col justify-between space-y-3 transition shadow-sm hover:shadow-md"
                         >
                           {/* Card Top: Quote # & Category Badge */}
@@ -4351,7 +4351,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/70">
-                      {filteredQuotes.map((q) => {
+                      {filteredQuotes.map((q, qIdx) => {
                         const isSiteQuote =
                           q.quotationCategory === 'SITE_MEASUREMENT' ||
                           Boolean(q.siteMeasurementRef) ||
@@ -4361,7 +4361,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                         const isExpanded = expandedQuoteRowId === q.id;
 
                         return (
-                          <React.Fragment key={q.id}>
+                          <React.Fragment key={`${q.id}-${qIdx}`}>
                             <tr className="hover:bg-slate-900/60 transition">
                               {/* 1. Quote # & Origin */}
                               <td className="p-3 font-mono">
