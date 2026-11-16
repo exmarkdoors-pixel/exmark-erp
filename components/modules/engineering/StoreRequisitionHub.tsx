@@ -751,7 +751,20 @@ export default function StoreRequisitionHub({
     const timber = getField('timber', boq.totalWoodCuFt, ratesConfig.woodRatePerCuFt);
     const foam = getField('foam', boq.foamSheetsExact, ratesConfig.foamSheet.costPerSheet);
 
-    const groupACost = resin.cost + gel.cost + catalystGrams.cost + acceleratorGrams.cost + csm300.cost + boq.pigmentCost;
+    let totalPigmentCost = 0;
+    if (boq.pigmentByColour && boq.pigmentByColour.length > 0) {
+      boq.pigmentByColour.forEach((pig) => {
+        const pigKey = `pigment_${pig.matchedRateKey || pig.colourLabel}`;
+        const customPig = customUsageOverrides[pigKey];
+        const qty = customPig?.customQty !== undefined ? customPig.customQty : Math.round(pig.pigmentGrams);
+        const rate = customPig?.customRate !== undefined ? customPig.customRate : pig.ratePerKg;
+        totalPigmentCost += (qty / 1000) * rate;
+      });
+    } else {
+      totalPigmentCost = boq.pigmentCost;
+    }
+
+    const groupACost = resin.cost + gel.cost + catalystGrams.cost + acceleratorGrams.cost + csm300.cost + Math.round(totalPigmentCost);
     const groupBCost = timber.cost + foam.cost;
     const grandTotalCost = groupACost + groupBCost + Math.round(boq.totalLockBoxCost) + extraItemsCost;
 
@@ -1696,7 +1709,8 @@ export default function StoreRequisitionHub({
                         step="0.1"
                         min="0"
                         value={effectiveBoq.resin.qty}
-                        onChange={(e) => updateItemCustomQty('resin', parseFloat(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => updateItemCustomQty('resin', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                         className="w-20 px-2 py-1 bg-slate-900 border border-amber-500/80 rounded text-right font-mono font-bold text-amber-300 text-xs"
                       />
                       <span className="text-[10px] text-slate-400">Kg</span>
@@ -1761,7 +1775,8 @@ export default function StoreRequisitionHub({
                         step="0.1"
                         min="0"
                         value={effectiveBoq.gel.qty}
-                        onChange={(e) => updateItemCustomQty('gel', parseFloat(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => updateItemCustomQty('gel', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                         className="w-20 px-2 py-1 bg-slate-900 border border-amber-500/80 rounded text-right font-mono font-bold text-amber-300 text-xs"
                       />
                       <span className="text-[10px] text-slate-400">Kg</span>
@@ -1826,7 +1841,8 @@ export default function StoreRequisitionHub({
                         step="10"
                         min="0"
                         value={Math.round(effectiveBoq.catalystGrams.qty)}
-                        onChange={(e) => updateItemCustomQty('catalystGrams', parseFloat(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => updateItemCustomQty('catalystGrams', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                         className="w-20 px-2 py-1 bg-slate-900 border border-cyan-500/80 rounded text-right font-mono font-bold text-cyan-300 text-xs"
                       />
                       <span className="text-[10px] text-slate-400">gm</span>
@@ -1881,7 +1897,8 @@ export default function StoreRequisitionHub({
                         step="10"
                         min="0"
                         value={Math.round(effectiveBoq.acceleratorGrams.qty)}
-                        onChange={(e) => updateItemCustomQty('acceleratorGrams', parseFloat(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => updateItemCustomQty('acceleratorGrams', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                         className="w-20 px-2 py-1 bg-slate-900 border border-cyan-500/80 rounded text-right font-mono font-bold text-cyan-300 text-xs"
                       />
                       <span className="text-[10px] text-slate-400">gm</span>
@@ -1936,7 +1953,8 @@ export default function StoreRequisitionHub({
                         step="0.1"
                         min="0"
                         value={effectiveBoq.csm300.qty}
-                        onChange={(e) => updateItemCustomQty('csm300', parseFloat(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => updateItemCustomQty('csm300', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                         className="w-20 px-2 py-1 bg-slate-900 border border-amber-500/80 rounded text-right font-mono font-bold text-amber-300 text-xs"
                       />
                       <span className="text-[10px] text-slate-400">Kg</span>
@@ -1968,38 +1986,90 @@ export default function StoreRequisitionHub({
               </tr>
 
               {/* A6. COLOUR-WISE PIGMENTS */}
-              {boq.pigmentByColour.map((pig, pIdx) => (
-                <tr key={`pig-${pig.matchedRateKey}-${pIdx}`} className="hover:bg-slate-800/30">
-                  <td className="p-3 font-bold text-white">A6.{pIdx + 1}</td>
-                  <td className="p-3">
-                    <strong className="text-white flex items-center gap-1.5">
-                      <Palette className="w-3.5 h-3.5 text-purple-400" />
-                      Pigment Paste — {pig.colourLabel}
-                    </strong>
-                    <span className="text-[10px] text-slate-400">
-                      {pig.doorsCount} Doors ({pig.sqFt.toFixed(2)} Sq.Ft) • Rate Key: {pig.matchedRateKey}
-                    </span>
-                  </td>
-                  <td className="p-3 text-slate-300">
-                    {ratesConfig.pigmentGrams} gm / {boq.baseDoorSqFt.toFixed(2)} sq.ft (Shade Priced)
-                  </td>
-                  <td className="p-3 text-right font-black text-purple-400">
-                    {Math.round(pig.pigmentGrams).toLocaleString()} gm
-                    <div className="text-[10px] text-slate-400 font-normal">
-                      ({pig.pigmentKg.toFixed(3)} Kg)
-                    </div>
-                  </td>
-                  <td className="p-3 text-right text-slate-300">₹{pig.ratePerKg} / Kg</td>
-                  <td className="p-3 text-right font-bold text-white">
-                    ₹{Math.round(pig.cost).toLocaleString('en-IN')}
-                  </td>
-                  <td className="p-3 text-center">
-                    <span className="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 text-[10px] font-bold">
-                      Pigment
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {boq.pigmentByColour.map((pig, pIdx) => {
+                const pigKey = `pigment_${pig.matchedRateKey || pig.colourLabel}`;
+                const customPig = customUsageOverrides[pigKey];
+                const displayQty = customPig?.customQty !== undefined ? customPig.customQty : Math.round(pig.pigmentGrams);
+                const displayRate = customPig?.customRate !== undefined ? customPig.customRate : pig.ratePerKg;
+                const displayCost = Math.round((displayQty / 1000) * displayRate);
+
+                return (
+                  <tr key={`pig-${pig.matchedRateKey}-${pIdx}`} className="hover:bg-slate-800/30">
+                    <td className="p-3 font-bold text-white">A6.{pIdx + 1}</td>
+                    <td className="p-3">
+                      <strong className="text-white flex items-center gap-1.5">
+                        <Palette className="w-3.5 h-3.5 text-purple-400" />
+                        Pigment Paste — {pig.colourLabel}
+                      </strong>
+                      <span className="text-[10px] text-slate-400">
+                        {pig.doorsCount} Doors ({pig.sqFt.toFixed(2)} Sq.Ft) • Rate Key: {pig.matchedRateKey}
+                      </span>
+                    </td>
+                    <td className="p-3 text-slate-300">
+                      {ratesConfig.pigmentGrams} gm / {boq.baseDoorSqFt.toFixed(2)} sq.ft (Shade Priced)
+                    </td>
+                    <td className="p-3 text-right font-black text-purple-400">
+                      {isCustomUsageEditMode ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <input
+                            type="number"
+                            step="10"
+                            min="0"
+                            value={displayQty}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) =>
+                              updateItemCustomQty(
+                                pigKey,
+                                e.target.value === '' ? 0 : parseFloat(e.target.value)
+                              )
+                            }
+                            className="w-20 px-2 py-1 bg-slate-900 border border-purple-500/80 rounded text-right font-mono font-bold text-purple-300 text-xs"
+                          />
+                          <span className="text-[10px] text-slate-400">gm</span>
+                        </div>
+                      ) : (
+                        <div>
+                          {displayQty.toLocaleString()} gm
+                          <div className="text-[10px] text-slate-400 font-normal">
+                            ({(displayQty / 1000).toFixed(3)} Kg)
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-3 text-right text-slate-300">
+                      {isCustomUsageEditMode ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="text-xs text-slate-400">₹</span>
+                          <input
+                            type="number"
+                            step="10"
+                            min="0"
+                            value={displayRate}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) =>
+                              updateItemCustomRate(
+                                pigKey,
+                                e.target.value === '' ? 0 : parseFloat(e.target.value)
+                              )
+                            }
+                            className="w-20 px-2 py-1 bg-slate-900 border border-purple-500/80 rounded text-right font-mono font-bold text-purple-300 text-xs"
+                          />
+                        </div>
+                      ) : (
+                        <span>₹{displayRate} / Kg</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right font-bold text-white">
+                      ₹{displayCost.toLocaleString('en-IN')}
+                    </td>
+                    <td className="p-3 text-center">
+                      <span className="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 text-[10px] font-bold">
+                        Pigment
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
 
               {/* GROUP B HEADER */}
               <tr className="bg-amber-950/25 border-b border-amber-900/60">
@@ -2153,7 +2223,8 @@ export default function StoreRequisitionHub({
                         step="0.5"
                         min="0"
                         value={effectiveBoq.foam.qty}
-                        onChange={(e) => updateItemCustomQty('foam', parseFloat(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => updateItemCustomQty('foam', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                         className="w-20 px-2 py-1 bg-slate-900 border border-sky-500/80 rounded text-right font-mono font-bold text-sky-300 text-xs"
                       />
                       <span className="text-[10px] text-slate-400">Sheets</span>

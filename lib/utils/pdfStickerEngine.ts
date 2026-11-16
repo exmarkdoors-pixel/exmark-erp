@@ -62,6 +62,9 @@ export interface StickerSheetConfig {
   leftMarginMm?: number;
   rowGapMm?: number;
   colGapMm?: number;
+  nudgeXmm?: number;
+  nudgeYmm?: number;
+  safeMarginBufferActive?: boolean;
 }
 
 export function sanitizePdfText(input: unknown): string {
@@ -349,6 +352,10 @@ export async function generate12LStickerPdf(
     const labelWidth = Number((usableW / cols).toFixed(2));
     const labelHeight = Math.min(48, Number((usableH / rows).toFixed(2)));
 
+    const nudgeX = settings.nudgeXmm ?? 0;
+    const nudgeY = settings.nudgeYmm ?? 0;
+    const safeBuffer = settings.safeMarginBufferActive !== false;
+
     for (let i = 0; i < stickers.length; i++) {
       const item = stickers[i];
       const indexOnPage = i % perPage;
@@ -356,8 +363,8 @@ export async function generate12LStickerPdf(
 
       const col = indexOnPage % cols;
       const row = Math.floor(indexOnPage / cols);
-      const x = leftMargin + col * (labelWidth + colGap);
-      const y = topMargin + row * (labelHeight + rowGap);
+      const x = leftMargin + col * (labelWidth + colGap) + nudgeX;
+      const y = topMargin + row * (labelHeight + rowGap) + nudgeY;
 
       // Outer rounded border (Industrial format matching factory photo)
       doc.setDrawColor(140, 150, 165);
@@ -365,7 +372,8 @@ export async function generate12LStickerPdf(
       doc.roundedRect(x + 0.5, y + 0.5, labelWidth - 1, labelHeight - 1, 1.8, 1.8, 'S');
 
       // Line 1: Party & Job Card Badge
-      const safeCustomer = (item.customerName || 'Client').toUpperCase().slice(0, 30);
+      const maxPartyChars = safeBuffer ? 22 : 28;
+      const safeCustomer = (item.customerName || 'Client').toUpperCase().slice(0, maxPartyChars);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(70, 80, 95);

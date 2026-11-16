@@ -93,6 +93,12 @@ export default function BatchPrintHub({
   const [isRemarksManagerOpen, setIsRemarksManagerOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
+  // 12L Sticker Sheet Calibration State (Exact Die-Cut Fit & Safe Margin Buffer)
+  const [calibrationPaper, setCalibrationPaper] = useState('Oddy 12L Borderless (105 x 49.5 mm)');
+  const [nudgeXmm, setNudgeXmm] = useState<number>(-2.5);
+  const [nudgeYmm, setNudgeYmm] = useState<number>(-3.0);
+  const [safeMarginBuffer, setSafeMarginBuffer] = useState<boolean>(true);
+
   useEffect(() => {
     let active = true;
     fetch('/api/production')
@@ -268,6 +274,9 @@ export default function BatchPrintHub({
         const pdf = await generate12LStickerPdf(printableItems, {
           companyName: 'EXMARK DOORS',
           layout: gridLayout,
+          nudgeXmm,
+          nudgeYmm,
+          safeMarginBufferActive: safeMarginBuffer,
         });
         pdf.save(`EXMARK_12L_${gridLayout}_${new Date().toISOString().slice(0, 10)}.pdf`);
         setToastMessage(`12L (${gridLayout.toUpperCase()}) Top-Left Vector PDF downloaded!`);
@@ -713,6 +722,117 @@ export default function BatchPrintHub({
               {/* FORMAT 1: 12L STICKERS (DUAL FORMAT: A4 12-UP COMPACT vs SINGLE THERMAL ROLL 4"x2") */}
               {activePrintModal === 'STICKERS' && (
                 <>
+                  {/* 12L STICKER SHEET PAPER CALIBRATION (EXACT DIE-CUT FIT) */}
+                  {stickerFormat === 'A4_12L' && (
+                    <div className="bg-[#0B132B] border border-slate-700/80 rounded-xl p-3.5 space-y-3 mb-4 text-slate-200 print:hidden">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-xs shadow-emerald-400" />
+                          <span className="font-extrabold text-xs tracking-wider text-slate-100 uppercase">
+                            12L Sticker Sheet Paper Calibration (Exact Die-Cut Fit)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSafeMarginBuffer(!safeMarginBuffer)}
+                            className={`px-2.5 py-0.5 rounded text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                              safeMarginBuffer
+                                ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-600/60 shadow-xs'
+                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                            }`}
+                          >
+                            {safeMarginBuffer ? '✓ Safe Margin Buffer Active (No border clipping)' : 'Buffer Inactive'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end text-xs">
+                        {/* Paper Type Selector */}
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                            Sticker Sheet Paper Type:
+                          </label>
+                          <select
+                            value={calibrationPaper}
+                            onChange={(e) => setCalibrationPaper(e.target.value)}
+                            className="w-full bg-[#131b2e] border border-slate-700 hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold cursor-pointer"
+                          >
+                            <option value="Oddy 12L Borderless (105 x 49.5 mm)">Oddy 12L Borderless (105 x 49.5 mm)</option>
+                            <option value="Standard A4 12-Up Die-Cut (105 x 48 mm)">Standard A4 12-Up Die-Cut (105 x 48 mm)</option>
+                            <option value="Desmat 12L Precision Cut (105 x 49 mm)">Desmat 12L Precision Cut (105 x 49 mm)</option>
+                          </select>
+                        </div>
+
+                        {/* Nudge Left / Right */}
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                            Nudge Left/Right (X: {nudgeXmm > 0 ? `+${nudgeXmm}` : nudgeXmm}mm):
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setNudgeXmm((prev) => Math.round((prev - 0.5) * 10) / 10)}
+                              className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
+                            >
+                              ◄ -0.5mm
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNudgeXmm(0)}
+                              className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700 rounded-lg font-bold transition cursor-pointer"
+                            >
+                              Reset (0)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNudgeXmm((prev) => Math.round((prev + 0.5) * 10) / 10)}
+                              className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
+                            >
+                              +0.5mm ►
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Nudge Top / Bottom */}
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                            Nudge Top/Bottom (Y: {nudgeYmm > 0 ? `+${nudgeYmm}` : nudgeYmm}mm):
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setNudgeYmm((prev) => Math.round((prev - 0.5) * 10) / 10)}
+                              className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
+                            >
+                              ▲ -0.5mm
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNudgeYmm(0)}
+                              className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700 rounded-lg font-bold transition cursor-pointer"
+                            >
+                              Reset (0)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNudgeYmm((prev) => Math.round((prev + 0.5) * 10) / 10)}
+                              className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
+                            >
+                              +0.5mm ▼
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Print Dialog Tip */}
+                      <div className="bg-amber-950/40 border border-amber-800/50 rounded-lg px-3 py-1.5 text-[11px] text-amber-200 flex items-center gap-2">
+                        <span className="font-bold text-amber-400">💡 Print Dialog Tip:</span>
+                        <span>Set Paper Size: <strong>A4</strong>, Margins: <strong>None (0mm)</strong>, and Scale: <strong>100% (Actual Size)</strong> so labels never shift or print outside the die cuts.</span>
+                      </div>
+                    </div>
+                  )}
+
                   {stickerFormat === 'A4_12L' ? (
                     /* A4 12-UP DIE-CUT SHEETS (TOP-LEFT ANCHORED 2×6 OR 3×4, ZERO CENTERING) */
                     <div className="space-y-8 print:space-y-0">
@@ -729,6 +849,7 @@ export default function BatchPrintHub({
                               padding: '4mm',
                               margin: '0 auto',
                               boxSizing: 'border-box',
+                              transform: `translate(${nudgeXmm}mm, ${nudgeYmm}mm)`,
                               display: 'grid',
                               gridTemplateColumns:
                                 gridLayout === '2x6'

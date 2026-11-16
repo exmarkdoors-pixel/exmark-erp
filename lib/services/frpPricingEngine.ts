@@ -105,6 +105,17 @@ export function getDefaultThicknessOption(options?: DoorThicknessOption[]): Door
   );
 }
 
+export function getDefaultLockOption(options?: LockOption[]): LockOption {
+  const list = options && options.length > 0 ? options : DEFAULT_LOCK_OPTIONS;
+  return (
+    list.find((l) => l.name.toUpperCase().includes('BABY LATCH') && l.price >= 0) ||
+    list.find((l) => l.id === 'lock-none') ||
+    list.find((l) => l.id === 'lock-baby-latch') ||
+    list.find((l) => l.name.toLowerCase().includes('baby latch')) ||
+    list[0]
+  );
+}
+
 export const WITHOUT_LOCK_DISCOUNT = -300;
 export const WITHOUT_ACCESSORIES_DISCOUNT = -500;
 export const WITHOUT_FRAME_DISCOUNT = -800;

@@ -43,6 +43,7 @@ import {
   KeyRound,
   UserPlus,
   ArrowUpCircle,
+  Calendar,
 } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/services/whatsappService';
 import { DoorMeasurementModal } from './DoorMeasurementModal';
@@ -85,6 +86,8 @@ import { AiFinancialStrategistPanel } from './finance/AiFinancialStrategistPanel
 import { ContractorPayablesPanel } from './finance/ContractorPayablesPanel';
 import { OrderProfitPanel } from './finance/OrderProfitPanel';
 import { BreakEvenPanel } from './finance/BreakEvenPanel';
+import BusinessHealthForecastingPanel from './finance/BusinessHealthForecastingPanel';
+import DailyEveningClosingModal from './finance/DailyEveningClosingModal';
 import { StageBoqModal } from './production/StageBoqModal';
 import { CustomFrameManagerModal } from './production/CustomFrameManagerModal';
 import { DeliveryChallanModal } from './production/DeliveryChallanModal';
@@ -1443,10 +1446,11 @@ export function AccountsGstView() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [targets, setTargets] = useState<FinancialTarget[]>([]);
-  const [activeFinanceTab, setActiveFinanceTab] = useState<'CLIENT_INVOICES' | 'CONTRACTOR_PAYABLES' | 'ORDER_PROFIT' | 'BREAK_EVEN' | 'FINANCIAL_FORECAST'>('CLIENT_INVOICES');
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'CLIENT_INVOICES' | 'DAILY_HEALTH_FORECAST' | 'CONTRACTOR_PAYABLES' | 'ORDER_PROFIT' | 'BREAK_EVEN' | 'FINANCIAL_FORECAST'>('CLIENT_INVOICES');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
   const [isStrategistOpen, setIsStrategistOpen] = useState<boolean>(false);
+  const [isEveningCloseModalOpen, setIsEveningCloseModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1517,6 +1521,12 @@ export function AccountsGstView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsEveningCloseModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs shadow-xs transition-colors cursor-pointer"
+          >
+            <Calendar className="w-4 h-4" /> 🌆 Record Evening Close
+          </button>
           {activeFinanceTab === 'CLIENT_INVOICES' && (
             <>
               <button
@@ -1538,6 +1548,19 @@ export function AccountsGstView() {
 
       {/* Accounts Navigation: Customer Invoices vs Live BEP vs AI Forecast vs Order Profit vs Contractor Payables */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setActiveFinanceTab('DAILY_HEALTH_FORECAST')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeFinanceTab === 'DAILY_HEALTH_FORECAST'
+              ? 'bg-amber-500 text-slate-950 shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <Zap className="w-4 h-4 text-amber-500" />
+          <span>🌆 Daily Closing, BOQ &amp; Health Forecasting</span>
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveFinanceTab('CLIENT_INVOICES')}
@@ -1604,7 +1627,9 @@ export function AccountsGstView() {
         </button>
       </div>
 
-      {activeFinanceTab === 'BREAK_EVEN' ? (
+      {activeFinanceTab === 'DAILY_HEALTH_FORECAST' ? (
+        <BusinessHealthForecastingPanel />
+      ) : activeFinanceTab === 'BREAK_EVEN' ? (
         <BreakEvenPanel />
       ) : activeFinanceTab === 'FINANCIAL_FORECAST' ? (
         <AiFinancialStrategistPanel />
@@ -1756,6 +1781,11 @@ export function AccountsGstView() {
         isOpen={isStrategistOpen}
         onClose={() => setIsStrategistOpen(false)}
         onTargetCreated={handleTargetSaved}
+      />
+
+      <DailyEveningClosingModal
+        isOpen={isEveningCloseModalOpen}
+        onClose={() => setIsEveningCloseModalOpen(false)}
       />
     </div>
   );

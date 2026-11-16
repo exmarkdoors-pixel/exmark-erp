@@ -227,6 +227,12 @@ export function CuttingSchedulePrintHubModal({
   const [hubPaper, setHubPaper] = useState<'a4-12l' | 'single-4x2'>('a4-12l');
   const [hubSelectedPartyIds, setHubSelectedPartyIds] = useState<string[]>(['party-1']);
 
+  // 12L Sticker Sheet Calibration State (Exact Die-Cut Fit & Safe Margin Buffer)
+  const [stickerPaperType, setStickerPaperType] = useState<string>('Oddy 12L Borderless (105 x 49.5 mm)');
+  const [nudgeXmm, setNudgeXmm] = useState<number>(-2.5);
+  const [nudgeYmm, setNudgeYmm] = useState<number>(-3.0);
+  const [safeMarginBuffer, setSafeMarginBuffer] = useState<boolean>(true);
+
   // Converter Modal State
   const [convInch, setConvInch] = useState(30);
   const [convCm, setConvCm] = useState(76.2);
@@ -1405,6 +1411,118 @@ export function CuttingSchedulePrintHubModal({
                 )}
               </div>
 
+              {/* 12L STICKER SHEET PAPER CALIBRATION (EXACT DIE-CUT FIT) */}
+              {hubTab === '12l-sticker' && (
+                <div className="bg-[#0B132B] border border-slate-700/80 rounded-xl p-3.5 space-y-3 mb-3 text-slate-200 print:hidden">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-xs shadow-emerald-400" />
+                      <span className="font-extrabold text-xs tracking-wider text-slate-100 uppercase">
+                        12L Sticker Sheet Paper Calibration (Exact Die-Cut Fit)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSafeMarginBuffer(!safeMarginBuffer)}
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                          safeMarginBuffer
+                            ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-600/60 shadow-xs'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {safeMarginBuffer ? '✓ Safe Margin Buffer Active (No border clipping)' : 'Buffer Inactive'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end text-xs">
+                    {/* Paper Type Selector */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                        Sticker Sheet Paper Type:
+                      </label>
+                      <select
+                        value={stickerPaperType}
+                        onChange={(e) => setStickerPaperType(e.target.value)}
+                        className="w-full bg-[#131b2e] border border-slate-700 hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold cursor-pointer"
+                      >
+                        <option value="Oddy 12L Borderless (105 x 49.5 mm)">Oddy 12L Borderless (105 x 49.5 mm)</option>
+                        <option value="Standard A4 12-Up Die-Cut (105 x 48 mm)">Standard A4 12-Up Die-Cut (105 x 48 mm)</option>
+                        <option value="Desmat 12L Precision Cut (105 x 49 mm)">Desmat 12L Precision Cut (105 x 49 mm)</option>
+                        <option value="Universal Continuous Thermal Roll (100 x 50 mm)">Universal Continuous Thermal Roll (100 x 50 mm)</option>
+                      </select>
+                    </div>
+
+                    {/* Nudge Left / Right */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                        Nudge Left/Right (X: {nudgeXmm > 0 ? `+${nudgeXmm}` : nudgeXmm}mm):
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setNudgeXmm((prev) => Math.round((prev - 0.5) * 10) / 10)}
+                          className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
+                        >
+                          ◄ -0.5mm
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNudgeXmm(0)}
+                          className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700 rounded-lg font-bold transition cursor-pointer"
+                        >
+                          Reset (0)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNudgeXmm((prev) => Math.round((prev + 0.5) * 10) / 10)}
+                          className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
+                        >
+                          +0.5mm ►
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Nudge Top / Bottom */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                        Nudge Top/Bottom (Y: {nudgeYmm > 0 ? `+${nudgeYmm}` : nudgeYmm}mm):
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setNudgeYmm((prev) => Math.round((prev - 0.5) * 10) / 10)}
+                          className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
+                        >
+                          ▲ -0.5mm
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNudgeYmm(0)}
+                          className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700 rounded-lg font-bold transition cursor-pointer"
+                        >
+                          Reset (0)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNudgeYmm((prev) => Math.round((prev + 0.5) * 10) / 10)}
+                          className="flex-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-lg font-bold transition cursor-pointer"
+                        >
+                          +0.5mm ▼
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Print Dialog Tip */}
+                  <div className="bg-amber-950/40 border border-amber-800/50 rounded-lg px-3 py-1.5 text-[11px] text-amber-200 flex items-center gap-2">
+                    <span className="font-bold text-amber-400">💡 Print Dialog Tip:</span>
+                    <span>Set Paper Size: <strong>A4</strong>, Margins: <strong>None (0mm)</strong>, and Scale: <strong>100% (Actual Size)</strong> so labels never shift or print outside the die cuts.</span>
+                  </div>
+                </div>
+              )}
+
               {/* LIVE WHITE PRINT CANVAS */}
               <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-900 flex justify-center print:block print:p-0 print:bg-white">
                 <div className="bg-white text-slate-950 rounded-xl shadow-2xl p-6 w-full max-w-[920px]">
@@ -1419,7 +1537,13 @@ export function CuttingSchedulePrintHubModal({
                         </span>
                       </div>
 
-                      <div className={hubPaper === 'single-4x2' ? 'flex flex-col gap-4 items-center' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
+                      <div
+                        className={hubPaper === 'single-4x2' ? 'flex flex-col gap-4 items-center' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}
+                        style={{
+                          transform: `translate(${nudgeXmm}mm, ${nudgeYmm}mm)`,
+                          transition: 'transform 0.15s ease-out',
+                        }}
+                      >
                         {currentParty.doors.map((d, i) => {
                           const c = calcDoorSizes(d);
                           const num = i + 1;
@@ -1431,14 +1555,16 @@ export function CuttingSchedulePrintHubModal({
                             return (
                               <div
                                 key={d.id}
-                                className="bg-white border border-slate-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between text-slate-900 space-y-1.5"
-                                style={{ minHeight: '175px' }}
+                                className={`bg-white border border-slate-800 rounded-xl ${safeMarginBuffer ? 'p-2.5' : 'p-3.5'} shadow-xs flex flex-col justify-between text-slate-900 space-y-1.5 overflow-hidden`}
+                                style={{ minHeight: '175px', maxWidth: '100%' }}
                               >
                                 <div className="space-y-1">
                                   <div className="flex justify-between items-start gap-2">
                                     <div className="flex items-baseline gap-2 min-w-0">
                                       <span className="text-[9.5px] text-slate-500 font-medium shrink-0">PartyName</span>
-                                      <span className="font-black text-xs uppercase truncate">{currentParty.partyName}</span>
+                                      <span className={`font-black uppercase truncate max-w-[190px] ${safeMarginBuffer && currentParty.partyName.length > 20 ? 'text-[10px]' : 'text-xs'}`}>
+                                        {currentParty.partyName}
+                                      </span>
                                     </div>
                                     <span className="font-mono text-[9.5px] font-black px-1.5 py-0.2 rounded bg-slate-100 border border-slate-400 text-slate-950 shrink-0">
                                       {jobCard}
@@ -1447,7 +1573,7 @@ export function CuttingSchedulePrintHubModal({
                                   <div className="flex justify-between items-center gap-2">
                                     <div className="flex items-baseline gap-2 min-w-0">
                                       <span className="text-[9.5px] text-slate-500 font-medium shrink-0">Model/Part</span>
-                                      <strong className="font-black text-xs uppercase truncate">{d.modelName}</strong>
+                                      <strong className="font-black text-xs uppercase truncate max-w-[170px]">{d.modelName}</strong>
                                     </div>
                                     <span className="px-3.5 py-0.2 rounded-full border border-slate-800 font-black text-[11px] leading-tight shrink-0">
                                       {num}
@@ -1460,13 +1586,13 @@ export function CuttingSchedulePrintHubModal({
                                         {d.hingeSide}
                                       </span>
                                     </div>
-                                    <div className="flex items-center gap-1 min-w-0 border border-slate-300 rounded px-1.5 py-0.5 flex-1 bg-slate-50/70">
+                                    <div className="flex items-center gap-1 min-w-0 border border-slate-300 rounded px-1.5 py-0.5 flex-1 bg-slate-50/70 overflow-hidden">
                                       <span className="text-slate-500 text-[8px] font-semibold shrink-0">LOCK:</span>
-                                      <span className="font-black uppercase truncate">{d.lockSubLabel || d.lockCategory}</span>
+                                      <span className="font-black uppercase truncate max-w-[95px]">{d.lockSubLabel || d.lockCategory}</span>
                                     </div>
-                                    <div className="flex items-center gap-1 min-w-0 border border-slate-300 rounded px-1.5 py-0.5 flex-1 bg-slate-50/70">
+                                    <div className="flex items-center gap-1 min-w-0 border border-slate-300 rounded px-1.5 py-0.5 flex-1 bg-slate-50/70 overflow-hidden">
                                       <span className="text-slate-500 text-[8px] font-semibold shrink-0">COLOUR:</span>
-                                      <span className="font-black uppercase truncate">{d.finishShade}</span>
+                                      <span className="font-black uppercase truncate max-w-[95px]">{d.finishShade}</span>
                                     </div>
                                   </div>
                                 </div>

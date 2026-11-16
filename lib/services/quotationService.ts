@@ -184,11 +184,17 @@ function calcTotals(items: Omit<QuotationItem, 'id' | 'quotationId'>[], discount
 
 export async function listQuotations(filter?: QuotationFilter): Promise<Quotation[]> {
   const all = readStore();
-  return all.filter((q) => {
-    if (filter?.status && q.status !== filter.status) return false;
-    if (filter?.customerId && q.customerId !== filter.customerId) return false;
-    return true;
-  });
+  return all
+    .filter((q) => {
+      if (filter?.status && q.status !== filter.status) return false;
+      if (filter?.customerId && q.customerId !== filter.customerId) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.updatedAt || a.createdAt || a.date).getTime() || 0;
+      const timeB = new Date(b.updatedAt || b.createdAt || b.date).getTime() || 0;
+      return timeB - timeA;
+    });
 }
 
 export async function getQuotation(id: string): Promise<Quotation | null> {

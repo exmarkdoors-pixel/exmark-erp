@@ -60,13 +60,17 @@ export function DoorModelCombobox({
     const q = searchQuery.trim().toLowerCase();
     if (!q) return doorModels;
 
-    // Check for explicit category search like "cat a", "category b", "cat:c", "series a"
-    const catMatch = q.match(/^(?:cat|category|series)[:\s]*([abcde])$/i);
+    // Check for explicit category search like "cat a", "category b", "cat:c", "series a", "cat f"
+    const catMatch = q.match(/^(?:cat|category|series)[:\s]*([abcdef])$/i);
     const targetCat = catMatch ? catMatch[1].toUpperCase() : null;
 
     return doorModels.filter((m) => {
       if (targetCat) {
-        return m.code?.toUpperCase().includes(`-${targetCat}-`) || m.title?.toUpperCase().includes(`CAT ${targetCat}`);
+        return (
+          m.code?.toUpperCase().includes(`-${targetCat}-`) ||
+          m.title?.toUpperCase().includes(`CAT ${targetCat}`) ||
+          ((m as any).category && (m as any).category === targetCat)
+        );
       }
       const matchCode = m.code?.toLowerCase().includes(q);
       const matchTitle = m.title?.toLowerCase().includes(q);
@@ -251,6 +255,11 @@ export function DoorModelCombobox({
                         <span className="font-mono font-bold text-xs text-rose-400 bg-rose-950/50 border border-rose-800/40 px-1.5 py-0.2 rounded">
                           {m.code}
                         </span>
+                        {((m as any).category || m.code?.match(/EXM-([A-Fa-f])-/)) && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950/70 text-amber-300 border border-amber-800/40 font-bold">
+                            Cat {(m as any).category || m.code.match(/EXM-([A-Fa-f])-/)?.[1]?.toUpperCase()}
+                          </span>
+                        )}
                         <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-semibold">
                           {m.material}
                         </span>

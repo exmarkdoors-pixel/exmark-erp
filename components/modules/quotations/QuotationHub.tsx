@@ -68,6 +68,7 @@ import {
   DEFAULT_COLOUR_OPTIONS,
   DEFAULT_THICKNESS_OPTIONS,
   getDefaultThicknessOption,
+  getDefaultLockOption,
   LockOption,
   ColourOption,
   SupplyMode,
@@ -109,6 +110,17 @@ export interface HubDoorModel {
   material: 'FRP' | 'WPC' | 'Steel';
   rate: number;
   finish: string;
+  category?: FrpDoorCategory;
+}
+
+export function detectCategoryFromModelCode(code: string): FrpDoorCategory | null {
+  const match = (code || '').match(/EXM-([A-Fa-f])-(\d+)/i);
+  if (match) {
+    const letter = match[1].toUpperCase();
+    if (['A', 'B', 'C', 'D', 'E'].includes(letter)) return letter as FrpDoorCategory;
+    if (letter === 'F') return 'E'; // Category F maps to top-tier rate E
+  }
+  return null;
 }
 
 // 16th-inch fractions specification for door carpentry & manufacturing
@@ -351,14 +363,34 @@ export interface HubSalesOrder {
 // Initial Customers (empty for clean factory start; populated live from /api/customers)
 const INITIAL_CUSTOMERS: HubCustomer[] = [];
 
-// Door Models Catalog Templates
+// Door Models Catalog Templates with Category Auto-Mapping
 const INITIAL_MODELS: HubDoorModel[] = [
-  { id: 'MOD-101', code: 'EXM-A-101', title: 'Natural Teak Classic Molded', material: 'FRP', rate: 3850, finish: 'Natural Teak Matte' },
-  { id: 'MOD-103', code: 'EXM-AB-103', title: 'Rose Wood Fusion Design', material: 'FRP', rate: 4200, finish: 'Rose Wood Glossy' },
-  { id: 'MOD-113', code: 'EXM-A-113', title: 'Mahogany Waterproof Flush Door', material: 'FRP', rate: 3600, finish: 'Mahogany Matte' },
-  { id: 'MOD-121', code: 'EXM-A-121', title: 'Eeti Wood Heavy Bathroom Door', material: 'FRP', rate: 3950, finish: 'Eeti Wood' },
-  { id: 'MOD-201', code: 'EXM-WPC-201', title: 'Denwood WPC Solid Core Bedroom Door', material: 'WPC', rate: 5400, finish: 'Oak Wood Laminated' },
-  { id: 'MOD-701', code: 'EXM-MS-701', title: 'Double Skin GI Steel Shaft Duct Door', material: 'Steel', rate: 6560, finish: 'Powder Coated Grey' },
+  // Category A Series (Base Piece Rate ₹7,000)
+  { id: 'MOD-A-101', code: 'EXM-A-101', title: 'Natural Teak Classic Molded', material: 'FRP', rate: 7000, finish: 'Natural Teak Matte', category: 'A' },
+  { id: 'MOD-A-102', code: 'EXM-A-102', title: 'Traditional Kerala 2-Panel Molded', material: 'FRP', rate: 7000, finish: 'Teak Woodgrain', category: 'A' },
+  { id: 'MOD-A-113', code: 'EXM-A-113', title: 'Mahogany Waterproof Flush Molded', material: 'FRP', rate: 7000, finish: 'Mahogany Matte', category: 'A' },
+  { id: 'MOD-A-121', code: 'EXM-A-121', title: 'Eeti Wood Bathroom Molded Door', material: 'FRP', rate: 7000, finish: 'Eeti Wood', category: 'A' },
+
+  // Category B Series (Base Piece Rate ₹7,600)
+  { id: 'MOD-B-201', code: 'EXM-B-201', title: 'Rose Wood Premier Architectural Molded', material: 'FRP', rate: 7600, finish: 'Rose Wood Glossy', category: 'B' },
+  { id: 'MOD-B-202', code: 'EXM-B-202', title: 'Teak 4-Panel Elegant Molded', material: 'FRP', rate: 7600, finish: 'Teak Semi-Gloss', category: 'B' },
+  { id: 'MOD-B-205', code: 'EXM-B-205', title: 'Walnut Deep Arch Designer Molded', material: 'FRP', rate: 7600, finish: 'Dark Walnut', category: 'B' },
+
+  // Category C Series (Base Piece Rate ₹8,200)
+  { id: 'MOD-C-301', code: 'EXM-C-301', title: 'Mahogany Deep Embossed Villa Molded', material: 'FRP', rate: 8200, finish: 'Mahogany Glossy', category: 'C' },
+  { id: 'MOD-C-302', code: 'EXM-C-302', title: 'Rosewood Heritage Grooved Molded', material: 'FRP', rate: 8200, finish: 'Heritage Rosewood', category: 'C' },
+
+  // Category D Series (Base Piece Rate ₹8,800)
+  { id: 'MOD-D-401', code: 'EXM-D-401', title: 'Royal Walnut Fusion Designer Molded', material: 'FRP', rate: 8800, finish: 'Royal Walnut', category: 'D' },
+  { id: 'MOD-D-402', code: 'EXM-D-402', title: 'Modern Geometric Line Molded', material: 'FRP', rate: 8800, finish: 'Slate Grey Dual Tone', category: 'D' },
+
+  // Category E/F Luxury Series (Base Piece Rate ₹9,500)
+  { id: 'MOD-F-501', code: 'EXM-F-501', title: 'Luxury Metallic Architectural Series', material: 'FRP', rate: 9500, finish: 'Metallic Bronze Luxury', category: 'E' },
+  { id: 'MOD-F-502', code: 'EXM-F-502', title: 'Grand Royal Gold Finish Molded', material: 'FRP', rate: 9500, finish: 'Royal Gold Teak', category: 'E' },
+
+  // Other materials
+  { id: 'MOD-WPC-201', code: 'EXM-WPC-201', title: 'Denwood WPC Solid Core Bedroom Door', material: 'WPC', rate: 5400, finish: 'Oak Wood Laminated' },
+  { id: 'MOD-MS-701', code: 'EXM-MS-701', title: 'Double Skin GI Steel Shaft Duct Door', material: 'Steel', rate: 6560, finish: 'Powder Coated Grey' },
 ];
 
 // Clean Fresh Initial Collections
@@ -449,13 +481,16 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
 
   // Helper to create a clean zero-baseline draft row
   const createZeroRow = (id = 1, modelId = '', availableFrames: CustomFrameProfile[] = framesList): QuoteItemRow => {
-    const defaultLock = (frpSettings.locks && frpSettings.locks[0]) || DEFAULT_LOCK_OPTIONS[0];
+    const defaultLock = getDefaultLockOption(frpSettings.locks);
     const defaultColour = (frpSettings.colours && frpSettings.colours[0]) || DEFAULT_COLOUR_OPTIONS[0];
     const defaultFrame = getDefaultFrameProfile(availableFrames);
     const defaultThickness = getDefaultThicknessOption(frpSettings.doorThicknesses);
+    const resolvedModelId = modelId || INITIAL_MODELS[0]?.id || 'MOD-A-101';
+    const foundModel = doorModels.find((m) => m.id === resolvedModelId) || INITIAL_MODELS[0];
+    const detectedCat = foundModel?.category || (foundModel?.code ? detectCategoryFromModelCode(foundModel.code) : null) || 'A';
     return {
       id,
-      modelId: modelId || INITIAL_MODELS[0]?.id || 'MOD-101',
+      modelId: resolvedModelId,
       unit: 'inch',
       height: 0,
       heightFraction: '0',
@@ -467,7 +502,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       widthFraction: '0',
       qty: 0,
       rate: 0,
-      frpCategory: 'A',
+      frpCategory: detectedCat,
       lockId: defaultLock?.id || 'lock-none',
       lockPrice: defaultLock?.price || 0,
       colourId: defaultColour?.id || 'col-teak-matte',
@@ -1296,8 +1331,8 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
   const handleAddRow = () => {
     const nextId = quoteItemRows.length + 1;
     const firstModel = doorModels[0];
-    const defaultCat: FrpDoorCategory = 'A';
-    const defaultLock = (frpSettings.locks && frpSettings.locks[0]) || DEFAULT_LOCK_OPTIONS[0];
+    const defaultCat: FrpDoorCategory = firstModel?.category || (firstModel?.code ? detectCategoryFromModelCode(firstModel.code) : null) || 'A';
+    const defaultLock = getDefaultLockOption(frpSettings.locks);
     const defaultColour = (frpSettings.colours && frpSettings.colours[0]) || DEFAULT_COLOUR_OPTIONS[0];
     const defaultFrame = getDefaultFrameProfile(framesList);
     const frameTypeName = formatFrameSectionLabel(defaultFrame);
@@ -1361,8 +1396,8 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
   const handleAddSectionRow = (sectionName: string) => {
     const nextId = quoteItemRows.length + 1;
     const firstModel = doorModels[0];
-    const defaultCat: FrpDoorCategory = 'A';
-    const defaultLock = (frpSettings.locks && frpSettings.locks[0]) || DEFAULT_LOCK_OPTIONS[0];
+    const defaultCat: FrpDoorCategory = firstModel?.category || (firstModel?.code ? detectCategoryFromModelCode(firstModel.code) : null) || 'A';
+    const defaultLock = getDefaultLockOption(frpSettings.locks);
     const defaultColour = (frpSettings.colours && frpSettings.colours[0]) || DEFAULT_COLOUR_OPTIONS[0];
     const defaultFrame = getDefaultFrameProfile(framesList);
     const frameTypeName = formatFrameSectionLabel(defaultFrame);
@@ -1482,10 +1517,17 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       }
     }
 
-    // Auto-update rate when model changes (only if category not set or custom)
-    if (updates.modelId && updates.modelId !== currentRow.modelId && (!currentRow.frpCategory || currentRow.frpCategory === 'CUSTOM')) {
+    // Auto-detect Category & price when model changes (e.g. EXM-A-101 -> Cat A, EXM-B-201 -> Cat B @ ₹7,600, C, D, F/E)
+    if (updates.modelId && updates.modelId !== currentRow.modelId) {
       const found = doorModels.find((m) => m.id === updates.modelId);
-      if (found) updates.rate = found.rate;
+      if (found) {
+        const detectedCat = found.category || detectCategoryFromModelCode(found.code);
+        if (detectedCat) {
+          updates.frpCategory = detectedCat;
+        } else if (!currentRow.frpCategory || currentRow.frpCategory === 'CUSTOM') {
+          updates.rate = found.rate;
+        }
+      }
     }
 
     // Auto-sync hardware lock price
@@ -1523,6 +1565,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     // Auto-pricing engine calculation for FRP doors (Category A-E)
     const activeCategory = updates.frpCategory !== undefined ? updates.frpCategory : currentRow.frpCategory;
     const isDimensionOrSpecChange =
+      updates.modelId !== undefined ||
       updates.height !== undefined ||
       updates.widthTop !== undefined ||
       updates.widthBottom !== undefined ||
@@ -4000,6 +4043,11 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                   if (quotationCategoryFilter === 'SITE_MEASUREMENT') return isSite;
                   if (quotationCategoryFilter === 'SHOWROOM_DIRECT') return !isSite;
                   return true;
+                })
+                .sort((a, b) => {
+                  const timeA = new Date((a as any).updatedAt || a.date).getTime() || 0;
+                  const timeB = new Date((b as any).updatedAt || b.date).getTime() || 0;
+                  return timeB - timeA;
                 });
 
               if (filteredQuotes.length === 0) {

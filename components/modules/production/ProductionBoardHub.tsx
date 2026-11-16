@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Lock,
   Share2,
+  Flame,
 } from 'lucide-react';
 import type {
   ProductionOrder,
@@ -46,6 +47,8 @@ import { DeliveryChallanModal } from './DeliveryChallanModal';
 import { ShareOrderStatusModal } from './ShareOrderStatusModal';
 import { LogContractorWorkModal } from './LogContractorWorkModal';
 import { ProductionFloorGangsModal } from './ProductionFloorGangsModal';
+import { LockSettingBoqModal, LockSettingOrderData } from './LockSettingBoqModal';
+import { ProgressiveMoldingSplitModal } from './ProgressiveMoldingSplitModal';
 import { OrderProfitDetailModal } from '../finance/OrderProfitPanel';
 import type { OrderProfitBreakdown } from '@/lib/services/orderProfitService';
 import {
@@ -143,8 +146,33 @@ export function ProductionBoardHub() {
   const [selectedDeliveryChallanOrder, setSelectedDeliveryChallanOrder] = useState<ProductionOrder | null>(null);
   const [selectedShareOrder, setSelectedShareOrder] = useState<ProductionOrder | null>(null);
   const [selectedContractorWork, setSelectedContractorWork] = useState<{ order: ProductionOrder; door?: ProductionDoorItem } | null>(null);
+  const [selectedLockSettingOrder, setSelectedLockSettingOrder] = useState<LockSettingOrderData | null>(null);
+  const [selectedSplitBatchOrder, setSelectedSplitBatchOrder] = useState<ProductionOrder | null>(null);
   const [profitInspectOrder, setProfitInspectOrder] = useState<OrderProfitBreakdown | null>(null);
   const [isLoadingProfitModal, setIsLoadingProfitModal] = useState(false);
+
+  const openLockSettingSlip = useCallback((order: ProductionOrder, subsetDoors?: ProductionDoorItem[]) => {
+    const doorsList = subsetDoors && subsetDoors.length > 0 ? subsetDoors : (order.doors || []);
+    const lockData: LockSettingOrderData = {
+      orderNumber: order.prodOrderNumber,
+      jobCardNumber: order.jobCardNumber,
+      customerName: order.customerName || 'Kerala Customer',
+      siteLocation: order.siteName || order.district || 'Kerala Site',
+      orderDate: order.createdAt?.slice(0, 10),
+      doors: doorsList.map((d, idx) => ({
+        tag: d.doorNumber || `#D${idx + 1}`,
+        roomTag: (d as any).roomTag || d.doorNumber || `Room ${101 + idx}`,
+        finishedSize: `${((d.finishedHeightMm || 2080) / 10).toFixed(1)} × ${((d.finishedWidthMm || 820) / 10).toFixed(1)} cm`,
+        thickness: `${d.doorThicknessMm || (d as any).thicknessMm || 30}mm`,
+        lockType: d.lockType || 'Baby Latch Black',
+        handing: d.handing === 'LH' ? 'LH Inside' : 'RH Inside',
+        backsetMm: 60,
+        handleHeightMm: 1000,
+        remark: d.remark,
+      })),
+    };
+    setSelectedLockSettingOrder(lockData);
+  }, []);
 
   const openOrderProfitModal = useCallback(async (orderId: string) => {
     setIsLoadingProfitModal(true);
@@ -726,6 +754,26 @@ export function ProductionBoardHub() {
                               <Layers className="w-3 h-3" />
                               <span>BOQ</span>
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => openLockSettingSlip(order)}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[10px] font-bold cursor-pointer"
+                              title="Print Post-Molding Lock & Hardware Setting BOQ Slip for Carpentry Station"
+                            >
+                              <Lock className="w-3 h-3 text-amber-400" />
+                              <span>Lock Slip</span>
+                            </button>
+                            {order.doors && order.doors.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedSplitBatchOrder(order)}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/40 rounded text-[10px] font-bold cursor-pointer"
+                                title="Progressive Split-Batch Molding Plan (e.g. Day 1: 6 doors, Day 2: 8, Day 3: 8)"
+                              >
+                                <Flame className="w-3 h-3 text-rose-400" />
+                                <span>Split Heat</span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => setSelectedContractorWork({ order })}
@@ -1784,6 +1832,35 @@ export function ProductionBoardHub() {
         isOpen={Boolean(selectedShareOrder)}
         onClose={() => setSelectedShareOrder(null)}
         order={selectedShareOrder}
+      />
+
+      <LockSettingBoqModal
+        isOpen={Boolean(selectedLockSettingOrder)}
+        onClose={() => setSelectedLockSettingOrder(null)}
+        orderData={selectedLockSettingOrder}
+      />
+
+      <ProgressiveMoldingSplitModal
+        isOpen={Boolean(selectedSplitBatchOrder)}
+        onClose={() => setSelectedSplitBatchOrder(null)}
+        order={selectedSplitBatchOrder}
+        onOpenStickersForBatch={(batchDoors) => {
+          if (selectedSplitBatchOrder) {
+            setSelectedStickerOrder({
+              ...selectedSplitBatchOrder,
+              doors: batchDoors,
+            });
+          }
+        }}
+        onOpenLockSlipForBatch={(ord, batchDoors) => {
+          openLockSettingSlip(ord, batchDoors);
+        }}
+        onOpenChallanForBatch={(ord, batchDoors) => {
+          setSelectedDeliveryChallanOrder({
+            ...ord,
+            doors: batchDoors,
+          });
+        }}
       />
     </div>
   );
