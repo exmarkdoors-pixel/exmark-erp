@@ -643,6 +643,32 @@ function buildApplicationMenu() {
       label: 'Help',
       submenu: [
         {
+          label: 'Check for Software Updates...',
+          accelerator: 'CmdOrCtrl+U',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.executeJavaScript(`
+                try {
+                  window.location.hash = '#settings';
+                  setTimeout(() => {
+                    const btn = document.querySelector('[data-tab="system_updates"]') || Array.from(document.querySelectorAll('button')).find(b => b.textContent && b.textContent.includes('Software Updates'));
+                    if (btn) btn.click();
+                  }, 300);
+                } catch (e) {}
+              `);
+            }
+          },
+        },
+        {
+          label: 'Open EXE Releases Folder (C:\\EXMARK-Releases)',
+          click: () => {
+            const releaseDir = getReleaseFolderPath();
+            fs.mkdirSync(releaseDir, { recursive: true });
+            shell.openPath(releaseDir);
+          },
+        },
+        { type: 'separator' },
+        {
           label: 'View Embedded Server Log',
           click: () => {
             const logPath = getServerLogPath();
@@ -882,6 +908,46 @@ ipcMain.handle('toggle-lan-sharing', async () => {
   }
   buildApplicationMenu();
   return { bindLan: nextBind };
+});
+
+ipcMain.handle('open-releases-folder', () => {
+  const releaseDir = getReleaseFolderPath();
+  fs.mkdirSync(releaseDir, { recursive: true });
+  return shell.openPath(releaseDir);
+});
+
+ipcMain.handle('launch-update-installer', async (event, installerPath) => {
+  try {
+    let resolved = installerPath;
+    if (!resolved) {
+      const releaseDir = getReleaseFolderPath();
+      if (fs.existsSync(releaseDir)) {
+        const files = fs.readdirSync(releaseDir).filter((f) => f.toLowerCase().endsWith('.exe'));
+        if (files.length > 0) {
+          resolved = path.join(releaseDir, files[0]);
+        }
+      }
+    }
+    if (!resolved || !fs.existsSync(resolved)) {
+      throw new Error(`Installer file not found: ${resolved || 'None specified'}`);
+    }
+
+    console.log('[Desktop Main] Launching detached installer update:', resolved);
+    const child = spawn(resolved, [], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
+
+    setTimeout(() => {
+      app.quit();
+    }, 1000);
+
+    return { success: true, launched: resolved };
+  } catch (err) {
+    console.error('[Desktop Main] Failed to launch installer:', err.message);
+    return { success: false, error: err.message };
+  }
 });
 
 app.on('before-quit', () => {

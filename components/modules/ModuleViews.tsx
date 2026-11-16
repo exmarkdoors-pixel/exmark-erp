@@ -42,6 +42,7 @@ import {
   MessageSquare,
   KeyRound,
   UserPlus,
+  ArrowUpCircle,
 } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/services/whatsappService';
 import { DoorMeasurementModal } from './DoorMeasurementModal';
@@ -51,6 +52,7 @@ import ProductCategoriesSettings from '@/components/settings/ProductCategoriesSe
 import AdminCustomizationSettings from '@/components/settings/AdminCustomizationSettings';
 import CompanyFactoryProfileSettings from '@/components/settings/CompanyFactoryProfileSettings';
 import SystemBackupAndUpdateTab from '@/components/settings/SystemBackupAndUpdateTab';
+import InbuiltUpdateTab from '@/components/settings/InbuiltUpdateTab';
 import CloudSyncSettingsTab from '@/components/settings/CloudSyncSettingsTab';
 import StaffAccessManagementTab from '@/components/settings/StaffAccessManagementTab';
 import { DisplayAppearanceSettings } from '@/components/settings/DisplayAppearanceSettings';
@@ -3508,6 +3510,7 @@ export function SettingsView({
     | 'frames_boq_wood'
     | 'categories'
     | 'profile'
+    | 'system_updates'
     | 'backup_updates'
     | 'cloud_sync'
     | 'staff_access';
@@ -3519,6 +3522,7 @@ export function SettingsView({
     | 'frames_boq_wood'
     | 'categories'
     | 'profile'
+    | 'system_updates'
     | 'backup_updates'
     | 'cloud_sync'
     | 'staff_access'
@@ -3603,6 +3607,17 @@ export function SettingsView({
           Company &amp; Factory Profile
         </button>
         <button
+          onClick={() => setActiveTab('system_updates')}
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'system_updates'
+              ? 'bg-red-600 text-white'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <ArrowUpCircle className="w-3.5 h-3.5 text-amber-400" />
+          Software Updates (EXE &amp; APK)
+        </button>
+        <button
           onClick={() => setActiveTab('backup_updates')}
           className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 ${
             activeTab === 'backup_updates'
@@ -3610,7 +3625,7 @@ export function SettingsView({
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
           }`}
         >
-          Backup, Restore &amp; Safe Updates
+          Backup, Restore &amp; Vault
         </button>
         <button
           onClick={() => setActiveTab('cloud_sync')}
@@ -3637,6 +3652,8 @@ export function SettingsView({
       {activeTab === 'categories' && <ProductCategoriesSettings />}
 
       {activeTab === 'profile' && <CompanyFactoryProfileSettings />}
+
+      {activeTab === 'system_updates' && <InbuiltUpdateTab />}
 
       {activeTab === 'backup_updates' && <SystemBackupAndUpdateTab />}
 

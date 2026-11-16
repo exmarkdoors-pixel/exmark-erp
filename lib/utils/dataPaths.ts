@@ -46,6 +46,7 @@ export function getDataDir(): string {
  * Defaults to EXMARK_BACKUP_DIR -> <EXMARK_DATA_DIR>/backups -> ./backups.
  */
 export function getBackupDir(): string {
+  loadEnvLocalIfUnset();
   const explicitBackup = process.env.EXMARK_BACKUP_DIR?.trim();
   if (explicitBackup) {
     const resolved = path.resolve(explicitBackup);

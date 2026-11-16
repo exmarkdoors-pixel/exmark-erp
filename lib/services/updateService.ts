@@ -1,3 +1,6 @@
+import { getAuthoritativeAppVersion } from './updateManager';
+export * from './updateManager';
+
 export interface SystemVersionInfo {
   appVersion: string;
   releaseChannel: 'production' | 'staging';
@@ -23,11 +26,12 @@ export interface SystemVersionInfo {
 const START_TIME = Date.now();
 
 export function getSystemVersionInfo(): SystemVersionInfo {
+  const version = getAuthoritativeAppVersion();
   return {
-    appVersion: '2.5.0-production',
+    appVersion: version,
     releaseChannel: 'production',
-    buildDate: '2026-11-14',
-    gitCommit: 'a3c6cc1',
+    buildDate: '2026-11-16',
+    gitCommit: 'bbe4ac4',
     environment: process.env.NODE_ENV || 'production',
     uptimeSeconds: Math.floor((Date.now() - START_TIME) / 1000),
     health: {
