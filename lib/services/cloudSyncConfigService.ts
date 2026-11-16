@@ -109,7 +109,7 @@ export function detectLocalGoogleDriveFolders(): string[] {
   }
 
   for (const sub of ['Google Drive', 'GoogleDrive', 'My Drive', 'OneDrive']) {
-    const p = path.join(home, sub);
+     const p = path.join(/turbopackIgnore: true/ home, sub);
     if (fs.existsSync(p)) candidates.push(path.join(p, 'EXMARK-ERP-Cloud'));
   }
 
