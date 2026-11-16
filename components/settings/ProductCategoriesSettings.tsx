@@ -27,7 +27,6 @@ export default function ProductCategoriesSettings() {
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newBaseRate, setNewBaseRate] = useState(190);
-  const [newHsn, setNewHsn] = useState('3925.20.00');
 
   const handleToggle = async (code: string, currentEnabled: boolean) => {
     setIsSubmitting(true);
@@ -71,8 +70,8 @@ export default function ProductCategoriesSettings() {
           description: newDesc.trim(),
           pricing: {
             baseRateSqFt: newBaseRate,
-            standardGstPercent: 18,
-            hsnCode: newHsn.trim(),
+            standardGstPercent: 0,
+            hsnCode: '',
           },
           enabled: true,
           reportingVisibility: true,
@@ -218,16 +217,6 @@ export default function ProductCategoriesSettings() {
                   max="2000"
                   value={newBaseRate}
                   onChange={(e) => setNewBaseRate(parseFloat(e.target.value) || 0)}
-                  className="w-full px-2.5 py-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-700 rounded text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-slate-400 mb-1">HSN Code</label>
-                <input
-                  type="text"
-                  value={newHsn}
-                  onChange={(e) => setNewHsn(e.target.value)}
-                  placeholder="e.g. 3925.20.00"
                   className="w-full px-2.5 py-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-700 rounded text-white"
                 />
               </div>
@@ -392,12 +381,8 @@ export default function ProductCategoriesSettings() {
                           <span className="font-bold text-white">₹{cat.pricing.baseRateSqFt} / sq.ft</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">GST Slab:</span>
-                          <span className="font-semibold text-slate-300">{cat.pricing.standardGstPercent}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">HSN Code:</span>
-                          <span className="font-mono text-slate-300">{cat.pricing.hsnCode}</span>
+                          <span className="text-slate-400">Minimum Area:</span>
+                          <span className="font-semibold text-slate-300">{cat.pricing.minimumOrderSqFt || 15} sq.ft</span>
                         </div>
                       </div>
                     </div>

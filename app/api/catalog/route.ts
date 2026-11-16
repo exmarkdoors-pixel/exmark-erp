@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   getCatalogMaster,
   saveDoorModel,
@@ -9,8 +10,11 @@ import {
   deleteLock,
 } from '@/lib/services/catalogService';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const catalog = await getCatalogMaster();
     return NextResponse.json({ success: true, data: catalog });
   } catch (error: unknown) {
@@ -21,6 +25,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, undefined, ['Super Admin', 'Management', 'Production', 'Sales']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const type = body.type as 'MODEL' | 'COLOUR' | 'LOCK';
     const item = body.item;
@@ -63,6 +70,9 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, undefined, ['Super Admin', 'Management', 'Production', 'Sales']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') as 'MODEL' | 'COLOUR' | 'LOCK' | null;
     const id = searchParams.get('id');

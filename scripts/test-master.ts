@@ -135,19 +135,19 @@ async function runMasterAcceptanceSuite() {
           thicknessMm: 35,
           quantity: 40,
           unitPrice: 8500,
-          gstRate: 18,
+          gstRate: 0,
           totalPrice: 40 * 8500,
         },
       ],
     });
-    assert('PHASE 2', 'GST Quotation calculated with 18% HSN 3925.20.00', quote.gstAmount === Math.round((340000 - 10000) * 0.18));
+    assert('PHASE 2', 'Direct Non-GST Quotation calculated with 0% tax', quote.gstAmount === 0 && quote.totalAmount === 340000 - 10000);
 
     // ── PHASE 3: PRODUCTION & MANUFACTURING ──────────────────────────────────
     const prodOrder = await createProductionOrder({
       customerName: customer.name,
       siteName: 'Grand Villas Waterfront',
       district: 'Ernakulam',
-      lineAssigned: 'Line 1: FRP Hydraulic Press (300 Ton)',
+      lineAssigned: 'Hand Station 1: Hand-Layup & Manual Mold Benches',
       priority: 'HIGH',
       tolerances: {
         heightDeductionMm: 10,
@@ -179,7 +179,7 @@ async function runMasterAcceptanceSuite() {
       subtotal: 340000,
       dueDate: '2026-11-28',
     });
-    assert('PHASE 4', 'GST Tax Invoice created', Boolean(invoice.id) && invoice.totalAmount === 401200);
+    assert('PHASE 4', 'Non-GST Sales Invoice created with zero tax', Boolean(invoice.id) && invoice.cgst === 0 && invoice.sgst === 0 && invoice.totalAmount === 340000);
 
     const payment = await recordPayment({
       invoiceId: invoice.id,

@@ -82,13 +82,13 @@ async function runTestSuite() {
   const emptyBrandValidation = validateCompanyProfile({ brandName: '' });
   assert(!emptyBrandValidation.isValid, 'Validation correctly rejects empty Brand Name');
 
-  const invalidGstinValidation = validateCompanyProfile({
+  const noGstinValidation = validateCompanyProfile({
     registeredCompanyName: 'EXMARK DOORS',
     brandName: 'EXMARK',
-    gstin: 'INVALID_GSTIN_123',
+    gstin: '',
     factories: activeProfile.factories,
   });
-  assert(!invalidGstinValidation.isValid, 'Validation correctly rejects malformed GSTIN');
+  assert(noGstinValidation.isValid, 'Validation allows Non-GST profile with empty GSTIN');
 
   const invalidPinValidation = validateCompanyProfile({
     registeredCompanyName: 'EXMARK DOORS',

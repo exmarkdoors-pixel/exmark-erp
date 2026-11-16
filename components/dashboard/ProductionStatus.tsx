@@ -78,13 +78,13 @@ export default function ProductionStatus({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              Factory Floor & Production Lines
+              Hand-Crafted FRP Workshop &amp; Artisan Benches
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                 {factoryDisplayName}
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Live capacity utilization across FRP press, WPC extrusion & CNC routing
+              Live artisan output across Hand-Layup molding, manual cutting, woodgrain artistry &amp; QC
             </p>
           </div>
         </div>
@@ -101,7 +101,12 @@ export default function ProductionStatus({
 
       {/* Production Lines List */}
       <div className="space-y-3.5">
-        {activeLines.map((line) => {
+        {activeLines.length === 0 ? (
+          <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-800">
+            No active workshop benches loaded from floor queue yet. Visit Production Floor to release orders.
+          </div>
+        ) : (
+        activeLines.map((line) => {
           return (
             <div
               key={line.id}
@@ -161,7 +166,8 @@ export default function ProductionStatus({
               </div>
             </div>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );

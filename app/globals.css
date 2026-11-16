@@ -3,6 +3,24 @@
 :root {
   --background: #070D1E;
   --foreground: #F8FAFC;
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
+/* iOS Safe Area Utilities */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 @theme inline {
@@ -62,14 +80,84 @@ body {
     overflow: visible !important;
   }
 
-  /* Completely suppress navigation, sidebars, headers, floating modals background */
+  /* Suppress navigation, sidebars, headers, footer & explicit print-hidden chrome (never hide modal backdrop wrappers) */
   aside,
-  header,
+  header:not(.printable-modal-root header),
   nav,
+  footer,
   .print\:hidden,
-  [data-print-hidden="true"],
+  [data-print-hidden="true"] {
+    display: none !important;
+  }
+
+  .backdrop-blur-xs,
   .backdrop-blur-sm,
   .backdrop-blur-md {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Universal Modal Print Isolation: hide background dashboard & siblings, unclip ancestors & multi-page sheets */
+  body:has(.printable-modal-root) *:not(.printable-modal-root):not(.printable-modal-root *):not(:has(.printable-modal-root)) {
+    display: none !important;
+  }
+
+  body:has(.printable-modal-root) :has(.printable-modal-root) {
+    position: static !important;
+    inset: auto !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  body:has(.printable-modal-root) .printable-modal-root {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+  }
+
+  body:has(.printable-modal-root) .printable-modal-root > div,
+  body:has(.printable-modal-root) .printable-modal-root [id*="printable"] {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body:has(.printable-modal-root) .printable-modal-root .overflow-y-auto,
+  body:has(.printable-modal-root) .printable-modal-root .overflow-x-auto,
+  body:has(.printable-modal-root) .printable-modal-root .overflow-hidden {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+  }
+
+  body:has(.printable-modal-root) .printable-modal-root .print\:hidden,
+  body:has(.printable-modal-root) .printable-modal-root [data-print-hidden="true"] {
     display: none !important;
   }
 
@@ -109,7 +197,7 @@ body {
     padding: 5px 8px !important;
   }
 
-  /* Ensure modal printable sheet fills page when modal is active */
+  /* Legacy modal print sheet fallback */
   .printable-document-modal {
     position: static !important;
     inset: auto !important;
@@ -128,6 +216,13 @@ body {
     border: none !important;
   }
 
+  .printable-report-sheet {
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
   /* Remove screen borders and shadows */
   .shadow-xl,
   .shadow-2xl,
@@ -136,3 +231,70 @@ body {
     box-shadow: none !important;
   }
 }
+
+/* =============================================================
+ * STANDARD UI THEMES & FONT SCALE ENGINE
+ * ============================================================= */
+:root {
+  --erp-font-scale: 1;
+  --erp-accent: #3b82f6;
+  --erp-accent-rgb: 59, 130, 246;
+}
+
+body.theme-light-corporate {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+body.theme-light-corporate .bg-slate-950,
+body.theme-light-corporate .bg-slate-900 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.theme-light-corporate .bg-slate-900\/90,
+body.theme-light-corporate .bg-slate-900\/80,
+body.theme-light-corporate .bg-slate-900\/50 {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.theme-light-corporate .bg-slate-950\/60,
+body.theme-light-corporate .bg-slate-950\/80 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.theme-light-corporate .text-slate-100,
+body.theme-light-corporate .text-white {
+  color: #0f172a !important;
+}
+
+body.theme-light-corporate .text-slate-300,
+body.theme-light-corporate .text-slate-400 {
+  color: #475569 !important;
+}
+
+body.theme-light-corporate .border-slate-800,
+body.theme-light-corporate .border-slate-700 {
+  border-color: #cbd5e1 !important;
+}
+
+body.theme-tally-monochrome {
+  background-color: #0c0d0e;
+  color: #f4f4f5;
+  font-family: var(--font-mono), monospace, system-ui;
+}
+
+body.theme-tally-monochrome .border-slate-800,
+body.theme-tally-monochrome .border-slate-700 {
+  border-color: #3f3f46 !important;
+}
+
+body.theme-tally-monochrome .rounded-xl,
+body.theme-tally-monochrome .rounded-2xl {
+  border-radius: 4px !important;
+}
+

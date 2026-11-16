@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import { getMeasurementById } from '@/lib/services/measurementService';
 import {
   generateConfirmationToken,
@@ -7,10 +8,13 @@ import {
 import { CustomerConfirmationDecision } from '@/types/communication';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const msr = await getMeasurementById(id);
     if (!msr) {
@@ -36,6 +40,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, undefined, [
+      'Super Admin',
+      'Management',
+      'Sales',
+      'Site Engineer',
+    ]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const body = await req.json();
 

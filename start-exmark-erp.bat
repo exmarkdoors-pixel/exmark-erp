@@ -1,14 +1,14 @@
 @echo off
-title EXMARK ERP - Localhost Runner
+set "ERP_PORT=%~1"
+if "%ERP_PORT%"=="" set "ERP_PORT=4000"
+
+title EXMARK ERP - Localhost %ERP_PORT% Runner
 cd /d "%~dp0"
 
 echo ========================================================================
-echo EXMARK ERP - Localhost 3000 Runner
+echo EXMARK ERP - Localhost %ERP_PORT% Runner (Vault: C:\EXMARK-ERP-DATA)
 echo ========================================================================
 echo.
 
-echo Starting EXMARK ERP dev server at http://localhost:3000 ...
-start "" "http://localhost:3000"
-call npm.cmd run dev
-
+node scripts\start-local-server.mjs --port %ERP_PORT% --host 0.0.0.0 --open
 pause

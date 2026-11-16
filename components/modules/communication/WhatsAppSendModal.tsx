@@ -38,9 +38,9 @@ export function WhatsAppSendModal({
         case 'MEASUREMENT_CONFIRMATION':
           return `നമസ്കാരം ${recipientName || 'സർ/മാഡം'}, EXMARK DOORS-ൽ നിന്നുള്ള നിങ്ങളുടെ സൈറ്റ് ഡോർ അളവുകൾ തയ്യാറായിട്ടുണ്ട്. ദയവായി താഴെ നൽകിയിരിക്കുന്ന ലിങ്ക് വഴി അളവുകൾ പരിശോധിച്ച് സ്ഥിരീകരിക്കുക:\n🔗 https://exmarkdoors.com/confirm/${initialDocumentId || 'msr-doc'}`;
         case 'QUOTATION':
-          return `നമസ്കാരം ${recipientName}, EXMARK FRP ഡോറുകൾക്കുള്ള നിങ്ങളുടെ കൊട്ടേഷൻ എസ്റ്റിമേറ്റ് തയ്യാറായിട്ടുണ്ട്. 18% GST ഉൾപ്പെടെയുള്ള വിവരങ്ങൾ ഇതോടൊപ്പം അറ്റാച്ച് ചെയ്തിരിക്കുന്നു.`;
+          return `നമസ്കാരം ${recipientName}, EXMARK FRP ഡോറുകൾക്കുള്ള നിങ്ങളുടെ കൊട്ടേഷൻ എസ്റ്റിമേറ്റ് തയ്യാറായിട്ടുണ്ട്. വിശദമായ വിവരങ്ങൾ ഇതോടൊപ്പം അറ്റാച്ച് ചെയ്തിരിക്കുന്നു.`;
         case 'INVOICE':
-          return `പ്രിയ ${recipientName}, EXMARK DOORS ടാക്സ് ഇൻവോയ്സ് ഇതോടൊപ്പം ചേർക്കുന്നു. Kerala HSN 3925. നന്ദി!`;
+          return `പ്രിയ ${recipientName}, EXMARK DOORS സെയിൽസ് ഇൻവോയ്സ് ഇതോടൊപ്പം ചേർക്കുന്നു. നന്ദി!`;
         default:
           return `നമസ്കാരം ${recipientName}, EXMARK DOORS-ൽ നിന്നുള്ള അറിയിപ്പ്.`;
       }
@@ -49,9 +49,9 @@ export function WhatsAppSendModal({
         case 'MEASUREMENT_CONFIRMATION':
           return `Dear ${recipientName || 'Customer'}, your EXMARK Site Door Measurements (${initialDocumentId || 'MSR-2026-001'}) have been verified. Please inspect finished cutting sizes and tap below to confirm:\n🔗 https://exmarkdoors.com/confirm/${initialDocumentId || 'msr-doc'}`;
         case 'QUOTATION':
-          return `Dear ${recipientName}, your official quotation estimate for EXMARK Premium FRP Doors is ready with 18% GST. Total estimate is attached.`;
+          return `Dear ${recipientName}, your official quotation estimate for EXMARK Premium FRP Doors is ready. Total estimate is attached.`;
         case 'INVOICE':
-          return `Dear ${recipientName}, your EXMARK GST Tax Invoice has been generated. e-Way bill and vehicle dispatch details attached.`;
+          return `Dear ${recipientName}, your EXMARK Sales Invoice / Bill has been generated. Vehicle dispatch details attached.`;
         case 'RECEIPT':
           return `Payment Received: Dear ${recipientName}, we have received your payment. Official EXMARK receipt is attached. Thank you!`;
         case 'DISPATCH_ALERT':
@@ -147,7 +147,7 @@ export function WhatsAppSendModal({
               >
                 <option value="MEASUREMENT_CONFIRMATION">Measurement Confirmation</option>
                 <option value="QUOTATION">Quotation Estimate PDF</option>
-                <option value="INVOICE">Tax Invoice & e-Way Bill</option>
+                <option value="INVOICE">Sales Invoice / Bill</option>
                 <option value="RECEIPT">Payment Receipt</option>
                 <option value="DISPATCH_ALERT">Vehicle Dispatch Alert</option>
                 <option value="WARRANTY_CERT">FRP Warranty Certificate</option>

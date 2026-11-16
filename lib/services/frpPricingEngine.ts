@@ -27,6 +27,7 @@
 // In isomorphic environments (client vs server), fs/path are loaded conditionally
 let fsModule: typeof import('fs') | null = null;
 let pathModule: typeof import('path') | null = null;
+let dataPathsModule: typeof import('../utils/dataPaths') | null = null;
 
 if (typeof window === 'undefined') {
   try {
@@ -34,6 +35,8 @@ if (typeof window === 'undefined') {
     fsModule = require('fs');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     pathModule = require('path');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    dataPathsModule = require('../utils/dataPaths');
   } catch {
     // Browser or edge runtime
   }
@@ -57,10 +60,21 @@ export interface ColourOption {
   category?: 'WOOD_GRAIN' | 'SOLID_COLOR' | 'METALLIC' | 'CUSTOM';
 }
 
+export interface DoorThicknessOption {
+  id: string;
+  name: string;
+  thicknessMm: number;
+  extraRate: number;
+  isDefault?: boolean;
+}
+
 export interface FrpRateCardSettings {
-  maxWidthCm: number;        // default: 80
-  maxHeightCm: number;       // default: 210
-  extraSqftRate: number;     // default: 250 (₹250/sq.ft)
+  maxWidthCm: number;              // default: 80
+  maxHeightCm: number;             // default: 210
+  extraSqftRate: number;           // default: 250 (₹250/sq.ft above 80×210 cm)
+  highExtraMaxWidthCm?: number;    // default: 90
+  highExtraMaxHeightCm?: number;   // default: 230
+  highExtraSqftRate?: number;      // default: 450 (₹450/sq.ft above 90×230 cm / 22.28 sq.ft)
   categoryPieceRates: {
     A: number;               // default: 7000
     B: number;               // default: 7600
@@ -71,16 +85,45 @@ export interface FrpRateCardSettings {
   belowSizeCalculationMode: 'DIVIDED_RATE' | 'BASE_MINIMUM'; // default: 'DIVIDED_RATE'
   locks?: LockOption[];
   colours?: ColourOption[];
+  doorThicknesses?: DoorThicknessOption[];
+  defaultInstallationRatePerDoor?: number;
+  defaultInstallationLabel?: string;
   updatedAt?: string;
 }
 
+export const DEFAULT_THICKNESS_OPTIONS: DoorThicknessOption[] = [
+  { id: 'thk-28mm', name: '28mm Standard', thicknessMm: 28, extraRate: 0, isDefault: true },
+  { id: 'thk-30mm', name: '30mm Door', thicknessMm: 30, extraRate: 200, isDefault: false },
+];
+
+export function getDefaultThicknessOption(options?: DoorThicknessOption[]): DoorThicknessOption {
+  const list = options && options.length > 0 ? options : DEFAULT_THICKNESS_OPTIONS;
+  return (
+    list.find((t) => t.isDefault) ||
+    list.find((t) => t.thicknessMm === 28) ||
+    list[0]
+  );
+}
+
+export const WITHOUT_LOCK_DISCOUNT = -300;
+export const WITHOUT_ACCESSORIES_DISCOUNT = -500;
+export const WITHOUT_FRAME_DISCOUNT = -800;
+export const SHUTTER_ONLY_DISCOUNT = -1500;
+
+export type SupplyMode = 'FULL_SET' | 'NO_ACCESSORIES' | 'SHUTTER_ONLY';
+
 export const DEFAULT_LOCK_OPTIONS: LockOption[] = [
-  { id: 'lock-none', name: 'Provision Only (No Hardware)', type: 'None', price: 0, description: 'Standard lock hole cutout mortise provision only' },
+  { id: 'lock-none-discount', name: 'Without Lock (-₹300)', type: 'Discount', price: -300, description: 'Customer supplies own lock hardware — deducts ₹300 per door' },
+  { id: 'lock-none', name: 'BABY LATCH (Baby Latch Black)', type: 'Latch', price: 0, description: 'Includes 1 Baby Latch Black + Common Basic Kit (₹200 store box)' },
+  { id: 'lock-pluspoint-black', name: 'PlusPoint Black', type: 'PlusPoint', price: 600, description: 'PlusPoint Black Lock + Common Basic Kit (₹600 box)' },
+  { id: 'lock-black-latch-exmark', name: 'Black Latch Exmark', type: 'ExmarkLatch', price: 600, description: 'Black Latch Exmark + Common Basic Kit (₹600 box)' },
+  { id: 'lock-antique-exmark', name: 'Antique Exmark', type: 'Antique', price: 600, description: 'Antique Exmark Lock + Common Basic Kit (₹600 box)' },
   { id: 'lock-mortise-60', name: 'Mortise Lock 60mm Brass Double Throw', type: 'Mortise', price: 850, description: 'Heavy brass mortise latch + 3 keys' },
   { id: 'lock-cyl-privacy', name: 'Cylindrical Knob Lock (Bathroom Privacy)', type: 'Cylindrical', price: 450, description: 'Stainless steel cylindrical keyless privacy knob' },
   { id: 'lock-baby-latch', name: 'Baby Latch / Tower Bolt Kit', type: 'Latch', price: 300, description: 'Dual brass baby latches + strike plate' },
   { id: 'lock-magnetic', name: 'Heavy Duty Magnetic Roller Catch', type: 'Magnetic', price: 250, description: 'Silent magnetic closure mechanism' },
   { id: 'lock-multipoint', name: 'Multipoint High Security Lock System', type: 'Security', price: 1450, description: '3-point master shootbolt lock' },
+  { id: 'lock-provision-only', name: 'Provision Only (No Hardware)', type: 'None', price: 0, description: 'Lock cutout provision only — 0 store lock box issued' },
 ];
 
 export const DEFAULT_COLOUR_OPTIONS: ColourOption[] = [
@@ -98,6 +141,9 @@ export const DEFAULT_FRP_RATE_CARD: FrpRateCardSettings = {
   maxWidthCm: 80,
   maxHeightCm: 210,
   extraSqftRate: 250,
+  highExtraMaxWidthCm: 90,
+  highExtraMaxHeightCm: 230,
+  highExtraSqftRate: 450,
   categoryPieceRates: {
     A: 7000,
     B: 7600,
@@ -106,11 +152,17 @@ export const DEFAULT_FRP_RATE_CARD: FrpRateCardSettings = {
     E: 9500,
   },
   belowSizeCalculationMode: 'DIVIDED_RATE',
+  defaultInstallationRatePerDoor: 500,
+  defaultInstallationLabel: 'Site Door & Frame Installation (Hardware & Fitting)',
   locks: DEFAULT_LOCK_OPTIONS,
   colours: DEFAULT_COLOUR_OPTIONS,
+  doorThicknesses: DEFAULT_THICKNESS_OPTIONS,
 };
 
 function getStorePath(): string {
+  if (dataPathsModule) {
+    return dataPathsModule.getDataFilePath('pricing-rate-card.json');
+  }
   if (pathModule) {
     return pathModule.join(process.cwd(), 'data', 'pricing-rate-card.json');
   }
@@ -124,14 +176,23 @@ export function getFrpRateCardSettings(): FrpRateCardSettings {
   if (!fsModule || !pathModule) return DEFAULT_FRP_RATE_CARD;
   try {
     const storePath = getStorePath();
-    if (!fsModule.existsSync(storePath)) {
+    if (!fsModule.existsSync(/*turbopackIgnore: true*/ storePath)) {
       const dir = pathModule.dirname(storePath);
-      if (!fsModule.existsSync(dir)) fsModule.mkdirSync(dir, { recursive: true });
-      fsModule.writeFileSync(storePath, JSON.stringify(DEFAULT_FRP_RATE_CARD, null, 2), 'utf8');
+      if (!fsModule.existsSync(/*turbopackIgnore: true*/ dir)) fsModule.mkdirSync(dir, { recursive: true });
+      fsModule.writeFileSync(/*turbopackIgnore: true*/ storePath, JSON.stringify(DEFAULT_FRP_RATE_CARD, null, 2), 'utf8');
       return DEFAULT_FRP_RATE_CARD;
     }
-    const raw = fsModule.readFileSync(storePath, 'utf8');
+    const raw = fsModule.readFileSync(/*turbopackIgnore: true*/ storePath, 'utf8');
     const parsed = JSON.parse(raw);
+    const loadedLocks: LockOption[] =
+      Array.isArray(parsed.locks) && parsed.locks.length > 0 ? parsed.locks : DEFAULT_LOCK_OPTIONS;
+    const hasWithoutLockDiscount = loadedLocks.some(
+      (l) => l.id === 'lock-none-discount' || l.name.toLowerCase().includes('without lock')
+    );
+    const mergedLocks = hasWithoutLockDiscount
+      ? loadedLocks
+      : [DEFAULT_LOCK_OPTIONS[0], ...loadedLocks];
+
     return {
       ...DEFAULT_FRP_RATE_CARD,
       ...parsed,
@@ -139,8 +200,12 @@ export function getFrpRateCardSettings(): FrpRateCardSettings {
         ...DEFAULT_FRP_RATE_CARD.categoryPieceRates,
         ...(parsed.categoryPieceRates || {}),
       },
-      locks: Array.isArray(parsed.locks) && parsed.locks.length > 0 ? parsed.locks : DEFAULT_LOCK_OPTIONS,
+      locks: mergedLocks,
       colours: Array.isArray(parsed.colours) && parsed.colours.length > 0 ? parsed.colours : DEFAULT_COLOUR_OPTIONS,
+      doorThicknesses:
+        Array.isArray(parsed.doorThicknesses) && parsed.doorThicknesses.length > 0
+          ? parsed.doorThicknesses
+          : DEFAULT_THICKNESS_OPTIONS,
     };
   } catch {
     return DEFAULT_FRP_RATE_CARD;
@@ -164,6 +229,10 @@ export function saveFrpRateCardSettings(settings: Partial<FrpRateCardSettings>):
       },
       locks: settings.locks !== undefined ? settings.locks : current.locks || DEFAULT_LOCK_OPTIONS,
       colours: settings.colours !== undefined ? settings.colours : current.colours || DEFAULT_COLOUR_OPTIONS,
+      doorThicknesses:
+        settings.doorThicknesses !== undefined
+          ? settings.doorThicknesses
+          : current.doorThicknesses || DEFAULT_THICKNESS_OPTIONS,
       updatedAt: new Date().toISOString(),
     };
     const dir = pathModule.dirname(storePath);
@@ -185,14 +254,28 @@ export interface FrpPricingResult {
   actualSqft: number;
   standardSqft: number;
   isExtraSize: boolean;
+  isHighExtraSize: boolean;
   isBelowSize: boolean;
   extraSqft: number;
   extraCost: number;
+  highThresholdSqft: number;
+  tier2ExtraSqft: number;
+  tier2ExtraCost: number;
   dividedRate: number;
   lockId?: string;
   lockPrice: number;
   colourId?: string;
   colourExtraRate: number;
+  frameTypeId?: string;
+  frameTypeName?: string;
+  framePrice: number;
+  thicknessId?: string;
+  thicknessLabel?: string;
+  thicknessExtraRate: number;
+  withoutAccessories?: boolean;
+  accessoriesAdjustment: number;
+  withoutFrame?: boolean;
+  frameAdjustment: number;
   breakdown: string;
 }
 
@@ -226,6 +309,15 @@ export function calculateFrpDoorPrice(params: {
   lockPrice?: number;
   colourId?: string;
   colourExtraRate?: number;
+  frameTypeId?: string;
+  frameTypeName?: string;
+  framePrice?: number;
+  thicknessId?: string;
+  thicknessLabel?: string;
+  thicknessExtraRate?: number;
+  withoutAccessories?: boolean;
+  supplyMode?: SupplyMode;
+  withoutFrame?: boolean;
   settings?: FrpRateCardSettings;
 }): FrpPricingResult {
   const settings = params.settings || getFrpRateCardSettings();
@@ -262,26 +354,44 @@ export function calculateFrpDoorPrice(params: {
   // Actual Square Feet
   const actualSqft = parseFloat(((hInches * avgWidthInches) / 144).toFixed(2));
 
-  // Standard Baseline Dimensions & Area
+  // Standard Baseline Dimensions & Area (80 x 210 cm = 18.08 sq.ft)
   const standardMaxWCm = settings.maxWidthCm || 80;
   const standardMaxHCm = settings.maxHeightCm || 210;
   const standardSqft = parseFloat(((standardMaxWCm * standardMaxHCm) / 929.0304).toFixed(2)); // ~18.08 sq.ft
 
+  // Oversize Tier-2 Baseline (90 x 230 cm = 22.28 sq.ft -> ₹450/sq.ft after this threshold)
+  const highMaxWCm = settings.highExtraMaxWidthCm ?? 90;
+  const highMaxHCm = settings.highExtraMaxHeightCm ?? 230;
+  const highThresholdSqft = parseFloat(((highMaxWCm * highMaxHCm) / 929.0304).toFixed(2)); // ~22.28 sq.ft
+  const highExtraSqftRate = settings.highExtraSqftRate ?? 450;
+
   // Check if door size is EXTRA (exceeds 80x210 cm standard sq.ft) or BELOW standard
   const isExtraSize = actualSqft > standardSqft;
+  const isHighExtraSize = isExtraSize && highThresholdSqft > standardSqft && actualSqft > highThresholdSqft;
   const isBelowSize = actualSqft < standardSqft;
 
   let extraSqft = 0;
   let extraCost = 0;
+  let tier2ExtraSqft = 0;
+  let tier2ExtraCost = 0;
   let dividedRate = basePieceRate;
   let finalUnitRate = basePieceRate;
   let breakdown = '';
 
-  if (isExtraSize) {
+  if (isHighExtraSize) {
+    const tier1Sqft = parseFloat((highThresholdSqft - standardSqft).toFixed(2));
+    const tier1Cost = Math.round(tier1Sqft * settings.extraSqftRate);
+    tier2ExtraSqft = parseFloat((actualSqft - highThresholdSqft).toFixed(2));
+    tier2ExtraCost = Math.round(tier2ExtraSqft * highExtraSqftRate);
+    extraSqft = parseFloat((actualSqft - standardSqft).toFixed(2));
+    extraCost = tier1Cost + tier2ExtraCost;
+    finalUnitRate = basePieceRate + extraCost;
+    breakdown = `Base ₹${basePieceRate.toLocaleString('en-IN')} (${standardMaxWCm}×${standardMaxHCm} cm) + ${tier1Sqft} sq.ft @ ₹${settings.extraSqftRate} (+₹${tier1Cost.toLocaleString('en-IN')}) + Above ${highMaxWCm}×${highMaxHCm}cm: ${tier2ExtraSqft} sq.ft @ ₹${highExtraSqftRate}/sq.ft (+₹${tier2ExtraCost.toLocaleString('en-IN')})`;
+  } else if (isExtraSize) {
     extraSqft = parseFloat((actualSqft - standardSqft).toFixed(2));
     extraCost = Math.round(extraSqft * settings.extraSqftRate);
     finalUnitRate = basePieceRate + extraCost;
-    breakdown = `Base ₹${basePieceRate.toLocaleString('en-IN')} (80×210 cm) + Extra ${extraSqft} sq.ft @ ₹${settings.extraSqftRate}/sq.ft (+₹${extraCost.toLocaleString('en-IN')})`;
+    breakdown = `Base ₹${basePieceRate.toLocaleString('en-IN')} (${standardMaxWCm}×${standardMaxHCm} cm) + Extra ${extraSqft} sq.ft @ ₹${settings.extraSqftRate}/sq.ft (+₹${extraCost.toLocaleString('en-IN')})`;
   } else if (isBelowSize) {
     if (settings.belowSizeCalculationMode === 'DIVIDED_RATE') {
       const sqftUnitRate = basePieceRate / standardSqft;
@@ -297,9 +407,10 @@ export function calculateFrpDoorPrice(params: {
     breakdown = `Standard Size (within ${standardMaxWCm}×${standardMaxHCm} cm) — Fixed Piece Rate ₹${basePieceRate.toLocaleString('en-IN')}`;
   }
 
-  // Calculate Lock Hardware & Colour Surcharges
+  // Calculate Lock Hardware, Colour, Frame & Door Thickness Surcharges
   const locks = settings.locks || DEFAULT_LOCK_OPTIONS;
   const colours = settings.colours || DEFAULT_COLOUR_OPTIONS;
+  const thicknesses = settings.doorThicknesses || DEFAULT_THICKNESS_OPTIONS;
 
   let lockPrice = 0;
   if (params.lockPrice !== undefined && !isNaN(params.lockPrice)) {
@@ -317,10 +428,65 @@ export function calculateFrpDoorPrice(params: {
     if (c) colourExtraRate = c.extraRate || 0;
   }
 
-  finalUnitRate += lockPrice + colourExtraRate;
+  let thicknessExtraRate = 0;
+  let thicknessLabel = params.thicknessLabel;
+  if (params.thicknessExtraRate !== undefined && !isNaN(params.thicknessExtraRate)) {
+    thicknessExtraRate = params.thicknessExtraRate;
+  } else if (params.thicknessId) {
+    const thk = thicknesses.find((t) => t.id === params.thicknessId);
+    if (thk) {
+      thicknessExtraRate = thk.extraRate || 0;
+      thicknessLabel = thicknessLabel || thk.name;
+    }
+  }
 
-  if (lockPrice > 0) {
-    breakdown += ` + Lock (+₹${lockPrice.toLocaleString('en-IN')})`;
+  const isShutterOnly = params.supplyMode === 'SHUTTER_ONLY';
+  const isNoAccessories = params.supplyMode === 'NO_ACCESSORIES' || Boolean(params.withoutAccessories);
+  const withoutAccessories = isNoAccessories;
+
+  let accessoriesAdjustment = 0;
+  if (isShutterOnly) {
+    accessoriesAdjustment = 0; // Handled under combined shutter only deduction
+  } else if (isNoAccessories) {
+    accessoriesAdjustment = WITHOUT_ACCESSORIES_DISCOUNT;
+  }
+
+  const withoutFrame =
+    isShutterOnly ||
+    Boolean(params.withoutFrame) ||
+    params.frameTypeId === 'FRM-005' ||
+    (params.frameTypeName ? params.frameTypeName.toLowerCase().includes('without frame') || params.frameTypeName.toLowerCase().includes('shutter only') : false);
+
+  const rawFramePrice = params.framePrice !== undefined && !isNaN(params.framePrice) ? params.framePrice : 0;
+  let frameAdjustment = 0;
+  if (isShutterOnly) {
+    frameAdjustment = SHUTTER_ONLY_DISCOUNT;
+  } else if (withoutFrame) {
+    frameAdjustment = rawFramePrice !== 0 && rawFramePrice < 0 ? rawFramePrice : WITHOUT_FRAME_DISCOUNT;
+  } else {
+    frameAdjustment = rawFramePrice;
+  }
+
+  finalUnitRate = Math.max(
+    0,
+    finalUnitRate + lockPrice + colourExtraRate + frameAdjustment + thicknessExtraRate + accessoriesAdjustment
+  );
+
+  if (isShutterOnly) {
+    breakdown += ` + Shutter Only Discount (₹${SHUTTER_ONLY_DISCOUNT.toLocaleString('en-IN')})`;
+  } else {
+    if (frameAdjustment !== 0) {
+      breakdown += ` + Frame${params.frameTypeName ? ` (${params.frameTypeName})` : ''} (${frameAdjustment > 0 ? '+' : ''}₹${frameAdjustment.toLocaleString('en-IN')})`;
+    }
+    if (accessoriesAdjustment !== 0) {
+      breakdown += ` + Without Accessories (-₹${Math.abs(accessoriesAdjustment).toLocaleString('en-IN')})`;
+    }
+  }
+  if (thicknessExtraRate > 0) {
+    breakdown += ` + Thickness${thicknessLabel ? ` (${thicknessLabel})` : ''} (+₹${thicknessExtraRate.toLocaleString('en-IN')})`;
+  }
+  if (lockPrice !== 0) {
+    breakdown += ` + Lock (${lockPrice > 0 ? '+' : ''}₹${lockPrice.toLocaleString('en-IN')})`;
   }
   if (colourExtraRate > 0) {
     breakdown += ` + Finish (+₹${colourExtraRate.toLocaleString('en-IN')})`;
@@ -335,14 +501,28 @@ export function calculateFrpDoorPrice(params: {
     actualSqft,
     standardSqft,
     isExtraSize,
+    isHighExtraSize,
     isBelowSize,
     extraSqft,
     extraCost,
+    highThresholdSqft,
+    tier2ExtraSqft,
+    tier2ExtraCost,
     dividedRate,
     lockId: params.lockId,
     lockPrice,
     colourId: params.colourId,
     colourExtraRate,
+    frameTypeId: params.frameTypeId,
+    frameTypeName: params.frameTypeName,
+    framePrice: frameAdjustment,
+    thicknessId: params.thicknessId,
+    thicknessLabel,
+    thicknessExtraRate,
+    withoutAccessories,
+    accessoriesAdjustment,
+    withoutFrame,
+    frameAdjustment,
     breakdown,
   };
 }

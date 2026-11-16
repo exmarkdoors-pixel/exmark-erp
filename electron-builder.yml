@@ -1,5 +1,6 @@
 appId: com.exmark.erp
 productName: EXMARK ERP
+copyright: Copyright © 2026 EXMARK DOORS PRIVATE LIMITED
 compression: normal
 npmRebuild: false
 nodeGypRebuild: false
@@ -9,8 +10,30 @@ directories:
 files:
   - package.json
   - electron/**/*
-  - public/**/*
+  - public/icons/**/*
   - "!node_modules/**/*"
+  - "!electron-staging/**/*"
+  - "!dist/**/*"
+  - "!.next/**/*"
+  - "!data/**/*"
+  - "!backups/**/*"
+extraResources:
+  - from: electron-staging/standalone
+    to: standalone
+    filter:
+      - "**/*"
+  - from: electron-staging/standalone/node_modules
+    to: standalone/node_modules
+    filter:
+      - "**/*"
+  - from: electron-staging/seed-data
+    to: seed-data
+    filter:
+      - "**/*"
+  - from: electron-staging/runtime
+    to: runtime
+    filter:
+      - "**/*"
 win:
   target:
     - target: nsis
@@ -19,10 +42,13 @@ win:
     - target: portable
       arch:
         - x64
-  icon: public/icons/icon-512.svg
+  icon: public/icons/icon.ico
 nsis:
   oneClick: false
+  perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: EXMARK ERP
+portable:
+  artifactName: "${productName} ${version}.${ext}"

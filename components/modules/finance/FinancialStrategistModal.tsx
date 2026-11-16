@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, TrendingUp, Calculator, Target, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, TrendingUp, Calculator, Target, CheckCircle2, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { FinancialTarget, BreakEvenAnalysis, calculateBreakEven } from '@/types/finance';
+import type { ComprehensiveBreakEvenReport } from '@/lib/services/breakEvenService';
 import { AiFinancialStrategistPanel } from './AiFinancialStrategistPanel';
 
 interface FinancialStrategistModalProps {
@@ -19,9 +20,40 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
   const [avgPrice, setAvgPrice] = useState<number>(8500);
   const [varCost, setVarCost] = useState<number>(4800);
   const [targetRevenue, setTargetRevenue] = useState<number>(2500000);
+  const [targetProfit, setTargetProfit] = useState<number>(0);
+  const [liveReport, setLiveReport] = useState<ComprehensiveBreakEvenReport | null>(null);
+  const [liveSyncMsg, setLiveSyncMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch('/api/finance/break-even')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          setLiveReport(json.data as ComprehensiveBreakEvenReport);
+        }
+      })
+      .catch(() => {});
+  }, [isOpen]);
+
+  const applyErpNumbers = (kind: 'LIVE' | 'STANDARD') => {
+    if (!liveReport) return;
+    const fixed = liveReport.fixedCostsBreakdown.totalFixedMonthlyCost || 450000;
+    const ue =
+      kind === 'LIVE' ? liveReport.liveErpUnitEconomics : liveReport.standardEngineeringBaseline;
+    setFixedOverhead(fixed);
+    setAvgPrice(ue.avgSellingPricePerDoor);
+    setVarCost(ue.totalVariableCostPerDoor);
+    setLiveSyncMsg(
+      kind === 'LIVE'
+        ? `Synced Live ERP (${ue.dataBasisLabel})`
+        : 'Synced Standard 80×210 cm BOQ + Rate Card (Cat C)'
+    );
+    setTimeout(() => setLiveSyncMsg(null), 3500);
+  };
 
   // Target planner inputs
-  const [targetPeriod, setTargetPeriod] = useState<string>('2026-11');
+  const [targetPeriod, setTargetPeriod] = useState<string>(() => new Date().toISOString().slice(0, 7));
   const [salesRevenueTarget, setSalesRevenueTarget] = useState<string>('3000000');
   const [collectionsTarget, setCollectionsTarget] = useState<string>('2700000');
   const [frpDoorQuantityTarget, setFrpDoorQuantityTarget] = useState<string>('380');
@@ -35,6 +67,7 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
     averageFRPPricePerDoor: avgPrice,
     variableCostPerDoor: varCost,
     targetSalesRevenue: targetRevenue,
+    targetProfit,
   });
 
   const handleCreateTarget = async (e: React.FormEvent) => {
@@ -148,8 +181,37 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
           <AiFinancialStrategistPanel />
         ) : activeTab === 'BREAK_EVEN' ? (
           <div className="space-y-5">
+            {/* Live ERP Quick-Sync Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-900/70 border border-slate-800 text-xs">
+              <div className="text-slate-300">
+                {liveSyncMsg ? (
+                  <span className="text-emerald-400 font-bold">{liveSyncMsg}</span>
+                ) : (
+                  <span>Quick-fill from your factory&apos;s live BOQ, Gang piece-rates &amp; Vyapar/Fixed Overheads:</span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={!liveReport}
+                  onClick={() => applyErpNumbers('LIVE')}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg text-[11px] font-bold cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" /> Load Live ERP Actuals
+                </button>
+                <button
+                  type="button"
+                  disabled={!liveReport}
+                  onClick={() => applyErpNumbers('STANDARD')}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 rounded-lg text-[11px] font-bold border border-slate-700 cursor-pointer"
+                >
+                  Load Standard Cat C BOM
+                </button>
+              </div>
+            </div>
+
             {/* Simulation Input Controls */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
               <div>
                 <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
                   Monthly Fixed Overheads (₹)
@@ -160,7 +222,7 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
                   onChange={(e) => setFixedOverhead(Number(e.target.value) || 0)}
                   className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold"
                 />
-                <span className="text-[9px] text-slate-400 block mt-0.5">Rent, staff, power, dep.</span>
+                <span className="text-[9px] text-slate-400 block mt-0.5">Rent, fixed staff, power, EMI</span>
               </div>
               <div>
                 <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
@@ -172,7 +234,7 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
                   onChange={(e) => setAvgPrice(Number(e.target.value) || 0)}
                   className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold"
                 />
-                <span className="text-[9px] text-slate-400 block mt-0.5">Ex-factory avg Kerala rate</span>
+                <span className="text-[9px] text-slate-400 block mt-0.5">0% Non-GST ex-factory rate</span>
               </div>
               <div>
                 <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
@@ -184,7 +246,19 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
                   onChange={(e) => setVarCost(Number(e.target.value) || 0)}
                   className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold"
                 />
-                <span className="text-[9px] text-slate-400 block mt-0.5">Resin, glass mat, PU, core</span>
+                <span className="text-[9px] text-slate-400 block mt-0.5">BOQ + Locks + Paint + Gang Labor</span>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                  Desired Monthly Profit (₹)
+                </label>
+                <input
+                  type="number"
+                  value={targetProfit}
+                  onChange={(e) => setTargetProfit(Number(e.target.value) || 0)}
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold"
+                />
+                <span className="text-[9px] text-slate-400 block mt-0.5">Optional profit goal</span>
               </div>
               <div>
                 <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
@@ -196,15 +270,21 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
                   onChange={(e) => setTargetRevenue(Number(e.target.value) || 0)}
                   className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold"
                 />
-                <span className="text-[9px] text-slate-400 block mt-0.5">Target monthly budget</span>
+                <span className="text-[9px] text-slate-400 block mt-0.5">Margin of safety target</span>
               </div>
             </div>
+
+            {!analysis.isViable && (
+              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs">
+                <strong>Contribution Margin &le; 0:</strong> Variable cost per door exceeds or equals selling price. Raise price or reduce material/labor costs.
+              </div>
+            )}
 
             {/* Live KPI Indicators */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
               <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Contribution Margin</span>
-                <p className="text-xl font-black text-slate-900 dark:text-white font-mono">
+                <p className={`text-xl font-black font-mono ${analysis.isViable ? 'text-slate-900 dark:text-white' : 'text-rose-400'}`}>
                   ₹{analysis.contributionMarginPerDoor.toLocaleString('en-IN')}
                 </p>
                 <span className="text-[10px] text-emerald-500 font-semibold font-mono">
@@ -213,17 +293,25 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
               </div>
 
               <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Break-Even Units</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                  {targetProfit > 0 ? 'Target Profit Units' : 'Break-Even Units'}
+                </span>
                 <p className="text-xl font-black text-red-600 dark:text-red-400 font-mono">
-                  {analysis.breakEvenUnits} Doors
+                  {analysis.isViable
+                    ? `${targetProfit > 0 ? analysis.requiredUnitsForTargetProfit : analysis.breakEvenUnits} Doors`
+                    : 'Not Viable'}
                 </p>
-                <span className="text-[10px] text-slate-400">Monthly min threshold</span>
+                <span className="text-[10px] text-slate-400">
+                  {analysis.isViable
+                    ? `${targetProfit > 0 ? analysis.dailyTargetProfitUnits : analysis.dailyBreakEvenUnits}/day (${analysis.workingDaysPerMonth}d)`
+                    : 'Check price vs cost'}
+                </span>
               </div>
 
               <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Break-Even Revenue</span>
                 <p className="text-xl font-black text-red-600 dark:text-red-400 font-mono">
-                  ₹{analysis.breakEvenRevenue.toLocaleString('en-IN')}
+                  {analysis.isViable ? `₹${analysis.breakEvenRevenue.toLocaleString('en-IN')}` : 'N/A'}
                 </p>
                 <span className="text-[10px] text-slate-400">Zero-profit boundary</span>
               </div>
@@ -256,8 +344,8 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
                   {analysis.formulaDetails.breakEvenRevenue}
                 </div>
                 <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold">4. Margin of Safety</span>
-                  {analysis.formulaDetails.marginOfSafety} ({analysis.marginOfSafetyPercentage}%)
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">4. Margin of Safety &amp; Profit Target</span>
+                  {targetProfit > 0 ? analysis.formulaDetails.targetProfitUnits : `${analysis.formulaDetails.marginOfSafety} (${analysis.marginOfSafetyPercentage}%)`}
                 </div>
               </div>
             </div>

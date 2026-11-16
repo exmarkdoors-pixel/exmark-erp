@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   listFollowUps,
   addFollowUp,
@@ -6,10 +7,13 @@ import {
 } from '@/lib/services/crmService';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'crm');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const followUps = await listFollowUps(id);
     return NextResponse.json({ success: true, data: followUps });
@@ -24,6 +28,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'crm', ['Super Admin', 'Management', 'Sales', 'Site Engineer']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const body = await req.json();
 

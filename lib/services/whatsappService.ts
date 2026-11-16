@@ -147,9 +147,9 @@ export const WHATSAPP_TEMPLATES: Record<WhatsAppTemplateKey, WhatsAppTemplate> =
 
   quote_submitted: {
     key: 'quote_submitted',
-    title: 'GST Quotation Submitted',
+    title: 'Formal Quotation Submitted',
     category: 'Quotation',
-    description: 'Share quotation total, 18% GST estimate, and sample review details.',
+    description: 'Share quotation total, pricing estimate, and sample review details.',
     iconName: 'FileText',
     render: (ctx) => {
       const contact = ctx.contactPerson || ctx.client || 'Valued Client';
@@ -158,10 +158,10 @@ export const WHATSAPP_TEMPLATES: Record<WhatsAppTemplateKey, WhatsAppTemplate> =
       return (
         `📋 *Official Quotation — EXMARK DOORS*\n\n` +
         `Dear *${contact}*,\n` +
-        `We are pleased to submit the formal GST quotation for *${ctx.title}*.\n\n` +
+        `We are pleased to submit the formal quotation for *${ctx.title}*.\n\n` +
         `📄 *Quotation Ref:* ${quoteNo}\n` +
         `🚪 *Specification:* ${ctx.doors || 'FRP / WPC Solid Core Doors'}\n` +
-        `💰 *Total Estimate (inc. 18% GST):* ${formattedVal}\n` +
+        `💰 *Total Net Estimate:* ${formattedVal}\n` +
         `🛡️ *Warranty:* 5-Year Factory Warranty (IS 14856:2000 compliant)\n\n` +
         `Kindly review the detailed rate breakdown. Let us know if you need any adjustments in hardware mortise or finishes.\n\n` +
         `Best regards,\n` +
@@ -306,7 +306,7 @@ export const WHATSAPP_TEMPLATES: Record<WhatsAppTemplateKey, WhatsAppTemplate> =
         `💰 *Total Quote Value:* ${formattedVal}\n` +
         `💵 *Required 40% Advance:* ${adv}\n` +
         `📋 *Ref Code:* ${ctx.leadCode || 'CRM-ORDER'}\n\n` +
-        `_Action: Verify bank UTR or UPI receipt and issue official 18% GST advance invoice._`
+        `_Action: Verify bank UTR or UPI receipt and issue official advance payment receipt._`
       );
     },
   },

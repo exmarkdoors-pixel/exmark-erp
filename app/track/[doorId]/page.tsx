@@ -47,6 +47,10 @@ interface TrackingData {
   stickerRemovedAt?: string | null;
   stickerRemovedBy?: string | null;
   stickerRemovalNotes?: string | null;
+  moldedByGangId?: string | null;
+  moldedByGangName?: string | null;
+  moldedAt?: string | null;
+  moldingNotes?: string | null;
   lifecycle: Array<{
     stage: string;
     name: string;
@@ -281,6 +285,56 @@ export default function DoorTrackingPage() {
               )}
             </div>
           )}
+        </div>
+
+        {/* Workmanship & Molding Gang Accountability (Damage & Defect Tracking) */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-sm font-bold text-white flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              Workmanship & Molding Gang Accountability
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+              Warranty Serial ID: {data.doorId}
+            </span>
+          </h2>
+
+          <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800/80 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                  Molded By Gang / Team
+                </span>
+                <span className="text-sm font-black text-amber-400 block">
+                  {data.moldedByGangName ? `🔨 ${data.moldedByGangName}` : '⚠️ Unassigned / Prior Batch'}
+                </span>
+              </div>
+              {data.moldedByGangName && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" /> Verified Contractor
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-[10px] text-slate-400 block">Molding Timestamp</span>
+                <span className="font-mono text-slate-200">
+                  {data.moldedAt ? new Date(data.moldedAt).toLocaleString() : 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 block">Accountability Note</span>
+                <span className="text-slate-300">
+                  {data.moldingNotes || 'Standard Production Run (Traceable to Moulding Roster)'}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 text-[11px] text-slate-400 italic bg-amber-500/5 p-2 rounded border border-amber-500/20">
+              ℹ️ In case of future customer damage or structural warranty claims, this door serial is permanently tied to the molding gang above for quality accountability and repair attribution.
+            </div>
+          </div>
         </div>
 
         {/* Lifecycle Stepper */}

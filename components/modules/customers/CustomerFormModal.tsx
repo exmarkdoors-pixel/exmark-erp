@@ -36,7 +36,6 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
   const [district, setDistrict] = useState(initialCustomer?.district || 'Kozhikode');
   const [town, setTown] = useState(initialCustomer?.town || '');
   const [address, setAddress] = useState(initialCustomer?.address || '');
-  const [gstin, setGstin] = useState(initialCustomer?.gstin || '');
   const [phone, setPhone] = useState(initialCustomer?.phone || '');
   const [email, setEmail] = useState(initialCustomer?.email || '');
   const [creditLimit, setCreditLimit] = useState(initialCustomer?.creditLimit?.toString() || '100000');
@@ -77,7 +76,7 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
           district,
           town: town.trim(),
           address: address.trim() || undefined,
-          gstin: gstin.trim() || null,
+          gstin: initialCustomer?.gstin || null,
           phone: phone.trim(),
           email: email.trim() || null,
           creditLimit: parseFloat(creditLimit) || 0,
@@ -221,23 +220,7 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                GSTIN (15 Digits)
-              </label>
-              <div className="relative">
-                <FileText className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={gstin}
-                  onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                  placeholder="32AAAAA0000A1Z5"
-                  maxLength={15}
-                  className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-white uppercase"
-                />
-              </div>
-            </div>
+          <div>
             <div>
               <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                 Email Address

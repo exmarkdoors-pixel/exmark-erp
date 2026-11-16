@@ -12,8 +12,12 @@
 import fs from 'fs';
 import path from 'path';
 import net from 'net';
-import prisma from '@/lib/prisma';
+import type { PrismaClient } from '@prisma/client';
+import prisma, { getCloudPrismaClient, sanitizeDatabaseUrl } from '@/lib/prisma';
 import { SiteMeasurementRecord } from '@/types/measurements';
+import { ProductCategoryConfig } from '@/types/categories';
+import { getDataFilePath } from '@/lib/utils/dataPaths';
+import { getActiveCloudDatabaseUrl } from './cloudSyncConfigService';
 
 export type DatabaseProvider = 'POSTGRESQL' | 'PERSISTENT_STORE';
 export type SyncStatus = 'COMMITTED_POSTGRES' | 'PENDING_POSTGRES_SYNC' | 'PERSISTENT_STORE_PRIMARY';
@@ -38,7 +42,7 @@ export interface PersistenceResult<T> {
   message: string;
 }
 
-const OUTBOX_PATH = path.join(process.cwd(), 'data', 'db-outbox-sync.json');
+const getOutboxPath = () => getDataFilePath('db-outbox-sync.json');
 
 // Memory cache of connection state to avoid constant socket hammering
 let lastProbeTime = 0;
@@ -48,11 +52,21 @@ const PROBE_INTERVAL_MS = 5000; // 5 seconds cache
 /**
  * Check whether the application is running in a Cloud/Staging/Production environment
  * (e.g., Render, Railway, Vercel) where ephemeral disk makes JSON writes dangerous.
+ * Local factory production workstations using EXMARK_DATA_DIR or EXMARK_LOCAL_FACTORY
+ * remain permitted to persist safely to the externalized factory data vault.
  */
 export function isCloudEnvironment(): boolean {
+  if (
+    process.env.EXMARK_LOCAL_FACTORY === 'true' ||
+    (Boolean(process.env.EXMARK_DATA_DIR?.trim()) && process.env.STRICT_POSTGRES !== 'true')
+  ) {
+    return false;
+  }
   return (
     process.env.RENDER === 'true' ||
     Boolean(process.env.RENDER_SERVICE_ID) ||
+    Boolean(process.env.VERCEL) ||
+    Boolean(process.env.RAILWAY_ENVIRONMENT) ||
     process.env.STRICT_POSTGRES === 'true' ||
     process.env.NODE_ENV === 'production'
   );
@@ -75,10 +89,7 @@ export async function assertWriteAllowed(operationName = 'write operation'): Pro
 }
 
 function sanitizeUrl(raw: string | undefined): string {
-  if (!raw) return '';
-  let cleaned = raw.trim().replace(/^["'`]|["'`]$/g, '').trim();
-  cleaned = cleaned.replace(/^(?:psql\s+|uri:\s*|url:\s*|code:\s*|file:\s*code\s*)/i, '').trim();
-  return cleaned.replace(/^["'`]|["'`]$/g, '').trim();
+  return sanitizeDatabaseUrl(raw);
 }
 
 /**
@@ -90,8 +101,7 @@ export async function isPostgresAvailable(): Promise<boolean> {
     return cachedDbOnline;
   }
 
-  const rawUrl = process.env.DATABASE_URL;
-  const dbUrl = sanitizeUrl(rawUrl);
+  const dbUrl = getActiveCloudDatabaseUrl() || sanitizeUrl(process.env.DATABASE_URL);
   if (!dbUrl) {
     cachedDbOnline = false;
     lastProbeTime = now;
@@ -122,9 +132,10 @@ export async function isPostgresAvailable(): Promise<boolean> {
     }
   }
 
-  // Cloud or remote PostgreSQL probe: execute real query with SSL negotiation via Prisma
+  // Cloud or remote PostgreSQL probe: execute real query with SSL negotiation via dynamic Prisma pool
   try {
-    const queryPromise = prisma.$queryRaw`SELECT 1 as alive`;
+    const client = getCloudPrismaClient(dbUrl);
+    const queryPromise = client.$queryRaw`SELECT 1 as alive`;
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('Postgres probe timeout (3500ms)')), 3500)
     );
@@ -173,13 +184,14 @@ export async function forceProbePostgres(): Promise<boolean> {
  */
 export function getOutbox(): OutboxEntry[] {
   try {
-    const dir = path.dirname(OUTBOX_PATH);
+    const outboxPath = getOutboxPath();
+    const dir = path.dirname(outboxPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(OUTBOX_PATH)) {
-      fs.writeFileSync(OUTBOX_PATH, '[]', 'utf8');
+    if (!fs.existsSync(outboxPath)) {
+      fs.writeFileSync(outboxPath, '[]', 'utf8');
       return [];
     }
-    const raw = fs.readFileSync(OUTBOX_PATH, 'utf8');
+    const raw = fs.readFileSync(outboxPath, 'utf8');
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as OutboxEntry[]) : [];
   } catch {
@@ -192,11 +204,12 @@ export function getOutbox(): OutboxEntry[] {
  */
 export function saveOutbox(entries: OutboxEntry[]): void {
   try {
-    const dir = path.dirname(OUTBOX_PATH);
+    const outboxPath = getOutboxPath();
+    const dir = path.dirname(outboxPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const tmpPath = `${OUTBOX_PATH}.tmp`;
+    const tmpPath = `${outboxPath}.tmp`;
     fs.writeFileSync(tmpPath, JSON.stringify(entries, null, 2), 'utf8');
-    fs.renameSync(tmpPath, OUTBOX_PATH);
+    fs.renameSync(tmpPath, outboxPath);
   } catch (err) {
     console.error('[DbSyncEngine] Failed to save outbox:', err);
   }
@@ -239,16 +252,21 @@ export function enqueueOutbox(
 
 /**
  * Reconcile / Synchronize all pending outbox records into PostgreSQL
- * Called automatically when PostgreSQL recovery is detected
+ * Called automatically when PostgreSQL recovery is detected or during cloud sync
  */
-export async function reconcileOutboxToPostgres(): Promise<{
+export async function reconcileOutboxToPostgres(clientOverride?: PrismaClient): Promise<{
   attempted: number;
   synced: number;
   failed: number;
 }> {
-  const isOnline = await isPostgresAvailable();
-  if (!isOnline) {
-    return { attempted: 0, synced: 0, failed: 0 };
+  let client = clientOverride;
+  if (!client) {
+    const isOnline = await isPostgresAvailable();
+    if (!isOnline) {
+      return { attempted: 0, synced: 0, failed: 0 };
+    }
+    const dbUrl = getActiveCloudDatabaseUrl() || sanitizeUrl(process.env.DATABASE_URL);
+    client = dbUrl ? getCloudPrismaClient(dbUrl) : prisma;
   }
 
   const outbox = getOutbox();
@@ -259,10 +277,29 @@ export async function reconcileOutboxToPostgres(): Promise<{
   for (const entry of pending) {
     try {
       if (entry.entityType === 'DOOR_MEASUREMENT') {
-        const m = entry.payload as SiteMeasurementRecord;
-        if (entry.operation === 'CREATE' || entry.operation === 'UPDATE') {
-          // Upsert into PostgreSQL
-          await prisma.doorMeasurement.upsert({
+        if (entry.operation === 'DELETE') {
+          await client.doorMeasurement.deleteMany({ where: { id: entry.entityId } });
+        } else {
+          const m = entry.payload as SiteMeasurementRecord;
+          const mappedDoors = (m.doors || []).map((d) => ({
+            id: d.id,
+            doorNumber: d.doorNumber,
+            model: d.model,
+            frameType: d.frameType,
+            colour: d.colour,
+            hingeSide: d.hingeSide,
+            lockType: d.lockType,
+            measurementUnit: d.measurementUnit,
+            heightLeft: d.heightLeft,
+            heightRight: d.heightRight,
+            widthTop: d.widthTop,
+            widthBottom: d.widthBottom,
+            wallThickness: d.wallThickness || null,
+            rebateDepth: d.rebateDepth || null,
+            remarks: d.remarks || null,
+          }));
+
+          await client.doorMeasurement.upsert({
             where: { id: m.id },
             create: {
               id: m.id,
@@ -280,25 +317,7 @@ export async function reconcileOutboxToPostgres(): Promise<{
               wallThicknessMm: m.wallThicknessMm || null,
               notes: m.notes || null,
               status: m.status,
-              doors: {
-                create: (m.doors || []).map((d) => ({
-                  id: d.id,
-                  doorNumber: d.doorNumber,
-                  model: d.model,
-                  frameType: d.frameType,
-                  colour: d.colour,
-                  hingeSide: d.hingeSide,
-                  lockType: d.lockType,
-                  measurementUnit: d.measurementUnit,
-                  heightLeft: d.heightLeft,
-                  heightRight: d.heightRight,
-                  widthTop: d.widthTop,
-                  widthBottom: d.widthBottom,
-                  wallThickness: d.wallThickness || null,
-                  rebateDepth: d.rebateDepth || null,
-                  remarks: d.remarks || null,
-                })),
-              },
+              doors: { create: mappedDoors },
             },
             update: {
               refNumber: m.refNumber,
@@ -309,6 +328,41 @@ export async function reconcileOutboxToPostgres(): Promise<{
               notes: m.notes || null,
               status: m.status,
               updatedAt: new Date(),
+              doors: {
+                deleteMany: {},
+                create: mappedDoors,
+              },
+            },
+          });
+        }
+      } else if (entry.entityType === 'PRODUCT_CATEGORY') {
+        if (entry.operation === 'DELETE') {
+          await client.productCategory.deleteMany({ where: { id: entry.entityId } });
+        } else {
+          const cat = entry.payload as ProductCategoryConfig;
+          await client.productCategory.upsert({
+            where: { code: cat.code },
+            create: {
+              id: cat.id,
+              code: cat.code,
+              name: cat.name,
+              enabled: Boolean(cat.enabled),
+              isPrimary: Boolean(cat.isPrimary),
+              description: cat.description || null,
+              fieldsConfig: cat.fields ? JSON.stringify(cat.fields) : null,
+              pricingConfig: cat.pricing ? JSON.stringify(cat.pricing) : null,
+              productionConfig: cat.production ? JSON.stringify(cat.production) : null,
+              reportingVisibility: cat.reportingVisibility !== false,
+            },
+            update: {
+              name: cat.name,
+              enabled: Boolean(cat.enabled),
+              isPrimary: Boolean(cat.isPrimary),
+              description: cat.description || null,
+              fieldsConfig: cat.fields ? JSON.stringify(cat.fields) : null,
+              pricingConfig: cat.pricing ? JSON.stringify(cat.pricing) : null,
+              productionConfig: cat.production ? JSON.stringify(cat.production) : null,
+              reportingVisibility: cat.reportingVisibility !== false,
             },
           });
         }

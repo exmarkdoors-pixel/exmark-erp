@@ -11,14 +11,24 @@
  */
 
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import nextConfig from '../next.config';
-import { getSession, DEMO_USERS } from '../lib/auth/session';
-import { authorizeRequest } from '../lib/auth/authorization';
-import { getCompanyProfile, getActiveFactory } from '../lib/services/companyProfileService';
 
 async function runRemoteAccessAudit() {
-  console.log('========================================================================');
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'exmark-remote-audit-'));
+  process.env.EXMARK_DATA_DIR = tempDir;
+
+  try {
+    const [
+      { authorizeRequest },
+      { getCompanyProfile, getActiveFactory },
+    ] = await Promise.all([
+      import('../lib/auth/authorization'),
+      import('../lib/services/companyProfileService'),
+    ]);
+
+    console.log('========================================================================');
   console.log('  EXMARK ERP — SECURE REMOTE ACCESS & CLOUD READINESS AUDIT');
   console.log('========================================================================\n');
 
@@ -117,11 +127,14 @@ async function runRemoteAccessAudit() {
   assert(fs.existsSync(envStaging), 'Staging environment configuration template exists');
   assert(fs.existsSync(envProd), 'Production environment template with SSL & pooling exists');
 
-  console.log('\n========================================================================');
-  console.log(`  REMOTE ACCESS & CLOUD READINESS AUDIT: ${passed}/${total} PASSED`);
-  console.log('========================================================================\n');
+    console.log('\n========================================================================');
+    console.log(`  REMOTE ACCESS & CLOUD READINESS AUDIT: ${passed}/${total} PASSED`);
+    console.log('========================================================================\n');
 
-  if (passed !== total) process.exit(1);
+    if (passed !== total) process.exit(1);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 }
 
 runRemoteAccessAudit().catch((err) => {

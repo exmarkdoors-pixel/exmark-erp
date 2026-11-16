@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { authorizeRequest } from '@/lib/auth/authorization';
+import { getDataFilePath } from '@/lib/utils/dataPaths';
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'inventory-store.json');
+const getStorePath = () => getDataFilePath('inventory-store.json');
 
 function readInventory() {
   try {
-    if (!fs.existsSync(STORE_PATH)) return [];
-    return JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+    const storePath = getStorePath();
+    if (!fs.existsSync(storePath)) return [];
+    return JSON.parse(fs.readFileSync(storePath, 'utf8'));
   } catch {
     return [];
   }
@@ -16,7 +18,8 @@ function readInventory() {
 
 function writeInventory(data: unknown) {
   try {
-    fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf8');
+    const storePath = getStorePath();
+    fs.writeFileSync(storePath, JSON.stringify(data, null, 2), 'utf8');
   } catch (err) {
     console.error('Failed to write inventory:', err);
   }

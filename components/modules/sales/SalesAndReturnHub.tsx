@@ -139,15 +139,15 @@ const INITIAL_SALES_INVOICES: SalesInvoice[] = [
     dueDate: '10 Nov 2026',
     itemsSummary: '10 Sets Natural Teak FRP Molded Doors (205 × 75 cm)',
     doorsCount: 10,
-    subtotal: 32627,
-    cgst: 2936,
-    sgst: 2936,
-    gstAmount: 5873,
+    subtotal: 38500,
+    cgst: 0,
+    sgst: 0,
+    gstAmount: 0,
     grandTotal: 38500,
     advanceCredited: 20000,
     balanceDue: 18500,
     paymentStatus: 'PARTIAL',
-    eWayBillNo: '321829471029',
+    eWayBillNo: '',
     vehicleNo: 'KL-07-CD-4819',
   },
   {
@@ -161,15 +161,15 @@ const INITIAL_SALES_INVOICES: SalesInvoice[] = [
     dueDate: '05 Nov 2026',
     itemsSummary: '163 MS Shaft & Heavy Duty Service Doors',
     doorsCount: 163,
-    subtotal: 1677966,
-    cgst: 151017,
-    sgst: 151017,
-    gstAmount: 302034,
+    subtotal: 1980000,
+    cgst: 0,
+    sgst: 0,
+    gstAmount: 0,
     grandTotal: 1980000,
     advanceCredited: 990000,
     balanceDue: 990000,
     paymentStatus: 'PARTIAL',
-    eWayBillNo: '321938472910',
+    eWayBillNo: '',
     vehicleNo: 'KL-10-AZ-9921',
   },
   {
@@ -183,15 +183,15 @@ const INITIAL_SALES_INVOICES: SalesInvoice[] = [
     dueDate: '30 Oct 2026',
     itemsSummary: '55 Waterproof Bathroom Flush Doors (200 × 70 cm)',
     doorsCount: 55,
-    subtotal: 184322,
-    cgst: 16589,
-    sgst: 16589,
-    gstAmount: 33178,
+    subtotal: 217500,
+    cgst: 0,
+    sgst: 0,
+    gstAmount: 0,
     grandTotal: 217500,
     advanceCredited: 217500,
     balanceDue: 0,
     paymentStatus: 'PAID',
-    eWayBillNo: '321890382911',
+    eWayBillNo: '',
     vehicleNo: 'KL-07-BQ-1284',
   },
   {
@@ -205,15 +205,15 @@ const INITIAL_SALES_INVOICES: SalesInvoice[] = [
     dueDate: '02 Nov 2026',
     itemsSummary: '30 WPC Denwood Bedroom Doors (Oak Laminated)',
     doorsCount: 30,
-    subtotal: 137288,
-    cgst: 12356,
-    sgst: 12356,
-    gstAmount: 24712,
+    subtotal: 162000,
+    cgst: 0,
+    sgst: 0,
+    gstAmount: 0,
     grandTotal: 162000,
     advanceCredited: 100000,
     balanceDue: 62000,
     paymentStatus: 'PARTIAL',
-    eWayBillNo: '321948291038',
+    eWayBillNo: '',
     vehicleNo: 'KL-11-BV-8832',
   },
 ];
@@ -230,9 +230,9 @@ const INITIAL_SALES_RETURNS: SalesReturnCreditNote[] = [
     doorModelCode: 'EXM-A-101',
     doorModelTitle: 'Natural Teak Classic Molded FRP',
     returnReason: 'SIZE_TOLERANCE_MISMATCH',
-    taxableRefund: 3263,
-    cgstReversal: 294,
-    sgstReversal: 294,
+    taxableRefund: 3850,
+    cgstReversal: 0,
+    sgstReversal: 0,
     totalCreditAmount: 3850,
     disposition: 'REWORK_PLANT_FLOOR',
     status: 'CREDIT_ISSUED',
@@ -248,9 +248,9 @@ const INITIAL_SALES_RETURNS: SalesReturnCreditNote[] = [
     doorModelCode: 'EXM-WPC-201',
     doorModelTitle: 'Denwood WPC Solid Core Bedroom Door',
     returnReason: 'TRANSIT_SURFACE_DAMAGE',
-    taxableRefund: 9152,
-    cgstReversal: 824,
-    sgstReversal: 824,
+    taxableRefund: 10800,
+    cgstReversal: 0,
+    sgstReversal: 0,
     totalCreditAmount: 10800,
     disposition: 'REWORK_PLANT_FLOOR',
     status: 'APPROVED',
@@ -260,29 +260,65 @@ const INITIAL_SALES_RETURNS: SalesReturnCreditNote[] = [
 
 export default function SalesAndReturnHub() {
   const [activeTab, setActiveTab] = useState<'invoices' | 'returns' | 'ledger'>('invoices');
-  const [invoices, setInvoices] = useState<SalesInvoice[]>(INITIAL_SALES_INVOICES);
-  const [returns, setReturns] = useState<SalesReturnCreditNote[]>(INITIAL_SALES_RETURNS);
+  const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
+  const [returns, setReturns] = useState<SalesReturnCreditNote[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDistrict, setFilterDistrict] = useState('ALL');
   const [filterPayment, setFilterPayment] = useState('ALL');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isZeroed = localStorage.getItem('exmark_data_zeroed');
-      if (isZeroed === 'true') {
-        setInvoices([]);
-        setReturns([]);
-        return;
-      }
       fetch('/api/finance/invoices')
         .then((res) => res.json())
         .then((json) => {
-          if (json && Array.isArray(json.data) && json.data.length === 0) {
-            setInvoices([]);
-            setReturns([]);
+          if (json && Array.isArray(json.data)) {
+            if (json.data.length === 0) {
+              setInvoices([]);
+              setReturns([]);
+            } else {
+              const mapped: SalesInvoice[] = json.data.map((inv: {
+                id: string;
+                invoiceNumber?: string;
+                salesOrderId?: string;
+                customerName?: string;
+                invoiceDate?: string;
+                dueDate?: string;
+                subtotal?: number;
+                totalAmount?: number;
+                paidAmount?: number;
+                balanceAmount?: number;
+                status?: string;
+                vehicleNo?: string;
+              }) => ({
+                id: inv.invoiceNumber || inv.id,
+                orderRef: inv.salesOrderId || '-',
+                customerName: inv.customerName || 'Client',
+                phone: '-',
+                location: '-',
+                district: 'Kerala',
+                date: inv.invoiceDate || '',
+                dueDate: inv.dueDate || '',
+                itemsSummary: 'Sales Bill',
+                doorsCount: 0,
+                subtotal: Number(inv.totalAmount ?? inv.subtotal ?? 0),
+                cgst: 0,
+                sgst: 0,
+                gstAmount: 0,
+                grandTotal: Number(inv.totalAmount ?? inv.subtotal ?? 0),
+                advanceCredited: Number(inv.paidAmount ?? 0),
+                balanceDue: Number(inv.balanceAmount ?? inv.totalAmount ?? 0),
+                paymentStatus: inv.status === 'PAID' ? 'PAID' : (Number(inv.paidAmount ?? 0) > 0 ? 'PARTIAL' : 'PENDING'),
+                eWayBillNo: '',
+                vehicleNo: inv.vehicleNo || '',
+              }));
+              setInvoices(mapped);
+            }
           }
         })
         .catch(() => {});
+
+      const savedTheme = localStorage.getItem('exmark_print_theme') as PrintTheme;
+      if (savedTheme) setPrintTheme(savedTheme);
     }
   }, []);
 
@@ -326,14 +362,9 @@ export default function SalesAndReturnHub() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Restore zero baseline if active
+  // Saved theme load
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isZeroed = localStorage.getItem('exmark_data_zeroed');
-      if (isZeroed === 'true') {
-        setInvoices([]);
-        setReturns([]);
-      }
       const savedTheme = localStorage.getItem('exmark_print_theme') as PrintTheme;
       if (savedTheme) setPrintTheme(savedTheme);
     }
@@ -375,10 +406,10 @@ export default function SalesAndReturnHub() {
       customerName: inv.customerName,
       location: `${inv.location}, ${inv.district}`,
       itemsSummary: inv.itemsSummary,
-      gstMode: 'included',
-      gstRate: 18,
-      subtotal: inv.subtotal,
-      gstAmount: inv.gstAmount,
+      gstMode: 'without',
+      gstRate: 0,
+      subtotal: inv.grandTotal,
+      gstAmount: 0,
       grandTotal: inv.grandTotal,
       advancePercent: Math.round((inv.advanceCredited / inv.grandTotal) * 100),
       advanceAmount: inv.advanceCredited,
@@ -395,11 +426,11 @@ export default function SalesAndReturnHub() {
       id: ret.id,
       customerName: ret.customerName,
       location: `${ret.district}, Kerala (Ref: ${ret.invoiceRef})`,
-      itemsSummary: `CREDIT NOTE: ${ret.doorsReturned} Unit ${ret.doorModelTitle} [Reason: ${RETURN_REASONS[ret.returnReason].en}]`,
-      gstMode: 'included',
-      gstRate: 18,
-      subtotal: ret.taxableRefund,
-      gstAmount: ret.cgstReversal + ret.sgstReversal,
+      itemsSummary: `SALES RETURN: ${ret.doorsReturned} Unit ${ret.doorModelTitle} [Reason: ${RETURN_REASONS[ret.returnReason].en}]`,
+      gstMode: 'without',
+      gstRate: 0,
+      subtotal: ret.totalCreditAmount,
+      gstAmount: 0,
       grandTotal: ret.totalCreditAmount,
       advancePercent: 0,
       advanceAmount: 0,
@@ -428,10 +459,9 @@ export default function SalesAndReturnHub() {
 
     const unitPrice = Math.round(selectedInvoiceForReturn.grandTotal / selectedInvoiceForReturn.doorsCount);
     const totalCredit = unitPrice * returnQty;
-    const taxable = Math.round(totalCredit / 1.18);
-    const gstRev = totalCredit - taxable;
-    const cgstRev = Math.round(gstRev / 2);
-    const sgstRev = gstRev - cgstRev;
+    const taxable = totalCredit;
+    const cgstRev = 0;
+    const sgstRev = 0;
 
     const newCreditNoteId = `CN-2026-00${returns.length + 1}`;
 
@@ -484,18 +514,15 @@ export default function SalesAndReturnHub() {
                 <ReceiptText className="w-3.5 h-3.5" />
                 Sales &amp; Sales Return Hub
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
-                GST Section 34 Compliant
-              </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                HSN 3925 / 18% GST
+                Direct Factory Billing
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
-              Commercial Sales &amp; Returns Register (സെയിൽസ് &amp; ക്രെഡിറ്റ് നോട്ട്)
+              Commercial Sales &amp; Returns Register (സെയിൽസ് &amp; റിട്ടേൺസ്)
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
-              Official GST Tax Invoicing, dealer credit notes, size mismatch adjustments, factory rework routing, and net sales reconciliation for Kerala door projects.
+              Direct Commercial Sales Billing, dealer credit vouchers, size mismatch adjustments, factory rework routing, and net sales reconciliation for Kerala door projects.
             </p>
           </div>
 
@@ -578,7 +605,7 @@ export default function SalesAndReturnHub() {
               }`}
             >
               <ReceiptText className="w-4 h-4" />
-              <span>Tax Invoices (സെയിൽസ് ഇൻവോയ്സ്)</span>
+              <span>Sales Invoices / Bills (സെയിൽസ് ബിൽ)</span>
               <span className="bg-slate-800 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
                 {invoices.length}
               </span>
@@ -659,7 +686,7 @@ export default function SalesAndReturnHub() {
               </div>
 
               <span className="text-xs text-slate-400">
-                Showing {filteredInvoices.length} of {invoices.length} Tax Invoices
+                Showing {filteredInvoices.length} of {invoices.length} Sales Bills
               </span>
             </div>
 
@@ -670,9 +697,7 @@ export default function SalesAndReturnHub() {
                     <th className="p-3">Invoice Ref</th>
                     <th className="p-3">Customer &amp; Kerala Site</th>
                     <th className="p-3">Door Specifications</th>
-                    <th className="p-3 text-right">Taxable (₹)</th>
-                    <th className="p-3 text-right">18% GST (₹)</th>
-                    <th className="p-3 text-right">Total Value</th>
+                    <th className="p-3 text-right">Bill Value (₹)</th>
                     <th className="p-3 text-right">Advance Paid</th>
                     <th className="p-3 text-right">Balance Due</th>
                     <th className="p-3 text-center">Actions</th>
@@ -681,12 +706,12 @@ export default function SalesAndReturnHub() {
                 <tbody className="divide-y divide-slate-800/80">
                   {filteredInvoices.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="p-10 text-center">
+                      <td colSpan={7} className="p-10 text-center">
                         <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto text-slate-500">
                           <ReceiptText className="w-8 h-8 text-slate-600" />
-                          <p className="font-bold text-slate-300 text-sm">0 Tax Invoices Found</p>
+                          <p className="font-bold text-slate-300 text-sm">0 Sales Invoices Found</p>
                           <p className="text-xs text-slate-400">
-                            Convert an active Sales Order or record a direct sale to generate official GST Tax Invoices.
+                            Convert an active Sales Order or record a direct sale to generate sales bills.
                           </p>
                         </div>
                       </td>
@@ -711,15 +736,8 @@ export default function SalesAndReturnHub() {
                         <td className="p-3 text-slate-300 max-w-[220px]">
                           <span className="truncate block font-medium">{inv.itemsSummary}</span>
                           <span className="text-[10px] text-cyan-400 font-mono">
-                            {inv.doorsCount} Door Sets &bull; HSN 3925
+                            {inv.doorsCount} Door Sets
                           </span>
-                        </td>
-                        <td className="p-3 text-right font-mono text-slate-300">
-                          ₹{inv.subtotal.toLocaleString('en-IN')}
-                        </td>
-                        <td className="p-3 text-right font-mono text-slate-400 text-[11px]">
-                          ₹{inv.gstAmount.toLocaleString('en-IN')}
-                          <span className="block text-[9px] text-slate-500">9% C + 9% S</span>
                         </td>
                         <td className="p-3 text-right font-mono font-bold text-emerald-400">
                           ₹{inv.grandTotal.toLocaleString('en-IN')}
@@ -754,7 +772,7 @@ export default function SalesAndReturnHub() {
                               type="button"
                               onClick={() => handleInitiateReturn(inv)}
                               className="px-2 py-1 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 text-xs rounded border border-rose-800/50 transition cursor-pointer flex items-center gap-1"
-                              title="Issue Sales Return (Credit Note)"
+                              title="Issue Sales Return / Return Voucher"
                             >
                               <RotateCcw className="w-3 h-3 text-rose-400" />
                               <span>Return ↩</span>
@@ -776,9 +794,9 @@ export default function SalesAndReturnHub() {
             <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/40 text-amber-300 text-xs flex items-start gap-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold">GST Section 34 Credit Note Compliance:</p>
+                <p className="font-bold">Sales Return &amp; Account Adjustment Policy:</p>
                 <p className="text-[11px] text-slate-300 mt-0.5">
-                  When doors are returned due to site opening variation, surface scratch, or design change, an official GST Credit Note is issued, reversing 18% GST (HSN 3925) and deducting from customer accounts.
+                  When doors are returned due to site opening variation, surface scratch, or design change, a Sales Return / Credit Voucher is recorded and deducted directly from customer accounts.
                 </p>
               </div>
             </div>
@@ -787,7 +805,7 @@ export default function SalesAndReturnHub() {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-900 text-slate-300 border-b border-slate-800 text-[11px] font-bold">
-                    <th className="p-3">Credit Note #</th>
+                    <th className="p-3">Return Voucher #</th>
                     <th className="p-3">Original Invoice</th>
                     <th className="p-3">Customer &amp; District</th>
                     <th className="p-3">Returned Doors &amp; Spec</th>
@@ -838,9 +856,6 @@ export default function SalesAndReturnHub() {
                         </td>
                         <td className="p-3 text-right font-mono font-bold text-rose-400">
                           ₹{ret.totalCreditAmount.toLocaleString('en-IN')}
-                          <span className="block text-[9px] text-slate-500 font-mono">
-                            Taxable: ₹{ret.taxableRefund} + GST: ₹{ret.cgstReversal + ret.sgstReversal}
-                          </span>
                         </td>
                         <td className="p-3">
                           <span
@@ -861,7 +876,7 @@ export default function SalesAndReturnHub() {
                             type="button"
                             onClick={() => handlePrintCreditNote(ret)}
                             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded border border-slate-700 transition cursor-pointer flex items-center gap-1 shadow-xs"
-                            title="Print GST Credit Note (5 Themes)"
+                            title="Print Return Voucher (5 Themes)"
                           >
                             <Printer className="w-3.5 h-3.5 text-rose-400" />
                             <span>Print Note</span>
@@ -883,13 +898,13 @@ export default function SalesAndReturnHub() {
               <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
                 <span className="text-xs text-slate-400 font-semibold uppercase">Gross Billing Total</span>
                 <p className="text-2xl font-black text-white">₹{grossSales.toLocaleString('en-IN')}</p>
-                <p className="text-xs text-slate-400">Total Tax Invoices issued</p>
+                <p className="text-xs text-slate-400">Total Sales Bills issued</p>
               </div>
 
               <div className="p-4 rounded-xl bg-slate-900 border border-rose-900/50 space-y-1">
                 <span className="text-xs text-rose-400 font-semibold uppercase">Less: Sales Returns</span>
                 <p className="text-2xl font-black text-rose-400">-₹{totalReturns.toLocaleString('en-IN')}</p>
-                <p className="text-xs text-rose-300/80">Credit Notes issued under Section 34</p>
+                <p className="text-xs text-rose-300/80">Return / Adjustment Vouchers</p>
               </div>
 
               <div className="p-4 rounded-xl bg-slate-900 border border-emerald-900/50 space-y-1">
@@ -907,7 +922,7 @@ export default function SalesAndReturnHub() {
                     <th className="p-3">Customer / Dealer</th>
                     <th className="p-3">District</th>
                     <th className="p-3 text-right">Invoices Value (₹)</th>
-                    <th className="p-3 text-right">Returns (Credit Note) (₹)</th>
+                    <th className="p-3 text-right">Returns / Adjustments (₹)</th>
                     <th className="p-3 text-right">Net Sales (₹)</th>
                     <th className="p-3 text-right">Balance Due (₹)</th>
                     <th className="p-3 text-center">Ledger Action</th>
@@ -985,8 +1000,8 @@ export default function SalesAndReturnHub() {
                   <RotateCcw className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Record Sales Return (ക്രെഡിറ്റ് നോട്ട്)</h3>
-                  <p className="text-xs text-slate-400">GST Section 34 Tax Credit Note Issuance</p>
+                  <h3 className="text-base font-bold text-white">Record Sales Return (സെയിൽസ് റിട്ടേൺ)</h3>
+                  <p className="text-xs text-slate-400">Sales Return &amp; Balance Adjustment Issuance</p>
                 </div>
               </div>
               <button
@@ -1110,16 +1125,16 @@ export default function SalesAndReturnHub() {
 
       {/* PRINT DOCUMENT MODAL (5 Themes) */}
       {previewDoc && (
-        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm overflow-y-auto printable-modal-root">
           <div className="bg-[#0f172a] border border-slate-700 w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[95vh]">
-            <div className="p-3.5 border-b border-slate-800 flex justify-between items-center bg-[#131d35]">
+            <div className="p-3.5 border-b border-slate-800 flex justify-between items-center bg-[#131d35] print:hidden">
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
                   {previewDoc.id}
                 </span>
                 <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
                   <Printer className="w-4 h-4 text-cyan-400" />
-                  <span>Official GST Print &amp; Document Hub</span>
+                  <span>Print &amp; Document Hub</span>
                 </h3>
               </div>
               <div className="flex items-center gap-2">
@@ -1142,7 +1157,7 @@ export default function SalesAndReturnHub() {
             </div>
 
             {/* Document Type & Theme Toolbar */}
-            <div className="border-b border-slate-800 bg-[#090e1a] p-3 space-y-2 text-xs">
+            <div className="border-b border-slate-800 bg-[#090e1a] p-3 space-y-2 text-xs print:hidden">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-1 text-[11px] font-bold text-slate-300">
                   <ReceiptText className="w-3.5 h-3.5 text-rose-400" />
@@ -1151,8 +1166,8 @@ export default function SalesAndReturnHub() {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {(
                     [
-                      { id: 'salesInvoice', label: 'Tax Invoice (GST Bill)' },
-                      { id: 'creditNote', label: 'GST Credit Note (Sales Return)' },
+                      { id: 'salesInvoice', label: 'Sales Invoice / Bill' },
+                      { id: 'creditNote', label: 'Sales Return / Credit Note' },
                       { id: 'salesOrder', label: 'Sales Order Ref' },
                       { id: 'statement', label: 'Party Statement' },
                     ] as const

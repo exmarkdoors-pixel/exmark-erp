@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, AlertTriangle, ShieldCheck, CreditCard, ReceiptIndianRupee, Landmark, Smartphone, Banknote } from 'lucide-react';
+import { X, CheckCircle2, AlertTriangle, ShieldCheck, CreditCard, ReceiptIndianRupee, Landmark, Smartphone, Banknote, MessageSquare, ExternalLink } from 'lucide-react';
 
 export interface RecordAdvanceModalProps {
   isOpen: boolean;
@@ -29,6 +29,7 @@ export function RecordAdvanceModal({
   const [accountsNote, setAccountsNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [notifyViaWhatsApp, setNotifyViaWhatsApp] = useState<boolean>(true);
 
   useEffect(() => {
     if (order) {
@@ -103,6 +104,16 @@ export function RecordAdvanceModal({
         paymentMode,
         utrNumber: utrNumber || 'BANK-VERIFIED',
       });
+
+      if (notifyViaWhatsApp && typeof window !== 'undefined') {
+        const origin = window.location.origin;
+        const link = `${origin}/order-status/${encodeURIComponent(order.orderNumber)}`;
+        const msg = encodeURIComponent(
+          `*EXMARK ARCHITECTURAL FRP DOORS* 🚪✨\nപ്രിയപ്പെട്ട *${order.customerName}*,\n\nതാങ്കളുടെ അഡ്വാൻസ് പേയ്‌മെന്റ് (₹${depositAmount.toLocaleString('en-IN')}) വിജയകരമായി വെരിഫൈ ചെയ്തിരിക്കുന്നു.\nYour advance deposit is verified & doors are entering manufacturing.\n\n🔗 *Live Order & Door Status Tracking Link:*\n${link}\n\n📞 Factory Support: +91 94479 28866\nThank you for choosing EXMARK!`
+        );
+        window.open(`https://wa.me/?text=${msg}`, '_blank');
+      }
+
       onClose();
     } catch {
       setErrorMsg('Network error while recording advance deposit. Please retry.');
@@ -258,6 +269,17 @@ export function RecordAdvanceModal({
               </>
             )}
           </div>
+          {/* WhatsApp Notification Option */}
+          <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-[11px] text-slate-300 cursor-pointer hover:border-slate-700 transition">
+            <input
+              type="checkbox"
+              checked={notifyViaWhatsApp}
+              onChange={(e) => setNotifyViaWhatsApp(e.target.checked)}
+              className="rounded text-emerald-500 focus:ring-emerald-400 bg-slate-900 border-slate-700 cursor-pointer"
+            />
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>Open WhatsApp to send Order Tracking Link to customer upon saving</span>
+          </label>
         </div>
 
         {/* Modal Footer */}

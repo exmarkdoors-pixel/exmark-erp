@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   validateAndBumpVersion,
   acquireOrHeartbeatLease,
@@ -9,6 +10,9 @@ import {
 
 export async function GET(req: Request) {
   try {
+    const auth = await authorizeRequest(req);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { searchParams } = new URL(req.url);
     const entityType = searchParams.get('entityType') as ConcurrencyRecord['entityType'] | null;
     const entityId = searchParams.get('entityId');
@@ -33,6 +37,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const auth = await authorizeRequest(req);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const { action } = body;
 

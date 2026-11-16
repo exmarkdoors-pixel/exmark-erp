@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getDataFilePath } from '../utils/dataPaths';
 import { assertWriteAllowed } from './dbSyncEngine';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -52,17 +53,18 @@ export type FollowUpCreateInput = Omit<FollowUp, 'id' | 'leadId' | 'createdAt'>;
 
 // ── Store helpers ─────────────────────────────────────────────────────────────
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'leads-store.json');
+const getStorePath = () => getDataFilePath('leads-store.json');
 
 function readStore(): Lead[] {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(STORE_PATH)) {
-      fs.writeFileSync(STORE_PATH, '[]', 'utf8');
+    if (!fs.existsSync(storePath)) {
+      fs.writeFileSync(storePath, '[]', 'utf8');
       return [];
     }
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as Lead[]) : [];
   } catch {
@@ -72,9 +74,10 @@ function readStore(): Lead[] {
 
 function writeStore(leads: Lead[]): void {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STORE_PATH, JSON.stringify(leads, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(leads, null, 2), 'utf8');
   } catch (err) {
     console.error('[crmService] Failed to write store:', err);
   }

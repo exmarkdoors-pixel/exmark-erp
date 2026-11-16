@@ -24,8 +24,10 @@ import {
   DEFAULT_FRP_RATE_CARD,
   DEFAULT_LOCK_OPTIONS,
   DEFAULT_COLOUR_OPTIONS,
+  DEFAULT_THICKNESS_OPTIONS,
   LockOption,
   ColourOption,
+  DoorThicknessOption,
 } from '@/lib/services/frpPricingEngine';
 
 interface FrpPricingSettingsModalProps {
@@ -33,6 +35,7 @@ interface FrpPricingSettingsModalProps {
   onClose: () => void;
   currentSettings: FrpRateCardSettings;
   onSettingsSaved: (updated: FrpRateCardSettings) => void;
+  initialTab?: 'rates' | 'locks' | 'colours' | 'thicknesses';
 }
 
 export function FrpPricingSettingsModal({
@@ -40,13 +43,17 @@ export function FrpPricingSettingsModal({
   onClose,
   currentSettings,
   onSettingsSaved,
+  initialTab = 'rates',
 }: FrpPricingSettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'rates' | 'locks' | 'colours'>('rates');
+  const [activeTab, setActiveTab] = useState<'rates' | 'locks' | 'colours' | 'thicknesses'>(initialTab);
 
   // Rates & Sq.Ft Adjustment State
   const [maxWidthCm, setMaxWidthCm] = useState(currentSettings.maxWidthCm || 80);
   const [maxHeightCm, setMaxHeightCm] = useState(currentSettings.maxHeightCm || 210);
   const [extraSqftRate, setExtraSqftRate] = useState(currentSettings.extraSqftRate || 250);
+  const [highMaxWidthCm, setHighMaxWidthCm] = useState(currentSettings.highExtraMaxWidthCm ?? 90);
+  const [highMaxHeightCm, setHighMaxHeightCm] = useState(currentSettings.highExtraMaxHeightCm ?? 230);
+  const [highExtraSqftRate, setHighExtraSqftRate] = useState(currentSettings.highExtraSqftRate ?? 450);
   const [rateA, setRateA] = useState(currentSettings.categoryPieceRates?.A || 7000);
   const [rateB, setRateB] = useState(currentSettings.categoryPieceRates?.B || 7600);
   const [rateC, setRateC] = useState(currentSettings.categoryPieceRates?.C || 8200);
@@ -54,6 +61,12 @@ export function FrpPricingSettingsModal({
   const [rateE, setRateE] = useState(currentSettings.categoryPieceRates?.E || 9500);
   const [belowMode, setBelowMode] = useState<'DIVIDED_RATE' | 'BASE_MINIMUM'>(
     currentSettings.belowSizeCalculationMode || 'DIVIDED_RATE'
+  );
+  const [defaultInstallRate, setDefaultInstallRate] = useState<number>(
+    currentSettings.defaultInstallationRatePerDoor ?? 500
+  );
+  const [defaultInstallLabel, setDefaultInstallLabel] = useState<string>(
+    currentSettings.defaultInstallationLabel || 'Site Door & Frame Installation (Hardware & Fitting)'
   );
 
   // Locks CRUD State
@@ -80,27 +93,53 @@ export function FrpPricingSettingsModal({
   const [colourExtraRate, setColourExtraRate] = useState('0');
   const [colourCategory, setColourCategory] = useState<'WOOD_GRAIN' | 'SOLID_COLOR' | 'METALLIC' | 'CUSTOM'>('WOOD_GRAIN');
 
+  // Door Thickness CRUD State
+  const [doorThicknesses, setDoorThicknesses] = useState<DoorThicknessOption[]>(
+    currentSettings.doorThicknesses && currentSettings.doorThicknesses.length > 0
+      ? currentSettings.doorThicknesses
+      : DEFAULT_THICKNESS_OPTIONS
+  );
+  const [editingThicknessId, setEditingThicknessId] = useState<string | null>(null);
+  const [thicknessName, setThicknessName] = useState('');
+  const [thicknessMm, setThicknessMm] = useState('32');
+  const [thicknessExtraRate, setThicknessExtraRate] = useState('0');
+  const [thicknessIsDefault, setThicknessIsDefault] = useState(false);
+
   const [isSaving, setIsSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
+    setActiveTab(initialTab);
     setMaxWidthCm(currentSettings.maxWidthCm || 80);
     setMaxHeightCm(currentSettings.maxHeightCm || 210);
     setExtraSqftRate(currentSettings.extraSqftRate || 250);
+    setHighMaxWidthCm(currentSettings.highExtraMaxWidthCm ?? 90);
+    setHighMaxHeightCm(currentSettings.highExtraMaxHeightCm ?? 230);
+    setHighExtraSqftRate(currentSettings.highExtraSqftRate ?? 450);
     setRateA(currentSettings.categoryPieceRates?.A || 7000);
     setRateB(currentSettings.categoryPieceRates?.B || 7600);
     setRateC(currentSettings.categoryPieceRates?.C || 8200);
     setRateD(currentSettings.categoryPieceRates?.D || 8800);
     setRateE(currentSettings.categoryPieceRates?.E || 9500);
     setBelowMode(currentSettings.belowSizeCalculationMode || 'DIVIDED_RATE');
+    setDefaultInstallRate(currentSettings.defaultInstallationRatePerDoor ?? 500);
+    setDefaultInstallLabel(
+      currentSettings.defaultInstallationLabel || 'Site Door & Frame Installation (Hardware & Fitting)'
+    );
     setLocks(currentSettings.locks && currentSettings.locks.length > 0 ? currentSettings.locks : DEFAULT_LOCK_OPTIONS);
     setColours(currentSettings.colours && currentSettings.colours.length > 0 ? currentSettings.colours : DEFAULT_COLOUR_OPTIONS);
-  }, [isOpen, currentSettings]);
+    setDoorThicknesses(
+      currentSettings.doorThicknesses && currentSettings.doorThicknesses.length > 0
+        ? currentSettings.doorThicknesses
+        : DEFAULT_THICKNESS_OPTIONS
+    );
+  }, [isOpen, currentSettings, initialTab]);
 
   if (!isOpen) return null;
 
   const standardSqft = ((maxWidthCm * maxHeightCm) / 929.0304).toFixed(2);
+  const highThresholdSqft = ((highMaxWidthCm * highMaxHeightCm) / 929.0304).toFixed(2);
 
   // --- Lock Handlers ---
   const handleStartAddLock = () => {
@@ -222,6 +261,75 @@ export function FrpPricingSettingsModal({
     }
   };
 
+  // --- Door Thickness Handlers ---
+  const handleStartAddThickness = () => {
+    setEditingThicknessId('NEW');
+    setThicknessName('');
+    setThicknessMm('32');
+    setThicknessExtraRate('300');
+    setThicknessIsDefault(false);
+  };
+
+  const handleStartEditThickness = (thk: DoorThicknessOption) => {
+    setEditingThicknessId(thk.id);
+    setThicknessName(thk.name);
+    setThicknessMm(thk.thicknessMm.toString());
+    setThicknessExtraRate((thk.extraRate || 0).toString());
+    setThicknessIsDefault(Boolean(thk.isDefault));
+  };
+
+  const handleSaveThickness = () => {
+    const mm = parseFloat(thicknessMm) || 28;
+    const label = thicknessName.trim() || `${mm}mm Door`;
+    const extraRate = parseFloat(thicknessExtraRate) || 0;
+
+    let nextList: DoorThicknessOption[];
+    if (editingThicknessId === 'NEW') {
+      const created: DoorThicknessOption = {
+        id: `thk-${Date.now().toString(36)}`,
+        name: label,
+        thicknessMm: mm,
+        extraRate,
+        isDefault: thicknessIsDefault,
+      };
+      nextList = thicknessIsDefault
+        ? [...doorThicknesses.map((t) => ({ ...t, isDefault: false })), created]
+        : [...doorThicknesses, created];
+      setStatusMsg(`Thickness "${created.name}" added successfully.`);
+    } else {
+      nextList = doorThicknesses.map((t) => {
+        if (t.id === editingThicknessId) {
+          return { ...t, name: label, thicknessMm: mm, extraRate, isDefault: thicknessIsDefault };
+        }
+        return thicknessIsDefault ? { ...t, isDefault: false } : t;
+      });
+      setStatusMsg(`Thickness "${label}" updated successfully.`);
+    }
+
+    setDoorThicknesses(nextList);
+    setEditingThicknessId(null);
+    setTimeout(() => setStatusMsg(null), 2500);
+  };
+
+  const handleDeleteThickness = (id: string) => {
+    if (doorThicknesses.length <= 1) {
+      setStatusMsg('At least one door thickness option is required.');
+      return;
+    }
+    const target = doorThicknesses.find((t) => t.id === id);
+    if (!target) return;
+    if (confirm(`Delete thickness option "${target.name}"?`)) {
+      const remaining = doorThicknesses.filter((t) => t.id !== id);
+      if (target.isDefault && remaining.length > 0 && !remaining.some((t) => t.isDefault)) {
+        remaining[0] = { ...remaining[0], isDefault: true };
+      }
+      setDoorThicknesses(remaining);
+      if (editingThicknessId === id) setEditingThicknessId(null);
+      setStatusMsg(`Thickness "${target.name}" deleted.`);
+      setTimeout(() => setStatusMsg(null), 2000);
+    }
+  };
+
   // --- Global Save ---
   const handleSave = async () => {
     setIsSaving(true);
@@ -230,6 +338,9 @@ export function FrpPricingSettingsModal({
         maxWidthCm: Number(maxWidthCm) || 80,
         maxHeightCm: Number(maxHeightCm) || 210,
         extraSqftRate: Number(extraSqftRate) || 250,
+        highExtraMaxWidthCm: Number(highMaxWidthCm) || 90,
+        highExtraMaxHeightCm: Number(highMaxHeightCm) || 230,
+        highExtraSqftRate: Number(highExtraSqftRate) ?? 450,
         categoryPieceRates: {
           A: Number(rateA) || 7000,
           B: Number(rateB) || 7600,
@@ -238,8 +349,12 @@ export function FrpPricingSettingsModal({
           E: Number(rateE) || 9500,
         },
         belowSizeCalculationMode: belowMode,
+        defaultInstallationRatePerDoor: Math.max(0, Number(defaultInstallRate) || 0),
+        defaultInstallationLabel:
+          defaultInstallLabel.trim() || 'Site Door & Frame Installation (Hardware & Fitting)',
         locks,
         colours,
+        doorThicknesses,
       };
 
       const res = await fetch('/api/quotations/pricing-rules', {
@@ -277,16 +392,23 @@ export function FrpPricingSettingsModal({
         setMaxWidthCm(80);
         setMaxHeightCm(210);
         setExtraSqftRate(250);
+        setHighMaxWidthCm(90);
+        setHighMaxHeightCm(230);
+        setHighExtraSqftRate(450);
         setRateA(7000);
         setRateB(7600);
         setRateC(8200);
         setRateD(8800);
         setRateE(9500);
         setBelowMode('DIVIDED_RATE');
+        setDefaultInstallRate(500);
+        setDefaultInstallLabel('Site Door & Frame Installation (Hardware & Fitting)');
         setLocks(DEFAULT_LOCK_OPTIONS);
         setColours(DEFAULT_COLOUR_OPTIONS);
+        setDoorThicknesses(DEFAULT_THICKNESS_OPTIONS);
         setEditingLockId(null);
         setEditingColourId(null);
+        setEditingThicknessId(null);
         onSettingsSaved(data.settings);
         setStatusMsg('Factory defaults restored (80×210 cm, ₹250/sqft, default locks & colours).');
         setTimeout(() => setStatusMsg(null), 2500);
@@ -364,6 +486,19 @@ export function FrpPricingSettingsModal({
           >
             <Palette className="w-4 h-4" />
             <span>Colours &amp; Finishes ({colours.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('thicknesses')}
+            className={`px-4 py-2 font-bold rounded-t-xl transition flex items-center gap-2 cursor-pointer ${
+              activeTab === 'thicknesses'
+                ? 'bg-[#070D1E] text-amber-400 border-t-2 border-amber-500 border-x border-slate-800'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Door Thickness ({doorThicknesses.length})</span>
           </button>
         </div>
 
@@ -516,12 +651,54 @@ export function FrpPricingSettingsModal({
                 </span>
 
                 <div className="space-y-2 pt-1 text-slate-300">
-                  <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-[11px] leading-relaxed">
-                    <strong className="text-white">Extra Size Formula:</strong> When door size exceeds {maxWidthCm}×{maxHeightCm} cm:
-                    <br />
-                    <code className="text-emerald-400 font-bold">
-                      Price = Base Rate + (Actual Sq.Ft - {standardSqft} Sq.Ft) × ₹{extraSqftRate}/sq.ft
-                    </code>
+                  <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-[11px] leading-relaxed space-y-2">
+                    <div>
+                      <strong className="text-white">Extra Size Tier 1:</strong> Between {maxWidthCm}×{maxHeightCm} cm ({standardSqft} sq.ft) and {highMaxWidthCm}×{highMaxHeightCm} cm ({highThresholdSqft} sq.ft):
+                      <br />
+                      <code className="text-emerald-400 font-bold">
+                        + (Extra Sq.Ft up to {highThresholdSqft} sq.ft) × ₹{extraSqftRate}/sq.ft
+                      </code>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 space-y-2">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <strong className="text-amber-300">
+                          Oversize Tier 2 (&gt; {highMaxWidthCm}×{highMaxHeightCm} cm / {highThresholdSqft} sq.ft):
+                        </strong>
+                        <span className="text-[10px] font-mono text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+                          After {highThresholdSqft} sq.ft: ₹{highExtraSqftRate}/sq.ft
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-400 font-bold mb-0.5">Tier 2 Width (cm)</label>
+                          <input
+                            type="number"
+                            value={highMaxWidthCm}
+                            onChange={(e) => setHighMaxWidthCm(parseFloat(e.target.value) || 0)}
+                            className="w-full px-2.5 py-1.5 bg-[#0B132B] text-white rounded-lg border border-slate-700 font-bold text-xs focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-400 font-bold mb-0.5">Tier 2 Height (cm)</label>
+                          <input
+                            type="number"
+                            value={highMaxHeightCm}
+                            onChange={(e) => setHighMaxHeightCm(parseFloat(e.target.value) || 0)}
+                            className="w-full px-2.5 py-1.5 bg-[#0B132B] text-white rounded-lg border border-slate-700 font-bold text-xs focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-amber-300 font-bold mb-0.5">After {highThresholdSqft} Sq.Ft Rate (₹)</label>
+                          <input
+                            type="number"
+                            value={highExtraSqftRate}
+                            onChange={(e) => setHighExtraSqftRate(parseFloat(e.target.value) || 0)}
+                            className="w-full px-2.5 py-1.5 bg-[#0B132B] text-amber-300 rounded-lg border border-amber-500/60 font-black text-xs focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div>
@@ -559,6 +736,42 @@ export function FrpPricingSettingsModal({
                         </p>
                       </button>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Door Installation Service Default Rate */}
+              <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2.5">
+                <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span>3. Default Door Installation Option Rate (ഡോർ ഇൻസ്റ്റാളേഷൻ ചാർജ്)</span>
+                </span>
+                <p className="text-[11px] text-slate-400">
+                  Prefills the optional Door Installation charge when creating quotations (editable per quotation).
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  <div>
+                    <label className="block text-[10px] text-slate-400 font-bold mb-1">
+                      Default Charge (₹ / Door)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={defaultInstallRate}
+                      onChange={(e) => setDefaultInstallRate(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 bg-[#0B132B] text-emerald-300 rounded-xl border border-slate-700 font-black focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] text-slate-400 font-bold mb-1">
+                      Default Service Line Label on Quote PDF
+                    </label>
+                    <input
+                      type="text"
+                      value={defaultInstallLabel}
+                      onChange={(e) => setDefaultInstallLabel(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#0B132B] text-white rounded-xl border border-slate-700 font-semibold focus:outline-none focus:border-emerald-500"
+                    />
                   </div>
                 </div>
               </div>
@@ -875,6 +1088,161 @@ export function FrpPricingSettingsModal({
                               onClick={() => handleDeleteColour(c.id)}
                               className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 cursor-pointer"
                               title="Delete Colour"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: DOOR THICKNESS CRUD (28mm / 30mm / Custom) */}
+          {activeTab === 'thicknesses' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-white text-xs">Door Thickness Catalog &amp; Extra Pricing</h4>
+                  <p className="text-[11px] text-slate-400">
+                    Configure default (28mm) and heavy door thickness (30mm +₹200) options applied in Quotations.
+                  </p>
+                </div>
+                {editingThicknessId === null && (
+                  <button
+                    type="button"
+                    onClick={handleStartAddThickness}
+                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Add Thickness</span>
+                  </button>
+                )}
+              </div>
+
+              {editingThicknessId !== null && (
+                <div className="p-3.5 rounded-2xl bg-amber-950/20 border border-amber-500/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-amber-300 text-xs">
+                      {editingThicknessId === 'NEW' ? 'Add Door Thickness Option' : 'Edit Door Thickness Option'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setEditingThicknessId(null)}
+                      className="text-slate-400 hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="block text-slate-400 font-semibold mb-1">Display Label</label>
+                      <input
+                        type="text"
+                        value={thicknessName}
+                        onChange={(e) => setThicknessName(e.target.value)}
+                        placeholder="e.g. 30mm Door"
+                        className="w-full px-3 py-1.5 bg-[#0B132B] text-white rounded-lg border border-slate-700 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 font-semibold mb-1">Thickness (mm)</label>
+                      <input
+                        type="number"
+                        value={thicknessMm}
+                        onChange={(e) => setThicknessMm(e.target.value)}
+                        placeholder="30"
+                        className="w-full px-3 py-1.5 bg-[#0B132B] text-white font-mono rounded-lg border border-slate-700 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 font-semibold mb-1">Additional Price (₹)</label>
+                      <input
+                        type="number"
+                        value={thicknessExtraRate}
+                        onChange={(e) => setThicknessExtraRate(e.target.value)}
+                        placeholder="200"
+                        className="w-full px-3 py-1.5 bg-[#0B132B] text-amber-300 font-bold rounded-lg border border-slate-700 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={thicknessIsDefault}
+                        onChange={(e) => setThicknessIsDefault(e.target.checked)}
+                        className="rounded text-amber-500"
+                      />
+                      <span>Set as Default Door Thickness</span>
+                    </label>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingThicknessId(null)}
+                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer font-semibold"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveThickness}
+                        className="px-4 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{editingThicknessId === 'NEW' ? 'Add Thickness' : 'Update Thickness'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950/60">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-slate-300 font-bold">
+                      <th className="p-2.5">Thickness Label</th>
+                      <th className="p-2.5">Specification</th>
+                      <th className="p-2.5 text-right">Additional Price</th>
+                      <th className="p-2.5 text-center w-24">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {doorThicknesses.map((t) => (
+                      <tr key={t.id} className="hover:bg-slate-900/40 transition">
+                        <td className="p-2.5 font-bold text-white flex items-center gap-2">
+                          <span>{t.name}</span>
+                          {t.isDefault && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              DEFAULT
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2.5 font-mono text-slate-300">{t.thicknessMm} mm</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-amber-400">
+                          {t.extraRate > 0 ? `+₹${t.extraRate.toLocaleString('en-IN')}` : 'Included (₹0)'}
+                        </td>
+                        <td className="p-2.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditThickness(t)}
+                              className="p-1 rounded text-slate-400 hover:text-amber-300 hover:bg-slate-800 cursor-pointer"
+                              title="Edit Thickness"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteThickness(t.id)}
+                              className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 cursor-pointer"
+                              title="Delete Thickness"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>

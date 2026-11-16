@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   getQuotation,
   convertToOrder,
@@ -9,6 +10,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'quotations', ['Super Admin', 'Management', 'Sales', 'Accounts']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const quotation = await getQuotation(id);

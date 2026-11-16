@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { UserRole } from './roles';
+import { signSessionPayload, verifySignedSessionToken } from './sessionSecret';
 
 export interface SessionUser {
   id: string;
@@ -14,7 +15,7 @@ export interface SessionUser {
 export const SESSION_COOKIE_NAME = 'exmark_erp_session';
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
-// Default demo users map for testing all 9 roles
+// Default seeded factory role baseline (passwords live in EXMARK_DATA_DIR/users-store.json)
 export const DEMO_USERS: Record<string, SessionUser & { passwordHash: string }> = {
   'director@exmarkdoors.com': {
     id: 'usr-admin-01',
@@ -24,7 +25,6 @@ export const DEMO_USERS: Record<string, SessionUser & { passwordHash: string }> 
     employeeCode: 'EXM-EMP-001',
     department: 'Executive & Strategy',
     plantLocation: 'Central Manufacturing Plant & Corporate HQ',
-    // Hash for "Exmark@2026"
     passwordHash: '$2b$12$K1rG1J5W2y1V5uV7d5P/Q.Zg/y5hT1W4N2p9H6u9G4r7s8e1w2q3a',
   },
   'management@exmarkdoors.com': {
@@ -53,21 +53,11 @@ export const DEMO_USERS: Record<string, SessionUser & { passwordHash: string }> 
     email: 'accounts.kochi@exmarkdoors.com',
     role: 'Accounts',
     employeeCode: 'EXM-EMP-004',
-    department: 'Accounts & GST Compliance',
+    department: 'Accounts & Cashbook Billing',
     plantLocation: 'Kochi Marine Drive Office',
     passwordHash: '$2b$12$K1rG1J5W2y1V5uV7d5P/Q.Zg/y5hT1W4N2p9H6u9G4r7s8e1w2q3a',
   },
   'plant@exmarkdoors.com': {
-    id: 'usr-prod-05',
-    name: 'Rajesh P.',
-    email: 'plant@exmarkdoors.com',
-    role: 'Production',
-    employeeCode: 'EXM-EMP-005',
-    department: 'Line 1 FRP Hydraulic Molding',
-    plantLocation: 'Manufacturing Plant Floor',
-    passwordHash: '$2b$12$K1rG1J5W2y1V5uV7d5P/Q.Zg/y5hT1W4N2p9H6u9G4r7s8e1w2q3a',
-  },
-  'plant.palakkad@exmarkdoors.com': {
     id: 'usr-prod-05',
     name: 'Rajesh P.',
     email: 'plant@exmarkdoors.com',
@@ -120,85 +110,93 @@ export const DEMO_USERS: Record<string, SessionUser & { passwordHash: string }> 
 };
 
 /**
- * Creates a secure HTTP-only session cookie for the user and returns the token string.
+ * Generates an HMAC-SHA256 signed token for a verified session user.
  */
-export async function createSessionCookie(user: SessionUser): Promise<string> {
-  const cookieStore = await cookies();
-  const sessionData = JSON.stringify({
-    ...user,
+export function createSignedSessionToken(user: SessionUser): string {
+  return signSessionPayload({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    employeeCode: user.employeeCode,
+    department: user.department,
+    plantLocation: user.plantLocation,
     issuedAt: Date.now(),
   });
+}
 
-  // Base64 encode session payload (in production signed with AUTH_SECRET HMAC)
-  const encoded = Buffer.from(sessionData).toString('base64');
+/**
+ * Verifies an HMAC-SHA256 signed session token string and ensures required user fields exist.
+ */
+export function parseSignedSessionToken(rawToken: string): SessionUser | null {
+  const parsed = verifySignedSessionToken<SessionUser & { issuedAt?: number }>(
+    rawToken,
+    SESSION_MAX_AGE
+  );
+  if (!parsed || !parsed.id || !parsed.role || !parsed.email) {
+    return null;
+  }
+  return parsed;
+}
 
-  // Ensure secure is only true when explicitly enabled or running in real HTTPS cloud (not local HTTP or Electron)
-  const isSecure = process.env.COOKIE_SECURE === 'true';
-
-  cookieStore.set(SESSION_COOKIE_NAME, encoded, {
+export function getSessionCookieOptions() {
+  return {
     httpOnly: true,
-    secure: isSecure,
-    sameSite: 'lax',
+    secure: process.env.COOKIE_SECURE === 'true',
+    sameSite: 'lax' as const,
     path: '/',
     maxAge: SESSION_MAX_AGE,
-  });
+  };
+}
 
-  return encoded;
+/**
+ * Creates an HTTP-only HMAC-signed session cookie for the user and returns the signed token.
+ */
+export async function createSessionCookie(user: SessionUser): Promise<string> {
+  const signedToken = createSignedSessionToken(user);
+
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE_NAME, signedToken, getSessionCookieOptions());
+  } catch {
+    // Allow direct server-action/route tests outside HTTP request storage to still receive token
+  }
+
+  return signedToken;
 }
 
 /**
  * Retrieves the currently authenticated session user from server cookies.
+ * Never auto-authenticates as Super Admin on missing/invalid cookies unless explicitly
+ * running with ALLOW_DEV_FALLBACK=true in non-production environments.
  */
 export async function getSession(): Promise<SessionUser | null> {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME) || cookieStore.get('exmark_session');
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME) || cookieStore.get('exmark_session');
 
-  if (!sessionCookie?.value) {
-    // In production, unauthenticated requests MUST NOT get automatic Super Admin access
-    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEV_FALLBACK !== 'true') {
-      return null;
+    if (sessionCookie?.value) {
+      return parseSignedSessionToken(sessionCookie.value);
     }
-    // Default to Super Admin in local dev preview mode
+  } catch {
+    // Outside request scope
+  }
+
+  if (process.env.ALLOW_DEV_FALLBACK === 'true' && process.env.NODE_ENV !== 'production') {
     return DEMO_USERS['director@exmarkdoors.com'];
   }
-
-  try {
-    let raw = sessionCookie.value.trim();
-    try {
-      raw = decodeURIComponent(raw);
-    } catch {
-      // not url-encoded
-    }
-    if (raw.startsWith('"') && raw.endsWith('"')) {
-      raw = raw.slice(1, -1);
-    }
-    let jsonStr: string;
-    try {
-      jsonStr = Buffer.from(raw, 'base64').toString('utf-8');
-      if (!jsonStr.trim().startsWith('{')) {
-        jsonStr = raw;
-      }
-    } catch {
-      jsonStr = raw;
-    }
-    const user = JSON.parse(jsonStr) as SessionUser & { issuedAt?: number };
-    
-    // Validate session expiration
-    if (user.issuedAt && Date.now() - user.issuedAt > SESSION_MAX_AGE * 1000) {
-      return null;
-    }
-
-    return user;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 /**
- * Destroys the current session cookie (Logout).
+ * Destroys the current session cookie (Logout / Switch Staff).
  */
 export async function destroySession(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE_NAME);
-  cookieStore.delete('exmark_session');
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete(SESSION_COOKIE_NAME);
+    cookieStore.delete('exmark_session');
+  } catch {
+    // Outside request scope
+  }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import UnifiedBondingPipelineBar from '@/components/layout/UnifiedBondingPipelineBar';
@@ -11,8 +11,8 @@ import RecentOrdersTable from '@/components/dashboard/RecentOrdersTable';
 import FollowUpReminders from '@/components/dashboard/FollowUpReminders';
 import QuickActionsModal from '@/components/dashboard/QuickActionsModal';
 import CorporateControlCenter from '@/components/dashboard/CorporateControlCenter';
-import { UserRole } from '@/lib/auth/roles';
-import { apiFetch } from '@/lib/api/apiClient';
+import { ERP_ROLES, UserRole } from '@/lib/auth/roles';
+import { apiFetch, clearAuthToken } from '@/lib/api/apiClient';
 
 import {
   CustomersView,
@@ -22,13 +22,9 @@ import {
   SalesAndReturnView,
   ProductionView,
   BomAndRecipeView,
-  QualityControlView,
-  PlantMaintenanceView,
-  SubcontractingView,
   BatchPrintView,
   InventoryView,
   PurchasesView,
-  GatePassView,
   DispatchInstallationView,
   SiteInstallationView,
   AccountsGstView,
@@ -37,25 +33,73 @@ import {
   ReportsView,
   SettingsView,
 } from '@/components/modules/ModuleViews';
+import { MobileFieldOperationsHub } from '@/components/mobile/MobileFieldOperationsHub';
 
-import {
-  DEMO_KPI_METRICS,
-  DEMO_SALES_CHART_DATA,
-  DEMO_PRODUCTION_LINES,
-  DEMO_RECENT_ORDERS,
-  DEMO_FOLLOW_UP_REMINDERS,
-} from '@/data/demoData';
-
-import { NavigationTab, KpiMetric, OrderItem } from '@/types/erp';
+import { NavigationTab, KpiMetric, OrderItem, SalesChartDataPoint, ProductionLine, FollowUpReminder } from '@/types/erp';
 import {
   Sparkles,
-  CalendarCheck,
   Users,
   ClipboardList,
   Layers,
   ShieldCheck,
   Printer,
+  KeyRound,
+  ShieldAlert,
+  Loader2,
+  ReceiptIndianRupee,
+  Settings as SettingsIcon,
 } from 'lucide-react';
+
+const ZERO_KPI_METRICS: KpiMetric[] = [
+  {
+    id: 'monthly-sales',
+    title: 'Active Pipeline & Quotes',
+    value: '₹0.00',
+    change: '0 Quotes',
+    isPositive: false,
+    period: 'fresh baseline',
+    subtext: '0 Total Openings • Ready for new site quotes',
+    badge: 'Live Ledger',
+    iconName: 'IndianRupee',
+    accentColor: 'from-emerald-500 to-teal-600',
+  },
+  {
+    id: 'pending-quotations',
+    title: 'Pending Quotations',
+    value: '0 Quotes',
+    change: '₹0.00',
+    isPositive: false,
+    period: 'awaiting approval',
+    subtext: '0 site estimates active across 14 districts',
+    badge: 'Quotes Queue',
+    iconName: 'FileSpreadsheet',
+    accentColor: 'from-amber-500 to-orange-600',
+  },
+  {
+    id: 'production-orders',
+    title: 'Plant Floor & Job Cards',
+    value: '0 Orders',
+    change: '0 Doors',
+    isPositive: false,
+    period: 'active floor load',
+    subtext: 'Factory workshop ready for new production releases',
+    badge: 'Plant Verified',
+    iconName: 'Factory',
+    accentColor: 'from-blue-500 to-indigo-600',
+  },
+  {
+    id: 'receivables',
+    title: 'Outstanding Receivables',
+    value: '₹0.00',
+    change: '0% Due',
+    isPositive: true,
+    period: 'pending collection',
+    subtext: 'Total billing: ₹0.00 • Balance: ₹0.00',
+    badge: 'Verified Balance',
+    iconName: 'CreditCard',
+    accentColor: 'from-red-500 to-rose-600',
+  },
+];
 
 export default function Home() {
   const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
@@ -63,66 +107,143 @@ export default function Home() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('Super Admin');
-  const [userName, setUserName] = useState<string>('Nazer Karumban');
+  const [userName, setUserName] = useState<string>('EXMARK Staff');
+  const [authStatus, setAuthStatus] = useState<'checking' | 'authenticated' | 'redirecting'>('checking');
+  const [actualUser, setActualUser] = useState<{
+    id: string;
+    name: string;
+    email?: string;
+    role: UserRole;
+    employeeCode?: string;
+  } | null>(null);
+  const [serverPermissions, setServerPermissions] = useState<string[] | undefined>(undefined);
+  const [allRolePermissions, setAllRolePermissions] = useState<Record<string, string[]> | null>(null);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [hasQuickPin, setHasQuickPin] = useState(false);
+  const [credentialModalTrigger, setCredentialModalTrigger] = useState(0);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'customization' | 'staff_access'>('customization');
   const [dashboardSubView, setDashboardSubView] = useState<'control-center' | 'overview'>('control-center');
-  const [liveKpiMetrics, setLiveKpiMetrics] = useState<KpiMetric[]>([]);
+  const [liveKpiMetrics, setLiveKpiMetrics] = useState<KpiMetric[]>(ZERO_KPI_METRICS);
   const [liveRecentOrders, setLiveRecentOrders] = useState<OrderItem[]>([]);
+  const [liveSalesChartData] = useState<SalesChartDataPoint[]>([]);
+  const [liveProductionLines] = useState<ProductionLine[]>([]);
+  const [liveFollowUpReminders] = useState<FollowUpReminder[]>([]);
   const [liveSidebarBadges, setLiveSidebarBadges] = useState<Record<string, string>>({});
   const [activeFactoryName, setActiveFactoryName] = useState<string>('Central Manufacturing Unit');
   const [brandName, setBrandName] = useState<string>('EXMARK DOORS');
 
-  // Verify and load active session user
+  const effectiveAllowedModules = useMemo(() => {
+    if (allRolePermissions && allRolePermissions[userRole]) {
+      return allRolePermissions[userRole];
+    }
+    if (userRole === actualUser?.role && serverPermissions) {
+      return serverPermissions;
+    }
+    return ERP_ROLES[userRole]?.allowedModules || [];
+  }, [allRolePermissions, userRole, actualUser, serverPermissions]);
+
+  // Verify and load active signed session user cleanly before rendering ERP data
   useEffect(() => {
-    apiFetch('/api/auth/me')
-      .then(async (res) => {
-        if (res.status === 401 && typeof window !== 'undefined') {
-          const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-          if (!isDev) {
-            window.location.href = '/login';
-            return null;
+    let cancelled = false;
+
+    const bootstrapSession = async () => {
+      try {
+        const res = await apiFetch('/api/auth/me');
+        if (res.status === 401) {
+          clearAuthToken();
+          if (!cancelled) {
+            setAuthStatus('redirecting');
+            if (typeof window !== 'undefined') {
+              window.location.replace('/login');
+            }
+          }
+          return;
+        }
+
+        const data = await res.json();
+        if (!data || !data.authenticated || !data.user) {
+          clearAuthToken();
+          if (!cancelled) {
+            setAuthStatus('redirecting');
+            if (typeof window !== 'undefined') {
+              window.location.replace('/login');
+            }
+          }
+          return;
+        }
+
+        if (cancelled) return;
+        const verifiedRole = data.user.role as UserRole;
+        setActualUser({
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          role: verifiedRole,
+          employeeCode: data.user.employeeCode,
+        });
+        setUserRole(verifiedRole);
+        setUserName(data.user.name);
+        setMustChangePassword(Boolean(data.mustChangePassword));
+        setHasQuickPin(Boolean(data.hasQuickPin));
+        const perms = Array.isArray(data.permissions) ? (data.permissions as string[]) : undefined;
+        setServerPermissions(perms);
+
+        if (perms && !perms.includes('dashboard') && perms.length > 0) {
+          setCurrentTab((perms.includes('production') ? 'production' : perms[0]) as NavigationTab);
+        }
+
+        setAuthStatus('authenticated');
+
+        if (verifiedRole === 'Super Admin') {
+          apiFetch('/api/auth/rbac')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((rbacRes) => {
+              if (!cancelled && rbacRes?.success && rbacRes.data) {
+                setAllRolePermissions(rbacRes.data);
+              }
+            })
+            .catch(() => {});
+        }
+
+        apiFetch('/api/settings/company-profile?view=active')
+          .then((r) => (r.ok ? r.json() : null))
+          .then((profileRes) => {
+            if (cancelled || !profileRes?.success || !profileRes.data) return;
+            if (profileRes.data.brandName) setBrandName(profileRes.data.brandName);
+            if (profileRes.activeFactory?.name) {
+              const fac = profileRes.activeFactory;
+              const displayName = fac.address?.district ? `${fac.name} (${fac.address.district})` : fac.name;
+              setActiveFactoryName(displayName);
+            }
+          })
+          .catch(() => {});
+
+        apiFetch('/api/dashboard/metrics')
+          .then((r) => (r.ok ? r.json() : null))
+          .then((metricsRes) => {
+            if (cancelled || !metricsRes?.success) return;
+            if (Array.isArray(metricsRes.kpiMetrics)) setLiveKpiMetrics(metricsRes.kpiMetrics);
+            if (Array.isArray(metricsRes.recentOrders)) setLiveRecentOrders(metricsRes.recentOrders);
+            if (metricsRes.sidebarBadges) setLiveSidebarBadges(metricsRes.sidebarBadges);
+          })
+          .catch((err) => {
+            console.warn('Dashboard live metrics deferred:', err);
+          });
+      } catch {
+        clearAuthToken();
+        if (!cancelled) {
+          setAuthStatus('redirecting');
+          if (typeof window !== 'undefined') {
+            window.location.replace('/login');
           }
         }
-        return res.json();
-      })
-      .then((data) => {
-        if (data && data.authenticated && data.user) {
-          setUserRole(data.user.role);
-          setUserName(data.user.name);
-        }
-      })
-      .catch(() => {
-        // Fallback to default
-      });
+      }
+    };
 
-    fetch('/api/settings/company-profile?view=active')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.data) {
-          if (data.data.brandName) setBrandName(data.data.brandName);
-          if (data.activeFactory?.name) {
-            const fac = data.activeFactory;
-            const displayName = fac.address?.district ? `${fac.name} (${fac.address.district})` : fac.name;
-            setActiveFactoryName(displayName);
-          }
-        }
-      })
-      .catch(() => {
-        // Fallback to default
-      });
-
-    // Load verified live metrics from database store
-    fetch('/api/dashboard/metrics')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          if (Array.isArray(data.kpiMetrics)) setLiveKpiMetrics(data.kpiMetrics);
-          if (Array.isArray(data.recentOrders)) setLiveRecentOrders(data.recentOrders);
-          if (data.sidebarBadges) setLiveSidebarBadges(data.sidebarBadges);
-        }
-      })
-      .catch((err) => {
-        console.warn('Dashboard live metrics deferred:', err);
-      });
+    bootstrapSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Tab label helper for the navbar
@@ -147,7 +268,7 @@ export default function Home() {
       case 'purchases':
         return 'Purchases & Procurement';
       case 'accounts':
-        return 'Accounts, GST & e-Way';
+        return 'Accounts & Billing';
       case 'employees':
         return 'Factory Staff & Field Techs';
       case 'dispatch':
@@ -156,6 +277,8 @@ export default function Home() {
         return 'Showroom Racks & Marketing';
       case 'reports':
         return 'Analytics & Financial Reports';
+      case 'mobile-field':
+        return 'Mobile Field Operations & Fleet GPS';
       case 'settings':
         return 'Factory Configuration & Settings';
       default:
@@ -182,18 +305,36 @@ export default function Home() {
     }
   };
 
+  if (authStatus !== 'authenticated') {
+    return (
+      <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col items-center justify-center p-6 gap-3">
+        <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+        <div className="text-sm font-bold tracking-wide text-white">
+          {authStatus === 'redirecting' ? 'Redirecting to EXMARK Staff Sign-In...' : 'Verifying EXMARK Factory Session...'}
+        </div>
+        <div className="text-xs text-slate-400">
+          Securing role permissions &amp; plant data workspace
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#070D1E] text-slate-100 flex flex-col font-sans selection:bg-red-500 selection:text-white">
       <div className="flex flex-1 relative">
         {/* Collapsible Sidebar */}
         <Sidebar
           currentTab={currentTab}
-          onSelectTab={(tab) => setCurrentTab(tab)}
+          onSelectTab={(tab) => {
+            if (tab === 'settings') setSettingsInitialTab('customization');
+            setCurrentTab(tab);
+          }}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           isMobileOpen={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
           userRole={userRole}
+          allowedModules={effectiveAllowedModules}
           liveBadges={liveSidebarBadges}
         />
 
@@ -207,23 +348,69 @@ export default function Home() {
           <Navbar
             currentTabName={getTabTitle(currentTab)}
             onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
-            onNavigateTab={(tab) => setCurrentTab(tab)}
+            onNavigateTab={(tab) => {
+              if (tab === 'settings') setSettingsInitialTab('staff_access');
+              setCurrentTab(tab);
+            }}
             onOpenQuickAction={() => setIsQuickActionOpen(true)}
             userRole={userRole}
+            actualRole={actualUser?.role}
             userName={userName}
+            userEmail={actualUser?.email}
+            employeeCode={actualUser?.employeeCode}
+            hasQuickPin={hasQuickPin}
+            credentialModalTrigger={credentialModalTrigger}
             onRoleChange={(role) => setUserRole(role)}
+            onRbacSaved={(updated) => setAllRolePermissions(updated)}
+            onCredentialsUpdated={() => {
+              setMustChangePassword(false);
+              setHasQuickPin(true);
+            }}
           />
 
           {/* Main Body Content */}
-          <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6 pb-20 md:pb-6 print:p-0 print:m-0 print:max-w-none">
+          <main
+            className={`flex-1 p-3 md:p-5 lg:p-6 w-full mx-auto space-y-6 pb-20 md:pb-6 print:p-0 print:m-0 print:max-w-none transition-all duration-200 ${
+              ['quotations', 'production', 'sales-orders', 'inventory', 'batch-print'].includes(currentTab)
+                ? 'max-w-[98%] 2xl:max-w-[1920px]'
+                : 'max-w-7xl'
+            }`}
+          >
+            {/* Security Prompt When Using Seeded / Temporary Password */}
+            {mustChangePassword && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs print:hidden">
+                <div className="flex items-start gap-2.5 text-amber-200">
+                  <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-amber-300">First-Time Factory Security Setup:</span>{' '}
+                    You are signed in with a default/temporary password. Set your own private Password &amp; optional 4–6 digit Quick PIN now.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCredentialModalTrigger((c) => c + 1)}
+                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Set Password &amp; Quick PIN</span>
+                </button>
+              </div>
+            )}
+
             {/* Unified Factory ERP Bonding Pipeline */}
-            <UnifiedBondingPipelineBar
-              currentTab={currentTab}
-              onNavigate={(tab) => setCurrentTab(tab)}
-            />
+            <div className="print:hidden">
+              <UnifiedBondingPipelineBar
+                currentTab={currentTab}
+                onNavigate={(tab) => {
+                  if (effectiveAllowedModules.includes(tab)) {
+                    setCurrentTab(tab);
+                  }
+                }}
+              />
+            </div>
 
             {/* Dashboard View */}
-            {currentTab === 'dashboard' && (
+            {currentTab === 'dashboard' && effectiveAllowedModules.includes('dashboard') && (
               <>
                 {/* Hero / Factory Header Card */}
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#0F1E3D] to-[#162544] border border-slate-800 p-5 sm:p-6 shadow-xl">
@@ -243,6 +430,9 @@ export default function Home() {
                           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                           {activeFactoryName}: Active
                         </span>
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-300 font-semibold bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
+                          🏭 Production-First Mode • Billing: Future Phase
+                        </span>
                       </div>
                       <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
                         Welcome, {userName}
@@ -254,6 +444,27 @@ export default function Home() {
 
                     {/* Quick Stat Highlights */}
                     <div className="flex items-center gap-2 sm:gap-3 flex-wrap md:flex-nowrap">
+                      <button
+                        onClick={() => setCurrentTab('production')}
+                        className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                        title="Jump directly to Production Floor Queue"
+                      >
+                        <span>🏭 Production Floor</span>
+                      </button>
+                      <button
+                        onClick={() => setCurrentTab('batch-print')}
+                        className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                        title="Open 12L Barcode Sticker Generator"
+                      >
+                        <span>🏷️ 12L Stickers</span>
+                      </button>
+                      <button
+                        onClick={() => setCurrentTab('accounts')}
+                        className="px-3.5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-xl text-xs font-bold border border-amber-500/30 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                        title="In-House Floor Gang Weekly Payouts & Accounts"
+                      >
+                        <span>👷 Floor Gang Payouts</span>
+                      </button>
                       <button
                         onClick={() => setIsQuickActionOpen(true)}
                         className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-950/40 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
@@ -268,7 +479,7 @@ export default function Home() {
                 {/* 1. Live Database KPI Cards */}
                 <section aria-label="Key Performance Indicators">
                   <KpiCards
-                    metrics={liveKpiMetrics.length > 0 ? liveKpiMetrics : DEMO_KPI_METRICS}
+                    metrics={liveKpiMetrics}
                     onCardClick={handleKpiCardClick}
                   />
                 </section>
@@ -304,8 +515,12 @@ export default function Home() {
                 {/* Sub-View 1: EXMARK Corporate Control Center (10 Enterprise Folders) */}
                 {dashboardSubView === 'control-center' && (
                   <CorporateControlCenter
-                    onNavigateTab={(tab) => setCurrentTab(tab)}
+                    onNavigateTab={(tab) => {
+                      if (tab === 'settings') setSettingsInitialTab('customization');
+                      setCurrentTab(tab);
+                    }}
                     userRole={userRole}
+                    allowedModules={effectiveAllowedModules}
                   />
                 )}
 
@@ -316,13 +531,13 @@ export default function Home() {
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                       {/* Sales Chart (7 Cols) */}
                       <div className="lg:col-span-7">
-                        <SalesChart data={DEMO_SALES_CHART_DATA} />
+                        <SalesChart data={liveSalesChartData} />
                       </div>
 
                       {/* Production Status (5 Cols) */}
                       <div className="lg:col-span-5">
                         <ProductionStatus
-                          lines={DEMO_PRODUCTION_LINES}
+                          lines={liveProductionLines}
                           onViewAllProduction={() => setCurrentTab('production')}
                         />
                       </div>
@@ -333,7 +548,7 @@ export default function Home() {
                       {/* Recent Orders Table (8 Cols) */}
                       <div className="xl:col-span-8">
                         <RecentOrdersTable
-                          orders={liveRecentOrders.length > 0 ? liveRecentOrders : DEMO_RECENT_ORDERS}
+                          orders={liveRecentOrders}
                           onViewAllOrders={() => setCurrentTab('sales-orders')}
                         />
                       </div>
@@ -341,7 +556,7 @@ export default function Home() {
                       {/* Follow-up Reminders (4 Cols) */}
                       <div className="xl:col-span-4">
                         <FollowUpReminders
-                          initialReminders={DEMO_FOLLOW_UP_REMINDERS}
+                          initialReminders={liveFollowUpReminders}
                         />
                       </div>
                     </div>
@@ -351,30 +566,47 @@ export default function Home() {
             )}
 
             {/* Other Sidebar Module Views */}
-            {currentTab === 'customers' && <CustomersView />}
-            {currentTab === 'crm' && <CrmLeadsView />}
-            {currentTab === 'quotations' && <QuotationsView />}
-            {currentTab === 'sales-orders' && <SalesOrdersView />}
-            {currentTab === 'sales' && <SalesAndReturnView />}
-            {currentTab === 'production' && <ProductionView />}
-            {currentTab === 'bom' && <BomAndRecipeView />}
-            {currentTab === 'quality' && <QualityControlView />}
-            {currentTab === 'maintenance' && <PlantMaintenanceView />}
-            {currentTab === 'job-work' && <SubcontractingView />}
-            {currentTab === 'batch-print' && <BatchPrintView />}
-            {currentTab === 'inventory' && <InventoryView />}
-            {currentTab === 'purchases' && <PurchasesView />}
-            {currentTab === 'gate-pass' && <GatePassView />}
-            {currentTab === 'dispatch' && <DispatchInstallationView />}
-            {currentTab === 'installation' && <SiteInstallationView />}
-            {currentTab === 'accounts' && <AccountsGstView />}
-            {currentTab === 'marketing' && <MarketingView />}
-            {currentTab === 'reports' && <ReportsView />}
-            {currentTab === 'settings' && <SettingsView />}
+            {currentTab === 'customers' && effectiveAllowedModules.includes('customers') && <CustomersView />}
+            {currentTab === 'crm' && effectiveAllowedModules.includes('crm') && <CrmLeadsView />}
+            {currentTab === 'quotations' && effectiveAllowedModules.includes('quotations') && <QuotationsView userRole={actualUser?.role} />}
+            {currentTab === 'sales-orders' && effectiveAllowedModules.includes('sales-orders') && <SalesOrdersView />}
+            {currentTab === 'sales' && effectiveAllowedModules.includes('sales') && <SalesAndReturnView />}
+            {currentTab === 'production' && effectiveAllowedModules.includes('production') && <ProductionView />}
+            {currentTab === 'bom' && effectiveAllowedModules.includes('bom') && <BomAndRecipeView />}
+            {currentTab === 'quality' && effectiveAllowedModules.includes('quality') && <ProductionView />}
+            {currentTab === 'maintenance' && effectiveAllowedModules.includes('maintenance') && <ProductionView />}
+            {currentTab === 'job-work' && effectiveAllowedModules.includes('job-work') && <AccountsGstView />}
+            {currentTab === 'batch-print' && effectiveAllowedModules.includes('batch-print') && <BatchPrintView />}
+            {currentTab === 'inventory' && effectiveAllowedModules.includes('inventory') && <InventoryView />}
+            {currentTab === 'purchases' && effectiveAllowedModules.includes('purchases') && <PurchasesView />}
+            {currentTab === 'gate-pass' && effectiveAllowedModules.includes('gate-pass') && <DispatchInstallationView />}
+            {currentTab === 'dispatch' && effectiveAllowedModules.includes('dispatch') && <DispatchInstallationView />}
+            {currentTab === 'installation' && effectiveAllowedModules.includes('installation') && <SiteInstallationView />}
+            {currentTab === 'mobile-field' && <MobileFieldOperationsHub />}
+            {currentTab === 'accounts' && effectiveAllowedModules.includes('accounts') && <AccountsGstView />}
+            {currentTab === 'employees' && effectiveAllowedModules.includes('employees') && (
+              <EmployeesView
+                userRole={actualUser?.role}
+                onManageStaffLogins={() => {
+                  setSettingsInitialTab('staff_access');
+                  setCurrentTab('settings');
+                }}
+              />
+            )}
+            {currentTab === 'marketing' && effectiveAllowedModules.includes('marketing') && <MarketingView />}
+            {currentTab === 'reports' && effectiveAllowedModules.includes('reports') && <ReportsView />}
+            {currentTab === 'settings' && effectiveAllowedModules.includes('settings') && (
+              <SettingsView
+                key={settingsInitialTab}
+                userRole={actualUser?.role}
+                currentUserId={actualUser?.id}
+                initialTab={settingsInitialTab}
+              />
+            )}
           </main>
 
           {/* Footer */}
-          <footer className="mt-auto border-t border-slate-800/80 bg-[#070D1E] py-4 px-6 text-xs text-slate-400">
+          <footer className="mt-auto border-t border-slate-800/80 bg-[#070D1E] py-4 px-6 text-xs text-slate-400 print:hidden">
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-white tracking-wider">{brandName}</span>
@@ -383,7 +615,7 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-4 text-[11px]">
                 <span className="text-slate-400">FRP Molded &amp; WPC Solid Composite Doors</span>
-                <span className="text-red-400 font-semibold">HSN 3925 / 18% GST</span>
+                <span className="text-red-400 font-semibold">Direct Factory Pricing</span>
                 <span className="text-emerald-400">ISO 9001:2015</span>
               </div>
             </div>
@@ -391,61 +623,34 @@ export default function Home() {
         </div>
       </div>
 
-      {/* MOBILE RESPONSIVE BOTTOM NAVIGATION BAR (ANDROID & IPHONE COMPATIBLE) */}
+      {/* MOBILE RESPONSIVE BOTTOM NAVIGATION BAR (PERMISSION-GATED) */}
       <nav
         aria-label="Mobile Bottom Navigation"
         className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-[#0B132B] border-t border-slate-800 flex items-center justify-around z-40 px-2 text-[10px] print:hidden shadow-2xl backdrop-blur-md"
       >
-        <button
-          onClick={() => setCurrentTab('crm')}
-          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
-            currentTab === 'crm' ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Users className="w-4 h-4 text-cyan-400" />
-          <span>CRM</span>
-        </button>
-
-
-        <button
-          onClick={() => setCurrentTab('sales-orders')}
-          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
-            currentTab === 'sales-orders' ? 'text-rose-400 font-bold' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <ClipboardList className="w-4 h-4 text-rose-400" />
-          <span>Orders</span>
-        </button>
-
-        <button
-          onClick={() => setCurrentTab('bom')}
-          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
-            currentTab === 'bom' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Layers className="w-4 h-4 text-emerald-400" />
-          <span>BOQ/BOM</span>
-        </button>
-
-        <button
-          onClick={() => setCurrentTab('production')}
-          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
-            currentTab === 'production' ? 'text-purple-400 font-bold' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4 text-purple-400" />
-          <span>QC/Plant</span>
-        </button>
-
-        <button
-          onClick={() => setCurrentTab('batch-print')}
-          className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
-            currentTab === 'batch-print' ? 'text-rose-500 font-bold' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Printer className="w-4 h-4 text-rose-500" />
-          <span>12L Print</span>
-        </button>
+        {[
+          { tab: 'crm' as NavigationTab, label: 'CRM', color: 'text-cyan-400', Icon: Users },
+          { tab: 'sales-orders' as NavigationTab, label: 'Orders', color: 'text-rose-400', Icon: ClipboardList },
+          { tab: 'bom' as NavigationTab, label: 'BOQ/BOM', color: 'text-emerald-400', Icon: Layers },
+          { tab: 'production' as NavigationTab, label: 'Plant Floor', color: 'text-purple-400', Icon: ShieldCheck },
+          { tab: 'batch-print' as NavigationTab, label: '12L Print', color: 'text-rose-500', Icon: Printer },
+          { tab: 'accounts' as NavigationTab, label: 'Accounts', color: 'text-amber-400', Icon: ReceiptIndianRupee },
+          { tab: 'settings' as NavigationTab, label: 'Settings', color: 'text-slate-200', Icon: SettingsIcon },
+        ]
+          .filter((item) => effectiveAllowedModules.includes(item.tab))
+          .slice(0, 5)
+          .map(({ tab, label, color, Icon }) => (
+            <button
+              key={tab}
+              onClick={() => setCurrentTab(tab)}
+              className={`flex flex-col items-center gap-1 p-1 transition cursor-pointer ${
+                currentTab === tab ? `${color} font-bold` : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Icon className={`w-4 h-4 ${color}`} />
+              <span>{label}</span>
+            </button>
+          ))}
       </nav>
 
       {/* Quick Action Modal */}

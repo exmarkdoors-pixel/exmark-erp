@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import prisma from '@/lib/prisma';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import { isPostgresAvailable } from '@/lib/services/dbSyncEngine';
 import { getActiveFactory } from '@/lib/services/companyProfileService';
+import { getDataFilePath } from '@/lib/utils/dataPaths';
 
 interface DashboardMetricItem {
   id: string;
@@ -22,7 +24,7 @@ interface DashboardMetricItem {
 
 function safeReadJson<T>(fileName: string, fallback: T): T {
   try {
-    const fullPath = path.join(process.cwd(), 'data', fileName);
+    const fullPath = getDataFilePath(fileName);
     if (!fs.existsSync(fullPath)) return fallback;
     const content = fs.readFileSync(fullPath, 'utf8');
     return JSON.parse(content) as T;
@@ -32,8 +34,11 @@ function safeReadJson<T>(fileName: string, fallback: T): T {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'dashboard');
+    if (auth.errorResponse) return auth.errorResponse;
+
     // 1. Read actual persistent data stores
     const customers = safeReadJson<Array<{ id: string }>>('customers-store.json', []);
     const leads = safeReadJson<Array<{ id: string }>>('leads-store.json', []);
@@ -168,8 +173,8 @@ export async function GET() {
         rawNumeric: totalInvoiced,
         change: `${invCount} Invoices`,
         isPositive: totalInvoiced > 0,
-        period: 'real tax ledger',
-        subtext: `₹${(totalCollected / 100000).toFixed(2)}L collected • HSN 3925 (18% GST)`,
+        period: 'active sales ledger',
+        subtext: `₹${(totalCollected / 100000).toFixed(2)}L collected • Direct factory billing`,
         badge: 'Live Database',
         iconName: 'IndianRupee',
         accentColor: 'from-emerald-500 to-teal-600',

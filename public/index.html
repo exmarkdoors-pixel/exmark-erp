@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>EXMARK ERP — Mobile Gateway</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0b101d;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: max(24px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(28px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+    }
+    .container {
+      width: 100%;
+      max-width: 440px;
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 28px 24px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, #e11d48, #9f1239);
+      color: white;
+      font-weight: 900;
+      font-size: 24px;
+      border-radius: 14px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 15px -3px rgba(225, 29, 72, 0.3);
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    p.subtitle {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 24px;
+    }
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border: 3px solid rgba(225, 29, 72, 0.2);
+      border-top-color: #e11d48;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 16px auto;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status-box {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #cbd5e1;
+      text-align: left;
+    }
+    .status-title {
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .server-url-display {
+      font-family: monospace;
+      color: #fbbf24;
+      font-size: 12px;
+      word-break: break-all;
+    }
+    .error-card {
+      display: none;
+      background: #1e1b2e;
+      border: 1px solid #7f1d1d;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+      text-align: left;
+    }
+    .error-card.visible { display: block; }
+    .error-title {
+      color: #f87171;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .error-desc {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .input-label {
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    input[type="text"] {
+      width: 100%;
+      background: #0b101d;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #f8fafc;
+      font-family: monospace;
+      font-size: 13px;
+      margin-bottom: 12px;
+      outline: none;
+    }
+    input[type="text"]:focus {
+      border-color: #e11d48;
+    }
+    .btn {
+      width: 100%;
+      background: #e11d48;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #be123c; }
+    .btn-secondary {
+      background: #1e293b;
+      color: #94a3b8;
+      margin-top: 8px;
+    }
+    .btn-secondary:hover { background: #334155; color: white; }
+    .presets-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .preset-pill {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-family: monospace;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .preset-pill:hover { border-color: #38bdf8; color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-badge">EX</div>
+    <h1>EXMARK Staff</h1>
+    <p class="subtitle">Driver • Field Staff • Installer • Floor Operator • Manager</p>
+
+    <div id="loadingSection">
+      <div class="spinner"></div>
+      <div class="status-box">
+        <div class="status-title">⚡ Connecting to Staff Terminal...</div>
+        <div class="server-url-display" id="activeUrlText">http://192.168.220.22:4000/mobile</div>
+      </div>
+      <p style="font-size: 11px; color: #64748b;">Please wait while the Staff Terminal initializes</p>
+    </div>
+
+    <div id="errorSection" class="error-card">
+      <div class="error-title">⚠️ Cannot Reach Factory Server</div>
+      <p class="error-desc">
+        The app could not connect to the factory server. Please ensure your mobile device is connected to the <strong>Factory Wi-Fi network</strong> and that the host PC server is active.
+      </p>
+
+      <label class="input-label">Configure Server Address</label>
+      <input type="text" id="serverInput" value="http://192.168.220.22:4000/mobile" placeholder="http://192.168.220.22:4000/mobile" />
+
+      <div class="presets-row">
+        <span class="preset-pill" style="border-color: #38bdf8; color: #38bdf8; font-weight: bold;" onclick="applyPreset('https://thehun-stick-eventually-clicking.trycloudflare.com/mobile')">🌐 Global Cloud (4G/5G)</span>
+        <span class="preset-pill" onclick="applyPreset('http://192.168.220.22:4000/mobile')">192.168.220.22</span>
+        <span class="preset-pill" onclick="applyPreset('http://172.20.10.4:4000/mobile')">172.20.10.4</span>
+        <span class="preset-pill" onclick="applyPreset('http://192.168.1.3:4000/mobile')">192.168.1.3</span>
+        <span class="preset-pill" onclick="applyPreset('http://localhost:4000/mobile')">localhost</span>
+      </div>
+
+      <button class="btn" onclick="saveAndConnect()">Save &amp; Connect</button>
+      <button class="btn btn-secondary" onclick="autoScanSubnet()">Auto-Probe Subnet</button>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_SERVER_URL = 'http://192.168.220.22:4000/mobile';
+    let currentServerUrl = localStorage.getItem('exmark_server_url') || DEFAULT_SERVER_URL;
+
+    document.getElementById('activeUrlText').textContent = currentServerUrl;
+    document.getElementById('serverInput').value = currentServerUrl;
+
+    function applyPreset(url) {
+      document.getElementById('serverInput').value = url;
+    }
+
+    async function checkServer(url) {
+      const cleanOrigin = url.replace(/\/mobile\/?$/, '').replace(/\/+$/, '');
+      const healthEndpoint = `${cleanOrigin}/api/health`;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(healthEndpoint, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' }
+        });
+        clearTimeout(timeoutId);
+        return res.status === 200;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function attemptConnection(url) {
+      document.getElementById('loadingSection').style.display = 'block';
+      document.getElementById('errorSection').classList.remove('visible');
+      document.getElementById('activeUrlText').textContent = url;
+
+      const isHealthy = await checkServer(url);
+      if (isHealthy) {
+        localStorage.setItem('exmark_server_url', url);
+        // Ensure destination goes straight to the mobile terminal
+        const targetUrl = url.includes('/mobile') ? url : `${url.replace(/\/+$/, '')}/mobile`;
+        window.location.replace(targetUrl);
+      } else {
+        document.getElementById('loadingSection').style.display = 'none';
+        document.getElementById('errorSection').classList.add('visible');
+      }
+    }
+
+    function saveAndConnect() {
+      let inputVal = document.getElementById('serverInput').value.trim();
+      if (!inputVal) inputVal = DEFAULT_SERVER_URL;
+      if (!inputVal.startsWith('http://') && !inputVal.startsWith('https://')) {
+        inputVal = `http://${inputVal}`;
+      }
+      currentServerUrl = inputVal;
+      attemptConnection(currentServerUrl);
+    }
+
+    async function autoScanSubnet() {
+      const candidates = [
+        'https://thehun-stick-eventually-clicking.trycloudflare.com/mobile',
+        'http://192.168.220.22:4000/mobile',
+        'http://172.20.10.4:4000/mobile',
+        'http://192.168.1.3:4000/mobile',
+        'http://10.0.2.2:4000/mobile',
+        'http://127.0.0.1:4000/mobile'
+      ];
+      document.getElementById('loadingSection').style.display = 'block';
+      document.getElementById('errorSection').classList.remove('visible');
+
+      for (const cand of candidates) {
+        document.getElementById('activeUrlText').textContent = `Probing ${cand}...`;
+        if (await checkServer(cand)) {
+          localStorage.setItem('exmark_server_url', cand);
+          window.location.replace(cand);
+          return;
+        }
+      }
+
+      document.getElementById('loadingSection').style.display = 'none';
+      document.getElementById('errorSection').classList.add('visible');
+      alert('Could not reach factory server automatically. Please verify your phone is on the Factory Wi-Fi or enter the PC IP manually.');
+    }
+
+    // Auto-launch connection on app boot
+    window.addEventListener('DOMContentLoaded', () => {
+      attemptConnection(currentServerUrl);
+    });
+  </script>
+</body>
+</html>

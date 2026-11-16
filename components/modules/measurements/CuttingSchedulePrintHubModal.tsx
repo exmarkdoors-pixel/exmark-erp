@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Layers,
 } from 'lucide-react';
+import { cmToTapeInch, parseTapeInchToCm, computeStickerSizes } from '@/lib/utils/doorStickerFormula';
 
 export interface FrameCategoryItem {
   id: string;
@@ -45,6 +46,7 @@ export interface CuttingDoorItem {
   lockCategory: string;
   lockSubLabel: string;
   hingeSide: 'L' | 'R';
+  swing?: 'INWARD' | 'OUTWARD';
   finishCategory: string;
   finishShade: string;
   stickerRemark: string;
@@ -54,6 +56,7 @@ export interface CuttingDoorItem {
 
 export interface PartySchedule {
   id: string;
+  jobCardNumber?: string;
   partyName: string;
   contactPerson: string;
   phone: string;
@@ -65,11 +68,11 @@ export interface PartySchedule {
 }
 
 export const DEFAULT_FRAME_CATEGORIES: FrameCategoryItem[] = [
-  { id: 'fr-4x2', name: 'Bedroom 4x2', profile: '100×50mm (4"×2") Section', hMinusCm: 1.5, wMinusCm: 1.4 },
-  { id: 'fr-2x25', name: 'Bedroom 2x2.5', profile: '50×65mm (2"×2.5") Section', hMinusCm: 1.5, wMinusCm: 1.0 },
-  { id: 'fr-mini', name: 'Mini Type', profile: '40×25mm Slim Section', hMinusCm: 1.2, wMinusCm: 0.6 },
-  { id: 'fr-school', name: '90x45mm School', profile: '90×45mm Heavy Duty Section', hMinusCm: 1.6, wMinusCm: 0.8 },
-  { id: 'fr-bath-full', name: 'FRP Full Frame (Deduct Frame)', profile: '75×50mm Full Rebate Deduction', hMinusCm: 4.5, wMinusCm: 7.5 },
+  { id: 'fr-mini', name: 'Mini Type', profile: '40×25mm Slim Section', hMinusCm: 4.5, wMinusCm: 7.6 },
+  { id: 'fr-4x2', name: 'Bedroom 4x2', profile: '100×50mm (4"×2") Section', hMinusCm: 4.5, wMinusCm: 7.6 },
+  { id: 'fr-2x25', name: 'Bedroom 2x2.5', profile: '50×65mm (2"×2.5") Section', hMinusCm: 4.5, wMinusCm: 7.6 },
+  { id: 'fr-school', name: '90x45mm School', profile: '90×45mm Heavy Duty Section', hMinusCm: 4.5, wMinusCm: 7.6 },
+  { id: 'fr-only-door', name: 'Only Door (Shutter Only)', profile: 'No Frame Supplied', hMinusCm: 1.2, wMinusCm: 1.0 },
 ];
 
 export const DEFAULT_LOCK_CATALOG: string[] = [
@@ -129,40 +132,6 @@ function generateSvgQr(text: string, size: number = 68): string {
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="bg-white p-0.5 border border-slate-400 rounded-xs">${rects.join('')}</svg>`;
-}
-
-function cmToTapeInch(cmVal: number): string {
-  if (!cmVal || isNaN(cmVal)) return '0"';
-  const totalInches = cmVal / 2.54;
-  let whole = Math.floor(totalInches);
-  const rem = totalInches - whole;
-  let sixteenths = Math.round(rem * 16);
-  if (sixteenths === 16) {
-    whole += 1;
-    sixteenths = 0;
-  }
-  if (sixteenths === 0) return `${whole}"`;
-  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
-  const g = gcd(sixteenths, 16);
-  return `${whole} ${sixteenths / g}/${16 / g}"`;
-}
-
-function parseTapeInchToCm(str: string): number {
-  if (!str) return 0;
-  const clean = str.replace(/"/g, '').trim();
-  const parts = clean.split(/\s+/);
-  let inches = 0;
-  if (parts.length === 2 && parts[1].includes('/')) {
-    const whole = parseFloat(parts[0]) || 0;
-    const [num, den] = parts[1].split('/').map(Number);
-    inches = whole + (num || 0) / (den || 1);
-  } else if (clean.includes('/')) {
-    const [num, den] = clean.split('/').map(Number);
-    inches = (num || 0) / (den || 1);
-  } else {
-    inches = parseFloat(clean) || 0;
-  }
-  return Number((inches * 2.54).toFixed(1));
 }
 
 export function CuttingSchedulePrintHubModal({
@@ -277,25 +246,31 @@ export function CuttingSchedulePrintHubModal({
 
   const calcDoorSizes = (d: CuttingDoorItem) => {
     const frame = getFrame(d.frameTypeId);
-    const hMinus = frame.hMinusCm - (d.extraHAdjCm || 0);
-    const wMinus = frame.wMinusCm - (d.extraWAdjCm || 0);
-
-    const finH = Math.max(0, Number((d.rawHeightCm - hMinus).toFixed(1)));
-    const finTopW = Math.max(0, Number((d.rawWidthTopCm - wMinus).toFixed(1)));
-    const rawBtm = d.widthLinked ? d.rawWidthTopCm : d.rawWidthBtmCm;
-    const finBtmW = Math.max(0, Number((rawBtm - wMinus).toFixed(1)));
-    const hLabel = d.hingeSide === 'L' ? 'H-RIGHT' : 'H-LEFT';
+    const res = computeStickerSizes({
+      rawHeightCm: d.rawHeightCm,
+      rawWidthTopCm: d.rawWidthTopCm,
+      rawWidthBtmCm: d.rawWidthBtmCm,
+      widthLinked: d.widthLinked,
+      hDeductionCm: frame.hMinusCm,
+      wDeductionCm: frame.wMinusCm,
+      hingeSide: d.hingeSide,
+      extraHAdjCm: d.extraHAdjCm,
+      extraWAdjCm: d.extraWAdjCm,
+    });
 
     return {
       frame,
-      hMinusCm: hMinus,
-      wMinusCm: wMinus,
-      hMinusMm: Math.round(hMinus * 10),
-      wMinusMm: Math.round(wMinus * 10),
-      finH,
-      finTopW,
-      finBtmW,
-      hLabel,
+      hMinusCm: res.hMinusCm,
+      wMinusCm: res.wMinusCm,
+      hMinusMm: Math.round(res.hMinusCm * 10),
+      wMinusMm: Math.round(res.wMinusCm * 10),
+      finH: res.finH,
+      finTopW: res.finTopW,
+      finBtmW: res.finBtmW,
+      finHText: res.finHText,
+      finTopWText: res.finTopWText,
+      finBtmWText: res.finBtmWText,
+      hLabel: res.hLabel,
     };
   };
 
@@ -606,15 +581,15 @@ export function CuttingSchedulePrintHubModal({
               <thead>
                 <tr className="bg-[#0F172A] text-slate-300 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
                   <th className="p-2.5 text-center w-12">#</th>
-                  <th className="p-2.5 w-44">Model &amp; Room / Tag</th>
-                  <th className="p-2.5 w-44">Chowkhat Frame Type</th>
+                  <th className="p-2.5 w-44">Model Name &amp; Tag</th>
+                  <th className="p-2.5 w-44">Chowkhat Frame</th>
                   <th className="p-2.5 w-36 text-amber-300">Raw Frame (Inch)</th>
-                  <th className="p-2.5 w-36">Raw Frame (CM)</th>
-                  <th className="p-2.5 w-44 text-emerald-400">Finished Size (CM)</th>
+                  <th className="p-2.5 w-44">Raw Frame (CM)</th>
+                  <th className="p-2.5 w-44 text-emerald-400">12L Sticker Finished Size (CM)</th>
                   <th className="p-2.5 w-36">Lock Type</th>
-                  <th className="p-2.5 text-center w-20">Hing.Side</th>
+                  <th className="p-2.5 text-center w-24">Hinges &amp; Open</th>
                   <th className="p-2.5 w-36">Colour &amp; Finish</th>
-                  <th className="p-2.5 w-48">Sticker &amp; Site Remark</th>
+                  <th className="p-2.5 w-48">Remark (Sticker Bottom)</th>
                   <th className="p-2.5 text-center w-20">Action</th>
                 </tr>
               </thead>
@@ -677,7 +652,9 @@ export function CuttingSchedulePrintHubModal({
                             </div>
                             <div className="flex justify-between">
                               <span className="text-[10px] text-amber-400 font-bold">W:</span>
-                              <span className="font-mono text-amber-200">{cmToTapeInch(d.rawWidthTopCm)}</span>
+                              <span className="font-mono text-amber-200 text-[10px]">
+                                T:{cmToTapeInch(d.rawWidthTopCm)} B:{cmToTapeInch(d.widthLinked ? d.rawWidthTopCm : d.rawWidthBtmCm)}
+                              </span>
                             </div>
                             <button
                               type="button"
@@ -697,33 +674,17 @@ export function CuttingSchedulePrintHubModal({
                         {/* Raw Frame (CM) */}
                         <td className="p-2.5 space-y-1">
                           <div className="flex items-center justify-between gap-1">
-                            <span className="text-[10px] text-slate-400">H:</span>
+                            <span className="text-[10px] text-slate-400">Height:</span>
                             <input
                               type="number"
-                              step="0.1"
+                              step="0.01"
                               value={d.rawHeightCm}
                               onChange={(e) => handleUpdateDoor(d.id, { rawHeightCm: parseFloat(e.target.value) || 0 })}
                               className="w-16 px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-right font-mono font-bold text-white text-xs"
                             />
-                          </div>
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[10px] text-slate-400">W:</span>
-                            <input
-                              type="number"
-                              step="0.1"
-                              value={d.rawWidthTopCm}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                handleUpdateDoor(d.id, {
-                                  rawWidthTopCm: val,
-                                  ...(d.widthLinked ? { rawWidthBtmCm: val } : {}),
-                                });
-                              }}
-                              className="w-16 px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-right font-mono font-bold text-white text-xs"
-                            />
                             <button
                               type="button"
-                              onClick={() => handleUpdateDoor(d.id, { widthLinked: !d.widthLinked })}
+                              onClick={() => handleUpdateDoor(d.id, { widthLinked: !d.widthLinked, rawWidthBtmCm: d.rawWidthTopCm })}
                               className={`p-1 rounded text-[10px] border ${
                                 d.widthLinked ? 'bg-blue-900/60 border-blue-500 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400'
                               }`}
@@ -732,18 +693,34 @@ export function CuttingSchedulePrintHubModal({
                               🔗
                             </button>
                           </div>
-                          {!d.widthLinked && (
-                            <div className="flex items-center justify-between gap-1 pt-0.5">
-                              <span className="text-[10px] text-amber-400">Btm W:</span>
+                          <div className="grid grid-cols-2 gap-1">
+                            <div className="flex items-center gap-0.5">
+                              <span className="text-[9px] text-slate-400">Top:</span>
                               <input
                                 type="number"
-                                step="0.1"
-                                value={d.rawWidthBtmCm}
-                                onChange={(e) => handleUpdateDoor(d.id, { rawWidthBtmCm: parseFloat(e.target.value) || 0 })}
-                                className="w-16 px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-right font-mono font-bold text-amber-300 text-xs"
+                                step="0.01"
+                                value={d.rawWidthTopCm}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  handleUpdateDoor(d.id, {
+                                    rawWidthTopCm: val,
+                                    ...(d.widthLinked ? { rawWidthBtmCm: val } : {}),
+                                  });
+                                }}
+                                className="w-full px-1 py-0.5 bg-slate-900 border border-slate-700 rounded text-right font-mono font-bold text-white text-[11px]"
                               />
                             </div>
-                          )}
+                            <div className="flex items-center gap-0.5">
+                              <span className="text-[9px] text-slate-400">Btm:</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={d.widthLinked ? d.rawWidthTopCm : d.rawWidthBtmCm}
+                                onChange={(e) => handleUpdateDoor(d.id, { rawWidthBtmCm: parseFloat(e.target.value) || 0, widthLinked: false })}
+                                className="w-full px-1 py-0.5 bg-slate-900 border border-slate-700 rounded text-right font-mono font-bold text-amber-300 text-[11px]"
+                              />
+                            </div>
+                          </div>
                         </td>
 
                         {/* Finished Door Size (CM) */}
@@ -751,11 +728,11 @@ export function CuttingSchedulePrintHubModal({
                           <div className="bg-emerald-950/30 border border-emerald-500/40 rounded p-2 space-y-1">
                             <div className="flex justify-between items-center border-b border-emerald-500/30 pb-0.5">
                               <span className="text-[10px] font-bold text-emerald-400">{c.hLabel}</span>
-                              <span className="font-mono text-sm font-black text-emerald-300">~{c.finH}</span>
+                              <span className="font-mono text-sm font-black text-emerald-300">{c.finHText}</span>
                             </div>
                             <div className="flex justify-between text-[10px] font-mono font-bold text-slate-300">
-                              <span>TOP: ~{c.finTopW}</span>
-                              <span>BTM: ~{c.finBtmW}</span>
+                              <span>TOP: {c.finTopWText}</span>
+                              <span>BTM: {c.finBtmWText}</span>
                             </div>
                           </div>
                         </td>
@@ -775,14 +752,15 @@ export function CuttingSchedulePrintHubModal({
                           </select>
                         </td>
 
-                        {/* Hinge Side */}
+                        {/* Hinge Side & Swing */}
                         <td className="p-2.5 text-center space-y-1">
                           <div className="inline-flex p-0.5 rounded-full bg-slate-900 border border-slate-700">
                             <button
                               type="button"
                               onClick={() => handleUpdateDoor(d.id, { hingeSide: 'L' })}
+                              title="Hinges on Left Jamb (LH)"
                               className={`w-6 h-5 rounded-full text-[10px] font-black transition ${
-                                d.hingeSide === 'L' ? 'bg-red-600 text-white shadow' : 'text-slate-400'
+                                d.hingeSide === 'L' ? 'bg-blue-600 text-white shadow' : 'text-slate-400'
                               }`}
                             >
                               L
@@ -790,14 +768,27 @@ export function CuttingSchedulePrintHubModal({
                             <button
                               type="button"
                               onClick={() => handleUpdateDoor(d.id, { hingeSide: 'R' })}
+                              title="Hinges on Right Jamb (RH)"
                               className={`w-6 h-5 rounded-full text-[10px] font-black transition ${
-                                d.hingeSide === 'R' ? 'bg-red-600 text-white shadow' : 'text-slate-400'
+                                d.hingeSide === 'R' ? 'bg-blue-600 text-white shadow' : 'text-slate-400'
                               }`}
                             >
                               R
                             </button>
                           </div>
-                          <div className="text-[9px] font-bold text-slate-500">{c.hLabel}</div>
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleUpdateDoor(d.id, {
+                                  swing: d.swing === 'OUTWARD' ? 'INWARD' : 'OUTWARD',
+                                })
+                              }
+                              className="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[9px] font-black uppercase cursor-pointer"
+                            >
+                              {d.swing || 'INWARD'}
+                            </button>
+                          </div>
                         </td>
 
                         {/* Colour & Finish */}
@@ -1294,10 +1285,10 @@ export function CuttingSchedulePrintHubModal({
         {/* MODAL 6: PRODUCTION UNIT PDF GENERATOR & PRINT HUB */}
         {/* ============================================================== */}
         {showPrintHub && (
-          <div className="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-2 md:p-4">
+          <div className="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-2 md:p-4 printable-modal-root">
             <div className="w-full max-w-6xl max-h-[96vh] flex flex-col bg-[#0B132B] text-slate-100 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
               {/* TOP HUB TOOLBAR */}
-              <div className="px-5 py-3 bg-[#0F172A] border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="px-5 py-3 bg-[#0F172A] border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 print:hidden">
                 <div>
                   <h3 className="font-bold text-white text-sm">Production Unit PDF Generator &amp; Print Hub</h3>
                   <p className="text-[11px] text-slate-400">
@@ -1344,7 +1335,7 @@ export function CuttingSchedulePrintHubModal({
               </div>
 
               {/* ACTION & PAPER CONTROLS */}
-              <div className="px-5 py-2.5 bg-[#0F172A]/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="px-5 py-2.5 bg-[#0F172A]/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -1415,7 +1406,7 @@ export function CuttingSchedulePrintHubModal({
               </div>
 
               {/* LIVE WHITE PRINT CANVAS */}
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-900 flex justify-center">
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-900 flex justify-center print:block print:p-0 print:bg-white">
                 <div className="bg-white text-slate-950 rounded-xl shadow-2xl p-6 w-full max-w-[920px]">
                   {hubTab === '12l-sticker' ? (
                     <div className="space-y-4">
@@ -1434,60 +1425,74 @@ export function CuttingSchedulePrintHubModal({
                           const num = i + 1;
 
                           if (hubFormat === 'workshop-cut') {
-                            // FORMAT 1: WORKSHOP CUT STICKER
+                            // FORMAT 1: WORKSHOP CUT STICKER (EXACT IMAGE 2 MODEL + TOP-RIGHT JOB CARD #)
+                            const hasRemark = d.stickerRemark && d.stickerRemark.trim().length > 0;
+                            const jobCard = currentParty.jobCardNumber || 'JC-2026-101';
                             return (
                               <div
                                 key={d.id}
-                                className="bg-white border-2 border-slate-900 rounded-xl p-3.5 shadow-xs flex flex-col justify-between text-slate-900"
+                                className="bg-white border border-slate-800 rounded-xl p-3.5 shadow-xs flex flex-col justify-between text-slate-900 space-y-1.5"
                                 style={{ minHeight: '175px' }}
                               >
                                 <div className="space-y-1">
-                                  <div className="flex justify-between text-xs">
-                                    <span className="text-slate-500">PartyName</span>
-                                    <span className="font-black text-sm uppercase">{currentParty.partyName}</span>
-                                  </div>
-                                  <div className="flex justify-between items-center">
-                                    <div className="text-xs">
-                                      <span className="text-slate-500">Model: </span>
-                                      <strong className="font-black uppercase">{d.modelName}</strong>
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="flex items-baseline gap-2 min-w-0">
+                                      <span className="text-[9.5px] text-slate-500 font-medium shrink-0">PartyName</span>
+                                      <span className="font-black text-xs uppercase truncate">{currentParty.partyName}</span>
                                     </div>
-                                    <div className="w-6 h-6 rounded-full border border-slate-800 flex items-center justify-center text-xs font-extrabold">
+                                    <span className="font-mono text-[9.5px] font-black px-1.5 py-0.2 rounded bg-slate-100 border border-slate-400 text-slate-950 shrink-0">
+                                      {jobCard}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center gap-2">
+                                    <div className="flex items-baseline gap-2 min-w-0">
+                                      <span className="text-[9.5px] text-slate-500 font-medium shrink-0">Model/Part</span>
+                                      <strong className="font-black text-xs uppercase truncate">{d.modelName}</strong>
+                                    </div>
+                                    <span className="px-3.5 py-0.2 rounded-full border border-slate-800 font-black text-[11px] leading-tight shrink-0">
                                       {num}
-                                    </div>
+                                    </span>
                                   </div>
-                                  <div className="flex justify-between pt-0.5 text-[11px]">
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-slate-500">Hing.Side</span>
-                                      <span className="px-2 py-0.2 border border-slate-800 rounded font-black text-xs">
+                                  <div className="flex items-center justify-between gap-1.5 pt-0.5 text-[9.5px]">
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <span className="text-slate-600">Hinge:</span>
+                                      <span className="px-2.5 py-0.2 border border-slate-800 rounded-full font-black text-[10px]">
                                         {d.hingeSide}
                                       </span>
                                     </div>
-                                    <div className="font-bold text-slate-700 uppercase">
-                                      {d.lockSubLabel}, {d.finishShade}
+                                    <div className="flex items-center gap-1 min-w-0 border border-slate-300 rounded px-1.5 py-0.5 flex-1 bg-slate-50/70">
+                                      <span className="text-slate-500 text-[8px] font-semibold shrink-0">LOCK:</span>
+                                      <span className="font-black uppercase truncate">{d.lockSubLabel || d.lockCategory}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 min-w-0 border border-slate-300 rounded px-1.5 py-0.5 flex-1 bg-slate-50/70">
+                                      <span className="text-slate-500 text-[8px] font-semibold shrink-0">COLOUR:</span>
+                                      <span className="font-black uppercase truncate">{d.finishShade}</span>
                                     </div>
                                   </div>
                                 </div>
 
-                                <div className="my-2 border border-slate-800 rounded-md grid grid-cols-12 overflow-hidden bg-slate-50">
-                                  <div className="col-span-6 border-r border-slate-800 p-2 flex flex-col items-center justify-center text-center">
-                                    <div className="text-[10px] font-bold text-slate-600 uppercase">{c.hLabel}</div>
-                                    <div className="font-mono text-base font-black mt-0.5">~{c.finH}</div>
+                                <div className="border border-slate-800 rounded-lg grid grid-cols-12 overflow-hidden">
+                                  <div className="col-span-6 border-r border-slate-800 px-2.5 py-1.5 flex items-center justify-between">
+                                    <span className="text-[10.5px] font-bold text-slate-700 uppercase">{c.hLabel}</span>
+                                    <span className="font-mono text-sm font-black text-slate-950">{c.finHText}</span>
                                   </div>
-                                  <div className="col-span-6 flex flex-col justify-between divide-y divide-slate-800 text-xs">
-                                    <div className="px-2 py-1 flex justify-between">
-                                      <span className="text-[9px] font-bold text-slate-500">TOP</span>
-                                      <span className="font-mono font-black">~{c.finTopW}</span>
+                                  <div className="col-span-6 divide-y divide-slate-800">
+                                    <div className="px-2 py-1 flex items-center justify-between">
+                                      <span className="text-[8.5px] font-bold text-slate-600 uppercase">TOP</span>
+                                      <span className="font-mono text-xs font-black text-slate-950">{c.finTopWText}</span>
                                     </div>
-                                    <div className="px-2 py-1 flex justify-between">
-                                      <span className="text-[9px] font-bold text-slate-500">BOTTOM</span>
-                                      <span className="font-mono font-black">~{c.finBtmW}</span>
+                                    <div className="px-2 py-1 flex items-center justify-between">
+                                      <span className="text-[8.5px] font-bold text-slate-600 uppercase">BOTTOM</span>
+                                      <span className="font-mono text-xs font-black text-slate-950">{c.finBtmWText}</span>
                                     </div>
                                   </div>
                                 </div>
 
-                                <div className="text-[10px] font-mono text-slate-600 truncate">
-                                  Remark: {d.stickerRemark || 'STANDARD PRODUCTION'}
-                                </div>
+                                {hasRemark && (
+                                  <div className="pt-1 border-t border-slate-300 text-[9.5px] font-black text-slate-950 uppercase truncate">
+                                    REMARK: {d.stickerRemark.trim()}
+                                  </div>
+                                )}
                               </div>
                             );
                           }

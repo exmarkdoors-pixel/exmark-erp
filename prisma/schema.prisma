@@ -681,3 +681,18 @@ model ReportTemplate {
   @@index([reportCode])
 }
 
+// ==========================================
+// 13. HYBRID OFFLINE-FIRST CLOUD VAULT SYNC
+// ==========================================
+
+model CloudVaultStore {
+  storeKey    String   @id
+  sha256      String
+  payloadJson String
+  revision    Int      @default(1)
+  sizeBytes   Int
+  appVersion  String   @default("1.0.1")
+  deviceName  String?
+  updatedAt   DateTime @updatedAt
+}
+

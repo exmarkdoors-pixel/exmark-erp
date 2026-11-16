@@ -146,13 +146,13 @@ const SEED_FLOOR_QC_ITEMS: InteractiveQcDoorItem[] = [
 ];
 
 export default function QualityControlHub() {
-  const [inspections, setInspections] = useState<QcInspectionItem[]>(SEED_QC_INSPECTIONS);
-  const [selectedInspection, setSelectedInspection] = useState<QcInspectionItem>(SEED_QC_INSPECTIONS[0]);
+  const [inspections, setInspections] = useState<QcInspectionItem[]>([]);
+  const [selectedInspection, setSelectedInspection] = useState<QcInspectionItem | null>(null);
   const [stageFilter, setStageFilter] = useState<'ALL' | QcStage>('ALL');
   const [verdictFilter, setVerdictFilter] = useState<'ALL' | 'PASSED' | 'REJECTED'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewInspectionModalOpen, setIsNewInspectionModalOpen] = useState(false);
-  const [floorQcItems, setFloorQcItems] = useState<InteractiveQcDoorItem[]>(SEED_FLOOR_QC_ITEMS);
+  const [floorQcItems, setFloorQcItems] = useState<InteractiveQcDoorItem[]>([]);
   const [isPrintQcClipboardOpen, setIsPrintQcClipboardOpen] = useState(false);
 
   const toggleFloorQcCheck = (id: string, field: 'dim' | 'diag' | 'flat' | 'finish' | 'lock') => {
@@ -459,8 +459,13 @@ export default function QualityControlHub() {
 
             {/* List */}
             <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
-              {filteredInspections.map((item) => {
-                const isSelected = selectedInspection.id === item.id;
+              {filteredInspections.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400">
+                  No QC inspections logged yet.
+                </div>
+              ) : (
+                filteredInspections.map((item) => {
+                const isSelected = selectedInspection?.id === item.id;
                 return (
                   <div
                     key={item.id}
@@ -500,13 +505,23 @@ export default function QualityControlHub() {
                     </div>
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
           </div>
         </div>
 
         {/* Right Column (7 cols): Selected Inspection Certificate & Test Results */}
         <div className="lg:col-span-7 space-y-4">
+          {!selectedInspection ? (
+            <div className="p-8 rounded-2xl bg-[#0B132B]/90 border border-dashed border-slate-800 text-center space-y-2">
+              <ShieldCheck className="w-8 h-8 text-teal-400 mx-auto opacity-60" />
+              <h3 className="text-sm font-bold text-white">No QC Inspections Logged</h3>
+              <p className="text-xs text-slate-400">
+                Click &quot;+ Log Quality Inspection&quot; to record IQC, IPQC, or Pre-Dispatch FQC checksheets.
+              </p>
+            </div>
+          ) : (
           <div className="p-6 rounded-2xl bg-[#0B132B]/90 border border-slate-800/90 shadow-xl space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
               <div>
@@ -617,6 +632,7 @@ export default function QualityControlHub() {
               </p>
             </div>
           </div>
+          )}
         </div>
       </div>
 
@@ -764,7 +780,7 @@ export default function QualityControlHub() {
 
       {/* PRINTABLE PHYSICAL QC CLIPBOARD SHEET MODAL */}
       {isPrintQcClipboardOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-2 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-2 bg-black/85 backdrop-blur-md animate-in fade-in duration-150 printable-modal-root">
           <div className="bg-white text-slate-900 w-full max-w-4xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
             {/* Header */}
             <div className="bg-slate-900 text-white p-3.5 flex justify-between items-center print:hidden">

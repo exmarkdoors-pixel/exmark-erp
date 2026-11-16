@@ -2,19 +2,23 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { isPostgresAvailable, getOutbox, isCloudEnvironment } from '@/lib/services/dbSyncEngine';
+import { getCloudSyncOverview } from '@/lib/services/cloudSyncService';
 import { getCompanyProfile, getActiveFactory } from '@/lib/services/companyProfileService';
+import { ensureFactoryBootstrapOnce, getAppVersion } from '@/lib/services/schemaMigrator';
+import { getDataDir } from '@/lib/utils/dataPaths';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const startTime = Date.now();
+  await ensureFactoryBootstrapOnce();
   const postgresOnline = await isPostgresAvailable();
   const isCloud = isCloudEnvironment();
   const outbox = getOutbox();
   const pendingOutboxCount = outbox.filter((item) => item.status === 'PENDING').length;
 
   // Check persistent store health
-  const dataDir = path.join(process.cwd(), 'data');
+  const dataDir = getDataDir();
   const storesExist = fs.existsSync(dataDir);
   let storeCount = 0;
   if (storesExist) {
@@ -23,6 +27,7 @@ export async function GET() {
 
   const profile = await getCompanyProfile();
   const activeFactory = getActiveFactory();
+  const cloudSync = await getCloudSyncOverview().catch(() => null);
   const responseTimeMs = Date.now() - startTime;
 
   // Liveness is ALWAYS ALIVE if Next.js server is successfully handling this HTTP request
@@ -57,7 +62,7 @@ export async function GET() {
       readiness,
       readinessReason,
       service: 'EXMARK ERP Enterprise Platform',
-      version: '2.4.0',
+      version: getAppVersion(),
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
       deploymentStage: process.env.STAGE || 'staging',
@@ -68,8 +73,20 @@ export async function GET() {
         postgresReachable: postgresOnline,
         connectionMode: postgresOnline ? 'CENTRAL_CLOUD_POSTGRES' : 'LOCAL_PERSISTENT_FALLBACK',
         pendingOutboxSync: pendingOutboxCount,
-        configured: Boolean(process.env.DATABASE_URL),
+        configured: Boolean(process.env.DATABASE_URL || cloudSync?.secretsSummary.hasDatabaseUrl),
       },
+      cloudSync: cloudSync
+        ? {
+            enabled: cloudSync.state.enabled,
+            postgresEnabled: cloudSync.state.postgresEnabled,
+            postgresConfigured: cloudSync.secretsSummary.hasDatabaseUrl,
+            driveEnabled: cloudSync.state.driveEnabled,
+            driveMode: cloudSync.state.driveMode,
+            dirtyStoresCount: cloudSync.state.dirtyStores.length,
+            lastPostgresSyncAt: cloudSync.state.lastPostgresSyncAt,
+            lastDriveBackupAt: cloudSync.state.lastDriveBackupAt,
+          }
+        : null,
       storage: {
         jsonStoresReachable: storesExist,
         activeStoresCount: storeCount,

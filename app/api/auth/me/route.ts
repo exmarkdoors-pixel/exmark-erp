@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ERP_ROLES } from '@/lib/auth/roles';
 import { authorizeRequest } from '@/lib/auth/authorization';
+import { resolveEffectiveModules } from '@/lib/auth/rbacStore';
+import { findFactoryUserById, getAuthSecurityConfig } from '@/lib/auth/userStore';
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,12 +12,18 @@ export async function GET(req: NextRequest) {
     }
 
     const session = auth.user;
-    const roleConfig = ERP_ROLES[session.role];
+    const stored = await findFactoryUserById(session.id);
+    const secCfg = getAuthSecurityConfig();
 
     return NextResponse.json({
       authenticated: true,
       user: session,
-      permissions: roleConfig?.allowedModules || [],
+      permissions: resolveEffectiveModules(session.role, stored?.customAllowedModules),
+      mustChangePassword: stored
+        ? Boolean(stored.mustChangePassword) || (!stored.customPasswordSet && stored.role === 'Super Admin')
+        : false,
+      hasQuickPin: Boolean(stored?.pinHash),
+      requireLoginOnAllDevices: secCfg.requireLoginOnAllDevices,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Session verification failed';

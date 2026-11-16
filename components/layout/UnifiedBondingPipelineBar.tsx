@@ -5,8 +5,11 @@ import { NavigationTab } from '@/types/erp';
 import {
   FileSpreadsheet,
   ShoppingBag,
-  FlaskConical,
   Factory,
+  ShieldCheck,
+  Palette,
+  Truck,
+  Wrench,
   ReceiptIndianRupee,
   ChevronRight,
   ArrowRight,
@@ -43,42 +46,62 @@ const PIPELINE_STEPS: PipelineStep[] = [
   {
     id: 'sales-orders',
     stepNumber: 2,
-    labelEn: 'Sales Order',
-    labelMl: 'സെയിൽസ് ഓർഡർ',
+    labelEn: 'Order Lock',
+    labelMl: 'അഡ്വാൻസ് & സ്റ്റിക്കർ',
     icon: ShoppingBag,
     colorClass: 'text-rose-400',
     activeBg: 'bg-rose-600 text-white shadow-lg shadow-rose-900/40 border-rose-500',
-    badge: '40% Adv Lock',
-  },
-  {
-    id: 'bom',
-    stepNumber: 3,
-    labelEn: 'BOM & Store',
-    labelMl: 'മെറ്റീരിയൽ ഇഷ്യൂ',
-    icon: FlaskConical,
-    colorClass: 'text-emerald-400',
-    activeBg: 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 border-emerald-500',
-    badge: 'Store Slip',
+    badge: 'Advance + 12L',
   },
   {
     id: 'production',
-    stepNumber: 4,
-    labelEn: 'Plant Press',
-    labelMl: 'ഹൈഡ്രോളിക് പ്രസ്സ്',
+    stepNumber: 3,
+    labelEn: 'Door Molding',
+    labelMl: 'മോൾഡിംഗ് & പ്രസ്സ്',
     icon: Factory,
     colorClass: 'text-purple-400',
     activeBg: 'bg-purple-600 text-white shadow-lg shadow-purple-900/40 border-purple-500',
-    badge: 'QC / Sizing',
+    badge: 'Stage BOQ',
   },
   {
-    id: 'sales',
+    id: 'batch-print',
+    stepNumber: 4,
+    labelEn: '12L & 4"×2" Stickers',
+    labelMl: 'സ്റ്റിക്കർ പ്രിൻ്റ്',
+    icon: ShieldCheck,
+    colorClass: 'text-teal-400',
+    activeBg: 'bg-teal-600 text-white shadow-lg shadow-teal-900/40 border-teal-500',
+    badge: 'Tolerances',
+  },
+  {
+    id: 'bom',
     stepNumber: 5,
-    labelEn: 'Tax Invoice & Bill',
-    labelMl: 'ജി.എസ്.ടി ബിൽ',
-    icon: ReceiptIndianRupee,
+    labelEn: 'Paint Section',
+    labelMl: 'പെയിന്റിംഗ് സെക്ഷൻ',
+    icon: Palette,
+    colorClass: 'text-amber-400',
+    activeBg: 'bg-amber-600 text-white shadow-lg shadow-amber-900/40 border-amber-500',
+    badge: 'Paint BOQ',
+  },
+  {
+    id: 'dispatch',
+    stepNumber: 6,
+    labelEn: 'Packing & Delivery',
+    labelMl: 'ഡെലിവറി ചലാൻ',
+    icon: Truck,
+    colorClass: 'text-emerald-400',
+    activeBg: 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 border-emerald-500',
+    badge: 'Challan / Pass',
+  },
+  {
+    id: 'installation',
+    stepNumber: 7,
+    labelEn: 'Site Fitting',
+    labelMl: 'സൈറ്റ് ഫിറ്റിംഗ്',
+    icon: Wrench,
     colorClass: 'text-cyan-400',
     activeBg: 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/40 border-cyan-500',
-    badge: 'GST 18%',
+    badge: '₹400/door',
   },
 ];
 
@@ -99,14 +122,14 @@ export default function UnifiedBondingPipelineBar({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-black text-white text-xs tracking-wider uppercase">
-                EXMARK Factory Bonding Pipeline
+                EXMARK Production Execution Pipeline
               </span>
-              <span className="text-[10px] bg-rose-950/80 text-rose-300 border border-rose-800/80 px-2 py-0.2 rounded-full font-bold">
-                End-to-End
+              <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 px-2 py-0.2 rounded-full font-bold">
+                Production-First Active
               </span>
             </div>
             <p className="text-[10px] text-slate-400">
-              Quotation $\rightarrow$ Sales Order $\rightarrow$ BOM Store Slip $\rightarrow$ Plant Press $\rightarrow$ GST Tax Invoice
+              Quotation $\rightarrow$ Advance Lock & 12L Stickers $\rightarrow$ Molding $\rightarrow$ Cutting/QC $\rightarrow$ Painting $\rightarrow$ Delivery Challan $\rightarrow$ Site Fitting • <span className="text-amber-400 font-medium">Billing: Future Phase</span>
             </p>
           </div>
         </div>

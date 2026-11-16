@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   updateDoorQc,
   updateDoorQcWithChecklist,
@@ -11,6 +12,15 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; doorId: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'production', [
+      'Super Admin',
+      'Management',
+      'Production',
+      'Plant Supervisor',
+      'QC Inspector',
+    ]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id, doorId } = await params;
     const body = await req.json();
 

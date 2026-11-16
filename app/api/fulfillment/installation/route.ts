@@ -1,12 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   listInstallations,
   createInstallation,
   completeInstallationSignoff,
 } from '@/lib/services/fulfillmentService';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'installation');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const installations = await listInstallations();
     return NextResponse.json({ success: true, count: installations.length, data: installations });
   } catch (error) {
@@ -18,8 +22,11 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'installation');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     if (!body.customerName || !body.siteAddress || !body.supervisorName) {
       return NextResponse.json(
@@ -49,8 +56,11 @@ export async function POST(req: Request) {
   }
 }
 
-export async function PUT(req: Request) {
+export async function PUT(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'installation');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     if (!body.id || !body.clientSignoffName || body.feedbackRating === undefined) {
       return NextResponse.json(

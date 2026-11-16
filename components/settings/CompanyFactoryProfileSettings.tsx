@@ -368,7 +368,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
         <div className="bg-white dark:bg-[#0B132B] p-6 rounded-xl border border-slate-200 dark:border-slate-800 space-y-5">
           <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
             <h3 className="font-bold text-sm text-slate-900 dark:text-white">Registered Legal Entity &amp; Branding</h3>
-            <p className="text-xs text-slate-500">Legal details applied to GST invoices, corporate filings and customer quotes.</p>
+            <p className="text-xs text-slate-500">Company details applied to sales bills, work orders, corporate records, and customer quotes.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
@@ -392,18 +392,6 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-medium focus:ring-1 focus:ring-red-500"
                 placeholder="e.g. EXMARK Doors"
               />
-            </div>
-
-            <div>
-              <label className="block text-slate-500 font-semibold mb-1">Kerala GSTIN *</label>
-              <input
-                type="text"
-                value={profile.gstin}
-                onChange={(e) => updateCompanyField('gstin', e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-mono uppercase focus:ring-1 focus:ring-red-500"
-                placeholder="32AABCE9821K1ZN"
-              />
-              <span className="text-[10px] text-slate-400 mt-0.5 block">State code 32 (Kerala) followed by 10-char PAN and 3-char suffix</span>
             </div>
 
             <div>
@@ -593,7 +581,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
             <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
               <h4 className="font-bold text-xs uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <FileText className="w-4 h-4 text-amber-400" />
-                3. Legal Billing Address (GST Invoices)
+                3. Legal Billing Address (Sales Bills)
               </h4>
               <div className="space-y-2 text-xs">
                 <div>
@@ -936,7 +924,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
             </p>
           </div>
 
-          {/* Sample Tax Invoice Header */}
+          {/* Sample Sales Bill Header */}
           <div className="bg-white text-slate-900 p-6 rounded-xl border border-slate-300 shadow-md space-y-4">
             <div className="flex justify-between items-start border-b-2 border-red-600 pb-4">
               <div>
@@ -949,13 +937,13 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
                   Manufacturing Unit: {activeFactory.name} • {[activeFactory.address?.addressLine1, activeFactory.address?.district, activeFactory.address?.state, activeFactory.address?.pinCode].filter(Boolean).join(', ') || 'Address Pending Configuration'}
                 </p>
                 <p className="text-[11px] text-slate-600">
-                  GSTIN: <span className="font-mono font-bold text-slate-900">{profile.gstin}</span> | HSN: 3925.20.00 (FRP Doors)
+                  Phone: <span className="font-mono font-semibold text-slate-900">{profile.phone}</span> | Website: {profile.website}
                 </p>
               </div>
 
               <div className="text-right">
                 <span className="px-2 py-0.5 bg-red-100 text-red-800 font-bold text-xs rounded border border-red-200 uppercase">
-                  TAX INVOICE / WORK ORDER
+                  SALES BILL / WORK ORDER
                 </span>
                 <p className="text-xs font-mono font-bold text-slate-700 mt-2">DOC: INV-2026-0042</p>
                 <p className="text-[11px] text-slate-500">Date: {new Date().toLocaleDateString('en-IN')}</p>
@@ -990,7 +978,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
               Company Profile Audit Ledger &amp; Version History
             </h3>
             <p className="text-xs text-slate-500">
-              Immutable version history ensuring historical finalized tax invoices, issued warranties and job cards remain unaltered.
+              Immutable version history ensuring historical finalized sales bills, issued warranties and job cards remain unaltered.
             </p>
           </div>
 
@@ -1032,14 +1020,13 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
             </div>
 
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Publishing will update the authoritative legal entity and active manufacturing plant across all new job cards, cutting sheets, tax invoices, and warranty certificates. Historical finalized documents will remain protected in their issued state.
+              Publishing will update the authoritative legal entity and active manufacturing plant across all new job cards, cutting sheets, sales bills, and warranty certificates. Historical finalized documents will remain protected in their issued state.
             </p>
 
             <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-xs space-y-1">
               <div><strong>Registered Entity:</strong> {profile.registeredCompanyName}</div>
               <div><strong>Brand:</strong> {profile.brandName}</div>
               <div><strong>Active Plant:</strong> {activeFactory.name} ({activeFactory.address?.district || 'District Unset'})</div>
-              <div><strong>Kerala GSTIN:</strong> {profile.gstin}</div>
             </div>
 
             <div>

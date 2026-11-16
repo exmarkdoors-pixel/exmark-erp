@@ -26,6 +26,7 @@ export interface PrintDocumentHubProps {
   doorModels?: HubDoorModel[];
   customer?: HubCustomer;
   statementEntries?: StatementEntry[];
+  hideSqFt?: boolean;
 }
 
 export const COMPANY_PROFILE = {
@@ -35,10 +36,10 @@ export const COMPANY_PROFILE = {
   phone: '+91 94479 28866',
   email: 'exmarkdoors@gmail.com',
   website: 'www.exmarkdoors.com',
-  gstin: '32AAHFE4489L1Z2',
-  pan: 'AAHFE4489L',
+  gstin: '',
+  pan: '',
   stateCode: '32 (Kerala)',
-  hsnCode: '39252000', // Builders' ware of plastics / FRP & WPC Doors
+  hsnCode: '',
   bank: {
     bankName: 'State Bank of India',
     branch: 'Vengara Branch',
@@ -53,9 +54,9 @@ export const DOCUMENT_TITLES: Record<DocumentType, { en: string; ml: string; bad
   quotation: { en: 'QUOTATION / ESTIMATE', ml: 'ക്വട്ടേഷൻ / എസ്റ്റിമേറ്റ്', badge: 'ESTIMATE' },
   proforma: { en: 'PROFORMA INVOICE', ml: 'പ്രൊഫോർമ ഇൻവോയ്സ്', badge: 'PROFORMA' },
   salesOrder: { en: 'SALES WORK ORDER', ml: 'സെയിൽസ് വർക്ക് ഓർഡർ', badge: 'WORK ORDER' },
-  salesInvoice: { en: 'TAX INVOICE (GST BILL)', ml: 'ടാക്സ് ഇൻവോയ്സ് (ജിഎസ്ടി)', badge: 'TAX INVOICE' },
+  salesInvoice: { en: 'SALES INVOICE / BILL', ml: 'സെയിൽസ് ബിൽ / ഇൻവോയ്സ്', badge: 'SALES BILL' },
   statement: { en: 'PARTY ACCOUNT STATEMENT', ml: 'കസ്റ്റമർ അക്കൗണ്ട് ലെഡ്ജർ', badge: 'LEDGER' },
-  creditNote: { en: 'GST CREDIT NOTE (SALES RETURN)', ml: 'ജിഎസ്ടി ക്രെഡിറ്റ് നോട്ട് (സെയിൽസ് റിട്ടേൺ)', badge: 'CREDIT NOTE' },
+  creditNote: { en: 'SALES RETURN / CREDIT NOTE', ml: 'സെയിൽസ് റിട്ടേൺ / ക്രെഡിറ്റ് നോട്ട്', badge: 'RETURN VOUCHER' },
 };
 
 // Generate default statement ledger data based on quotation
@@ -88,7 +89,7 @@ export function getSampleStatementEntries(quote: HubQuotation): StatementEntry[]
     {
       id: 'TXN-03',
       date: quote.date || '27 Oct 2026',
-      particulars: `Tax Invoice Generated: ${quote.itemsSummary}`,
+      particulars: `Sales Invoice Generated: ${quote.itemsSummary}`,
       voucherType: 'Invoice',
       voucherNo: `INV-2026-${quote.id.replace('QT-', '')}`,
       debit: gTotal,
@@ -105,6 +106,7 @@ export function PrintDocumentHub({
   doorModels = [],
   customer,
   statementEntries,
+  hideSqFt = true,
 }: PrintDocumentHubProps) {
   const titles = DOCUMENT_TITLES[documentType];
   const entries = statementEntries || getSampleStatementEntries(quotation);
@@ -112,7 +114,6 @@ export function PrintDocumentHub({
   const customerName = customer?.name || quotation.customerName || 'Er. Jacob Roy';
   const customerLocation = customer?.location || quotation.location || 'Ernakulam, Kerala';
   const customerPhone = customer?.phone || '+91 98470 11223';
-  const customerGstin = customer?.gstin || '32ABCPR1234A1Z1';
 
   // 1. TALLY CLASSIC THEME
   if (theme === 'tally-classic') {
@@ -120,12 +121,12 @@ export function PrintDocumentHub({
       <div className="font-mono text-black bg-white p-6 leading-tight select-text text-xs border-2 border-black max-w-4xl mx-auto shadow-sm">
         {/* Top Header */}
         <div className="text-center border-b-2 border-black pb-3">
-          <p className="text-[10px] tracking-widest uppercase font-bold text-slate-700">GST Compliance Form</p>
+          <p className="text-[10px] tracking-widest uppercase font-bold text-slate-700">Commercial Door Document</p>
           <h1 className="text-xl font-bold uppercase tracking-wider">{titles.en}</h1>
           <p className="text-sm font-bold mt-1">{COMPANY_PROFILE.name}</p>
           <p className="text-[11px]">{COMPANY_PROFILE.address}</p>
           <p className="text-[11px]">
-            GSTIN: <span className="font-bold">{COMPANY_PROFILE.gstin}</span> | State: {COMPANY_PROFILE.stateCode} | Phone: {COMPANY_PROFILE.phone}
+            State: {COMPANY_PROFILE.stateCode} | Phone: {COMPANY_PROFILE.phone}
           </p>
         </div>
 
@@ -136,7 +137,6 @@ export function PrintDocumentHub({
             <p className="text-sm font-bold">{customerName}</p>
             <p>{customerLocation}</p>
             <p>Phone: {customerPhone}</p>
-            <p>Buyer GSTIN: {customerGstin || 'Unregistered / Direct'}</p>
           </div>
           <div className="p-2 space-y-1">
             <div className="flex justify-between">
@@ -162,7 +162,7 @@ export function PrintDocumentHub({
         {documentType === 'statement' ? (
           renderTallyStatementTable(entries)
         ) : (
-          renderTallyItemTable(quotation, doorModels)
+          renderTallyItemTable(quotation, doorModels, false, hideSqFt)
         )}
 
         {/* Tally Financial Summary */}
@@ -180,10 +180,20 @@ export function PrintDocumentHub({
               <span>Subtotal:</span>
               <span className="font-bold">₹{quotation.subtotal.toLocaleString('en-IN')}.00</span>
             </div>
-            <div className="flex justify-between">
-              <span>Output GST ({quotation.gstRate}%):</span>
-              <span className="font-bold">₹{quotation.gstAmount.toLocaleString('en-IN')}.00</span>
-            </div>
+            {Boolean(quotation.discount && quotation.discount > 0) && (
+              <div className="flex justify-between text-rose-700">
+                <span>Special Discount:</span>
+                <span className="font-bold">-₹{quotation.discount?.toLocaleString('en-IN')}.00</span>
+              </div>
+            )}
+            {Boolean(quotation.roundOff && quotation.roundOff !== 0) && (
+              <div className="flex justify-between text-slate-700">
+                <span>Round-off:</span>
+                <span className="font-bold">
+                  {(quotation.roundOff ?? 0) > 0 ? '+' : ''}₹{quotation.roundOff?.toLocaleString('en-IN')}.00
+                </span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-black pt-1 text-sm font-bold">
               <span>Total Amount:</span>
               <span>₹{quotation.grandTotal.toLocaleString('en-IN')}.00</span>
@@ -217,7 +227,7 @@ export function PrintDocumentHub({
           <div>
             <h1 className="text-lg font-bold tracking-wide">{COMPANY_PROFILE.name}</h1>
             <p className="text-[11px] text-slate-300">{COMPANY_PROFILE.tagline}</p>
-            <p className="text-[10px] text-slate-400">GSTIN: {COMPANY_PROFILE.gstin} | State: {COMPANY_PROFILE.stateCode}</p>
+            <p className="text-[10px] text-slate-400">State: {COMPANY_PROFILE.stateCode} | Ph: {COMPANY_PROFILE.phone}</p>
           </div>
           <div className="text-right">
             <span className="bg-rose-600 text-white font-bold text-xs px-2.5 py-1 rounded">
@@ -235,13 +245,17 @@ export function PrintDocumentHub({
             <p className="font-bold text-slate-900 text-sm mt-0.5">{customerName}</p>
             <p className="text-slate-600">{customerLocation}</p>
             <p className="text-slate-600">Mob: {customerPhone}</p>
-            <p className="font-mono text-[11px] font-semibold text-slate-700">GSTIN: {customerGstin || 'Unregistered'}</p>
           </div>
           <div className="text-right space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-500 block">Order &amp; Tax Terms</span>
-            <p className="font-semibold text-slate-800">Tax Type: {quotation.gstMode.toUpperCase()}</p>
+            <span className="text-[10px] uppercase font-bold text-slate-500 block">Order &amp; Billing Terms</span>
+            <p className="font-semibold text-slate-800">Direct Factory Billing</p>
             <p className="text-slate-600">IS Standard: IS 14856:2000 Impact Tested</p>
             <p className="text-slate-600">Terms: {quotation.advancePercent}% Advance</p>
+            {quotation.targetDeliveryDate && (
+              <p className="text-slate-700 font-bold text-[11px]">
+                Target Delivery: {quotation.targetDeliveryDate} {quotation.deliveryDistrict ? `(${quotation.deliveryDistrict})` : ''}
+              </p>
+            )}
           </div>
         </div>
 
@@ -249,7 +263,7 @@ export function PrintDocumentHub({
         {documentType === 'statement' ? (
           renderTallyStatementTable(entries, true)
         ) : (
-          renderTallyItemTable(quotation, doorModels, true)
+          renderTallyItemTable(quotation, doorModels, true, hideSqFt)
         )}
 
         {/* Bottom Financial Grid */}
@@ -265,10 +279,20 @@ export function PrintDocumentHub({
               <span>Subtotal:</span>
               <span className="font-mono font-medium">₹{quotation.subtotal.toLocaleString('en-IN')}.00</span>
             </div>
-            <div className="flex justify-between text-slate-600">
-              <span>GST ({quotation.gstRate}%):</span>
-              <span className="font-mono font-medium">₹{quotation.gstAmount.toLocaleString('en-IN')}.00</span>
-            </div>
+            {Boolean(quotation.discount && quotation.discount > 0) && (
+              <div className="flex justify-between text-rose-600 font-medium">
+                <span>Special Discount:</span>
+                <span className="font-mono">-₹{quotation.discount?.toLocaleString('en-IN')}.00</span>
+              </div>
+            )}
+            {Boolean(quotation.roundOff && quotation.roundOff !== 0) && (
+              <div className="flex justify-between text-slate-600 font-medium">
+                <span>Round-off:</span>
+                <span className="font-mono">
+                  {(quotation.roundOff ?? 0) > 0 ? '+' : ''}₹{quotation.roundOff?.toLocaleString('en-IN')}.00
+                </span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-slate-300 pt-1 text-sm font-bold text-slate-900">
               <span>Net Total:</span>
               <span className="font-mono text-emerald-700">₹{quotation.grandTotal.toLocaleString('en-IN')}.00</span>
@@ -283,13 +307,13 @@ export function PrintDocumentHub({
     );
   }
 
-  // 3. TALLY FORMAL (FULL COMPREHENSIVE TAX INVOICE)
+  // 3. TALLY FORMAL (FULL COMPREHENSIVE COMMERCIAL DOCUMENT)
   if (theme === 'tally-formal') {
     return (
       <div className="font-serif text-slate-900 bg-white p-6 select-text text-xs border-2 border-slate-800 max-w-4xl mx-auto shadow-sm">
         <div className="text-center border-b-2 border-slate-800 pb-2">
           <h2 className="text-base font-extrabold uppercase tracking-wide">{titles.en}</h2>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest">(Under Rule 46 of Central Goods and Services Tax Rules, 2017)</p>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest">Direct Factory Commercial Statement &amp; Dispatch Voucher</p>
         </div>
 
         {/* Dual Party Grid: Billed To vs Consignee Shipped To */}
@@ -298,7 +322,7 @@ export function PrintDocumentHub({
             <p className="text-[10px] font-bold uppercase text-slate-600">Supplier Details:</p>
             <p className="font-bold text-sm">{COMPANY_PROFILE.name}</p>
             <p>{COMPANY_PROFILE.address}</p>
-            <p>GSTIN: <span className="font-mono font-bold">{COMPANY_PROFILE.gstin}</span></p>
+            <p>Phone: {COMPANY_PROFILE.phone} | Email: {COMPANY_PROFILE.email}</p>
             <p>State: {COMPANY_PROFILE.stateCode}</p>
           </div>
           <div className="p-3 space-y-1 text-xs">
@@ -327,7 +351,6 @@ export function PrintDocumentHub({
             <p className="font-bold text-sm">{customerName}</p>
             <p>{customerLocation}</p>
             <p>State: Kerala (Code 32)</p>
-            <p>GSTIN / UIN: <span className="font-mono font-bold">{customerGstin || 'Unregistered'}</span></p>
           </div>
           <div className="p-3 space-y-0.5 text-xs">
             <p className="text-[10px] font-bold uppercase text-slate-600">Details of Consignee (Shipped To):</p>
@@ -341,37 +364,33 @@ export function PrintDocumentHub({
         {documentType === 'statement' ? (
           renderTallyStatementTable(entries)
         ) : (
-          renderTallyItemTable(quotation, doorModels)
+          renderTallyItemTable(quotation, doorModels, false, hideSqFt)
         )}
 
-        {/* GST Tax Breakdown Sub-Table */}
-        <div className="border-t-2 border-slate-800 p-2 text-xs">
-          <table className="w-full text-left text-[11px] border border-slate-400">
-            <thead>
-              <tr className="bg-slate-100 border-b border-slate-400 text-center font-bold">
-                <th className="p-1 border-r border-slate-400">HSN/SAC</th>
-                <th className="p-1 border-r border-slate-400">Taxable Value</th>
-                <th className="p-1 border-r border-slate-400">Central Tax (CGST)</th>
-                <th className="p-1 border-r border-slate-400">State Tax (SGST)</th>
-                <th className="p-1">Total Tax Amount</th>
-              </tr>
-            </thead>
-            <tbody className="text-center">
-              <tr className="border-b border-slate-300 font-mono">
-                <td className="p-1 border-r border-slate-400">{COMPANY_PROFILE.hsnCode}</td>
-                <td className="p-1 border-r border-slate-400">₹{quotation.subtotal.toLocaleString('en-IN')}</td>
-                <td className="p-1 border-r border-slate-400">{Math.round(quotation.gstRate / 2)}% (₹{Math.round(quotation.gstAmount / 2).toLocaleString('en-IN')})</td>
-                <td className="p-1 border-r border-slate-400">{Math.round(quotation.gstRate / 2)}% (₹{Math.round(quotation.gstAmount / 2).toLocaleString('en-IN')})</td>
-                <td className="p-1 font-bold">₹{quotation.gstAmount.toLocaleString('en-IN')}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Grand Total */}
-        <div className="flex justify-between items-center bg-slate-100 border-y-2 border-slate-800 p-2 text-sm font-bold">
-          <span>Total Invoice Amount (in figures):</span>
-          <span className="font-mono text-base">₹{quotation.grandTotal.toLocaleString('en-IN')}.00</span>
+        {/* Grand Total Summary */}
+        <div className="bg-slate-100 border-y-2 border-slate-800 p-2.5 text-xs space-y-1">
+          <div className="flex justify-between text-slate-700">
+            <span>Subtotal:</span>
+            <span className="font-mono font-bold">₹{quotation.subtotal.toLocaleString('en-IN')}.00</span>
+          </div>
+          {Boolean(quotation.discount && quotation.discount > 0) && (
+            <div className="flex justify-between text-rose-700">
+              <span>Special Discount:</span>
+              <span className="font-mono font-bold">-₹{quotation.discount?.toLocaleString('en-IN')}.00</span>
+            </div>
+          )}
+          {Boolean(quotation.roundOff && quotation.roundOff !== 0) && (
+            <div className="flex justify-between text-slate-700">
+              <span>Round-off Adjustment:</span>
+              <span className="font-mono font-bold">
+                {(quotation.roundOff ?? 0) > 0 ? '+' : ''}₹{quotation.roundOff?.toLocaleString('en-IN')}.00
+              </span>
+            </div>
+          )}
+          <div className="flex justify-between items-center border-t border-slate-400 pt-1 text-sm font-bold">
+            <span>Total Invoice Amount (in figures):</span>
+            <span className="font-mono text-base">₹{quotation.grandTotal.toLocaleString('en-IN')}.00</span>
+          </div>
         </div>
 
         {/* Signatures */}
@@ -403,7 +422,7 @@ export function PrintDocumentHub({
               <h1 className="text-xl font-black text-slate-900 tracking-tight">{COMPANY_PROFILE.name}</h1>
               <p className="text-xs text-rose-600 font-semibold">{COMPANY_PROFILE.tagline}</p>
               <p className="text-[11px] text-slate-500">{COMPANY_PROFILE.address}</p>
-              <p className="text-[10px] text-slate-400">GSTIN: {COMPANY_PROFILE.gstin} | Mob: {COMPANY_PROFILE.phone}</p>
+              <p className="text-[10px] text-slate-400">Mob: {COMPANY_PROFILE.phone} | Web: {COMPANY_PROFILE.website}</p>
             </div>
           </div>
           <div className="text-right">
@@ -422,7 +441,6 @@ export function PrintDocumentHub({
             <h3 className="text-sm font-bold text-slate-900 mt-0.5">{customerName}</h3>
             <p className="text-xs text-slate-600">{customerLocation}</p>
             <p className="text-xs text-slate-600">Phone: {customerPhone}</p>
-            <p className="text-[11px] font-mono font-medium text-slate-700">GSTIN: {customerGstin || 'Unregistered'}</p>
           </div>
           <div className="bg-rose-50/50 p-3 rounded-lg border border-rose-100 flex justify-between items-center">
             <div>
@@ -441,7 +459,7 @@ export function PrintDocumentHub({
         {documentType === 'statement' ? (
           renderVyaparStatementTable(entries)
         ) : (
-          renderVyaparItemTable(quotation, doorModels)
+          renderVyaparItemTable(quotation, doorModels, hideSqFt)
         )}
 
         {/* Vyapar Summary & Bank Cards */}
@@ -459,10 +477,20 @@ export function PrintDocumentHub({
               <span>Subtotal:</span>
               <span className="font-mono font-semibold text-slate-900">₹{quotation.subtotal.toLocaleString('en-IN')}</span>
             </div>
-            <div className="flex justify-between text-slate-600">
-              <span>GST ({quotation.gstRate}%):</span>
-              <span className="font-mono font-semibold text-slate-900">₹{quotation.gstAmount.toLocaleString('en-IN')}</span>
-            </div>
+            {Boolean(quotation.discount && quotation.discount > 0) && (
+              <div className="flex justify-between text-rose-600">
+                <span>Special Discount:</span>
+                <span className="font-mono font-semibold">-₹{quotation.discount?.toLocaleString('en-IN')}</span>
+              </div>
+            )}
+            {Boolean(quotation.roundOff && quotation.roundOff !== 0) && (
+              <div className="flex justify-between text-slate-600">
+                <span>Round-off:</span>
+                <span className="font-mono font-semibold">
+                  {(quotation.roundOff ?? 0) > 0 ? '+' : ''}₹{quotation.roundOff?.toLocaleString('en-IN')}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-slate-300 pt-1.5 text-sm font-black text-rose-600">
               <span>Grand Total:</span>
               <span className="font-mono">₹{quotation.grandTotal.toLocaleString('en-IN')}</span>
@@ -490,7 +518,7 @@ export function PrintDocumentHub({
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">{COMPANY_PROFILE.name}</h1>
           <p className="text-xs text-slate-500">{COMPANY_PROFILE.address}</p>
-          <p className="text-xs text-slate-500">GSTIN: {COMPANY_PROFILE.gstin} | Mob: {COMPANY_PROFILE.phone}</p>
+          <p className="text-xs text-slate-500">Mob: {COMPANY_PROFILE.phone} | {COMPANY_PROFILE.website}</p>
         </div>
         <div className="text-right">
           <span className="inline-block bg-slate-900 text-white font-bold text-xs px-3 py-1 rounded uppercase tracking-wider">
@@ -518,19 +546,39 @@ export function PrintDocumentHub({
       {documentType === 'statement' ? (
         renderVyaparStatementTable(entries)
       ) : (
-        renderVyaparItemTable(quotation, doorModels)
+        renderVyaparItemTable(quotation, doorModels, hideSqFt)
       )}
 
       {/* Prominent Net Payable Box */}
-      <div className="flex justify-between items-center bg-[#0f172a] text-white p-4 rounded-lg my-4">
-        <div>
-          <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-bold">Total Net Payable</span>
-          <p className="text-xs text-slate-300 mt-0.5">Includes {quotation.gstRate}% SGST &amp; CGST tax regime</p>
+      <div className="bg-[#0f172a] text-white p-4 rounded-lg my-4 space-y-1.5">
+        <div className="flex justify-between text-xs text-slate-300">
+          <span>Subtotal:</span>
+          <span className="font-mono">₹{quotation.subtotal.toLocaleString('en-IN')}</span>
         </div>
-        <div className="text-right">
-          <span className="text-2xl font-black font-mono text-emerald-400">
-            ₹{quotation.grandTotal.toLocaleString('en-IN')}
-          </span>
+        {Boolean(quotation.discount && quotation.discount > 0) && (
+          <div className="flex justify-between text-xs text-rose-300">
+            <span>Special Discount:</span>
+            <span className="font-mono">-₹{quotation.discount?.toLocaleString('en-IN')}</span>
+          </div>
+        )}
+        {Boolean(quotation.roundOff && quotation.roundOff !== 0) && (
+          <div className="flex justify-between text-xs text-slate-300">
+            <span>Round-off:</span>
+            <span className="font-mono">
+              {(quotation.roundOff ?? 0) > 0 ? '+' : ''}₹{quotation.roundOff?.toLocaleString('en-IN')}
+            </span>
+          </div>
+        )}
+        <div className="flex justify-between items-center border-t border-slate-700 pt-2">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-bold">Total Net Payable</span>
+            <p className="text-xs text-slate-300 mt-0.5">Direct Ex-Factory Net Estimate (Zero Tax)</p>
+          </div>
+          <div className="text-right">
+            <span className="text-2xl font-black font-mono text-emerald-400">
+              ₹{quotation.grandTotal.toLocaleString('en-IN')}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -546,7 +594,12 @@ export function PrintDocumentHub({
 // HELPER TABLE RENDERERS (Tally vs Vyapar)
 // -------------------------------------------------------------
 
-function renderTallyItemTable(quotation: HubQuotation, doorModels: HubDoorModel[], isModern = false) {
+function renderTallyItemTable(
+  quotation: HubQuotation,
+  doorModels: HubDoorModel[],
+  isModern = false,
+  hideSqFt = true
+) {
   const rows = quotation.itemRows || [];
 
   return (
@@ -555,7 +608,9 @@ function renderTallyItemTable(quotation: HubQuotation, doorModels: HubDoorModel[
         <tr className={isModern ? 'bg-slate-800 text-white font-bold text-[11px]' : 'border-b-2 border-black font-bold text-[11px]'}>
           <th className="p-2 border-r border-slate-300 text-center w-8">#</th>
           <th className="p-2 border-r border-slate-300">Description of Door Goods</th>
-          <th className="p-2 border-r border-slate-300">Dimensions (H × W)</th>
+          <th className="p-2 border-r border-slate-300">
+            Dimensions {hideSqFt ? '(H × W)' : '(H × W & Area)'}
+          </th>
           <th className="p-2 border-r border-slate-300 text-center w-12">Qty</th>
           <th className="p-2 border-r border-slate-300 text-right w-24">Rate (₹)</th>
           <th className="p-2 text-right w-24">Amount (₹)</th>
@@ -563,6 +618,11 @@ function renderTallyItemTable(quotation: HubQuotation, doorModels: HubDoorModel[
       </thead>
       <tbody className="divide-y divide-slate-200">
         {rows.map((row, i) => {
+          const prevRow = i > 0 ? rows[i - 1] : null;
+          const isNewSection = row.sectionName && (!prevRow || prevRow.sectionName !== row.sectionName);
+          const secRows = row.sectionName ? rows.filter((r) => r.sectionName === row.sectionName) : [];
+          const secTotal = secRows.reduce((sum, r) => sum + (Number(r.qty) || 0) * (r.rate || 0), 0);
+
           const model = doorModels.find((m) => m.id === row.modelId) || { code: 'EXM', title: 'FRP Door', finish: 'Std' };
           const wTop = row.widthTop ?? row.width ?? 0;
           const wBottom = row.widthBottom ?? wTop;
@@ -573,27 +633,74 @@ function renderTallyItemTable(quotation: HubQuotation, doorModels: HubDoorModel[
           const lineTotal = (Number(row.qty) || 0) * row.rate;
 
           return (
-            <tr key={i} className="text-[11px]">
+            <React.Fragment key={i}>
+              {isNewSection && (
+                <tr className="bg-slate-100 font-bold text-[10px] text-slate-800 border-y border-slate-300">
+                  <td colSpan={6} className="px-2 py-1">
+                    <div className="flex items-center justify-between">
+                      <span>📁 {row.sectionName}</span>
+                      <span className="font-mono">Subtotal: ₹{secTotal.toLocaleString('en-IN')}</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              <tr className="text-[11px]">
               <td className="p-1.5 border-r border-slate-300 text-center font-mono">{i + 1}</td>
-              <td className="p-1.5 border-r border-slate-300">
+              <td className="p-1.5 border-r border-slate-300 break-words whitespace-normal leading-snug">
                 <span className="font-bold">{model.code} - {model.title}</span>
-                <span className="text-[10px] text-slate-500 block">Finish: {model.finish}</span>
+                <span className="text-[10px] text-slate-500 block break-words whitespace-normal leading-tight mt-0.5">
+                  Finish: {model.finish}
+                  {row.frameTypeName ? ` • Frame: ${row.frameTypeName}` : ''}
+                  {row.thicknessLabel ? ` • Thickness: ${row.thicknessLabel}` : ''}
+                </span>
               </td>
               <td className="p-1.5 border-r border-slate-300 font-mono">
-                {dim} <span className="text-[10px] text-slate-500">({sqft} sqft)</span>
+                <div>{dim}</div>
+                {!hideSqFt && (
+                  <span className="text-[10px] text-slate-500 font-normal block mt-0.5">
+                    ({sqft} sq.ft)
+                  </span>
+                )}
               </td>
               <td className="p-1.5 border-r border-slate-300 text-center font-bold">{row.qty}</td>
               <td className="p-1.5 border-r border-slate-300 text-right font-mono">₹{row.rate.toLocaleString('en-IN')}</td>
               <td className="p-1.5 text-right font-mono font-bold">₹{lineTotal.toLocaleString('en-IN')}</td>
             </tr>
+          </React.Fragment>
           );
         })}
+        {quotation.includeInstallation && (quotation.installationAmount || 0) > 0 && (
+          <tr className="text-[11px] bg-emerald-50/40">
+            <td className="p-1.5 border-r border-slate-300 text-center font-mono">{rows.length + 1}</td>
+            <td className="p-1.5 border-r border-slate-300">
+              <span className="font-bold">Door Installation Service (ഡോർ ഇൻസ്റ്റാളേഷൻ)</span>
+              <span className="text-[10px] text-slate-600 block">
+                {quotation.installationNotes || 'Site Door & Frame Installation (Hardware & Fitting)'} •{' '}
+                {quotation.installationMode === 'FIXED_LUMP_SUM' ? 'Fixed Lump-Sum' : 'Per Door Rate'}
+              </span>
+            </td>
+            <td className="p-1.5 border-r border-slate-300 font-mono">Site Fitting (SAC 9954)</td>
+            <td className="p-1.5 border-r border-slate-300 text-center font-bold">
+              {quotation.installationMode === 'FIXED_LUMP_SUM' ? '1 Job' : quotation.installationQty || 1}
+            </td>
+            <td className="p-1.5 border-r border-slate-300 text-right font-mono">
+              ₹{(quotation.installationRate || quotation.installationAmount || 0).toLocaleString('en-IN')}
+            </td>
+            <td className="p-1.5 text-right font-mono font-bold">
+              ₹{(quotation.installationAmount || 0).toLocaleString('en-IN')}
+            </td>
+          </tr>
+        )}
       </tbody>
     </table>
   );
 }
 
-function renderVyaparItemTable(quotation: HubQuotation, doorModels: HubDoorModel[]) {
+function renderVyaparItemTable(
+  quotation: HubQuotation,
+  doorModels: HubDoorModel[],
+  hideSqFt = true
+) {
   const rows = quotation.itemRows || [];
 
   return (
@@ -602,7 +709,9 @@ function renderVyaparItemTable(quotation: HubQuotation, doorModels: HubDoorModel
         <tr className="bg-rose-50 text-rose-900 font-bold text-[11px] border-b border-rose-100">
           <th className="p-2.5 text-center w-8">#</th>
           <th className="p-2.5">Item &amp; Specifications</th>
-          <th className="p-2.5">Dimensions &amp; Area</th>
+          <th className="p-2.5">
+            {hideSqFt ? 'Dimensions (H × W)' : 'Dimensions & Area'}
+          </th>
           <th className="p-2.5 text-center w-12">Qty</th>
           <th className="p-2.5 text-right w-24">Price (₹)</th>
           <th className="p-2.5 text-right w-24">Total (₹)</th>
@@ -622,12 +731,21 @@ function renderVyaparItemTable(quotation: HubQuotation, doorModels: HubDoorModel
           return (
             <tr key={i} className={i % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
               <td className="p-2 text-center font-mono text-slate-400">{i + 1}</td>
-              <td className="p-2">
+              <td className="p-2 break-words whitespace-normal leading-snug">
                 <span className="font-bold text-slate-900">{model.code} - {model.title}</span>
-                <span className="text-[10px] text-slate-500 block">Finish: {model.finish}</span>
+                <span className="text-[10px] text-slate-500 block break-words whitespace-normal leading-tight mt-0.5">
+                  Finish: {model.finish}
+                  {row.frameTypeName ? ` • Frame: ${row.frameTypeName}` : ''}
+                  {row.thicknessLabel ? ` • Thickness: ${row.thicknessLabel}` : ''}
+                </span>
               </td>
               <td className="p-2 font-mono text-slate-700">
-                {dim} <span className="text-[10px] text-rose-600 font-semibold">({sqft} sqft)</span>
+                <div>{dim}</div>
+                {!hideSqFt && (
+                  <span className="text-[10px] text-slate-500 font-normal block mt-0.5">
+                    ({sqft} sq.ft)
+                  </span>
+                )}
               </td>
               <td className="p-2 text-center font-bold text-slate-800">{row.qty} Pcs</td>
               <td className="p-2 text-right font-mono text-slate-700">₹{row.rate.toLocaleString('en-IN')}</td>
@@ -635,6 +753,29 @@ function renderVyaparItemTable(quotation: HubQuotation, doorModels: HubDoorModel
             </tr>
           );
         })}
+        {quotation.includeInstallation && (quotation.installationAmount || 0) > 0 && (
+          <tr className="bg-emerald-50/60">
+            <td className="p-2 text-center font-mono text-emerald-700">{rows.length + 1}</td>
+            <td className="p-2">
+              <span className="font-bold text-slate-900">Door Installation Service (ഡോർ ഇൻസ്റ്റാളേഷൻ)</span>
+              <span className="text-[10px] text-slate-600 block">
+                {quotation.installationNotes || 'Site Door & Frame Installation (Hardware & Fitting)'}
+              </span>
+            </td>
+            <td className="p-2 font-mono text-slate-700">
+              {quotation.installationMode === 'FIXED_LUMP_SUM' ? 'Fixed Lump-Sum' : 'On-Site Fitting'}
+            </td>
+            <td className="p-2 text-center font-bold text-slate-800">
+              {quotation.installationMode === 'FIXED_LUMP_SUM' ? '1 Job' : `${quotation.installationQty || 1} Doors`}
+            </td>
+            <td className="p-2 text-right font-mono text-slate-700">
+              ₹{(quotation.installationRate || quotation.installationAmount || 0).toLocaleString('en-IN')}
+            </td>
+            <td className="p-2 text-right font-mono font-bold text-slate-900">
+              ₹{(quotation.installationAmount || 0).toLocaleString('en-IN')}
+            </td>
+          </tr>
+        )}
       </tbody>
     </table>
   );

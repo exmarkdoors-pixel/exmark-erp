@@ -2,30 +2,36 @@ import fs from 'fs';
 import path from 'path';
 import { CatalogMaster, DoorModelCatalogItem, ColourCatalogItem, LockCatalogItem, DEFAULT_CATALOG } from '@/types/catalog';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
+import { getDataFilePath } from '@/lib/utils/dataPaths';
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'catalog-store.json');
+const getStorePath = () => getDataFilePath('catalog-store.json');
 
 let cachedCatalog: CatalogMaster | null = null;
+let cachedCatalogPath: string | null = null;
 
 function readStore(): CatalogMaster {
-  if (cachedCatalog) return cachedCatalog;
+  const storePath = getStorePath();
+  if (cachedCatalog && cachedCatalogPath === storePath) return cachedCatalog;
   try {
-    const dir = path.dirname(STORE_PATH);
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-    if (!fs.existsSync(STORE_PATH)) {
-      fs.writeFileSync(STORE_PATH, JSON.stringify(DEFAULT_CATALOG, null, 2), 'utf8');
+    if (!fs.existsSync(storePath)) {
+      fs.writeFileSync(storePath, JSON.stringify(DEFAULT_CATALOG, null, 2), 'utf8');
       cachedCatalog = DEFAULT_CATALOG;
+      cachedCatalogPath = storePath;
       return cachedCatalog;
     }
 
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.models) && Array.isArray(parsed.colours) && Array.isArray(parsed.locks)) {
       cachedCatalog = parsed;
+      cachedCatalogPath = storePath;
       return parsed;
     }
     cachedCatalog = DEFAULT_CATALOG;
+    cachedCatalogPath = storePath;
     return DEFAULT_CATALOG;
   } catch (err) {
     console.error('[CatalogService] Failed reading catalog store:', err);
@@ -35,10 +41,12 @@ function readStore(): CatalogMaster {
 
 function writeStore(data: CatalogMaster): void {
   try {
+    const storePath = getStorePath();
     cachedCatalog = data;
-    const dir = path.dirname(STORE_PATH);
+    cachedCatalogPath = storePath;
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(data, null, 2), 'utf8');
   } catch (err) {
     console.error('[CatalogService] Failed writing catalog store:', err);
   }

@@ -1,10 +1,14 @@
 import fs from 'fs';
 import path from 'path';
+import { getBoqMaterialRates } from './boqRateService';
+import { getCustomFrames } from './frameService';
+import { calculateDoorBatchBoq } from '@/lib/utils/boqFormulaEngine';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type BoqProductCategory = 'FRP' | 'WPC';
 export type BoqStatus = 'DRAFT' | 'UNDER_REVIEW' | 'APPROVED' | 'CONVERTED_TO_QUOTATION' | 'ARCHIVED';
+export type BoqStage = 'GENERAL' | 'MANUFACTURING' | 'PAINTING';
 
 export interface BoqItem {
   id: string;
@@ -28,6 +32,8 @@ export interface BoqItem {
 export interface BoqMaster {
   id: string;
   boqNumber: string;
+  boqStage?: BoqStage;
+  orderId?: string | null;
   customerId?: string | null;
   customerName: string;
   projectName: string;
@@ -59,17 +65,20 @@ export interface BoqFilter {
 
 // ── Store helpers ─────────────────────────────────────────────────────────────
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'boq-store.json');
+import { getDataFilePath } from '@/lib/utils/dataPaths';
+
+const getStorePath = () => getDataFilePath('boq-store.json');
 
 function readStore(): BoqMaster[] {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(STORE_PATH)) {
-      fs.writeFileSync(STORE_PATH, '[]', 'utf8');
+    if (!fs.existsSync(storePath)) {
+      fs.writeFileSync(storePath, '[]', 'utf8');
       return [];
     }
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as BoqMaster[]) : [];
   } catch {
@@ -79,9 +88,10 @@ function readStore(): BoqMaster[] {
 
 function writeStore(boqs: BoqMaster[]): void {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STORE_PATH, JSON.stringify(boqs, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(boqs, null, 2), 'utf8');
   } catch (err) {
     console.error('[boqService] Failed to write store:', err);
   }
@@ -125,6 +135,8 @@ export async function getBoq(id: string): Promise<BoqMaster | null> {
   const all = readStore();
   return all.find((b) => b.id === id) ?? null;
 }
+
+export const getBoqById = getBoq;
 
 export async function createBoq(data: BoqCreateInput): Promise<BoqMaster> {
   const all = readStore();
@@ -217,7 +229,7 @@ export async function importBoqFromCsv(boqId: string, rawCsvPayload: string): Pr
     const widthMm = parseInt(parts[4] ?? '900', 10);
     const quantity = parseInt(parts[5] ?? '1', 10);
     const unitRate = parseFloat(parts[6] ?? '0');
-    const taxRate = parseFloat(parts[7] ?? '18');
+    const taxRate = 0;
     const areaSqFt = calcAreaSqFt(heightMm, widthMm, quantity);
     return {
       id: generateId(`boqitem-csv-${i}`),
@@ -287,6 +299,250 @@ export async function convertToQuotation(boqId: string): Promise<BoqMaster> {
   const idx = all.findIndex((b) => b.id === boqId);
   if (idx === -1) throw new Error(`BOQ ${boqId} not found`);
   all[idx] = { ...all[idx], status: 'CONVERTED_TO_QUOTATION', updatedAt: new Date().toISOString() };
+  writeStore(all);
+  return all[idx];
+}
+
+export interface ProductionOrderBoqInput {
+  id: string;
+  prodOrderNumber?: string;
+  jobCardNumber?: string;
+  customerName: string;
+  siteName: string;
+  district: string;
+  doors: Array<{
+    id?: string;
+    doorId?: string;
+    doorNumber: string;
+    model: string;
+    rawHeightMm?: number;
+    rawWidthMm?: number;
+    rawHeightCm?: number;
+    rawWidthTopCm?: number;
+    finishedHeightMm?: number;
+    finishedWidthMm?: number;
+    frameTypeId?: string;
+    frameTypeName?: string;
+    finishColor?: string;
+    lockId?: string;
+    lockType?: string;
+    handing?: 'LH' | 'RH';
+  }>;
+}
+
+/**
+ * Auto-creates a Manufacturing BOQ (Resin, GEL, Catalyst, Accelerator, CSM 300 GSM, Colour Pigment,
+ * Frame/Shutter Timber in Cu.Ft & Rigid Foam Sheets) using live Sq.Ft rates when an order enters Manufacturing.
+ */
+export async function generateManufacturingBoq(
+  order: ProductionOrderBoqInput,
+  forceRecalculate = false
+): Promise<BoqMaster> {
+  const all = readStore();
+  
+  // Check if an existing manufacturing BOQ already exists for this order
+  const existingIdx = all.findIndex((b) => b.orderId === order.id && b.boqStage === 'MANUFACTURING');
+  const existing = existingIdx >= 0 ? all[existingIdx] : undefined;
+  if (existing && !forceRecalculate) return existing;
+
+  const boqId = existing ? existing.id : generateId('boq-mfg');
+  const boqNumber = existing ? existing.boqNumber : `BOQ-MFG-${Date.now().toString().slice(-4)}`;
+
+  const [rates, framesList] = await Promise.all([
+    getBoqMaterialRates(),
+    Promise.resolve(getCustomFrames()),
+  ]);
+
+  const rawDoors = order.doors || [];
+  const batchCalc = calculateDoorBatchBoq(
+    rawDoors.map((d) => ({
+      doorNumber: d.doorNumber,
+      widthCm:
+        d.rawWidthTopCm && d.rawWidthTopCm > 0
+          ? d.rawWidthTopCm
+          : d.rawWidthMm && d.rawWidthMm > 0
+          ? d.rawWidthMm / 10
+          : d.finishedWidthMm && d.finishedWidthMm > 0
+          ? d.finishedWidthMm / 10
+          : rates.baseDoorWidthCm,
+      heightCm:
+        d.rawHeightCm && d.rawHeightCm > 0
+          ? d.rawHeightCm
+          : d.rawHeightMm && d.rawHeightMm > 0
+          ? d.rawHeightMm / 10
+          : d.finishedHeightMm && d.finishedHeightMm > 0
+          ? d.finishedHeightMm / 10
+          : rates.baseDoorHeightCm,
+      frameTypeId: d.frameTypeId,
+      frameTypeName: d.frameTypeName,
+      finishColor: d.finishColor,
+      lockId: d.lockId,
+      lockType: d.lockType,
+      handing: d.handing,
+      quantity: 1,
+    })),
+    framesList,
+    rates
+  );
+
+  const items: BoqItem[] = rawDoors.map((door, idx) => {
+    const line = batchCalc.perDoorLines[idx];
+    const h = door.rawHeightMm || door.finishedHeightMm || Math.round((line?.heightCm || 210) * 10);
+    const w = door.rawWidthMm || door.finishedWidthMm || Math.round((line?.widthCm || 80) * 10);
+    const area = Number((line?.areaSqFt ?? calcAreaSqFt(h, w, 1)).toFixed(2));
+    const unitRate = Math.round(line?.totalDoorCost || area * 165);
+
+    const chemSummary = line
+      ? `Resin ${line.resinKg.toFixed(2)}kg, GEL ${line.gelKg.toFixed(2)}kg, Catalyst ${Math.round(line.catalystGrams)}g, Accel ${Math.round(line.acceleratorGrams)}g, CSM 300 ${line.csm300Kg.toFixed(2)}kg, Pigment (${line.finishColor}) ${Math.round(line.pigmentGrams)}g @ ₹${line.pigmentRatePerKg}/kg`
+      : '';
+    const woodSummary = line
+      ? `Timber ${line.totalWoodCuFt.toFixed(4)} cu.ft (Frame ${line.frameWoodRunningFt.toFixed(2)} Rft / ${line.frameWoodCuFt.toFixed(4)} + Shutter ${(line.lockReeperCuFt + line.hingeReeperCuFt).toFixed(4)} cu.ft), Foam ${(line.foamSheetsExact * 100).toFixed(1)}% sheet`
+      : '';
+
+    return {
+      id: generateId('item-mfg'),
+      boqId,
+      itemCode: `MFG-ITEM-${idx + 1}`,
+      productCategory: 'FRP',
+      model: door.model || 'Hand-Craft FRP Shutter',
+      description: `Auto-BOQ (${area.toFixed(2)} sq.ft): ${chemSummary}; ${woodSummary} for ${door.doorNumber}`,
+      frameDetails: `${line?.frameName || door.frameTypeName || 'Regular Frame'} (${line?.frameWoodCuFt.toFixed(4) || '0'} cu.ft)`,
+      heightMm: h,
+      widthMm: w,
+      quantity: 1,
+      areaSqFt: area,
+      unitRate,
+      amount: unitRate,
+      taxRate: 0,
+      transportRate: 0,
+      installationRate: 0,
+    };
+  });
+
+  const { totalDoors, totalAmount } = recalcBoqTotals(items);
+
+  const mfgBoq: BoqMaster = {
+    id: boqId,
+    boqNumber,
+    boqStage: 'MANUFACTURING',
+    orderId: order.id,
+    customerName: order.customerName,
+    projectName: `${order.siteName} (Job Card: ${order.jobCardNumber || 'JC-2026'})`,
+    district: order.district,
+    revisionNumber: existing ? (existing.revisionNumber || 1) + 1 : 1,
+    status: existing ? existing.status : 'APPROVED',
+    totalDoors,
+    totalAmount,
+    notes: `Auto-BOQ (${batchCalc.totalDoors} doors, ${batchCalc.totalSqFt.toFixed(2)} sq.ft): Resin ${batchCalc.resinKg.toFixed(2)}kg, GEL ${batchCalc.gelKg.toFixed(2)}kg, Catalyst ${Math.round(batchCalc.catalystGrams)}g, Accel ${Math.round(batchCalc.acceleratorGrams)}g, CSM 300 ${batchCalc.csm300Kg.toFixed(2)}kg, Pigment ${Math.round(batchCalc.pigmentGrams)}g, Wood ${batchCalc.totalWoodCuFt.toFixed(4)} cu.ft, Foam ${batchCalc.foamSheetsExact.toFixed(2)} sheets, Locks ${batchCalc.totalLockBoxes} boxes (₹${batchCalc.totalLockBoxCost}).`,
+    items,
+    createdAt: existing ? existing.createdAt : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existingIdx >= 0) {
+    all[existingIdx] = mfgBoq;
+  } else {
+    all.unshift(mfgBoq);
+  }
+  writeStore(all);
+  return mfgBoq;
+}
+
+/**
+ * Auto-creates a Paint BOQ (Primer, 2K PU Paint, Thinner, Hardener) when an order enters Paint Section.
+ */
+export async function generatePaintBoq(order: ProductionOrderBoqInput): Promise<BoqMaster> {
+  const all = readStore();
+  
+  // Check if an existing paint BOQ already exists for this order
+  const existing = all.find((b) => b.orderId === order.id && b.boqStage === 'PAINTING');
+  if (existing) return existing;
+
+  const boqId = generateId('boq-paint');
+  const boqNumber = `BOQ-PNT-${Date.now().toString().slice(-4)}`;
+
+  const items: BoqItem[] = (order.doors || []).map((door, idx) => {
+    const h = door.finishedHeightMm || 2100;
+    const w = door.finishedWidthMm || 800;
+    const area = calcAreaSqFt(h, w, 1);
+    const color = door.finishColor || 'Burma Teak Woodgrain';
+    
+    // Standard paint BOM: Epoxy Primer, 2K PU Topcoat, Hardener & Clear Lacquer
+    const unitRate = Math.round(area * 75); // Paint consumption cost per sqft
+
+    return {
+      id: generateId('item-pnt'),
+      boqId,
+      itemCode: `PNT-ITEM-${idx + 1}`,
+      productCategory: 'FRP',
+      model: door.model || 'FRP Molded Shutter',
+      description: `Paint BOM: Epoxy Surfacer (0.8L), 2K PU Base (${color}, 1.2L), PU Hardener & UV Lacquer for ${door.doorNumber}`,
+      frameDetails: `Finish: ${color}`,
+      heightMm: h,
+      widthMm: w,
+      quantity: 1,
+      areaSqFt: area,
+      unitRate,
+      amount: unitRate,
+      taxRate: 0,
+      transportRate: 0,
+      installationRate: 0,
+    };
+  });
+
+  const { totalDoors, totalAmount } = recalcBoqTotals(items);
+
+  const paintBoq: BoqMaster = {
+    id: boqId,
+    boqNumber,
+    boqStage: 'PAINTING',
+    orderId: order.id,
+    customerName: order.customerName,
+    projectName: `${order.siteName} (Job Card: ${order.jobCardNumber || 'JC-2026'})`,
+    district: order.district,
+    revisionNumber: 1,
+    status: 'APPROVED',
+    totalDoors,
+    totalAmount,
+    notes: `Auto-generated Paint Section BOM for Job Card ${order.jobCardNumber || order.id}. 2K Polyurethane coatings, Kerala woodgrain textures, UV clear coats scheduled.`,
+    items,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  all.unshift(paintBoq);
+  writeStore(all);
+  return paintBoq;
+}
+
+/**
+ * Bulk updates BOQ items matching optional door model filter across the entire BOQ.
+ */
+export async function bulkUpdateBoqItems(
+  boqId: string,
+  updates: Partial<Pick<BoqItem, 'unitRate' | 'description' | 'model' | 'taxRate'>>,
+  doorModelFilter?: string
+): Promise<BoqMaster> {
+  const all = readStore();
+  const idx = all.findIndex((b) => b.id === boqId);
+  if (idx === -1) throw new Error(`BOQ ${boqId} not found`);
+
+  all[idx].items = all[idx].items.map((item) => {
+    if (doorModelFilter && item.model !== doorModelFilter) {
+      return item;
+    }
+    const merged = { ...item, ...updates };
+    if (updates.unitRate !== undefined) {
+      merged.amount = merged.quantity * updates.unitRate;
+    }
+    return merged;
+  });
+
+  const { totalDoors, totalAmount } = recalcBoqTotals(all[idx].items);
+  all[idx].totalDoors = totalDoors;
+  all[idx].totalAmount = totalAmount;
+  all[idx].updatedAt = new Date().toISOString();
+
   writeStore(all);
   return all[idx];
 }

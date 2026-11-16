@@ -1,8 +1,10 @@
+const BASE_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4000';
+
 async function testLiveServer() {
-  console.log('Testing Live Next.js Server at http://localhost:3000/api/measurements...');
+  console.log(`Testing Live Next.js Server at ${BASE_URL}/api/measurements...`);
   
   // 1. Initial GET
-  const res1 = await fetch('http://localhost:3000/api/measurements');
+  const res1 = await fetch(`${BASE_URL}/api/measurements`);
   if (!res1.ok) throw new Error(`GET failed with status ${res1.status}`);
   const json1 = await res1.json();
   console.log('1. GET Response:', {
@@ -46,7 +48,7 @@ async function testLiveServer() {
     ],
   };
 
-  const postRes = await fetch('http://localhost:3000/api/measurements', {
+  const postRes = await fetch(`${BASE_URL}/api/measurements`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(postPayload),
@@ -63,8 +65,8 @@ async function testLiveServer() {
   });
 
   // 3. Browser Refresh Simulation (GET again immediately)
-  console.log('3. Simulating Browser Refresh (F5) by fetching GET /api/measurements...');
-  const res2 = await fetch('http://localhost:3000/api/measurements');
+  console.log(`3. Simulating Browser Refresh (F5) by fetching GET ${BASE_URL}/api/measurements...`);
+  const res2 = await fetch(`${BASE_URL}/api/measurements`);
   const json2 = await res2.json();
 
   const foundRecord = json2.data?.find((r: { refNumber: string }) => r.refNumber === newRef);

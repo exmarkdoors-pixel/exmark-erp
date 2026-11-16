@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    if (!body.customerId) {
+    const customerId = body.customerId?.trim() || (body.customerName?.trim() ? 'DIRECT-CLIENT' : '');
+    if (!customerId) {
       return NextResponse.json({ success: false, error: 'Customer is required' }, { status: 400 });
     }
     if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
@@ -44,11 +45,33 @@ export async function POST(req: NextRequest) {
     }
 
     const quotation = await createQuotation({
-      customerId: body.customerId,
+      customerId,
+      customerName: body.customerName?.trim() || undefined,
+      location: body.location?.trim() || undefined,
+      itemsSummary: body.itemsSummary?.trim() || undefined,
       leadId: body.leadId || null,
       date: body.date || new Date().toISOString().split('T')[0],
       validUntil: body.validUntil || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
       discount: body.discount ? Number(body.discount) : 0,
+      overrideSubtotal: body.overrideSubtotal !== undefined ? Number(body.overrideSubtotal) : undefined,
+      overrideTotalAmount: body.overrideTotalAmount !== undefined ? Number(body.overrideTotalAmount) : undefined,
+      advancePercent: body.advancePercent !== undefined ? Number(body.advancePercent) : undefined,
+      advanceAmount: body.advanceAmount !== undefined ? Number(body.advanceAmount) : undefined,
+      includeInstallation: body.includeInstallation !== undefined ? Boolean(body.includeInstallation) : undefined,
+      installationMode: body.installationMode,
+      installationRate: body.installationRate !== undefined ? Number(body.installationRate) : undefined,
+      installationQty: body.installationQty !== undefined ? Number(body.installationQty) : undefined,
+      installationNotes: body.installationNotes,
+      installationAmount: body.installationAmount !== undefined ? Number(body.installationAmount) : undefined,
+      itemRows: Array.isArray(body.itemRows) ? body.itemRows : undefined,
+      source: body.source || undefined,
+      salespersonId: body.salespersonId || undefined,
+      salespersonName: body.salespersonName || undefined,
+      salespersonCode: body.salespersonCode || undefined,
+      commissionPercent: body.commissionPercent !== undefined ? Number(body.commissionPercent) : undefined,
+      commissionAmount: body.commissionAmount !== undefined ? Number(body.commissionAmount) : undefined,
+      commissionStatus: body.commissionStatus || undefined,
+      territoryDistrict: body.territoryDistrict || undefined,
       notes: body.notes?.trim() || undefined,
       items: body.items.map((item: {
         doorCategory?: string;
@@ -75,7 +98,7 @@ export async function POST(req: NextRequest) {
           finishColor: item.finishColor,
           quantity: qty,
           unitPrice,
-          gstRate: item.gstRate ?? 18,
+          gstRate: 0,
           totalPrice: item.totalPrice ?? (qty * unitPrice),
         };
       }),

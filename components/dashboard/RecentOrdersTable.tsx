@@ -166,7 +166,7 @@ export default function RecentOrdersTable({
               <th className="py-3 px-4">Client & Kerala Location</th>
               <th className="py-3 px-4">Door Category & Specs</th>
               <th className="py-3 px-4 text-center">Qty</th>
-              <th className="py-3 px-4">Amount & GST</th>
+              <th className="py-3 px-4">Order Amount</th>
               <th className="py-3 px-4">Status</th>
               <th className="py-3 px-4">Target Due</th>
               <th className="py-3 px-4 text-right">Actions</th>
@@ -304,8 +304,8 @@ export default function RecentOrdersTable({
                   <span className="font-bold text-slate-900 dark:text-white">₹{selectedOrder.totalAmount.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="p-2 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <span className="text-[10px] text-slate-400 block">GST HSN</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{selectedOrder.hsnCode}</span>
+                  <span className="text-[10px] text-slate-400 block">Payment Status</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{selectedOrder.paymentStatus}</span>
                 </div>
                 <div className="p-2 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                   <span className="text-[10px] text-slate-400 block">Target Dispatch</span>

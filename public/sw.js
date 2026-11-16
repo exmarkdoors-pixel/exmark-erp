@@ -1,5 +1,5 @@
 // EXMARK ERP Service Worker — Offline Caching & Background Sync
-const CACHE_NAME = 'exmark-erp-cache-v2';
+const CACHE_NAME = 'exmark-erp-cache-v3';
 
 const STATIC_ASSETS = [
   '/',

@@ -99,8 +99,7 @@ export function QuotationBuilder({ isOpen, onClose, onSaved }: QuotationBuilderP
   const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   const discountVal = parseFloat(discount) || 0;
   const taxableAmount = Math.max(0, subtotal - discountVal);
-  const gstAmount = Math.round((taxableAmount * 18) / 100);
-  const grandTotal = taxableAmount + gstAmount;
+  const grandTotal = taxableAmount;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,7 +131,7 @@ export function QuotationBuilder({ isOpen, onClose, onSaved }: QuotationBuilderP
             thicknessMm: i.thicknessMm,
             quantity: i.quantity,
             unitPrice: i.unitPrice,
-            gstRate: 18,
+            gstRate: 0,
             totalPrice: i.quantity * i.unitPrice,
           })),
         }),
@@ -163,7 +162,7 @@ export function QuotationBuilder({ isOpen, onClose, onSaved }: QuotationBuilderP
                 FRP Door Quotation & Costing Builder
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                HSN 3925.20.00 • 18% GST (CGST 9% + SGST 9%) • Ex-factory Kerala
+                Direct Factory Estimate • Zero Tax Billing • Ex-factory Kerala
               </p>
             </div>
           </div>
@@ -228,17 +227,17 @@ export function QuotationBuilder({ isOpen, onClose, onSaved }: QuotationBuilderP
             </div>
 
             <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
-              <table className="w-full text-left text-xs text-slate-700 dark:text-slate-200">
+              <table className="w-full min-w-[760px] text-left text-xs text-slate-700 dark:text-slate-200">
                 <thead className="bg-slate-50 dark:bg-slate-900 text-[10px] uppercase text-slate-400">
                   <tr>
-                    <th className="p-2.5">Door Model</th>
-                    <th className="p-2.5 text-center">H (mm)</th>
-                    <th className="p-2.5 text-center">W (mm)</th>
-                    <th className="p-2.5 text-center">Sq.Ft</th>
-                    <th className="p-2.5 text-center">Qty</th>
-                    <th className="p-2.5 text-right">Unit Rate (₹)</th>
-                    <th className="p-2.5 text-right">Total (₹)</th>
-                    <th className="p-2.5 text-center">Action</th>
+                    <th className="p-2.5 min-w-[260px]">Door Model</th>
+                    <th className="p-2.5 text-center w-20">H (mm)</th>
+                    <th className="p-2.5 text-center w-20">W (mm)</th>
+                    <th className="p-2.5 text-center w-16">Sq.Ft</th>
+                    <th className="p-2.5 text-center w-16">Qty</th>
+                    <th className="p-2.5 text-right w-28">Unit Rate (₹)</th>
+                    <th className="p-2.5 text-right w-28">Total (₹)</th>
+                    <th className="p-2.5 text-center w-14">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -352,10 +351,6 @@ export function QuotationBuilder({ isOpen, onClose, onSaved }: QuotationBuilderP
                   <span className="font-mono">-₹{discountVal.toLocaleString('en-IN')}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-slate-500">18% GST (CGST 9% + SGST 9%):</span>
-                <span className="font-mono font-medium">₹{gstAmount.toLocaleString('en-IN')}</span>
-              </div>
               <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-900 dark:text-white">
                 <span>Grand Total (INR):</span>
                 <span className="font-mono text-red-600 dark:text-red-400">₹{grandTotal.toLocaleString('en-IN')}</span>

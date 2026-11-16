@@ -1,9 +1,12 @@
 @echo off
-title EXMARK ERP - Localhost Server (Port 3000)
+set "ERP_PORT=%~1"
+if "%ERP_PORT%"=="" set "ERP_PORT=4000"
+
+title EXMARK ERP - Localhost Server (Port %ERP_PORT%)
 echo ========================================================================
-echo   EXMARK ERP — Enterprise Manufacturing Platform Local Server
-echo   Starting Next.js Server on http://localhost:3000 (0.0.0.0:3000)...
+echo   EXMARK ERP -- Enterprise Manufacturing Platform Local Server
+echo   Starting Standalone Local Server on http://localhost:%ERP_PORT% (0.0.0.0:%ERP_PORT%)...
 echo ========================================================================
 cd /d "%~dp0"
-npm run dev
+node scripts\start-local-server.mjs --port %ERP_PORT% --host 0.0.0.0
 pause

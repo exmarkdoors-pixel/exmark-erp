@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   getBoq,
   updateBoq,
@@ -6,10 +7,13 @@ import {
 } from '@/lib/services/boqService';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const boq = await getBoq(id);
     if (!boq) {
@@ -27,6 +31,16 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, undefined, [
+      'Super Admin',
+      'Management',
+      'Production',
+      'Plant Supervisor',
+      'Inventory',
+      'Purchase',
+    ]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const body = await req.json();
     const updated = await updateBoq(id, body);
@@ -38,10 +52,13 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, undefined, ['Super Admin', 'Management']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const success = await deleteBoq(id);
     if (!success) {

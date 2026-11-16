@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   getProductCategories,
   toggleCategoryEnabled,
@@ -6,8 +7,11 @@ import {
   addProductCategory,
 } from '@/lib/services/productCategoryService';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const categories = await getProductCategories();
     const wpcCategory = categories.find((c) => c.code === 'WPC');
     const isWpcEnabled = Boolean(wpcCategory?.enabled);
@@ -24,8 +28,11 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
+    const auth = await authorizeRequest(request, 'settings', ['Super Admin', 'Management']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await request.json();
     const { code, enabled, updates } = body;
 
@@ -59,8 +66,11 @@ export async function PUT(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const auth = await authorizeRequest(request, 'settings', ['Super Admin', 'Management']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await request.json();
     const { code, name, description, fields, pricing, production, enabled, reportingVisibility } = body;
 
@@ -76,7 +86,7 @@ export async function POST(request: Request) {
       name,
       description: description || '',
       fields: fields || ['Thickness', 'Model Spec', 'Finish'],
-      pricing: pricing || { baseRateSqFt: 180, standardGstPercent: 18, hsnCode: '3925.20.00' },
+      pricing: pricing || { baseRateSqFt: 180, standardGstPercent: 0, hsnCode: '' },
       production: production || { lineCode: `${code}-01`, lineName: `${name} Line`, cycleTimeMinutes: 45, qcCheckpoints: ['Dimensional Accuracy', 'Quality Finish'] },
       enabled: enabled ?? true,
       reportingVisibility: reportingVisibility ?? true,

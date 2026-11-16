@@ -117,21 +117,21 @@ const SEED_INSTALLATIONS: SiteInstallationOrder[] = [
 ];
 
 export default function SiteInstallationHub() {
-  const [installations, setInstallations] = useState<SiteInstallationOrder[]>(SEED_INSTALLATIONS);
-  const [selectedInst, setSelectedInst] = useState<SiteInstallationOrder>(SEED_INSTALLATIONS[0]);
+  const [installations, setInstallations] = useState<SiteInstallationOrder[]>([]);
+  const [selectedInst, setSelectedInst] = useState<SiteInstallationOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
 
   // New installation state
-  const [newOrderRef, setNewOrderRef] = useState('SO-2026-105');
+  const [newOrderRef, setNewOrderRef] = useState('');
   const [newClientName, setNewClientName] = useState('');
   const [newPhone, setNewPhone] = useState('+91 ');
   const [newSiteAddress, setNewSiteAddress] = useState('');
   const [newDistrict, setNewDistrict] = useState('Ernakulam');
   const [newDoorsCount, setNewDoorsCount] = useState(8);
-  const [newCarpenter, setNewCarpenter] = useState('Babu Master');
-  const [newCarpenterPhone, setNewCarpenterPhone] = useState('+91 94471 22334');
+  const [newCarpenter, setNewCarpenter] = useState('');
+  const [newCarpenterPhone, setNewCarpenterPhone] = useState('+91 ');
 
   // Filter
   const filteredInst = installations.filter((i) => {
@@ -152,6 +152,7 @@ export default function SiteInstallationHub() {
   const activeSignoffs = installations.filter((i) => i.status === 'CUSTOMER_SIGNOFF').length;
 
   const toggleSnagResolution = (snagId: string) => {
+    if (!selectedInst) return;
     const updatedSnags = selectedInst.snags.map((s) =>
       s.id === snagId ? { ...s, isResolved: !s.isResolved } : s
     );
@@ -161,6 +162,7 @@ export default function SiteInstallationHub() {
   };
 
   const handleVerifyOtpAndActivateWarranty = () => {
+    if (!selectedInst) return;
     const updatedInst: SiteInstallationOrder = {
       ...selectedInst,
       customerOtpVerified: true,
@@ -301,8 +303,13 @@ export default function SiteInstallationHub() {
             </div>
 
             <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
-              {filteredInst.map((inst) => {
-                const isSelected = selectedInst.id === inst.id;
+              {filteredInst.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400">
+                  No installation orders scheduled yet.
+                </div>
+              ) : (
+                filteredInst.map((inst) => {
+                const isSelected = selectedInst?.id === inst.id;
                 return (
                   <div
                     key={inst.id}
@@ -344,13 +351,23 @@ export default function SiteInstallationHub() {
                     </div>
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
           </div>
         </div>
 
         {/* Right Column (7 cols): Selected Site Detail & Digital Punch List */}
         <div className="lg:col-span-7 space-y-4">
+          {!selectedInst ? (
+            <div className="p-8 rounded-2xl bg-[#0B132B]/90 border border-dashed border-slate-800 text-center space-y-2">
+              <ClipboardCheck className="w-8 h-8 text-cyan-400 mx-auto opacity-60" />
+              <h3 className="text-sm font-bold text-white">No Site Installation Records</h3>
+              <p className="text-xs text-slate-400">
+                Schedule a site installation order to track carpenter teams, punch lists, and warranties.
+              </p>
+            </div>
+          ) : (
           <div className="p-6 rounded-2xl bg-[#0B132B]/90 border border-slate-800 shadow-xl space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
               <div>
@@ -484,6 +501,7 @@ export default function SiteInstallationHub() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
 

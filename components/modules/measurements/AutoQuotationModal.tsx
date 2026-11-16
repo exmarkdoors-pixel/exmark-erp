@@ -86,8 +86,7 @@ export function AutoQuotationModal({
   const activeSubtotal = strategy === 'PER_PIECE' ? pieceSubtotal : sqftSubtotal;
   const discountAmount = Math.round((activeSubtotal * discountPercent) / 100);
   const discountedSubtotal = Math.max(0, activeSubtotal - discountAmount);
-  const gstAmount = Math.round(discountedSubtotal * 0.18);
-  const grandTotal = discountedSubtotal + gstAmount;
+  const grandTotal = discountedSubtotal;
 
   const handleGenerate = async () => {
     setErrorMsg('');
@@ -176,12 +175,8 @@ export function AutoQuotationModal({
 
             <div className="bg-[#0B132B] p-4 rounded-xl border border-slate-800 text-left text-xs space-y-2 max-w-sm mx-auto">
               <div className="flex justify-between text-slate-400">
-                <span>Subtotal (Excl. Tax):</span>
+                <span>Subtotal:</span>
                 <span className="font-mono text-white">₹{generatedResult.subtotal.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>GST (18% HSN 3925):</span>
-                <span className="font-mono text-cyan-400">+₹{generatedResult.gstAmount.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between font-black text-sm pt-2 border-t border-slate-800 text-white">
                 <span>Grand Total:</span>
@@ -303,7 +298,7 @@ export function AutoQuotationModal({
               </div>
             )}
 
-            {/* DISCOUNT & TAX SUMMARY */}
+            {/* DISCOUNT & COMMERCIAL SUMMARY */}
             <div className="bg-[#0B132B] p-4 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-300">Commercial Discount:</span>
@@ -336,13 +331,6 @@ export function AutoQuotationModal({
                     <span className="font-mono">-₹{discountAmount.toLocaleString('en-IN')}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-slate-400">
-                  <span className="flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>GST 18% (CGST 9% + SGST 9%):</span>
-                  </span>
-                  <span className="font-mono text-cyan-400">+₹{gstAmount.toLocaleString('en-IN')}</span>
-                </div>
                 <div className="flex justify-between font-black text-sm pt-2 border-t border-slate-800 text-white">
                   <span>Estimated Net Quotation:</span>
                   <span className="font-mono text-emerald-400 text-base">₹{grandTotal.toLocaleString('en-IN')}</span>

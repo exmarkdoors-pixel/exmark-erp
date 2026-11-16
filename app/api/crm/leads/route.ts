@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   listLeads,
   createLead,
@@ -8,6 +9,9 @@ import {
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'crm');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { searchParams } = new URL(req.url);
     const filter: LeadFilter = {};
 
@@ -30,6 +34,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'crm', ['Super Admin', 'Management', 'Sales', 'Site Engineer']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
 
     const title = body.title?.trim();

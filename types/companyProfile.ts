@@ -62,7 +62,7 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   website: 'https://www.exmarkdoors.com',
   email: 'sales@exmarkdoors.com',
   phone: '+91 484 290 8800',
-  gstin: '32AABCE9821K1ZN',
+  gstin: '',
   panNumber: 'AABCE9821K',
   cinNumber: 'U25209KL2022PTC076123',
   registeredOffice: {

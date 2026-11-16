@@ -53,7 +53,7 @@ export const PIPELINE_STAGES = [
   {
     key: 'quotation',
     label: 'Quotation Submitted',
-    desc: 'Formal GST quote submitted with rate cards',
+    desc: 'Formal quotation submitted with rate cards',
     accentColor: 'border-purple-500/40 text-purple-400 bg-purple-500/10',
   },
   {
@@ -150,7 +150,7 @@ export const INITIAL_LEADS: LeadItem[] = [
     doorCount: 34,
     value: 272000,
     stage: 'quotation',
-    notes: 'GST Quotation QTE-2026-042 sent with 18% GST and 5-year warranty.',
+    notes: 'Quotation QTE-2026-042 sent with factory pricing and 5-year warranty.',
     createdAt: '25/10/2026',
   },
   {
@@ -217,8 +217,8 @@ export const INITIAL_SALES_ORDERS: SalesOrderItem[] = [
 ];
 
 export default function LeadsPipeline() {
-  const [leads, setLeads] = useState<LeadItem[]>([...INITIAL_LEADS]);
-  const [salesOrders, setSalesOrders] = useState<SalesOrderItem[]>([...INITIAL_SALES_ORDERS]);
+  const [leads, setLeads] = useState<LeadItem[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrderItem[]>([]);
   const [activeTab, setActiveTab] = useState<'PIPELINE' | 'ORDERS'>('PIPELINE');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
@@ -237,49 +237,43 @@ export default function LeadsPipeline() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isZeroed = localStorage.getItem('exmark_data_zeroed');
-      if (isZeroed === 'true') {
-        setLeads([]);
-        setSalesOrders([]);
-      } else {
-        // Check live database store
-        fetch('/api/crm/leads')
-          .then((res) => res.json())
-          .then((json) => {
-            if (json && Array.isArray(json.data)) {
-              if (json.data.length === 0) {
-                setLeads([]);
-              } else {
-                const mappedLeads: LeadItem[] = json.data.map((l: any) => {
-                  let mappedStage: LeadItem['stage'] = 'inquiries';
-                  if (l.stage === 'MEASUREMENT_SCHEDULED' || l.stage === 'measurement') mappedStage = 'measurement';
-                  else if (l.stage === 'QUOTE_SENT' || l.stage === 'quotation') mappedStage = 'quotation';
-                  else if (l.stage === 'NEGOTIATION' || l.stage === 'negotiation') mappedStage = 'negotiation';
+      // Check live database store
+      fetch('/api/crm/leads')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json && Array.isArray(json.data)) {
+            if (json.data.length === 0) {
+              setLeads([]);
+            } else {
+              const mappedLeads: LeadItem[] = json.data.map((l: any) => {
+                let mappedStage: LeadItem['stage'] = 'inquiries';
+                if (l.stage === 'MEASUREMENT_SCHEDULED' || l.stage === 'measurement') mappedStage = 'measurement';
+                else if (l.stage === 'QUOTE_SENT' || l.stage === 'quotation') mappedStage = 'quotation';
+                else if (l.stage === 'NEGOTIATION' || l.stage === 'negotiation') mappedStage = 'negotiation';
 
-                  return {
-                    id: l.id,
-                    leadCode: l.leadCode,
-                    customerId: l.customerId,
-                    title: l.title,
-                    client: l.client || l.contactPerson || l.title,
-                    contactPerson: l.contactPerson || l.client,
-                    phone: l.phone,
-                    district: l.district,
-                    doors: l.doors || 'FRP & WPC Doors',
-                    doorCount: l.doorCount || 20,
-                    value: l.value || l.estimatedValue || 150000,
-                    stage: mappedStage,
-                    notes: l.notes,
-                    createdAt: l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'),
-                    updatedAt: l.updatedAt,
-                  };
-                });
-                setLeads(mappedLeads);
-              }
+                return {
+                  id: l.id,
+                  leadCode: l.leadCode,
+                  customerId: l.customerId,
+                  title: l.title,
+                  client: l.client || l.contactPerson || l.title,
+                  contactPerson: l.contactPerson || l.client,
+                  phone: l.phone,
+                  district: l.district,
+                  doors: l.doors || 'FRP & WPC Doors',
+                  doorCount: l.doorCount || 20,
+                  value: l.value || l.estimatedValue || 150000,
+                  stage: mappedStage,
+                  notes: l.notes,
+                  createdAt: l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'),
+                  updatedAt: l.updatedAt,
+                };
+              });
+              setLeads(mappedLeads);
             }
-          })
-          .catch(() => {});
-      }
+          }
+        })
+        .catch(() => {});
 
       // Fetch registered customers
       fetch('/api/customers')
@@ -352,7 +346,7 @@ export default function LeadsPipeline() {
       setLeads((prev) =>
         prev.map((l) => (l.id === leadId ? { ...l, stage: 'quotation' } : l))
       );
-      setToastMessage(`📋 Formal GST quotation (${details.quoteNo || 'QTE-2026'}) created! Lead advanced.`);
+      setToastMessage(`📋 Formal quotation (${details.quoteNo || 'QTE-2026'}) created! Lead advanced.`);
     } else if (conversionType === 'ORDER') {
       const targetLead = leads.find((l) => l.id === leadId);
       if (targetLead) {

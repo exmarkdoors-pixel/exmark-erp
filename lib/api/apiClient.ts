@@ -1,14 +1,24 @@
 /**
- * EXMARK ERP — Centralized API Client with Secure Session & Token Persistence
+ * EXMARK ERP — Centralized API Client with Signed Session Persistence
  * Compatible with Browser, Electron Desktop, and Mobile (Capacitor) runtimes.
  */
 
 const AUTH_TOKEN_KEY = 'exmark_erp_auth_token';
 const AUTH_USER_KEY = 'exmark_erp_auth_user';
 
+function isValidSignedClientToken(token: string | null): token is string {
+  return Boolean(token && token.startsWith('v2.') && token.indexOf('.', 3) > 3);
+}
+
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY) || null;
+  const raw = localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY) || null;
+  if (raw && !isValidSignedClientToken(raw)) {
+    // Discard stale unsigned legacy tokens from pre-hardening builds
+    clearAuthToken();
+    return null;
+  }
+  return raw;
 }
 
 export function setAuthToken(token: string, user?: unknown): void {
@@ -40,6 +50,7 @@ export function clearAuthToken(): void {
 
 export function getStoredUser<T = unknown>(): T | null {
   if (typeof window === 'undefined') return null;
+  if (!getAuthToken()) return null;
   try {
     const raw = localStorage.getItem(AUTH_USER_KEY) || sessionStorage.getItem(AUTH_USER_KEY);
     return raw ? (JSON.parse(raw) as T) : null;
@@ -48,41 +59,20 @@ export function getStoredUser<T = unknown>(): T | null {
   }
 }
 
+/**
+ * Legacy export kept for backwards compatibility; no longer synthesizes Super Admin tokens.
+ */
 export function ensureDefaultAuth(): string {
-  if (typeof window === 'undefined') return '';
-  let token = getAuthToken();
-  if (!token) {
-    const defaultUser = {
-      id: 'usr-admin-01',
-      name: 'Nazer Karumban',
-      email: 'director@exmarkdoors.com',
-      role: 'Super Admin',
-      employeeCode: 'EXM-EMP-001',
-      department: 'Executive & Strategy',
-      plantLocation: 'Central Manufacturing Plant & Corporate HQ',
-      issuedAt: Date.now(),
-    };
-    try {
-      token = btoa(unescape(encodeURIComponent(JSON.stringify(defaultUser))));
-      setAuthToken(token, defaultUser);
-    } catch {
-      token = '';
-    }
-  }
-  return token || '';
+  return getAuthToken() || '';
 }
 
 /**
  * Universal authenticated fetch.
- * Automatically injects Bearer token header and credentials: 'include'.
+ * Automatically injects Bearer token header (if present) and credentials: 'include' for HTTP-only cookies.
  */
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers || {});
-  let token = getAuthToken();
-
-  if (!token && typeof window !== 'undefined') {
-    token = ensureDefaultAuth();
-  }
+  const token = getAuthToken();
 
   if (token && !headers.has('Authorization') && !headers.has('authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
@@ -101,6 +91,12 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
 
   const response = await fetch(input, mergedInit);
 
-  // If receiving 401 Unauthorized, we keep local token until user explicitly logs out or handles expired session
+  if (response.status === 401 && typeof window !== 'undefined') {
+    const reqUrl = typeof input === 'string' ? input : input.toString();
+    if (!reqUrl.includes('/api/auth/login') && !window.location.pathname.startsWith('/login')) {
+      clearAuthToken();
+    }
+  }
+
   return response;
 }

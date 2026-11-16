@@ -4,9 +4,10 @@ import path from 'path';
 import { createProductionOrder } from '@/lib/services/productionService';
 import { getActiveFactory } from '@/lib/services/companyProfileService';
 import { authorizeRequest } from '@/lib/auth/authorization';
+import { getDataFilePath } from '@/lib/utils/dataPaths';
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'quotations-store.json');
-const CUSTOMERS_PATH = path.join(process.cwd(), 'data', 'customers-store.json');
+const getStorePath = () => getDataFilePath('quotations-store.json');
+const getCustomersPath = () => getDataFilePath('customers-store.json');
 
 export interface SalesOrderViewItem {
   id: string;
@@ -24,11 +25,13 @@ export interface SalesOrderViewItem {
 
 function getOrders(): SalesOrderViewItem[] {
   try {
-    if (!fs.existsSync(STORE_PATH)) return [];
-    const quotes = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+    const storePath = getStorePath();
+    const customersPath = getCustomersPath();
+    if (!fs.existsSync(storePath)) return [];
+    const quotes = JSON.parse(fs.readFileSync(storePath, 'utf8'));
     let customers: Array<{ id: string; name: string; district: string }> = [];
-    if (fs.existsSync(CUSTOMERS_PATH)) {
-      customers = JSON.parse(fs.readFileSync(CUSTOMERS_PATH, 'utf8'));
+    if (fs.existsSync(customersPath)) {
+      customers = JSON.parse(fs.readFileSync(customersPath, 'utf8'));
     }
 
     const validStatuses = ['CONVERTED', 'APPROVED', 'SENT', 'IN_PRODUCTION', 'READY_TO_DISPATCH', 'DELIVERED'];
@@ -49,7 +52,7 @@ function getOrders(): SalesOrderViewItem[] {
       }, index: number) => {
         const cust = customers.find((c) => c.id === q.customerId);
         const totalDoors = q.items?.reduce((s, i) => s + (i.quantity || 1), 0) || 12;
-        const totalAmount = q.totalAmount || (q.subtotal ? Math.round(q.subtotal * 1.18) : 125000);
+        const totalAmount = q.totalAmount || q.subtotal || 0;
         const advanceAmount = q.advanceAmount ?? Math.round(totalAmount * 0.4);
 
         let orderStatus: SalesOrderViewItem['orderStatus'] = 'CONFIRMED';
@@ -103,8 +106,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'orderId is required' }, { status: 400 });
     }
 
-    if (fs.existsSync(STORE_PATH)) {
-      const quotes = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+    const storePath = getStorePath();
+    const customersPath = getCustomersPath();
+    if (fs.existsSync(storePath)) {
+      const quotes = JSON.parse(fs.readFileSync(storePath, 'utf8'));
       const idx = quotes.findIndex((q: { id: string }) => q.id === orderId);
       if (idx !== -1) {
         if (action === 'VERIFY_ADVANCE') {
@@ -119,7 +124,7 @@ export async function POST(req: Request) {
             quotes[idx].utrNumber = body.utrNumber;
           }
           quotes[idx].status = 'CONVERTED';
-          fs.writeFileSync(STORE_PATH, JSON.stringify(quotes, null, 2), 'utf8');
+          fs.writeFileSync(storePath, JSON.stringify(quotes, null, 2), 'utf8');
           return NextResponse.json({
             success: true,
             message: `Advance payment verified for ${quotes[idx].quoteNumber}. Ready for production release.`,
@@ -141,8 +146,8 @@ export async function POST(req: Request) {
 
           let customerName = 'Kerala Client';
           let district = 'Ernakulam';
-          if (fs.existsSync(CUSTOMERS_PATH)) {
-            const customers = JSON.parse(fs.readFileSync(CUSTOMERS_PATH, 'utf8'));
+          if (fs.existsSync(customersPath)) {
+            const customers = JSON.parse(fs.readFileSync(customersPath, 'utf8'));
             const cust = customers.find((c: { id: string }) => c.id === quotes[idx].customerId);
             if (cust) {
               customerName = cust.name;
@@ -150,43 +155,60 @@ export async function POST(req: Request) {
             }
           }
 
-          // Build doors array from quote items or fallback opening
-          const doors = Array.isArray(quotes[idx].items) && quotes[idx].items.length > 0
-            ? quotes[idx].items.map((item: { doorModel?: string; quantity?: number }, i: number) => ({
-                doorNumber: `D${i + 1} - Opening`,
-                model: item.doorModel || '32mm Molded Teak FRP Door',
-                rawHeightMm: 2100,
-                rawWidthMm: 900,
-                handing: 'RH',
-                lockType: 'Mortise Lock 60mm',
-                finishColor: 'Burma Teak',
-              }))
+          // Build individual door items respecting quantity and carry quotation installation setting
+          const rawItems = Array.isArray(quotes[idx].items) && quotes[idx].items.length > 0
+            ? quotes[idx].items
             : [
                 {
-                  doorNumber: 'D1 - Main Door Opening',
-                  model: '32mm Molded Teak FRP Door',
-                  rawHeightMm: 2100,
-                  rawWidthMm: 900,
-                  handing: 'RH',
-                  lockType: 'Mortise Lock 60mm',
-                  finishColor: 'Burma Teak',
+                  doorModel: '32mm Molded Teak FRP Door',
+                  heightMm: 2100,
+                  widthMm: 900,
+                  quantity: 1,
                 },
               ];
 
+          const doors: Array<{
+            doorNumber: string;
+            model: string;
+            rawHeightMm: number;
+            rawWidthMm: number;
+            handing: 'LH' | 'RH';
+            lockType: string;
+            finishColor: string;
+          }> = [];
+          let seq = 1;
+          for (const item of rawItems) {
+            const count = Math.max(1, Number(item.quantity) || 1);
+            for (let k = 0; k < count; k++) {
+              doors.push({
+                doorNumber: `D${seq++} - Opening`,
+                model: item.doorModel || '32mm Molded Teak FRP Door',
+                rawHeightMm: Number(item.heightMm) || 2100,
+                rawWidthMm: Number(item.widthMm) || 900,
+                handing: 'RH',
+                lockType: item.lockType || 'Baby Latch Black',
+                finishColor: item.finishColor || 'Natural Teak',
+              });
+            }
+          }
+
           const prodOrder = await createProductionOrder({
             salesOrderId: quotes[idx].id,
-            measurementRef: 'MSR-2026-088',
+            measurementRef: quotes[idx].quoteNumber || null,
             customerName,
-            siteName: quotes[idx].siteName || `${customerName} Project Site`,
+            siteName: quotes[idx].siteName || quotes[idx].location || `${customerName} Project Site`,
             district,
             doorCategory: 'FRP_DOORS',
+            includeInstallation: Boolean(quotes[idx].includeInstallation),
+            installationNotes: quotes[idx].installationNotes || undefined,
+            orderDate: quotes[idx].date || new Date().toISOString().split('T')[0],
             doors,
           });
 
           quotes[idx].status = 'IN_PRODUCTION';
           quotes[idx].orderStatus = 'IN_PRODUCTION';
           quotes[idx].productionOrderId = prodOrder.id;
-          fs.writeFileSync(STORE_PATH, JSON.stringify(quotes, null, 2), 'utf8');
+          fs.writeFileSync(storePath, JSON.stringify(quotes, null, 2), 'utf8');
 
           const activeFactory = getActiveFactory();
           return NextResponse.json({
@@ -200,7 +222,7 @@ export async function POST(req: Request) {
         if (newStatus) {
           quotes[idx].status = newStatus;
           quotes[idx].orderStatus = newStatus;
-          fs.writeFileSync(STORE_PATH, JSON.stringify(quotes, null, 2), 'utf8');
+          fs.writeFileSync(storePath, JSON.stringify(quotes, null, 2), 'utf8');
           return NextResponse.json({ success: true, updated: quotes[idx] });
         }
       }

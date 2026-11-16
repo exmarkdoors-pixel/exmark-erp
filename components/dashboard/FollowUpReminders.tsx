@@ -18,6 +18,10 @@ export default function FollowUpReminders({ initialReminders }: FollowUpReminder
   const [reminders, setReminders] = useState<FollowUpReminder[]>(initialReminders);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('pending');
 
+  React.useEffect(() => {
+    setReminders(initialReminders);
+  }, [initialReminders]);
+
   const toggleComplete = (id: string) => {
     setReminders((prev) =>
       prev.map((item) =>

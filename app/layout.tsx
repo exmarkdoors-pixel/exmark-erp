@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ProductCategoryProvider } from "@/lib/context/ProductCategoryContext";
+import { DisplayPreferencesProvider } from "@/lib/context/DisplayPreferencesContext";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
 
 const geistSans = Geist({
@@ -30,6 +31,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -39,10 +41,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ProductCategoryProvider>
-          {children}
-          <PwaRegister />
-        </ProductCategoryProvider>
+        <DisplayPreferencesProvider>
+          <ProductCategoryProvider>
+            {children}
+            <PwaRegister />
+          </ProductCategoryProvider>
+        </DisplayPreferencesProvider>
       </body>
     </html>
   );

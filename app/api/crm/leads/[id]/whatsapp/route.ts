@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import { getLead, addFollowUp, listFollowUps } from '@/lib/services/crmService';
 import {
   WHATSAPP_TEMPLATES,
@@ -10,10 +11,13 @@ import {
 } from '@/lib/services/whatsappService';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'crm');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const lead = await getLead(id);
 
@@ -73,6 +77,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'crm', ['Super Admin', 'Management', 'Sales', 'Site Engineer']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const body = await req.json();
 

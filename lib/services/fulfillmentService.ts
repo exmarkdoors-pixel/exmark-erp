@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getDataFilePath } from '../utils/dataPaths';
 import { assertWriteAllowed } from './dbSyncEngine';
 import {
   DispatchRecord,
@@ -14,18 +15,19 @@ export interface FulfillmentStore {
   warranties: WarrantyCertificate[];
 }
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'fulfillment-store.json');
+const getStorePath = () => getDataFilePath('fulfillment-store.json');
 
 function readStore(): FulfillmentStore {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(STORE_PATH)) {
+    if (!fs.existsSync(storePath)) {
       const initial: FulfillmentStore = { dispatches: [], installations: [], warranties: [] };
-      fs.writeFileSync(STORE_PATH, JSON.stringify(initial, null, 2), 'utf8');
+      fs.writeFileSync(storePath, JSON.stringify(initial, null, 2), 'utf8');
       return initial;
     }
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
     const valid = parsed as FulfillmentStore;
     return {
@@ -40,9 +42,10 @@ function readStore(): FulfillmentStore {
 
 function writeStore(store: FulfillmentStore): void {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(store, null, 2), 'utf8');
   } catch (err) {
     console.error('[fulfillmentService] Failed to write store:', err);
   }

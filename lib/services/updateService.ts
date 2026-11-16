@@ -24,9 +24,9 @@ const START_TIME = Date.now();
 
 export function getSystemVersionInfo(): SystemVersionInfo {
   return {
-    appVersion: '2.4.0-production',
+    appVersion: '2.5.0-production',
     releaseChannel: 'production',
-    buildDate: '2026-10-28',
+    buildDate: '2026-11-14',
     gitCommit: 'a3c6cc1',
     environment: process.env.NODE_ENV || 'production',
     uptimeSeconds: Math.floor((Date.now() - START_TIME) / 1000),
@@ -55,7 +55,7 @@ export function getSystemVersionInfo(): SystemVersionInfo {
         features: [
           'Bilingual Kerala CRM Leads & customer management',
           'BOQ spreadsheet import & line item engine',
-          'GST Quotation builder with 18% GST (HSN 3925.20.00)',
+          'Direct Quotation builder with flexible sizing & installation options',
         ],
       },
       {
@@ -71,9 +71,9 @@ export function getSystemVersionInfo(): SystemVersionInfo {
       {
         phase: 'Phase 4',
         version: '1.6.0',
-        title: 'Financial Management & GST Invoicing',
+        title: 'Financial Management & Direct Billing',
         features: [
-          'GST Tax Invoices and advance payment receipts',
+          'Commercial Sales Bills and advance payment receipts',
           'Monthly financial targets and sales performance metrics',
           'FRP door break-even volume and margin calculator',
         ],
@@ -127,6 +127,18 @@ export function getSystemVersionInfo(): SystemVersionInfo {
           'Automated Windows Office Backup Agent with SHA-256 integrity check',
           'System update manager & health monitoring',
           'Master end-to-end acceptance test verification suite',
+        ],
+      },
+      {
+        phase: 'Phase 10',
+        version: '2.5.0',
+        title: 'Dual Molding Teams & Zero-Data-Loss Upgrades',
+        features: [
+          'Multi-team / split door molding on the same Work Order without lock collision',
+          'Cumulative door balance validation in piece-rate lock engine',
+          'Automated point-in-time SHA-256 pre-update backup snapshot',
+          'Additive schema migration v3 preserving all 34 JSON data stores',
+          'Safe update runner script with zero data loss guarantee',
         ],
       },
     ],

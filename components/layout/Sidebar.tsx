@@ -29,9 +29,11 @@ import {
   ClipboardCheck,
   Ticket,
   Printer,
+  Smartphone,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/erp';
 import { UserRole, canAccessModule } from '@/lib/auth/roles';
+import { apiFetch } from '@/lib/api/apiClient';
 import { Lock } from 'lucide-react';
 
 interface SidebarProps {
@@ -42,6 +44,7 @@ interface SidebarProps {
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   userRole?: UserRole;
+  allowedModules?: string[];
   liveBadges?: Record<string, string>;
 }
 
@@ -55,33 +58,30 @@ interface NavItemConfig {
 }
 
 const NAV_ITEMS: NavItemConfig[] = [
-  // Core Commercial
+  // Core Operational Pipeline
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, category: 'Core' },
+  { id: 'quotations', label: 'Quotations', icon: FileSpreadsheet, badge: 'Estimates', badgeColor: 'bg-blue-500/20 text-blue-300', category: 'Core' },
+  { id: 'sales-orders', label: 'Order Lock & Adv', icon: ShoppingBag, badge: 'Advance Lock', badgeColor: 'bg-rose-500/20 text-rose-300', category: 'Core' },
   { id: 'customers', label: 'Customers', icon: Users, badge: '128', category: 'Core' },
   { id: 'crm', label: 'CRM & Leads', icon: Target, badge: '9 New', badgeColor: 'bg-amber-500/20 text-amber-300', category: 'Core' },
-  { id: 'quotations', label: 'Quotations', icon: FileSpreadsheet, badge: '24', badgeColor: 'bg-red-500/20 text-red-300', category: 'Core' },
-  { id: 'sales-orders', label: 'Sales Orders', icon: ShoppingBag, badge: '18 Active', category: 'Core' },
-  { id: 'sales', label: 'Sales & Returns', icon: ReceiptText, badge: 'GST Billed', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Core' },
 
-  // Manufacturing & Engineering
-  { id: 'production', label: 'Production Floor', icon: Factory, badge: '142 Units', badgeColor: 'bg-blue-500/20 text-blue-300', category: 'Operations' },
-  { id: 'bom', label: 'BOM & Recipes', icon: FlaskConical, badge: 'Std Cost', badgeColor: 'bg-purple-500/20 text-purple-300', category: 'Operations' },
-  { id: 'quality', label: 'Quality Control (QA)', icon: ShieldCheck, badge: 'IQC/IPQC', badgeColor: 'bg-teal-500/20 text-teal-300', category: 'Operations' },
-  { id: 'maintenance', label: 'Plant Maintenance', icon: Wrench, badge: '8 Presses', badgeColor: 'bg-amber-500/20 text-amber-300', category: 'Operations' },
-  { id: 'job-work', label: 'Subcontracting', icon: Repeat, badge: 'Sec 143', badgeColor: 'bg-indigo-500/20 text-indigo-300', category: 'Operations' },
-  { id: 'batch-print', label: '12L Stickers & Batch', icon: Printer, badge: '12-Up PDF', badgeColor: 'bg-rose-500/20 text-rose-300', category: 'Operations' },
+  // Production Stage Operations (Active Core)
+  { id: 'production', label: 'Production Floor', icon: Factory, badge: 'Kanban + Gangs', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
+  { id: 'batch-print', label: '12L & 4"×2" Stickers', icon: Printer, badge: '12L / Thermal', badgeColor: 'bg-rose-500/20 text-rose-300', category: 'Operations' },
+  { id: 'bom', label: 'Auto-BOQ & Consumables', icon: FlaskConical, badge: 'BOQ + Shift', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
 
-  // Supply Chain & Fulfillment
-  { id: 'inventory', label: 'Inventory Stock', icon: Boxes, badge: '2 Low', badgeColor: 'bg-orange-500/20 text-orange-300', category: 'Operations' },
-  { id: 'purchases', label: 'Purchases & POs', icon: Layers, category: 'Operations' },
-  { id: 'gate-pass', label: 'Gate Pass & Fleet', icon: Ticket, badge: 'RGP/NRGP', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
-  { id: 'dispatch', label: 'Dispatch & Fleet', icon: Truck, category: 'Operations' },
-  { id: 'installation', label: 'Site Installation', icon: ClipboardCheck, badge: 'Punch List', badgeColor: 'bg-cyan-500/20 text-cyan-300', category: 'Operations' },
+  // Fulfillment & Site Delivery
+  { id: 'dispatch', label: 'Packing & Dispatch', icon: Truck, badge: 'Challan', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
+  { id: 'installation', label: 'Site Installation', icon: ClipboardCheck, badge: 'Conditional', badgeColor: 'bg-cyan-500/20 text-cyan-300', category: 'Operations' },
+  { id: 'inventory', label: 'Raw Inventory Stock', icon: Boxes, badge: 'Live Stock', badgeColor: 'bg-orange-500/20 text-orange-300', category: 'Operations' },
+  { id: 'purchases', label: 'Purchase Orders (PO)', icon: Layers, badge: 'Create PO', badgeColor: 'bg-purple-500/20 text-purple-300', category: 'Operations' },
+  { id: 'mobile-field', label: 'Mobile Field Ops', icon: Smartphone, badge: 'Floor/GPS', badgeColor: 'bg-rose-500/20 text-rose-300', category: 'Operations' },
 
-  // Finance & Governance
-  { id: 'accounts', label: 'Accounts & GST', icon: ReceiptIndianRupee, category: 'Admin' },
+  // Accounts & Governance (Billing Deferred to Future Phase)
+  { id: 'accounts', label: 'Accounts & Gang Payouts', icon: ReceiptIndianRupee, badge: 'Weekly Stmt', badgeColor: 'bg-indigo-500/20 text-indigo-300', category: 'Admin' },
+  { id: 'sales', label: 'Sales & Invoicing', icon: ReceiptText, badge: 'Future Phase', badgeColor: 'bg-slate-800 text-slate-400 border border-slate-700', category: 'Admin' },
   { id: 'employees', label: 'Employees & Roster', icon: UserCheck, category: 'Admin' },
-  { id: 'marketing', label: 'Marketing Racks', icon: Megaphone, category: 'Admin' },
+  { id: 'marketing', label: 'Marketing & Sales Hub', icon: Megaphone, badge: 'Targets + Comm', badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30', category: 'Admin' },
   { id: 'reports', label: 'Reports & Analytics', icon: BarChart3, category: 'Admin' },
   { id: 'settings', label: 'Settings', icon: Settings, category: 'Admin' },
 ];
@@ -94,24 +94,33 @@ export default function Sidebar({
   isMobileOpen,
   onCloseMobile,
   userRole = 'Super Admin',
+  allowedModules,
   liveBadges,
 }: SidebarProps) {
   const [factoryName, setFactoryName] = React.useState<string>('Central Manufacturing Unit');
 
   React.useEffect(() => {
-    fetch('/api/settings/company-profile?view=active')
-      .then((res) => res.json())
+    apiFetch('/api/settings/company-profile?view=active')
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data.success && data.activeFactory?.name) {
+        if (data?.success && data.activeFactory?.name) {
           const fac = data.activeFactory;
           setFactoryName(fac.address?.district ? `${fac.name} (${fac.address.district})` : fac.name);
         }
       })
       .catch(() => {});
   }, []);
+
+  const hasModuleAccess = (tabId: NavigationTab) => {
+    if (allowedModules) {
+      return allowedModules.includes(tabId);
+    }
+    return canAccessModule(userRole, tabId);
+  };
+
   const handleItemClick = (tabId: NavigationTab) => {
-    if (!canAccessModule(userRole, tabId)) {
-      alert(`Access Restricted: Your current active role (${userRole}) does not have permission for the ${tabId} module. Switch to Super Admin or Management to access.`);
+    if (!hasModuleAccess(tabId)) {
+      alert(`Access Restricted: Your current active role (${userRole}) does not have permission for the ${tabId} module. Contact Super Admin if access is needed.`);
       return;
     }
     onSelectTab(tabId);
@@ -197,7 +206,7 @@ export default function Sidebar({
           {NAV_ITEMS.map((item, index) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
-            const isAllowed = canAccessModule(userRole, item.id);
+            const isAllowed = hasModuleAccess(item.id);
             const prevItem = index > 0 ? NAV_ITEMS[index - 1] : null;
             const showCategoryDivider =
               (!isCollapsed || isMobileOpen) &&

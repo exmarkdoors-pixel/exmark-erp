@@ -40,18 +40,21 @@ import {
   CheckSquare,
   Square,
   MessageSquare,
+  KeyRound,
+  UserPlus,
 } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/services/whatsappService';
-import {
-  DEMO_PRODUCTION_LINES,
-  DEMO_COMPANY_INFO,
-} from '@/data/demoData';
 import { DoorMeasurementModal } from './DoorMeasurementModal';
 import { AutoQuotationModal } from './measurements/AutoQuotationModal';
 import { SiteMeasurementRecord } from '@/types/measurements';
 import ProductCategoriesSettings from '@/components/settings/ProductCategoriesSettings';
 import AdminCustomizationSettings from '@/components/settings/AdminCustomizationSettings';
 import CompanyFactoryProfileSettings from '@/components/settings/CompanyFactoryProfileSettings';
+import SystemBackupAndUpdateTab from '@/components/settings/SystemBackupAndUpdateTab';
+import CloudSyncSettingsTab from '@/components/settings/CloudSyncSettingsTab';
+import StaffAccessManagementTab from '@/components/settings/StaffAccessManagementTab';
+import { DisplayAppearanceSettings } from '@/components/settings/DisplayAppearanceSettings';
+import { ERP_ROLES, UserRole } from '@/lib/auth/roles';
 import { CustomerFormModal } from './customers/CustomerFormModal';
 import { apiFetch } from '@/lib/api/apiClient';
 import { LeadFormModal } from './crm/LeadFormModal';
@@ -66,18 +69,39 @@ import SubcontractingHub from './jobwork/SubcontractingHub';
 import SiteInstallationHub from './fieldservice/SiteInstallationHub';
 import GatePassHub from './logistics/GatePassHub';
 import { ReportPrintDocumentHub, ReportPrintTheme } from './reports/ReportPrintDocumentHub';
+import { generateExecutiveReportPdf } from '@/lib/utils/pdfReportEngine';
 import { RecordAdvanceModal } from './sales/RecordAdvanceModal';
 import BatchPrintHub from './production/BatchPrintHub';
 import { JobCardModal } from './production/JobCardModal';
 import { StickerPrintModal } from './production/StickerPrintModal';
-import { QcInspectionModal } from './production/QcInspectionModal';
+import { ProductionBoardHub } from './production/ProductionBoardHub';
+import { PurchaseOrderModal, PurchaseOrderPrintModal } from './purchases/PurchaseOrderModal';
+import type { PurchaseOrderRecord } from '@/app/api/purchases/route';
 import { PaymentReceiptModal } from './finance/PaymentReceiptModal';
 import { FinancialStrategistModal } from './finance/FinancialStrategistModal';
+import { AiFinancialStrategistPanel } from './finance/AiFinancialStrategistPanel';
+import { ContractorPayablesPanel } from './finance/ContractorPayablesPanel';
+import { OrderProfitPanel } from './finance/OrderProfitPanel';
+import { BreakEvenPanel } from './finance/BreakEvenPanel';
+import { StageBoqModal } from './production/StageBoqModal';
+import { CustomFrameManagerModal } from './production/CustomFrameManagerModal';
+import { DeliveryChallanModal } from './production/DeliveryChallanModal';
+import { CustomFrameProfile, DEFAULT_FRAME_PROFILES } from '@/lib/utils/frameDefaults';
+import {
+  BoqMaterialRatesConfig,
+  DEFAULT_BOQ_MATERIAL_RATES,
+  FrameLengthMode,
+  mergeBoqMaterialRates,
+} from '@/lib/utils/boqFormulaEngine';
+import { LogContractorWorkModal } from './production/LogContractorWorkModal';
 import { WhatsAppSendModal } from './communication/WhatsAppSendModal';
 import { CustomerConfirmationModal } from './communication/CustomerConfirmationModal';
 import { DispatchScheduleModal } from './fulfillment/DispatchScheduleModal';
 import { InstallationSignoffModal } from './fulfillment/InstallationSignoffModal';
 import { WarrantyCertificateModal } from './fulfillment/WarrantyCertificateModal';
+import { GeotaggedWarrantyHub } from './fulfillment/GeotaggedWarrantyHub';
+import { DriversAndVehiclesMasterTab } from './fulfillment/DriversAndVehiclesMasterTab';
+import { MarketingSalesExpansionHub } from './sales/MarketingSalesExpansionHub';
 import { DispatchRecord, InstallationRecord, WarrantyCertificate } from '@/types/fulfillment';
 import { Customer } from '@/lib/services/customerService';
 import { Lead } from '@/lib/services/crmService';
@@ -649,8 +673,8 @@ export function CrmLeadsView() {
 /* -------------------------------------------------------------
  * 3. QUOTATIONS VIEW
  * ------------------------------------------------------------- */
-export function QuotationsView() {
-  return <QuotationHub />;
+export function QuotationsView({ userRole }: { userRole?: UserRole }) {
+  return <QuotationHub userRole={userRole} />;
 }
 
 /* Module 4 (Door Measurements) removed by user specification */
@@ -747,7 +771,7 @@ export function SalesOrdersView() {
             Complete Sales Orders Registry
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Work orders, advance receipts, dispatch dates &amp; GST invoice status across Kerala
+            Work orders, advance receipts, dispatch dates &amp; billing status across Kerala
           </p>
         </div>
       </div>
@@ -763,7 +787,7 @@ export function SalesOrdersView() {
           <p className="text-2xl font-bold text-slate-900 dark:text-white">
             ₹{(totalValue / 100000).toFixed(2)} Lakhs
           </p>
-          <span className="text-[11px] text-slate-400">18% GST Included</span>
+          <span className="text-[11px] text-slate-400">Direct Net Value</span>
         </div>
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <span className="text-xs text-slate-400">In Production Floor</span>
@@ -904,11 +928,11 @@ export function SalesOrdersView() {
                         </span>
                         <button
                           onClick={() => {
-                            setToastMessage(`Tax Invoice generated for ${ord.orderNumber}. View in Quotations & Sales Hub.`);
+                            setToastMessage(`Sales Bill generated for ${ord.orderNumber}. View in Quotations & Sales Hub.`);
                             setTimeout(() => setToastMessage(null), 4000);
                           }}
                           className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
-                          title="Convert to Sales (Tax Invoice)"
+                          title="Convert to Sales (Sales Invoice / Bill)"
                         >
                           Convert to Sales 🧾
                         </button>
@@ -969,7 +993,7 @@ export function PlantMaintenanceView() {
 }
 
 /* -------------------------------------------------------------
- * 5F. SUBCONTRACTING & JOB WORK VIEW (GST Section 143)
+ * 5F. SUBCONTRACTING & JOB WORK VIEW
  * ------------------------------------------------------------- */
 export function SubcontractingView() {
   return <SubcontractingHub />;
@@ -1000,376 +1024,7 @@ export function SiteInstallationView() {
  * 6. PRODUCTION VIEW
  * ------------------------------------------------------------- */
 export function ProductionView() {
-  const [orders, setOrders] = useState<ProductionOrder[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isJobCardModalOpen, setIsJobCardModalOpen] = useState<boolean>(false);
-  const [selectedStickerOrder, setSelectedStickerOrder] = useState<ProductionOrder | null>(null);
-  const [selectedQcDoor, setSelectedQcDoor] = useState<{ order: ProductionOrder; door: ProductionDoorItem } | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    fetch('/api/production')
-      .then((res) => res.json())
-      .then((json) => {
-        if (active && json.success && Array.isArray(json.data)) {
-          setOrders(json.data);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const handleJobCardSaved = (saved: ProductionOrder) => {
-    setOrders((prev) => [saved, ...prev]);
-    setToastMessage(`Job Card "${saved.jobCardNumber}" issued to plant floor.`);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
-
-  const handleAdvanceStage = async (orderId: string, currentStage: ProductionStage) => {
-    const STAGE_ORDER: ProductionStage[] = [
-      'QUEUED',
-      'MOLDING',
-      'CNC_ROUTING',
-      'PU_COATING',
-      'QA_INSPECTION',
-      'COMPLETED',
-    ];
-    const currentIndex = STAGE_ORDER.indexOf(currentStage);
-    if (currentIndex >= STAGE_ORDER.length - 1) return;
-
-    const nextStage = STAGE_ORDER[currentIndex + 1];
-
-    try {
-      const res = await fetch(`/api/production/${orderId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: nextStage }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? json.data : o)));
-        setToastMessage(`Order advanced to: ${nextStage.replace('_', ' ')}`);
-        setTimeout(() => setToastMessage(null), 3000);
-      } else {
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStage } : o)));
-        setToastMessage(`Order advanced to: ${nextStage.replace('_', ' ')}`);
-        setTimeout(() => setToastMessage(null), 3000);
-      }
-    } catch {
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStage } : o)));
-      setToastMessage(`Order advanced to: ${nextStage.replace('_', ' ')}`);
-      setTimeout(() => setToastMessage(null), 3000);
-    }
-  };
-
-  const handleReverseStage = async (orderId: string, currentStage: ProductionStage) => {
-    const STAGE_ORDER: ProductionStage[] = [
-      'QUEUED',
-      'MOLDING',
-      'CNC_ROUTING',
-      'PU_COATING',
-      'QA_INSPECTION',
-      'COMPLETED',
-    ];
-    const currentIndex = STAGE_ORDER.indexOf(currentStage);
-    if (currentIndex <= 0) return;
-
-    const prevStage = STAGE_ORDER[currentIndex - 1];
-
-    try {
-      const res = await fetch(`/api/production/${orderId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: prevStage }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? json.data : o)));
-        setToastMessage(`↺ Order reversed to: ${prevStage.replace('_', ' ')} (Rework / Re-inspection)`);
-        setTimeout(() => setToastMessage(null), 3000);
-      } else {
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: prevStage } : o)));
-        setToastMessage(`↺ Order reversed to: ${prevStage.replace('_', ' ')}`);
-        setTimeout(() => setToastMessage(null), 3000);
-      }
-    } catch {
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: prevStage } : o)));
-      setToastMessage(`↺ Order reversed to: ${prevStage.replace('_', ' ')}`);
-      setTimeout(() => setToastMessage(null), 3000);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {toastMessage && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Factory className="w-6 h-6 text-red-500" />
-            Manufacturing Operations & Plant Floor
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            FRP 300-ton hydraulic compression press lines, CNC carving, PU coating and barcode labeling
-          </p>
-        </div>
-        <button
-          onClick={() => setIsJobCardModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Issue Production Job Card
-        </button>
-      </div>
-
-      {/* Production Lines Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {DEMO_PRODUCTION_LINES.map((line) => (
-          <div
-            key={line.id}
-            className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3"
-          >
-            <div className="flex justify-between items-start">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white">{line.lineName}</h3>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-500">
-                {line.status}
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">{line.doorType}</p>
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Efficiency</span>
-                <span className="font-bold text-red-500">{line.utilizationRate}%</span>
-              </div>
-              <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                <div className="bg-red-600 h-2 rounded-full" style={{ width: `${line.utilizationRate}%` }} />
-              </div>
-            </div>
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex justify-between">
-              <span>Supervisor: {line.shiftSupervisor}</span>
-              <span>Batch: {line.batchCode}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Active Production Orders & Job Cards */}
-      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Active Shop Floor Job Cards</h3>
-            <p className="text-[11px] text-slate-400">
-              Door-wise unique identification, finished cutting calculations & QR stickers
-            </p>
-          </div>
-          <span className="text-xs font-mono font-bold text-red-500">
-            {orders.length} Active Orders
-          </span>
-        </div>
-
-        {isLoading ? (
-          <div className="p-8 text-center text-xs text-slate-400">Loading plant floor queue...</div>
-        ) : orders.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
-            No active production job cards found. Click &quot;Issue Production Job Card&quot; to release orders.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {orders.map((order) => (
-              <div
-                key={order.id}
-                className="p-4 bg-slate-50/70 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3"
-              >
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-black text-red-600 dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
-                      {order.jobCardNumber}
-                    </span>
-                    <span className="font-bold text-xs text-slate-900 dark:text-white">
-                      {order.customerName} — {order.siteName} ({order.district})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        order.status === 'COMPLETED'
-                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                          : order.status === 'QUEUED'
-                          ? 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
-                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                      }`}
-                    >
-                      {order.status.replace('_', ' ')}
-                    </span>
-                    <button
-                      onClick={() => setSelectedStickerOrder(order)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-red-500" />
-                      <span>Print A4 Stickers</span>
-                    </button>
-
-                    {/* Reverse Stage Button (Rework / Sizing) */}
-                    {order.status !== 'QUEUED' && (
-                      <button
-                        onClick={() => handleReverseStage(order.id, order.status)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold transition-colors cursor-pointer"
-                        title="Roll back stage for rework or re-inspection"
-                      >
-                        <span>↺ Reverse</span>
-                      </button>
-                    )}
-
-                    {order.status !== 'COMPLETED' ? (
-                      <button
-                        onClick={() => handleAdvanceStage(order.id, order.status)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
-                      >
-                        Advance Stage &rarr;
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setToastMessage(`Tax Invoice generated for ${order.jobCardNumber}! Ready for customer handover.`);
-                          setTimeout(() => setToastMessage(null), 3500);
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition-colors cursor-pointer shadow"
-                        title="Generate Tax Invoice and Bill of Supply"
-                      >
-                        <span>Generate Tax Invoice 📄</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800/80">
-                  <div>
-                    <span className="block text-[10px] text-slate-400">Plant Line:</span>
-                    <span className="font-medium text-slate-700 dark:text-slate-300">{order.lineAssigned}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-slate-400">Total Doors:</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{order.quantity} Doors</span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-slate-400">Batch Code:</span>
-                    <span className="font-mono text-slate-700 dark:text-slate-300">{order.batchNumber}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-slate-400">Tolerances Applied:</span>
-                    <span className="font-mono text-red-500">
-                      -{order.tolerancesApplied?.heightDeductionMm || 10}mm H / -{order.tolerancesApplied?.widthDeductionMm || 10}mm W
-                    </span>
-                  </div>
-                </div>
-
-                {/* Door preview items */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-[11px] text-slate-600 dark:text-slate-300">
-                    <thead className="text-[9px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
-                      <tr>
-                        <th className="py-1">Door Serial ID</th>
-                        <th className="py-1">Location</th>
-                        <th className="py-1">Model</th>
-                        <th className="py-1">Raw Size</th>
-                        <th className="py-1 font-bold text-red-500">Cut Size</th>
-                        <th className="py-1">Handing</th>
-                        <th className="py-1">Lock</th>
-                        <th className="py-1">QC</th>
-                        <th className="py-1 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
-                      {order.doors.map((door) => (
-                        <tr key={door.id}>
-                          <td className="py-1.5 font-mono text-slate-900 dark:text-white font-bold">{door.doorId}</td>
-                          <td className="py-1.5">{door.doorNumber}</td>
-                          <td className="py-1.5">{door.model}</td>
-                          <td className="py-1.5 font-mono text-slate-400">{door.rawHeightMm}x{door.rawWidthMm}mm</td>
-                          <td className="py-1.5 font-mono font-bold text-red-600 dark:text-red-400">
-                            {door.finishedHeightMm}x{door.finishedWidthMm}mm
-                          </td>
-                          <td className="py-1.5 font-bold">{door.handing}</td>
-                          <td className="py-1.5 text-slate-400">{door.lockType}</td>
-                          <td className="py-1.5">
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                                door.qcStatus === 'PASSED'
-                                  ? 'bg-emerald-500/15 text-emerald-400'
-                                  : 'bg-amber-500/15 text-amber-400'
-                              }`}
-                            >
-                              {door.qcStatus}
-                            </span>
-                          </td>
-                          <td className="py-1.5 text-right space-x-1.5 whitespace-nowrap">
-                            <button
-                              onClick={() => setSelectedQcDoor({ order, door })}
-                              className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded text-[10px] font-semibold transition-colors cursor-pointer"
-                              title="Perform technical QC inspection and defect logging"
-                            >
-                              <ShieldCheck className="w-3 h-3 text-red-500" />
-                              <span>QC Check</span>
-                            </button>
-                            <a
-                              href={`/track/${door.doorId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded text-[10px] font-semibold transition-colors"
-                              title="Open live QR door tracking and lifecycle view"
-                            >
-                              <QrCode className="w-3 h-3" />
-                              <span>QR Track</span>
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <JobCardModal
-        isOpen={isJobCardModalOpen}
-        onClose={() => setIsJobCardModalOpen(false)}
-        onSaved={handleJobCardSaved}
-      />
-
-      <StickerPrintModal
-        isOpen={!!selectedStickerOrder}
-        onClose={() => setSelectedStickerOrder(null)}
-        order={selectedStickerOrder}
-      />
-
-      {selectedQcDoor && (
-        <QcInspectionModal
-          isOpen={!!selectedQcDoor}
-          onClose={() => setSelectedQcDoor(null)}
-          order={selectedQcDoor.order}
-          door={selectedQcDoor.door}
-          onSaved={(updatedOrder) => {
-            setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
-            setToastMessage(`QC Inspection saved for door "${selectedQcDoor.door.doorId}".`);
-            setTimeout(() => setToastMessage(null), 3000);
-          }}
-        />
-      )}
-    </div>
-  );
+  return <ProductionBoardHub />;
 }
 
 /* -------------------------------------------------------------
@@ -1502,20 +1157,11 @@ export function InventoryView() {
  * 8. PURCHASES VIEW
  * ------------------------------------------------------------- */
 export function PurchasesView() {
-  const [purchases, setPurchases] = useState<Array<{
-    id: string;
-    poNumber: string;
-    supplierName: string;
-    supplierGst: string;
-    orderDate: string;
-    expectedDate: string;
-    itemsSummary: string;
-    subtotal: number;
-    gstAmount: number;
-    totalAmount: number;
-    status: string;
-    paymentTerms: string;
-  }>>([]);
+  const [purchases, setPurchases] = useState<PurchaseOrderRecord[]>([]);
+  const [isPoModalOpen, setIsPoModalOpen] = useState(false);
+  const [printingPo, setPrintingPo] = useState<PurchaseOrderRecord | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const loadPurchases = () => {
     fetch('/api/purchases')
@@ -1532,103 +1178,258 @@ export function PurchasesView() {
     loadPurchases();
   }, []);
 
-  const totalSpend = purchases.reduce((sum, p) => sum + p.totalAmount, 0);
-  const totalGstCredit = purchases.reduce((sum, p) => sum + p.gstAmount, 0);
+  const notify = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 4000);
+  };
+
+  const handleUpdateStatus = async (poId: string, status: string) => {
+    try {
+      const res = await fetch('/api/purchases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'UPDATE_STATUS', id: poId, status }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setPurchases((prev) => prev.map((p) => (p.id === poId ? json.data : p)));
+        notify(`PO status updated to ${status}.`);
+      }
+    } catch {
+      notify('Failed to update PO status.');
+    }
+  };
+
+  const handleReceiveAndSyncStock = async (po: PurchaseOrderRecord) => {
+    try {
+      const res = await fetch('/api/purchases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'RECEIVE_AND_SYNC_STOCK', id: po.id }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setPurchases((prev) => prev.map((p) => (p.id === po.id ? json.data : p)));
+        notify(
+          `${po.poNumber} marked RECEIVED! Synced ${json.syncedInventoryItems ?? 0} item(s) into Inventory stock.`
+        );
+      } else {
+        notify(json.error || 'Could not receive PO.');
+      }
+    } catch {
+      notify('Failed to sync received stock.');
+    }
+  };
+
+  const handleDeletePo = async (po: PurchaseOrderRecord) => {
+    if (!confirm(`Delete Purchase Order ${po.poNumber}?`)) return;
+    try {
+      const res = await fetch(`/api/purchases?id=${encodeURIComponent(po.id)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPurchases((prev) => prev.filter((p) => p.id !== po.id));
+        notify(`Deleted ${po.poNumber}.`);
+      }
+    } catch {
+      notify('Delete failed.');
+    }
+  };
+
+  const totalSpend = purchases.reduce((sum, p) => sum + Number(p.totalAmount || 0), 0);
+  const pendingCount = purchases.filter((p) => p.status !== 'RECEIVED' && p.status !== 'DELIVERED').length;
+  const visiblePurchases =
+    statusFilter === 'ALL' ? purchases : purchases.filter((p) => p.status === statusFilter);
 
   return (
     <div className="space-y-6">
+      {toastMsg && (
+        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs font-bold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMsg}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Layers className="w-6 h-6 text-red-500" />
-            Purchases &amp; Supplier Invoices
+            Purchase Orders (PO) &amp; Supplier Bills
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Resin chemicals, glass fiber rolls, hardware fittings &amp; packaging procurement
+            Create vendor POs for resin, consumables &amp; hardware — Receive Goods automatically syncs Inventory stock
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsPoModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>+ Create Purchase Order</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Monthly Procurement Volume</span>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">
-            ₹{(totalSpend / 100000).toFixed(2)} Lakhs
+          <span className="text-xs text-slate-400">Total Procurement Value</span>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+            ₹{totalSpend.toLocaleString('en-IN')}
           </p>
-          <span className="text-[11px] text-slate-400">Active Vendor POs</span>
+          <span className="text-[11px] text-slate-400">Direct Non-GST Factory Bills</span>
         </div>
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Active Vendor POs</span>
-          <p className="text-2xl font-bold text-blue-500">{purchases.length} Purchase Orders</p>
-          <span className="text-[11px] text-blue-400">Kerala &amp; Gujarat Chemical Hubs</span>
+          <span className="text-xs text-slate-400">Total POs Created</span>
+          <p className="text-2xl font-bold text-blue-500 mt-1">{purchases.length} Orders</p>
+          <span className="text-[11px] text-blue-400">Stored in Purchases Ledger</span>
         </div>
         <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Input Tax Credit (GST)</span>
-          <p className="text-2xl font-bold text-emerald-500">
-            ₹{(totalGstCredit / 100000).toFixed(2)} Lakhs
-          </p>
-          <span className="text-[11px] text-emerald-400">Claimable on GSTR-2B</span>
+          <span className="text-xs text-slate-400">Open / Pending Receipt</span>
+          <p className="text-2xl font-bold text-amber-400 mt-1">{pendingCount} Pending</p>
+          <span className="text-[11px] text-slate-400">Awaiting Store Receipt &amp; Stock Sync</span>
         </div>
       </div>
 
       {/* PO Table */}
       <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap justify-between items-center gap-2">
           <h3 className="font-bold text-xs uppercase text-slate-500">Vendor Purchase Orders Registry</h3>
-          <span className="text-xs text-slate-400">{purchases.length} POs recorded</span>
+          <div className="flex items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-2.5 py-1 bg-slate-900 border border-slate-700 text-slate-200 rounded-lg text-xs font-semibold cursor-pointer"
+            >
+              <option value="ALL">All POs ({purchases.length})</option>
+              <option value="APPROVED">Approved</option>
+              <option value="ORDERED">Ordered</option>
+              <option value="IN_TRANSIT">In Transit</option>
+              <option value="RECEIVED">Received &amp; Stock Synced</option>
+            </select>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
-              <tr>
-                <th className="p-3">PO Number</th>
-                <th className="p-3">Vendor / Supplier</th>
-                <th className="p-3">Order Date</th>
-                <th className="p-3">Materials Description</th>
-                <th className="p-3">Total Amount</th>
-                <th className="p-3">Input GST (18%)</th>
-                <th className="p-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {purchases.map((po) => (
-                <tr key={po.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
-                  <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">
-                    {po.poNumber}
-                  </td>
-                  <td className="p-3">
-                    <div className="font-semibold text-slate-800 dark:text-slate-200">{po.supplierName}</div>
-                    <div className="text-[10px] font-mono text-slate-400">{po.supplierGst}</div>
-                  </td>
-                  <td className="p-3 text-slate-500">{po.orderDate}</td>
-                  <td className="p-3 text-slate-700 dark:text-slate-300 max-w-xs truncate">
-                    {po.itemsSummary}
-                  </td>
-                  <td className="p-3 font-bold text-slate-900 dark:text-white">
-                    ₹{po.totalAmount.toLocaleString('en-IN')}
-                  </td>
-                  <td className="p-3 font-semibold text-emerald-600">
-                    ₹{po.gstAmount.toLocaleString('en-IN')}
-                  </td>
-                  <td className="p-3">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        po.status === 'DELIVERED'
-                          ? 'bg-emerald-500/15 text-emerald-500'
-                          : po.status === 'IN_TRANSIT'
-                          ? 'bg-blue-500/15 text-blue-500'
-                          : 'bg-amber-500/15 text-amber-500'
-                      }`}
-                    >
-                      {po.status}
-                    </span>
-                  </td>
+        {visiblePurchases.length === 0 ? (
+          <div className="p-10 text-center text-xs text-slate-400">
+            No purchase orders found. Click <strong>+ Create Purchase Order</strong> to create a PO from manual entry, low-stock items, or evening consumables.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="p-3">PO Number</th>
+                  <th className="p-3">Vendor / Supplier</th>
+                  <th className="p-3">Order / Expected</th>
+                  <th className="p-3">Materials Description</th>
+                  <th className="p-3">Total (Net)</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {visiblePurchases.map((po) => {
+                  const isReceived = po.status === 'RECEIVED' || po.status === 'DELIVERED';
+                  return (
+                    <tr key={po.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">
+                        {po.poNumber}
+                        {po.sourceType && po.sourceType !== 'MANUAL' && (
+                          <span className="block text-[9px] font-sans text-indigo-400">
+                            {po.sourceType.replace('_', ' ')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <div className="font-semibold text-slate-800 dark:text-slate-200">{po.supplierName}</div>
+                        {po.supplierPhone && (
+                          <div className="text-[10px] text-slate-400">{po.supplierPhone}</div>
+                        )}
+                      </td>
+                      <td className="p-3 text-slate-500">
+                        <div>{po.orderDate}</div>
+                        <div className="text-[10px] text-slate-400">Exp: {po.expectedDate}</div>
+                      </td>
+                      <td className="p-3 text-slate-700 dark:text-slate-300 max-w-xs truncate" title={po.itemsSummary}>
+                        {po.itemsSummary}
+                      </td>
+                      <td className="p-3 font-bold font-mono text-slate-900 dark:text-white">
+                        ₹{Number(po.totalAmount || 0).toLocaleString('en-IN')}
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            isReceived
+                              ? 'bg-emerald-500/15 text-emerald-500'
+                              : po.status === 'IN_TRANSIT'
+                              ? 'bg-blue-500/15 text-blue-500'
+                              : 'bg-amber-500/15 text-amber-500'
+                          }`}
+                        >
+                          {po.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
+                        {!isReceived && (
+                          <>
+                            {po.status === 'APPROVED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateStatus(po.id, 'ORDERED')}
+                                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-bold cursor-pointer"
+                              >
+                                Mark Ordered
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleReceiveAndSyncStock(po)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold cursor-pointer shadow"
+                              title="Receive goods into factory store & increment Inventory stock"
+                            >
+                              ✓ Receive &amp; Sync Stock
+                            </button>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPrintingPo(po)}
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-bold cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <Printer className="w-3 h-3" />
+                          <span>Print PO</span>
+                        </button>
+                        {!isReceived && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePo(po)}
+                            className="p-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded cursor-pointer inline-flex items-center"
+                            title="Delete PO"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      <PurchaseOrderModal
+        isOpen={isPoModalOpen}
+        onClose={() => setIsPoModalOpen(false)}
+        onCreated={(newPo) => {
+          setPurchases((prev) => [newPo, ...prev]);
+          notify(`Created Purchase Order ${newPo.poNumber} for ${newPo.supplierName}.`);
+        }}
+      />
+
+      <PurchaseOrderPrintModal po={printingPo} onClose={() => setPrintingPo(null)} />
     </div>
   );
 }
@@ -1640,6 +1441,7 @@ export function AccountsGstView() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [targets, setTargets] = useState<FinancialTarget[]>([]);
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'CLIENT_INVOICES' | 'CONTRACTOR_PAYABLES' | 'ORDER_PROFIT' | 'BREAK_EVEN' | 'FINANCIAL_FORECAST'>('CLIENT_INVOICES');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
   const [isStrategistOpen, setIsStrategistOpen] = useState<boolean>(false);
@@ -1690,9 +1492,8 @@ export function AccountsGstView() {
   // Calculations
   const totalBilled = invoices.reduce((sum, i) => sum + i.totalAmount, 0);
   const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
-  const totalCgst = invoices.reduce((sum, i) => sum + i.cgst, 0);
-  const totalSgst = invoices.reduce((sum, i) => sum + i.sgst, 0);
   const totalReceivables = invoices.reduce((sum, i) => sum + i.balanceAmount, 0);
+  const collectionPct = totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -1707,36 +1508,118 @@ export function AccountsGstView() {
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <ReceiptIndianRupee className="w-6 h-6 text-red-500" />
-            Accounts, GST Compliance & Financial Governance
+            Accounts &amp; Financial Governance
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            HSN 3925.20.00 tax reconciliation, 18% GST (CGST 9% + SGST 9%), bank receipts & strategist
+            Client billing ledger, advance collections, bank receipts &amp; AI strategist
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsStrategistOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <TrendingUp className="w-4 h-4 text-red-500" /> Financial Strategist
-          </button>
-          <button
-            onClick={() => setIsPaymentModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-          >
-            <Plus className="w-4 h-4" /> Record Payment Receipt
-          </button>
+          {activeFinanceTab === 'CLIENT_INVOICES' && (
+            <>
+              <button
+                onClick={() => setIsStrategistOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <TrendingUp className="w-4 h-4 text-red-500" /> Financial Strategist
+              </button>
+              <button
+                onClick={() => setIsPaymentModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Record Payment Receipt
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Financial Metrics Cards */}
+      {/* Accounts Navigation: Customer Invoices vs Live BEP vs AI Forecast vs Order Profit vs Contractor Payables */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setActiveFinanceTab('CLIENT_INVOICES')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeFinanceTab === 'CLIENT_INVOICES'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <ReceiptIndianRupee className="w-4 h-4" />
+          <span>Client Billing &amp; Receivables</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveFinanceTab('BREAK_EVEN')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeFinanceTab === 'BREAK_EVEN'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 text-amber-400" />
+          <span>⚡ Live Break-Even Point (BEP)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveFinanceTab('FINANCIAL_FORECAST')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeFinanceTab === 'FINANCIAL_FORECAST'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4 text-emerald-400" />
+          <span>📊 AI Financial Analysis &amp; Forecasting</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveFinanceTab('ORDER_PROFIT')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeFinanceTab === 'ORDER_PROFIT'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <ReceiptIndianRupee className="w-4 h-4" />
+          <span>Order Profit &amp; P&amp;L</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveFinanceTab('CONTRACTOR_PAYABLES')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeFinanceTab === 'CONTRACTOR_PAYABLES'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Contractor Accounts &amp; Labor</span>
+        </button>
+      </div>
+
+      {activeFinanceTab === 'BREAK_EVEN' ? (
+        <BreakEvenPanel />
+      ) : activeFinanceTab === 'FINANCIAL_FORECAST' ? (
+        <AiFinancialStrategistPanel />
+      ) : activeFinanceTab === 'ORDER_PROFIT' ? (
+        <OrderProfitPanel />
+      ) : activeFinanceTab === 'CONTRACTOR_PAYABLES' ? (
+        <ContractorPayablesPanel />
+      ) : (
+        <>
+          {/* Financial Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
         <div className="p-4 bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Invoiced Sales</span>
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Billed Sales</span>
           <p className="text-xl font-black text-slate-900 dark:text-white font-mono">
             ₹{totalBilled.toLocaleString('en-IN')}
           </p>
-          <span className="text-[10px] text-slate-400">{invoices.length} Tax Invoices</span>
+          <span className="text-[10px] text-slate-400">{invoices.length} Sales Bills</span>
         </div>
 
         <div className="p-4 bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
@@ -1756,11 +1639,11 @@ export function AccountsGstView() {
         </div>
 
         <div className="p-4 bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">GST Liability (18%)</span>
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Collection Realization</span>
           <p className="text-xl font-black text-blue-500 font-mono">
-            ₹{(totalCgst + totalSgst).toLocaleString('en-IN')}
+            {collectionPct}%
           </p>
-          <span className="text-[10px] text-slate-400">CGST 9% + SGST 9%</span>
+          <span className="text-[10px] text-slate-400">Direct Net Recovery</span>
         </div>
       </div>
 
@@ -1782,9 +1665,9 @@ export function AccountsGstView() {
         </div>
       )}
 
-      {/* Tax Invoices Section */}
+      {/* Sales Bills Section */}
       <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-3">
-        <h3 className="font-bold text-sm text-slate-900 dark:text-white">GST Tax Invoices Register</h3>
+        <h3 className="font-bold text-sm text-slate-900 dark:text-white">Sales Bills &amp; Invoices Register</h3>
         {isLoading ? (
           <div className="p-8 text-center text-xs text-slate-400">Loading invoice ledger...</div>
         ) : (
@@ -1795,10 +1678,7 @@ export function AccountsGstView() {
                   <th className="p-3">Invoice #</th>
                   <th className="p-3">Customer</th>
                   <th className="p-3">Date</th>
-                  <th className="p-3 font-mono">Taxable Base</th>
-                  <th className="p-3 font-mono">CGST (9%)</th>
-                  <th className="p-3 font-mono">SGST (9%)</th>
-                  <th className="p-3 font-mono">Grand Total</th>
+                  <th className="p-3 font-mono">Bill Total</th>
                   <th className="p-3 font-mono">Balance Due</th>
                   <th className="p-3">Status</th>
                 </tr>
@@ -1809,9 +1689,6 @@ export function AccountsGstView() {
                     <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">{inv.invoiceNumber}</td>
                     <td className="p-3">{inv.customerName}</td>
                     <td className="p-3 text-slate-400">{inv.invoiceDate}</td>
-                    <td className="p-3 font-mono">₹{inv.subtotal.toLocaleString('en-IN')}</td>
-                    <td className="p-3 font-mono">₹{inv.cgst.toLocaleString('en-IN')}</td>
-                    <td className="p-3 font-mono">₹{inv.sgst.toLocaleString('en-IN')}</td>
                     <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">₹{inv.totalAmount.toLocaleString('en-IN')}</td>
                     <td className="p-3 font-mono font-bold text-red-500">₹{inv.balanceAmount.toLocaleString('en-IN')}</td>
                     <td className="p-3">
@@ -1863,6 +1740,8 @@ export function AccountsGstView() {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       <PaymentReceiptModal
         isOpen={isPaymentModalOpen}
@@ -1883,29 +1762,242 @@ export function AccountsGstView() {
 /* -------------------------------------------------------------
  * 10. EMPLOYEES VIEW
  * ------------------------------------------------------------- */
-export function EmployeesView() {
-  const [employees, setEmployees] = useState<Array<{
-    id: string;
-    employeeCode: string;
-    name: string;
-    role: string;
-    department: string;
-    phone: string;
+interface EmployeeListItem {
+  id: string;
+  employeeCode: string;
+  name: string;
+  role: string;
+  department: string;
+  phone: string;
+  email: string;
+  status: string;
+  location: string;
+  loginAccount?: {
+    userId: string;
+    role: UserRole;
     email: string;
-    status: string;
-    location: string;
-  }>>([]);
+    employeeCode?: string;
+    hasQuickPin?: boolean;
+    customAllowedModules?: string[] | null;
+    isActive?: boolean;
+    lastLoginAt?: string;
+  } | null;
+}
+
+export function EmployeesView({
+  userRole,
+  onManageStaffLogins,
+}: {
+  userRole?: UserRole;
+  onManageStaffLogins?: () => void;
+}) {
+  const isSuperAdmin = userRole === 'Super Admin';
+  const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  // Add / Edit Employee Modal
+  const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
+  const [editingEmp, setEditingEmp] = useState<EmployeeListItem | null>(null);
+  const [empName, setEmpName] = useState('');
+  const [empCode, setEmpCode] = useState('');
+  const [empRole, setEmpRole] = useState('Production Technician');
+  const [empDept, setEmpDept] = useState('Cutting & Finishing');
+  const [empPhone, setEmpPhone] = useState('');
+  const [empEmail, setEmpEmail] = useState('');
+  const [empLocation, setEmpLocation] = useState('Central Manufacturing Plant');
+  const [createLoginWithEmp, setCreateLoginWithEmp] = useState(false);
+  const [empErpRole, setEmpErpRole] = useState<UserRole>('Production');
+  const [empErpPassword, setEmpErpPassword] = useState('');
+  const [empErpPin, setEmpErpPin] = useState('');
+  const [savingEmp, setSavingEmp] = useState(false);
+
+  // Quick Create ERP Login Modal for an existing Employee (Super Admin)
+  const [loginTargetEmp, setLoginTargetEmp] = useState<EmployeeListItem | null>(null);
+  const [loginRole, setLoginRole] = useState<UserRole>('Production');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginPin, setLoginPin] = useState('');
+  const [savingLogin, setSavingLogin] = useState(false);
+
+  const loadEmployees = async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch('/api/employees');
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        setEmployees(json.data);
+      }
+    } catch {
+      // Ignore transient error
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/employees')
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success && Array.isArray(json.data)) {
+    let cancelled = false;
+    apiFetch('/api/employees')
+      .then((res) => res.json().then((json) => ({ ok: res.ok, json })))
+      .then(({ ok, json }) => {
+        if (!cancelled && ok && json.success && Array.isArray(json.data)) {
           setEmployees(json.data);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const openAddEmployee = () => {
+    setEditingEmp(null);
+    setEmpName('');
+    setEmpCode(`EXM-EMP-${String(employees.length + 1).padStart(3, '0')}`);
+    setEmpRole('Production Technician');
+    setEmpDept('Cutting & Finishing');
+    setEmpPhone('');
+    setEmpEmail('');
+    setEmpLocation('Central Manufacturing Plant');
+    setCreateLoginWithEmp(false);
+    setEmpErpRole('Production');
+    setEmpErpPassword('');
+    setEmpErpPin('');
+    setIsEmpModalOpen(true);
+  };
+
+  const openEditEmployee = (emp: EmployeeListItem) => {
+    setEditingEmp(emp);
+    setEmpName(emp.name);
+    setEmpCode(emp.employeeCode);
+    setEmpRole(emp.role);
+    setEmpDept(emp.department);
+    setEmpPhone(emp.phone);
+    setEmpEmail(emp.email);
+    setEmpLocation(emp.location || 'Central Manufacturing Plant');
+    setCreateLoginWithEmp(false);
+    setIsEmpModalOpen(true);
+  };
+
+  const handleSaveEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!empName.trim()) return;
+    if (!editingEmp && createLoginWithEmp && !empErpPassword.trim() && !/^\d{4,6}$/.test(empErpPin.trim())) {
+      setNotice({ type: 'err', text: 'Provide a 4–6 digit Quick PIN or 6+ char Password to create ERP login.' });
+      return;
+    }
+    setSavingEmp(true);
+    setNotice(null);
+    try {
+      const res = await apiFetch('/api/employees', {
+        method: editingEmp ? 'PATCH' : 'POST',
+        body: JSON.stringify({
+          ...(editingEmp ? { id: editingEmp.id } : {}),
+          name: empName.trim(),
+          employeeCode: empCode.trim(),
+          role: empRole.trim(),
+          department: empDept.trim(),
+          phone: empPhone.trim(),
+          email: empEmail.trim().toLowerCase(),
+          location: empLocation.trim(),
+          ...(!editingEmp && createLoginWithEmp
+            ? {
+                createLogin: true,
+                erpRole: empErpRole,
+                ...(empErpPassword.trim() ? { password: empErpPassword.trim() } : {}),
+                ...(empErpPin.trim() ? { quickPin: empErpPin.trim() } : {}),
+              }
+            : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setNotice({ type: 'err', text: data.error || 'Could not save employee record.' });
+        return;
+      }
+      setIsEmpModalOpen(false);
+      setNotice({ type: 'ok', text: `Saved staff profile for ${empName.trim()}.` });
+      await loadEmployees();
+    } catch {
+      setNotice({ type: 'err', text: 'Network error saving employee.' });
+    } finally {
+      setSavingEmp(false);
+    }
+  };
+
+  const handleDeleteEmployee = async (emp: EmployeeListItem) => {
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(`Remove "${emp.name}" (${emp.employeeCode}) from the employee roster?`)
+    ) {
+      return;
+    }
+    try {
+      const res = await apiFetch(`/api/employees?id=${encodeURIComponent(emp.id)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setNotice({ type: 'err', text: data.error || 'Could not remove employee.' });
+        return;
+      }
+      setNotice({ type: 'ok', text: `${emp.name} removed from roster.` });
+      await loadEmployees();
+    } catch {
+      setNotice({ type: 'err', text: 'Network error removing employee.' });
+    }
+  };
+
+  const handleCreateErpLoginForEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginTargetEmp) return;
+    if (loginPassword.trim().length > 0 && loginPassword.trim().length < 6) {
+      setNotice({ type: 'err', text: 'Initial login password must be at least 6 characters.' });
+      return;
+    }
+    if (loginPassword.trim().length === 0 && !/^\d{4,6}$/.test(loginPin.trim())) {
+      setNotice({ type: 'err', text: 'Provide either a 6+ char Password or a 4–6 digit Quick PIN.' });
+      return;
+    }
+    if (loginPin.trim() && !/^\d{4,6}$/.test(loginPin.trim())) {
+      setNotice({ type: 'err', text: 'Quick PIN must be 4 to 6 numeric digits.' });
+      return;
+    }
+    setSavingLogin(true);
+    try {
+      const res = await apiFetch('/api/auth/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'UPSERT_USER',
+          name: loginTargetEmp.name,
+          email: loginTargetEmp.email || undefined,
+          employeeCode: loginTargetEmp.employeeCode,
+          department: loginTargetEmp.department,
+          phone: loginTargetEmp.phone,
+          plantLocation: loginTargetEmp.location,
+          role: loginRole,
+          ...(loginPassword.trim() ? { password: loginPassword.trim() } : {}),
+          ...(loginPin.trim() ? { quickPin: loginPin.trim() } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setNotice({ type: 'err', text: data.error || 'Failed to create ERP login.' });
+        return;
+      }
+      setLoginTargetEmp(null);
+      setLoginPassword('');
+      setLoginPin('');
+      setNotice({ type: 'ok', text: data.message || 'ERP staff login created and linked!' });
+      await loadEmployees();
+    } catch {
+      setNotice({ type: 'err', text: 'Network error creating ERP login.' });
+    } finally {
+      setSavingLogin(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -1919,33 +2011,367 @@ export function EmployeesView() {
             Factory technicians, CNC programmers, QC inspectors and site measurement supervisors across Kerala
           </p>
         </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {isSuperAdmin && onManageStaffLogins && (
+            <button
+              type="button"
+              onClick={onManageStaffLogins}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Staff Logins &amp; Roles</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={openAddEmployee}
+            className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Employee</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {employees.map((emp) => (
-          <div key={emp.id} className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/10 dark:bg-slate-800 flex items-center justify-center font-bold text-red-500">
-                {emp.name.split(' ').map((n) => n[0]).join('')}
+      {notice && (
+        <div
+          className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 ${
+            notice.type === 'ok'
+              ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+              : 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+          }`}
+        >
+          <span>{notice.text}</span>
+          <button type="button" onClick={() => setNotice(null)}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="py-12 text-center text-xs text-slate-400">Loading staff roster...</div>
+      ) : employees.length === 0 ? (
+        <div className="p-8 rounded-2xl border border-dashed border-slate-700 text-center text-xs text-slate-400">
+          No employees added to roster yet. Click <strong>Add Employee</strong> to register plant technicians, cutting/painting leads, or field engineers.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {employees.map((emp) => (
+            <div key={emp.id} className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2.5 shadow-sm flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-red-500/10 dark:bg-slate-800 flex items-center justify-center font-bold text-red-500 shrink-0">
+                      {emp.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{emp.name}</h4>
+                        <span className="text-[10px] font-mono text-slate-400">{emp.employeeCode}</span>
+                      </div>
+                      <p className="text-xs text-red-500 font-medium truncate">{emp.role}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => openEditEmployee(emp)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                      title="Edit employee"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEmployee(emp)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/30"
+                      title="Remove employee"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 flex justify-between items-center">
+                  <span>{emp.department}</span>
+                  <span className="font-mono text-slate-600 dark:text-slate-400">{emp.phone}</span>
+                </div>
+                <div className="text-[11px] text-slate-400 truncate">
+                  Station: {emp.location} {emp.email ? `• ${emp.email}` : ''}
+                </div>
+              </div>
+
+              {/* Linked ERP Login Status */}
+              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 text-[10px]">
+                {emp.loginAccount ? (
+                  <>
+                    <span
+                      className={`px-2 py-0.5 rounded font-bold border ${
+                        emp.loginAccount.isActive !== false
+                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                          : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                      }`}
+                    >
+                      ERP Login: {emp.loginAccount.role}
+                      {emp.loginAccount.isActive === false ? ' (Paused)' : ''}
+                      {Array.isArray(emp.loginAccount.customAllowedModules)
+                        ? ` • ${emp.loginAccount.customAllowedModules.length} mod`
+                        : ''}
+                    </span>
+                    {emp.loginAccount.hasQuickPin && (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
+                        PIN Ready
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-slate-500">No ERP Login linked</span>
+                    {isSuperAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoginTargetEmp(emp);
+                          setLoginRole('Production');
+                          setLoginPassword('');
+                          setLoginPin('');
+                        }}
+                        className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-bold inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <UserPlus className="w-3 h-3" /> Create ERP Login
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add / Edit Employee Modal */}
+      {isEmpModalOpen && (
+        <div className="fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-[#111827] border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-[#141d33]">
+              <h3 className="font-bold text-white text-sm">
+                {editingEmp ? `Edit Employee: ${editingEmp.name}` : 'Add New Factory / Field Employee'}
+              </h3>
+              <button type="button" onClick={() => setIsEmpModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEmployee} className="p-5 space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] text-slate-300 font-bold mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    value={empName}
+                    onChange={(e) => setEmpName(e.target.value)}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-300 font-bold mb-1">Staff Code</label>
+                  <input
+                    type="text"
+                    value={empCode}
+                    onChange={(e) => setEmpCode(e.target.value.toUpperCase())}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-300 font-bold mb-1">Designation / Role</label>
+                  <input
+                    type="text"
+                    value={empRole}
+                    onChange={(e) => setEmpRole(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-300 font-bold mb-1">Section / Department</label>
+                  <input
+                    type="text"
+                    value={empDept}
+                    onChange={(e) => setEmpDept(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-300 font-bold mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    value={empPhone}
+                    onChange={(e) => setEmpPhone(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-300 font-bold mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={empEmail}
+                    onChange={(e) => setEmpEmail(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">{emp.name}</h4>
-                  <span className="text-[10px] font-mono text-slate-400">{emp.employeeCode}</span>
-                </div>
-                <p className="text-xs text-red-500 font-medium">{emp.role}</p>
+                <label className="block text-[11px] text-slate-300 font-bold mb-1">Plant / Station Location</label>
+                <input
+                  type="text"
+                  value={empLocation}
+                  onChange={(e) => setEmpLocation(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                />
               </div>
-            </div>
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 flex justify-between items-center">
-              <span>{emp.department}</span>
-              <span className="font-mono text-slate-600 dark:text-slate-400">{emp.phone}</span>
-            </div>
-            <div className="text-[10px] text-slate-400">
-              Station: {emp.location}
-            </div>
+
+              {!editingEmp && isSuperAdmin && (
+                <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5">
+                  <label className="inline-flex items-center gap-2 text-xs font-bold text-amber-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={createLoginWithEmp}
+                      onChange={(e) => setCreateLoginWithEmp(e.target.checked)}
+                      className="w-4 h-4 rounded accent-amber-500"
+                    />
+                    <span>Also Create ERP Staff Login Now</span>
+                  </label>
+                  {createLoginWithEmp && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1">ERP Role</label>
+                        <select
+                          value={empErpRole}
+                          onChange={(e) => setEmpErpRole(e.target.value as UserRole)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white"
+                        >
+                          {(Object.keys(ERP_ROLES) as UserRole[]).map((r) => (
+                            <option key={r} value={r}>{r}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Quick PIN (4–6 digits)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={empErpPin}
+                          onChange={(e) => setEmpErpPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="e.g. 4829"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 font-mono text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Password (optional)</label>
+                        <input
+                          type="password"
+                          value={empErpPassword}
+                          onChange={(e) => setEmpErpPassword(e.target.value)}
+                          placeholder="Min 6 chars"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEmpModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-700 text-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEmp}
+                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold"
+                >
+                  {savingEmp ? 'Saving...' : 'Save Employee'}
+                </button>
+              </div>
+            </form>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {/* Quick Create ERP Login Modal for Employee (Super Admin) */}
+      {loginTargetEmp && isSuperAdmin && (
+        <div className="fixed inset-0 bg-black/80 z-[85] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-[#111827] border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-[#141d33]">
+              <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-amber-400" />
+                Create ERP Login: {loginTargetEmp.name}
+              </h3>
+              <button type="button" onClick={() => setLoginTargetEmp(null)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateErpLoginForEmployee} className="p-5 space-y-3 text-xs">
+              <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300">
+                <div><strong>Login Alias / Email:</strong> {loginTargetEmp.email || 'Auto-generated from Staff Code'}</div>
+                <div><strong>Staff Code:</strong> {loginTargetEmp.employeeCode}</div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">ERP Role *</label>
+                <select
+                  value={loginRole}
+                  onChange={(e) => setLoginRole(e.target.value as UserRole)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                >
+                  {(Object.keys(ERP_ROLES) as UserRole[]).map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">Initial Password (min 6 chars, optional if PIN given)</label>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">Quick PIN (4–6 numeric digits)</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={loginPin}
+                  onChange={(e) => setLoginPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono tracking-widest text-white"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setLoginTargetEmp(null)}
+                  className="px-4 py-2 rounded-lg border border-slate-700 text-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingLogin}
+                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold disabled:opacity-50"
+                >
+                  {savingLogin ? 'Creating...' : 'Create Login Account'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1954,7 +2380,7 @@ export function EmployeesView() {
  * 11. DISPATCH & INSTALLATION VIEW
  * ------------------------------------------------------------- */
 export function DispatchInstallationView() {
-  const [activeTab, setActiveTab] = useState<'dispatches' | 'installations' | 'warranties'>('dispatches');
+  const [activeTab, setActiveTab] = useState<'dispatches' | 'fleet' | 'installations' | 'warranties'>('dispatches');
   const [dispatches, setDispatches] = useState<DispatchRecord[]>([]);
   const [installations, setInstallations] = useState<InstallationRecord[]>([]);
   const [warranties, setWarranties] = useState<WarrantyCertificate[]>([]);
@@ -2055,6 +2481,16 @@ export function DispatchInstallationView() {
           Fleet Logistics &amp; Dispatches ({dispatches.length})
         </button>
         <button
+          onClick={() => setActiveTab('fleet')}
+          className={`pb-2.5 px-3 text-xs font-bold transition-colors border-b-2 ${
+            activeTab === 'fleet'
+              ? 'border-red-500 text-red-500'
+              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          Drivers &amp; Vehicles Master
+        </button>
+        <button
           onClick={() => setActiveTab('installations')}
           className={`pb-2.5 px-3 text-xs font-bold transition-colors border-b-2 ${
             activeTab === 'installations'
@@ -2111,7 +2547,7 @@ export function DispatchInstallationView() {
                     <th className="px-4 py-3">District</th>
                     <th className="px-4 py-3">Vehicle &amp; Driver</th>
                     <th className="px-4 py-3">Doors</th>
-                    <th className="px-4 py-3">e-Way Bill</th>
+                    <th className="px-4 py-3">Waybill / Ref</th>
                     <th className="px-4 py-3">Status</th>
                   </tr>
                 </thead>
@@ -2169,7 +2605,12 @@ export function DispatchInstallationView() {
         </div>
       )}
 
-      {/* TAB 2: INSTALLATIONS */}
+      {/* TAB 2: DRIVERS & VEHICLES MASTER */}
+      {activeTab === 'fleet' && (
+        <DriversAndVehiclesMasterTab />
+      )}
+
+      {/* TAB 3: INSTALLATIONS */}
       {activeTab === 'installations' && (
         <div className="space-y-4">
           <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -2297,76 +2738,14 @@ export function DispatchInstallationView() {
         </div>
       )}
 
-      {/* TAB 3: WARRANTIES */}
+      {/* TAB 3: WARRANTIES (LOCATION-BASED & GEOFENCED) */}
       {activeTab === 'warranties' && (
-        <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <ShieldCheck className="w-6 h-6 text-amber-500 shrink-0" />
-              <div>
-                <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                  Official EXMARK FRP Door Material Warranty Standard
-                </h4>
-                <p className="text-xs text-amber-800 dark:text-amber-300">
-                  Strictly protects <strong>FRP Door Material</strong> against water rot, termites &amp; swelling. Hinges, locks, and handles are explicitly excluded from warranty liability.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setSelectedWarranty(null);
-                setIsWarrantyModalOpen(true);
-              }}
-              className="px-3 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shrink-0 shadow-sm"
-            >
-              Issue New Warranty
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {warranties.map((w) => (
-              <div
-                key={w.certificateNumber}
-                className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm hover:border-amber-500/50 transition-colors cursor-pointer"
-                onClick={() => {
-                  setSelectedWarranty(w);
-                  setIsWarrantyModalOpen(true);
-                }}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono font-bold text-amber-500 uppercase">
-                      {w.certificateNumber}
-                    </span>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
-                      {w.customerName}
-                    </h3>
-                    <p className="text-xs text-slate-500">{w.siteAddress}, {w.district}</p>
-                  </div>
-                  <span className="px-2 py-1 rounded text-xs font-black bg-amber-500/15 text-amber-600 border border-amber-500/30">
-                    {w.warrantyPeriodYears} YEARS
-                  </span>
-                </div>
-
-                <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
-                  <div className="text-[11px] font-semibold text-emerald-600">
-                    Scope: {w.coverageScope}
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    Valid: {w.validFrom} to {w.validUntil}
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs text-slate-400">
-                  <span>Covered Doors: {w.coveredDoors?.length || 1} units</span>
-                  <span className="text-amber-500 font-semibold hover:underline">
-                    View &amp; Print Certificate &rarr;
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <GeotaggedWarrantyHub
+          onOpenIssueModal={() => {
+            setSelectedWarranty(null);
+            setIsWarrantyModalOpen(true);
+          }}
+        />
       )}
 
       {/* Modals */}
@@ -2408,36 +2787,7 @@ export function DispatchInstallationView() {
  * 12. MARKETING VIEW
  * ------------------------------------------------------------- */
 export function MarketingView() {
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Megaphone className="w-6 h-6 text-red-500" />
-            Dealer Display Marketing & Architect Outreach
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Kerala showroom door display racks, architectural expo booths & catalog distribution
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-          <h3 className="font-bold text-sm text-slate-900 dark:text-white">Kerala Dealer Showroom Rack Program</h3>
-          <p className="text-xs text-slate-400">
-            6-Door rotating showroom display stand showing FRP Molded Teak, Rosewood CNC Carved, and WPC Bathroom Doors installed in 42 dealer showrooms across Kerala.
-          </p>
-        </div>
-        <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-          <h3 className="font-bold text-sm text-slate-900 dark:text-white">IIA Kerala Chapter Architect Connect</h3>
-          <p className="text-xs text-slate-400">
-            Exclusive moisture-resistance and acoustic sample kits distributed to 120 leading Kerala architectural consultancies in Kochi, Calicut & Trivandrum.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+  return <MarketingSalesExpansionHub />;
 }
 
 /* -------------------------------------------------------------
@@ -2489,6 +2839,23 @@ export function ReportsView() {
     setIsPrintModalOpen(true);
   };
 
+  const handleDownloadReportPdf = () => {
+    if (!reportResult) return;
+    try {
+      const pdfDoc = generateExecutiveReportPdf(reportResult, {
+        reportTitle: reportResult.title,
+        reportCode: selectedReportCode,
+      });
+      pdfDoc.save(`EXMARK_${selectedReportCode}_${new Date().toISOString().split('T')[0]}.pdf`);
+      setToastMessage(`Downloaded PDF report: EXMARK_${selectedReportCode}.pdf`);
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch (err) {
+      console.error('Report PDF download failed:', err);
+      setToastMessage('PDF generation error — opening print preview instead.');
+      setIsPrintModalOpen(true);
+    }
+  };
+
   const handleExportCsv = () => {
     if (!reportResult || !reportResult.rows.length) return;
     const colKeys = Object.keys(reportResult.rows[0]);
@@ -2519,12 +2886,14 @@ export function ReportsView() {
 
   const REPORT_OPTIONS = [
     { code: 'SALES_BY_DISTRICT', title: 'District Sales & Dealer Turnover' },
-    { code: 'GST_INVOICES_RETURNS', title: 'GST Invoices & Sales Returns (Sec 34)' },
+    { code: 'SALES_BILLS_RETURNS', title: 'Sales Bills & Returns Reconciliation' },
     { code: 'PRODUCTION_EFFICIENCY', title: 'Plant Output & QC First-Pass Yield' },
     { code: 'INVENTORY_VALUATION', title: 'Raw Materials & Chemical Valuation' },
     { code: 'OUTSTANDING_RECEIVABLES_AGING', title: 'Receivables Aging (>30, >60, >90 Days)' },
     { code: 'PLANT_OEE_MAINTENANCE', title: 'Machinery Uptime & OEE Audit' },
     { code: 'FRP_MODEL_MARGINS', title: 'FRP Door Model Profitability' },
+    { code: 'ORDER_WISE_PROFIT_PNL', title: 'Order-Wise Profit & Loss (P&L)' },
+    { code: 'BREAK_EVEN_CVP_ANALYSIS', title: 'Break-Even & Unit Economics CVP Audit' },
   ];
 
   const REPORT_THEMES: { id: ReportPrintTheme; label: string; desc: string }[] = [
@@ -2568,10 +2937,17 @@ export function ReportsView() {
             <Download className="w-3.5 h-3.5 text-emerald-500" /> Export Excel / CSV
           </button>
           <button
+            onClick={handleDownloadReportPdf}
+            disabled={!reportResult}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-md shadow-indigo-900/30"
+          >
+            <Download className="w-3.5 h-3.5" /> Download PDF (.pdf)
+          </button>
+          <button
             onClick={handlePrint}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-md shadow-red-900/30"
           >
-            <Printer className="w-3.5 h-3.5" /> Print / Export PDF (A4)
+            <Printer className="w-3.5 h-3.5" /> Print Preview (A4)
           </button>
         </div>
       </div>
@@ -2697,7 +3073,7 @@ export function ReportsView() {
        * PRINT & PDF DOCUMENT HUB MODAL (Tally & Vyapar Multi-Theme)
        * ============================================================ */}
       {isPrintModalOpen && reportResult && (
-        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm overflow-y-auto printable-document-modal">
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm overflow-y-auto printable-document-modal printable-modal-root">
           <div className="bg-[#0f172a] border border-slate-700 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[96vh]">
             {/* Top Modal Header Bar */}
             <div className="p-3.5 border-b border-slate-800 flex justify-between items-center bg-[#131d35] print:hidden">
@@ -2711,6 +3087,14 @@ export function ReportsView() {
                 </h3>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadReportPdf}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white rounded-lg flex items-center gap-1.5 shadow-md shadow-indigo-900/40 transition cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download PDF (.pdf)</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => window.print()}
@@ -2814,8 +3198,331 @@ export function ReportsView() {
 /* -------------------------------------------------------------
  * 14. SETTINGS VIEW
  * ------------------------------------------------------------- */
-export function SettingsView() {
-  const [activeTab, setActiveTab] = useState<'customization' | 'categories' | 'profile'>('customization');
+function FrameAndBoqWoodSettings() {
+  const [frames, setFrames] = useState<CustomFrameProfile[]>(DEFAULT_FRAME_PROFILES);
+  const [isFrameModalOpen, setIsFrameModalOpen] = useState(false);
+  const [rates, setRates] = useState<BoqMaterialRatesConfig>(DEFAULT_BOQ_MATERIAL_RATES);
+  const [savingFrameId, setSavingFrameId] = useState<string | null>(null);
+  const [savingRates, setSavingRates] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const loadData = () => {
+    fetch('/api/settings/frames')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) setFrames(json.data);
+      })
+      .catch(() => {});
+
+    fetch('/api/boq/material-rates')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          const merged = mergeBoqMaterialRates(json.data);
+          if (json.data.pigmentRatesByColour) {
+            merged.pigmentRatesByColour = json.data.pigmentRatesByColour;
+          }
+          setRates(merged);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleFrameFieldChange = (
+    id: string,
+    field: 'woodThicknessCm' | 'woodWidthCm' | 'woodLengthDeductionCm' | 'quotationExtraRate',
+    value: number
+  ) => {
+    setFrames((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, [field]: Number.isFinite(value) ? value : 0 } : f))
+    );
+  };
+
+  const handleSaveFrameWood = async (frame: CustomFrameProfile) => {
+    setSavingFrameId(frame.id);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/settings/frames/${encodeURIComponent(frame.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          woodThicknessCm: frame.woodThicknessCm ?? 2,
+          woodWidthCm: frame.woodWidthCm ?? 7,
+          woodLengthDeductionCm: frame.woodLengthDeductionCm ?? 35,
+          quotationExtraRate: frame.quotationExtraRate ?? 0,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotice(`Saved BOQ Wood dimensions for ${frame.name}`);
+      }
+    } finally {
+      setSavingFrameId(null);
+    }
+  };
+
+  const handleSaveBoqFormulaRates = async () => {
+    setSavingRates(true);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/boq/material-rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rates),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setRates(mergeBoqMaterialRates(json.data));
+        setNotice('Saved Frame Wood Formula Mode & BOQ Material Rates');
+      }
+    } finally {
+      setSavingRates(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5 text-xs">
+      {notice && (
+        <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-600/60 text-emerald-300 font-bold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {/* Frame Wood Section Matrix */}
+      <div className="bg-[#0B132B] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-white text-sm flex items-center gap-2">
+              <Layers className="w-4 h-4 text-amber-400" />
+              Frame Profiles &amp; BOQ Timber Reeper Sections
+            </h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Update Regular, Medium, Heavy, School, Mini, or custom frame wood dimensions (Thickness cm, Width cm, Length Deduction cm) for automatic Cu.Ft BOQ calculation.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsFrameModalOpen(true)}
+            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold flex items-center gap-1.5 shadow cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add / Manage Custom Frames</span>
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-slate-800 bg-[#070D1E] text-slate-400 uppercase text-[10px]">
+                <th className="p-2.5">Frame Profile</th>
+                <th className="p-2.5">Wall × Rebate</th>
+                <th className="p-2.5 text-right">Wood Thick (cm)</th>
+                <th className="p-2.5 text-right">Wood Width (cm)</th>
+                <th className="p-2.5 text-right">Length Deduction (cm)</th>
+                <th className="p-2.5 text-right">Quote Extra (₹)</th>
+                <th className="p-2.5 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {frames.map((frame) => (
+                <tr key={frame.id} className="hover:bg-slate-800/30">
+                  <td className="p-2.5">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <span>{frame.name}</span>
+                      {frame.isDefault && (
+                        <span className="px-1.5 py-0.5 text-[9px] rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                          DEFAULT
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-400">{frame.id}</div>
+                  </td>
+                  <td className="p-2.5 text-slate-300">
+                    {frame.wallThicknessMm} × {frame.sectionWidthMm} mm
+                  </td>
+                  <td className="p-2.5 text-right">
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={frame.woodThicknessCm ?? 2}
+                      onChange={(e) =>
+                        handleFrameFieldChange(frame.id, 'woodThicknessCm', Number(e.target.value))
+                      }
+                      className="w-20 bg-[#070D1E] border border-slate-700 rounded px-2 py-1 text-right text-amber-300 font-bold"
+                    />
+                  </td>
+                  <td className="p-2.5 text-right">
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={frame.woodWidthCm ?? 7}
+                      onChange={(e) =>
+                        handleFrameFieldChange(frame.id, 'woodWidthCm', Number(e.target.value))
+                      }
+                      className="w-20 bg-[#070D1E] border border-slate-700 rounded px-2 py-1 text-right text-amber-300 font-bold"
+                    />
+                  </td>
+                  <td className="p-2.5 text-right">
+                    <input
+                      type="number"
+                      step="1"
+                      value={frame.woodLengthDeductionCm ?? 35}
+                      onChange={(e) =>
+                        handleFrameFieldChange(
+                          frame.id,
+                          'woodLengthDeductionCm',
+                          Number(e.target.value)
+                        )
+                      }
+                      className="w-20 bg-[#070D1E] border border-slate-700 rounded px-2 py-1 text-right text-white font-bold"
+                    />
+                  </td>
+                  <td className="p-2.5 text-right">
+                    <input
+                      type="number"
+                      value={frame.quotationExtraRate ?? 0}
+                      onChange={(e) =>
+                        handleFrameFieldChange(
+                          frame.id,
+                          'quotationExtraRate',
+                          Number(e.target.value)
+                        )
+                      }
+                      className="w-24 bg-[#070D1E] border border-slate-700 rounded px-2 py-1 text-right text-emerald-300 font-bold"
+                    />
+                  </td>
+                  <td className="p-2.5 text-center">
+                    <button
+                      type="button"
+                      disabled={savingFrameId === frame.id}
+                      onClick={() => handleSaveFrameWood(frame)}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold cursor-pointer"
+                    >
+                      {savingFrameId === frame.id ? 'Saving...' : 'Save Wood'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Global Wood Formula Mode & Core BOQ Rates */}
+      <div className="bg-[#0B132B] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 className="font-bold text-white text-sm">
+              Global BOQ Timber, Foam &amp; Sq.Ft Baseline Formula Settings
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Defaults calibrated to 80×210 cm Normal Door (8 kg Resin, 1.5 kg GEL, 180g Catalyst, 100g Accelerator, 3.5 kg CSM 300 GSM, 250g Pigment, 12-door 50×100 cm Foam @ ₹250).
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={savingRates}
+            onClick={handleSaveBoqFormulaRates}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold cursor-pointer"
+          >
+            {savingRates ? 'Saving...' : 'Save BOQ Formula Settings'}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-[10px] text-slate-400 uppercase font-bold">
+              Frame Running Length Mode
+            </label>
+            <select
+              value={rates.frameLengthMode}
+              onChange={(e) =>
+                setRates({ ...rates, frameLengthMode: e.target.value as FrameLengthMode })
+              }
+              className="w-full mt-1 bg-[#070D1E] border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold"
+            >
+              <option value="FRAME_3SIDE_MINUS_DED">3-Side Frame: (2×H + W) − Deduction</option>
+              <option value="FRAME_2H_MINUS_DED">2-Side Frame: (2×H) − Deduction</option>
+              <option value="SINGLE_H_MINUS_DED">Single Height: H − Deduction</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[10px] text-slate-400 uppercase font-bold">
+              Timber Rate (₹ / Cu.Ft)
+            </label>
+            <input
+              type="number"
+              value={rates.woodRatePerCuFt}
+              onChange={(e) => setRates({ ...rates, woodRatePerCuFt: Number(e.target.value) || 0 })}
+              className="w-full mt-1 bg-[#070D1E] border border-slate-700 rounded-lg px-3 py-2 text-amber-300 font-bold"
+            />
+          </div>
+
+          <div>
+            <label className="text-[10px] text-slate-400 uppercase font-bold">
+              Rigid Foam Sheet Rate (₹ / Sheet for {rates.foamSheet.doorsPerSheet} doors)
+            </label>
+            <input
+              type="number"
+              value={rates.foamSheet.costPerSheet}
+              onChange={(e) =>
+                setRates({
+                  ...rates,
+                  foamSheet: {
+                    ...rates.foamSheet,
+                    costPerSheet: Number(e.target.value) || 0,
+                  },
+                })
+              }
+              className="w-full mt-1 bg-[#070D1E] border border-slate-700 rounded-lg px-3 py-2 text-sky-300 font-bold"
+            />
+          </div>
+        </div>
+      </div>
+
+      <CustomFrameManagerModal
+        isOpen={isFrameModalOpen}
+        onClose={() => setIsFrameModalOpen(false)}
+        onFramesUpdated={loadData}
+      />
+    </div>
+  );
+}
+
+export function SettingsView({
+  userRole,
+  currentUserId,
+  initialTab,
+}: {
+  userRole?: UserRole;
+  currentUserId?: string;
+  initialTab?:
+    | 'customization'
+    | 'display_appearance'
+    | 'frames_boq_wood'
+    | 'categories'
+    | 'profile'
+    | 'backup_updates'
+    | 'cloud_sync'
+    | 'staff_access';
+}) {
+  const isSuperAdmin = userRole === 'Super Admin';
+  const [activeTab, setActiveTab] = useState<
+    | 'customization'
+    | 'display_appearance'
+    | 'frames_boq_wood'
+    | 'categories'
+    | 'profile'
+    | 'backup_updates'
+    | 'cloud_sync'
+    | 'staff_access'
+  >(initialTab && (initialTab !== 'staff_access' || isSuperAdmin) ? initialTab : 'customization');
 
   return (
     <div className="space-y-6">
@@ -2826,7 +3533,7 @@ export function SettingsView() {
             Admin Settings &amp; Plant Configuration
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Master ERP customization, dynamic fields, tolerances, approval rules, product categories &amp; security
+            Master ERP customization, dynamic fields, tolerances, staff logins, product categories &amp; backups
           </p>
         </div>
       </div>
@@ -2835,7 +3542,7 @@ export function SettingsView() {
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 text-xs overflow-x-auto">
         <button
           onClick={() => setActiveTab('customization')}
-          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 ${
             activeTab === 'customization'
               ? 'bg-red-600 text-white'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
@@ -2844,8 +3551,40 @@ export function SettingsView() {
           Master Rules &amp; Customization Engine (17 Domains)
         </button>
         <button
+          onClick={() => setActiveTab('display_appearance')}
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 ${
+            activeTab === 'display_appearance'
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-100 dark:bg-slate-800 text-blue-400 hover:text-white'
+          }`}
+        >
+          Display, Themes &amp; Screen Fit
+        </button>
+        {isSuperAdmin && (
+          <button
+            onClick={() => setActiveTab('staff_access')}
+            className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 ${
+              activeTab === 'staff_access'
+                ? 'bg-amber-500 text-slate-950'
+                : 'bg-slate-100 dark:bg-slate-800 text-amber-400 hover:text-white'
+            }`}
+          >
+            Staff Logins &amp; Roles
+          </button>
+        )}
+        <button
+          onClick={() => setActiveTab('frames_boq_wood')}
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 ${
+            activeTab === 'frames_boq_wood'
+              ? 'bg-red-600 text-white'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          Frame &amp; BOQ Wood Settings
+        </button>
+        <button
           onClick={() => setActiveTab('categories')}
-          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 ${
             activeTab === 'categories'
               ? 'bg-red-600 text-white'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
@@ -2855,21 +3594,53 @@ export function SettingsView() {
         </button>
         <button
           onClick={() => setActiveTab('profile')}
-          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 ${
             activeTab === 'profile'
               ? 'bg-red-600 text-white'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
           }`}
         >
-          Company Profile &amp; GST
+          Company &amp; Factory Profile
+        </button>
+        <button
+          onClick={() => setActiveTab('backup_updates')}
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 ${
+            activeTab === 'backup_updates'
+              ? 'bg-red-600 text-white'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          Backup, Restore &amp; Safe Updates
+        </button>
+        <button
+          onClick={() => setActiveTab('cloud_sync')}
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 ${
+            activeTab === 'cloud_sync'
+              ? 'bg-red-600 text-white'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          Cloud Sync (Postgres &amp; Google Drive)
         </button>
       </div>
 
       {activeTab === 'customization' && <AdminCustomizationSettings />}
 
+      {activeTab === 'display_appearance' && <DisplayAppearanceSettings />}
+
+      {activeTab === 'staff_access' && isSuperAdmin && (
+        <StaffAccessManagementTab currentUserId={currentUserId} />
+      )}
+
+      {activeTab === 'frames_boq_wood' && <FrameAndBoqWoodSettings />}
+
       {activeTab === 'categories' && <ProductCategoriesSettings />}
 
       {activeTab === 'profile' && <CompanyFactoryProfileSettings />}
+
+      {activeTab === 'backup_updates' && <SystemBackupAndUpdateTab />}
+
+      {activeTab === 'cloud_sync' && <CloudSyncSettingsTab />}
     </div>
   );
 }

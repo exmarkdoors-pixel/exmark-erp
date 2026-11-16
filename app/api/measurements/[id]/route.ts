@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMeasurementById, updateMeasurement } from '@/lib/services/measurementService';
-import { getSession } from '@/lib/auth/session';
-import { canAccessModule } from '@/lib/auth/roles';
+import { authorizeRequest } from '@/lib/auth/authorization';
 
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await context.params;
     const measurement = await getMeasurementById(id);
 
@@ -30,14 +32,14 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
-
-    if (session && !canAccessModule(session.role, 'measurements')) {
-      return NextResponse.json(
-        { success: false, error: `Access denied. Role ${session.role} cannot modify site measurements.` },
-        { status: 403 }
-      );
-    }
+    const auth = await authorizeRequest(req, undefined, [
+      'Super Admin',
+      'Management',
+      'Sales',
+      'Site Engineer',
+      'Production',
+    ]);
+    if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await context.params;
     const body = await req.json();

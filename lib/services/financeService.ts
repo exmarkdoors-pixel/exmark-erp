@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import prisma from '@/lib/prisma';
+import { getDataFilePath } from '../utils/dataPaths';
 import { assertWriteAllowed, isPostgresAvailable } from './dbSyncEngine';
 import {
   Invoice,
@@ -15,18 +16,19 @@ export * from '@/types/finance';
 
 // ── Store Helpers ─────────────────────────────────────────────────────────────
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'finance-store.json');
+const getStorePath = () => getDataFilePath('finance-store.json');
 
 function readStore(): FinanceStore {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(STORE_PATH)) {
+    if (!fs.existsSync(storePath)) {
       const initial: FinanceStore = { invoices: [], payments: [], targets: [] };
-      fs.writeFileSync(STORE_PATH, JSON.stringify(initial, null, 2), 'utf8');
+      fs.writeFileSync(storePath, JSON.stringify(initial, null, 2), 'utf8');
       return initial;
     }
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
     const valid = parsed as FinanceStore;
     return {
@@ -41,9 +43,10 @@ function readStore(): FinanceStore {
 
 function writeStore(store: FinanceStore): void {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(store, null, 2), 'utf8');
   } catch (err) {
     console.error('[financeService] Failed to write store:', err);
   }
@@ -90,9 +93,9 @@ export async function createInvoice(input: {
   await assertWriteAllowed('create invoice');
 
   const store = readStore();
-  const cgst = Math.round((input.subtotal * 9) / 100);
-  const sgst = Math.round((input.subtotal * 9) / 100);
-  const totalAmount = input.subtotal + cgst + sgst;
+  const cgst = 0;
+  const sgst = 0;
+  const totalAmount = input.subtotal;
 
   const newInvoice: Invoice = {
     id: generateId('inv'),

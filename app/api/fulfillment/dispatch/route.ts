@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   listDispatches,
   createDispatch,
@@ -6,8 +7,11 @@ import {
 } from '@/lib/services/fulfillmentService';
 import { DispatchStatus } from '@/types/fulfillment';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'dispatch');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const dispatches = await listDispatches();
     return NextResponse.json({ success: true, count: dispatches.length, data: dispatches });
   } catch (error) {
@@ -19,8 +23,11 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'dispatch');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     if (!body.customerName || !body.destinationAddress || !body.vehicleNumber || !body.driverName) {
       return NextResponse.json(
@@ -51,8 +58,11 @@ export async function POST(req: Request) {
   }
 }
 
-export async function PUT(req: Request) {
+export async function PUT(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'dispatch');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     if (!body.id || !body.status) {
       return NextResponse.json(

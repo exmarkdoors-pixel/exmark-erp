@@ -8,18 +8,20 @@ import {
   MeasurementConfirmationRecord,
 } from '@/types/communication';
 import { updateMeasurement } from './measurementService';
+import { getDataFilePath } from '@/lib/utils/dataPaths';
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'whatsapp-store.json');
+const getStorePath = () => getDataFilePath('whatsapp-store.json');
 
 function readStore(): WhatsAppMessage[] {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(STORE_PATH)) {
-      fs.writeFileSync(STORE_PATH, '[]', 'utf8');
+    if (!fs.existsSync(storePath)) {
+      fs.writeFileSync(storePath, '[]', 'utf8');
       return [];
     }
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as WhatsAppMessage[]) : [];
   } catch {
@@ -29,9 +31,10 @@ function readStore(): WhatsAppMessage[] {
 
 function writeStore(messages: WhatsAppMessage[]): void {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STORE_PATH, JSON.stringify(messages, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(messages, null, 2), 'utf8');
   } catch (err) {
     console.error('[communicationService] Failed to write store:', err);
   }
@@ -87,7 +90,7 @@ export async function sendWhatsAppTemplateMessage(input: {
       templateName = 'exmark_quotation_estimate';
       break;
     case 'INVOICE':
-      templateName = 'exmark_gst_invoice';
+      templateName = 'exmark_sales_invoice';
       break;
     case 'RECEIPT':
       templateName = 'exmark_payment_receipt';

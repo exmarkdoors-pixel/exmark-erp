@@ -10,7 +10,8 @@ export type UserRole =
   | 'Installation'
   | 'Plant Supervisor'
   | 'Site Engineer'
-  | 'QC Inspector';
+  | 'QC Inspector'
+  | 'Driver';
 
 export interface RoleConfig {
   name: UserRole;
@@ -97,7 +98,7 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
   },
   Accounts: {
     name: 'Accounts',
-    description: 'GST compliance (HSN 3925), e-Way bills, invoicing, dealer payment ledgers, and receivables.',
+    description: 'Commercial billing, dealer payment ledgers, advance receipts, and receivables.',
     allowedModules: [
       'dashboard',
       'customers',
@@ -226,6 +227,12 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
       'reports',
     ],
     badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+  },
+  Driver: {
+    name: 'Driver',
+    description: 'Vehicle fleet logistics, dispatch deliveries, digital proof-of-delivery, and site customer handovers.',
+    allowedModules: ['dashboard', 'dispatch', 'gate-pass', 'installation'],
+    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
   },
 };
 

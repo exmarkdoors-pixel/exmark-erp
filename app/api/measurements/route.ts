@@ -4,7 +4,7 @@ import { authorizeRequest } from '@/lib/auth/authorization';
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authorizeRequest(req, 'measurements');
+    const auth = await authorizeRequest(req, 'quotations');
     if (auth.errorResponse) return auth.errorResponse;
 
     const measurements = await getAllMeasurements();
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorizeRequest(req, 'measurements');
+    const auth = await authorizeRequest(req, 'quotations');
     if (auth.errorResponse) return auth.errorResponse;
     const session = auth.user;
 

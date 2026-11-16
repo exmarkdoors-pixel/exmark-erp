@@ -578,12 +578,24 @@ async function runHealthCheck() {
   }
 
   // Check HTTP Dev Server
-  console.log(`\n${C.cyan}Checking Next.js Live HTTP Server (http://localhost:3000)...${C.reset}`);
+  const targetPort = process.env.PORT || '4000';
+  console.log(`\n${C.cyan}Checking Next.js Live HTTP Server (http://localhost:${targetPort})...${C.reset}`);
   const isServerHealthy = await new Promise<boolean>((resolve) => {
-    const req = http.get('http://localhost:3000/api/dashboard/metrics', { timeout: 3000 }, (res) => {
+    const req = http.get(`http://localhost:${targetPort}/api/dashboard/metrics`, { timeout: 3000 }, (res) => {
       resolve(res.statusCode === 200);
     });
-    req.on('error', () => resolve(false));
+    req.on('error', () => {
+      // Also check fallback port 3000 if different
+      if (targetPort !== '3000') {
+        const req2 = http.get('http://localhost:3000/api/dashboard/metrics', { timeout: 2000 }, (res2) => {
+          resolve(res2.statusCode === 200);
+        });
+        req2.on('error', () => resolve(false));
+        req2.on('timeout', () => { req2.destroy(); resolve(false); });
+      } else {
+        resolve(false);
+      }
+    });
     req.on('timeout', () => { req.destroy(); resolve(false); });
   });
 

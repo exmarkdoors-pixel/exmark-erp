@@ -170,8 +170,8 @@ export function ConvertLeadModal({
       const count = lead.doorCount || 20;
       const rate = parseFloat(ratePerDoor) || 7500;
       const subtotal = count * rate;
-      const gst = Math.round(subtotal * 0.18);
-      const grandTotal = subtotal + gst;
+      const gst = 0;
+      const grandTotal = subtotal;
 
       const quotePayload = {
         leadId: lead.id,
@@ -336,7 +336,7 @@ export function ConvertLeadModal({
         {conversionType === 'CUSTOMER' && (
           <div className="p-5 space-y-3.5 text-xs">
             <div className="p-3 rounded-2xl bg-blue-950/30 border border-blue-500/30 text-blue-300">
-              Register <strong>{lead.client}</strong> as an authorized entity in the Customers Directory. This preserves billing history and allows issuing GST invoices.
+              Register <strong>{lead.client}</strong> as an authorized entity in the Customers Directory. This preserves billing history and allows issuing direct sales invoices.
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -478,7 +478,7 @@ export function ConvertLeadModal({
         {conversionType === 'QUOTATION' && (
           <div className="p-5 space-y-3.5 text-xs">
             <div className="p-3 rounded-2xl bg-purple-950/30 border border-purple-500/30 text-purple-300">
-              Generate an official GST rate card quotation for <strong>{lead.doorCount || 20}</strong> {lead.doors || 'FRP Doors'} with 18% Kerala GST.
+              Generate a formal direct-pricing quotation for <strong>{lead.doorCount || 20}</strong> {lead.doors || 'FRP Doors'}.
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -503,9 +503,9 @@ export function ConvertLeadModal({
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">Total (inc. 18% GST)</label>
+                <label className="block text-slate-400 font-bold mb-1">Net Total</label>
                 <div className="w-full px-3 py-2 bg-purple-950/40 text-purple-300 rounded-xl border border-purple-500/30 font-black">
-                  ₹{Math.round(((lead.doorCount || 20) * (parseFloat(ratePerDoor) || 7500)) * 1.18).toLocaleString('en-IN')}
+                  ₹{Math.round((lead.doorCount || 20) * (parseFloat(ratePerDoor) || 7500)).toLocaleString('en-IN')}
                 </div>
               </div>
             </div>
@@ -518,7 +518,7 @@ export function ConvertLeadModal({
                 className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-purple-950/50 flex items-center gap-1.5 cursor-pointer"
               >
                 <FileText className="w-4 h-4" />
-                <span>{isSubmitting ? 'Generating...' : 'Create Formal GST Quotation'}</span>
+                <span>{isSubmitting ? 'Generating...' : 'Create Formal Quotation'}</span>
               </button>
             </div>
           </div>

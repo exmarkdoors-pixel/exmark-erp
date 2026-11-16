@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   getBoq,
   convertToQuotation,
@@ -6,10 +7,13 @@ import {
 import { createQuotation } from '@/lib/services/quotationService';
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'quotations', ['Super Admin', 'Management', 'Sales']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const boq = await getBoq(id);
     if (!boq) {
@@ -37,7 +41,7 @@ export async function POST(
         thicknessMm: 32,
         quantity: item.quantity,
         unitPrice: item.unitRate,
-        gstRate: item.taxRate,
+        gstRate: 0,
         totalPrice: item.amount,
       })),
     });

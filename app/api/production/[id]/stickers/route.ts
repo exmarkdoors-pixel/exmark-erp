@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import { getProductionOrder } from '@/lib/services/productionService';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, undefined, [
+      'Super Admin',
+      'Management',
+      'Production',
+      'Plant Supervisor',
+      'QC Inspector',
+      'Sales',
+    ]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const order = await getProductionOrder(id);
     if (!order) {

@@ -45,7 +45,7 @@ const SEED_JOB_WORKS: JobWorkChallan[] = [
     id: 'JW-2026-081',
     challanDate: '28 Oct 2026',
     vendorName: 'St. Jude Toughened Glass & Etching Works',
-    vendorGstin: '32AABCS8891C1Z4',
+    vendorGstin: '',
     vendorDistrict: 'Aluva, Ernakulam',
     processType: 'GLASS_INSERT',
     processLabel: '8mm Frosted & Beveled Decorative Glass Insert',
@@ -56,14 +56,14 @@ const SEED_JOB_WORKS: JobWorkChallan[] = [
     daysRemainingSection143: 360,
     status: 'IN_PROCESSING',
     jobCharges: 16800,
-    eWayBillNo: '321894451201',
+    eWayBillNo: 'WB-2026-1201',
     notes: 'Beveled floral etching design #FL-4. Silicone sealed water-tight edge.',
   },
   {
     id: 'JW-2026-082',
     challanDate: '24 Oct 2026',
     vendorName: 'Malabar Brass CNC Carving & Inlays',
-    vendorGstin: '32AACCM7712M1Z8',
+    vendorGstin: '',
     vendorDistrict: 'Kottakkal, Malappuram',
     processType: 'BRASS_INLAY',
     processLabel: 'Antique Brass Strip & Nilavilakku CNC Routing Inlay',
@@ -74,14 +74,14 @@ const SEED_JOB_WORKS: JobWorkChallan[] = [
     daysRemainingSection143: 356,
     status: 'SENT_TO_VENDOR',
     jobCharges: 12400,
-    eWayBillNo: '321894451244',
+    eWayBillNo: 'WB-2026-1244',
     notes: 'Solid 3mm solid brass inlay strip with dual protective clear coat.',
   },
   {
     id: 'JW-2026-083',
     challanDate: '15 Oct 2026',
     vendorName: 'Cochin Precision Powder Coaters',
-    vendorGstin: '32AABCC4432K1ZP',
+    vendorGstin: '',
     vendorDistrict: 'Kalamassery, Ernakulam',
     processType: 'ALU_POWDER_COAT',
     processLabel: 'Matte Charcoal Grey 80 Micron Powder Coating',
@@ -92,21 +92,20 @@ const SEED_JOB_WORKS: JobWorkChallan[] = [
     daysRemainingSection143: 348,
     status: 'RETURNED_RECEIVED',
     jobCharges: 9600,
-    eWayBillNo: '321894450912',
+    eWayBillNo: 'WB-2026-0912',
     notes: 'Completed, inspected by plant QC and verified adhesion cross-hatch test.',
   },
 ];
 
 export default function SubcontractingHub() {
-  const [challans, setChallans] = useState<JobWorkChallan[]>(SEED_JOB_WORKS);
-  const [selectedChallan, setSelectedChallan] = useState<JobWorkChallan>(SEED_JOB_WORKS[0]);
+  const [challans, setChallans] = useState<JobWorkChallan[]>([]);
+  const [selectedChallan, setSelectedChallan] = useState<JobWorkChallan | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [isChallanModalOpen, setIsChallanModalOpen] = useState(false);
 
   // New challan form state
-  const [newVendor, setNewVendor] = useState('St. Jude Toughened Glass');
-  const [newVendorGstin, setNewVendorGstin] = useState('32AABCS8891C1Z4');
+  const [newVendor, setNewVendor] = useState('');
   const [newVendorDistrict, setNewVendorDistrict] = useState('Ernakulam');
   const [newProcess, setNewProcess] = useState<JobWorkChallan['processType']>('GLASS_INSERT');
   const [newSummary, setNewSummary] = useState('');
@@ -141,7 +140,7 @@ export default function SubcontractingHub() {
       id: `JW-2026-${Date.now().toString().slice(-3)}`,
       challanDate: 'Just now',
       vendorName: newVendor,
-      vendorGstin: newVendorGstin,
+      vendorGstin: '',
       vendorDistrict: newVendorDistrict,
       processType: newProcess,
       processLabel:
@@ -159,8 +158,8 @@ export default function SubcontractingHub() {
       daysRemainingSection143: 365,
       status: 'SENT_TO_VENDOR',
       jobCharges: Number(newJobCharges),
-      eWayBillNo: `3218944${Date.now().toString().slice(-5)}`,
-      notes: 'Outward Delivery Challan under GST Section 143 (Tax Exempt with 1-Year Return Window).',
+      eWayBillNo: `WB-2026-${Date.now().toString().slice(-4)}`,
+      notes: 'Outward Delivery Challan for outsourced finishing / assembly return tracking.',
     };
 
     setChallans([newChallan, ...challans]);
@@ -181,14 +180,14 @@ export default function SubcontractingHub() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-black tracking-tight text-white">
-                  Subcontracting & Job Work (GST Sec 143)
+                  Subcontracting &amp; Job Work Challans
                 </h1>
                 <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  GST Rule 45 / ITC-04 Benchmark
+                  Outwork Tracking
                 </span>
               </div>
               <p className="text-sm text-slate-400 mt-0.5">
-                സബ് കോൺട്രാക്റ്റിംഗ് / ജോബ് വർക്ക് • Glass etching, brass CNC inlays & statutory 1-year return tracking
+                സബ് കോൺട്രാക്റ്റിംഗ് / ജോബ് വർക്ക് • Glass etching, brass CNC inlays &amp; factory return tracking
               </p>
             </div>
           </div>
@@ -222,25 +221,25 @@ export default function SubcontractingHub() {
             <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="mt-2 text-2xl font-black text-emerald-400">₹{totalOutsourceValue.toLocaleString()}</div>
-          <p className="text-xs text-slate-400 mt-1">Material value under Section 143</p>
+          <p className="text-xs text-slate-400 mt-1">Dispatched material value</p>
         </div>
 
         <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Statutory Return Limit</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tracking Return Window</span>
             <Clock className="w-4 h-4 text-amber-400" />
           </div>
           <div className="mt-2 text-2xl font-black text-white">365 Days</div>
-          <p className="text-xs text-slate-400 mt-1">Zero GST liability risk</p>
+          <p className="text-xs text-slate-400 mt-1">Returnable factory challan</p>
         </div>
 
         <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Section 143 Compliance</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Challan Control</span>
             <ShieldCheck className="w-4 h-4 text-teal-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-teal-400">100% Compliant</div>
-          <p className="text-xs text-teal-400/80 mt-1">Rule 45 delivery challans valid</p>
+          <div className="mt-2 text-2xl font-black text-teal-400">100% Verified</div>
+          <p className="text-xs text-teal-400/80 mt-1">Outward dispatch challans active</p>
         </div>
       </div>
 
@@ -268,8 +267,13 @@ export default function SubcontractingHub() {
             </div>
 
             <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
-              {filteredChallans.map((ch) => {
-                const isSelected = selectedChallan.id === ch.id;
+              {filteredChallans.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400">
+                  No outward job work challans created yet.
+                </div>
+              ) : (
+                filteredChallans.map((ch) => {
+                const isSelected = selectedChallan?.id === ch.id;
                 return (
                   <div
                     key={ch.id}
@@ -311,13 +315,23 @@ export default function SubcontractingHub() {
                     </div>
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
           </div>
         </div>
 
         {/* Right Column (7 cols): Selected Challan Official View */}
         <div className="lg:col-span-7 space-y-4">
+          {!selectedChallan ? (
+            <div className="p-8 rounded-2xl bg-[#0B132B]/90 border border-dashed border-slate-800 text-center space-y-2">
+              <Repeat className="w-8 h-8 text-indigo-400 mx-auto opacity-60" />
+              <h3 className="text-sm font-bold text-white">No Outward Job Work Challans</h3>
+              <p className="text-xs text-slate-400">
+                Create an outward job work challan to track subcontracted glass inserts, brass carving, or coatings.
+              </p>
+            </div>
+          ) : (
           <div className="p-6 rounded-2xl bg-[#0B132B]/90 border border-slate-800 shadow-xl space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
               <div>
@@ -326,11 +340,11 @@ export default function SubcontractingHub() {
                     {selectedChallan.id}
                   </span>
                   <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                    GST Rule 45 Delivery Challan
+                    Outward Job Work Delivery Challan
                   </span>
                 </div>
                 <h2 className="text-lg font-bold text-white mt-1.5">{selectedChallan.vendorName}</h2>
-                <p className="text-xs text-slate-400 font-mono mt-0.5">GSTIN: {selectedChallan.vendorGstin} • {selectedChallan.vendorDistrict}</p>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">{selectedChallan.vendorDistrict}</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -359,7 +373,7 @@ export default function SubcontractingHub() {
                 <p className="font-bold text-amber-400 mt-0.5">{selectedChallan.expectedReturnDate}</p>
               </div>
               <div>
-                <span className="text-[11px] text-slate-400">Sec 143 Return Window</span>
+                <span className="text-[11px] text-slate-400">Return Window</span>
                 <p className="font-bold text-teal-400 mt-0.5">{selectedChallan.daysRemainingSection143} Days Left</p>
               </div>
             </div>
@@ -375,27 +389,28 @@ export default function SubcontractingHub() {
               </p>
             </div>
 
-            {/* Financials & e-Way Bill */}
+            {/* Financials & Dispatch Note */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div className="p-3 rounded-xl bg-[#070D1E] border border-slate-800">
-                <span className="text-slate-400">Taxable Material Value:</span>
+                <span className="text-slate-400">Material Value:</span>
                 <div className="text-base font-black text-white mt-0.5">₹{selectedChallan.taxableMaterialValue.toLocaleString()}</div>
-                <span className="text-[10px] text-slate-500">Not treated as supply</span>
+                <span className="text-[10px] text-slate-500">Outwork dispatch item value</span>
               </div>
 
               <div className="p-3 rounded-xl bg-[#070D1E] border border-slate-800">
                 <span className="text-slate-400">Agreed Job Work Charges:</span>
                 <div className="text-base font-black text-emerald-400 mt-0.5">₹{selectedChallan.jobCharges.toLocaleString()}</div>
-                <span className="text-[10px] text-slate-500">+ 18% GST on job work bill</span>
+                <span className="text-[10px] text-slate-500">Direct agreed job work rate</span>
               </div>
 
               <div className="p-3 rounded-xl bg-[#070D1E] border border-slate-800">
-                <span className="text-slate-400">Delivery e-Way Bill:</span>
-                <div className="text-xs font-mono font-bold text-indigo-300 mt-1">{selectedChallan.eWayBillNo || 'Exempt / Local'}</div>
-                <span className="text-[10px] text-slate-500">Transportation valid</span>
+                <span className="text-slate-400">Transport Ref / Slip:</span>
+                <div className="text-xs font-mono font-bold text-indigo-300 mt-1">{selectedChallan.eWayBillNo || 'Local Dispatch'}</div>
+                <span className="text-[10px] text-slate-500">Returnable vehicle transit</span>
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
 
@@ -410,7 +425,7 @@ export default function SubcontractingHub() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">Create Outward Job Work Challan</h3>
-                  <p className="text-xs text-slate-400">ഡെലിവറി ചലാൻ (GST Section 143)</p>
+                  <p className="text-xs text-slate-400">ഡെലിവറി ചലാൻ (ഔട്ട്‌വേർഡ് ജോബ് വർക്ക്)</p>
                 </div>
               </div>
               <button
@@ -433,25 +448,14 @@ export default function SubcontractingHub() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1">Vendor GSTIN</label>
-                  <input
-                    type="text"
-                    value={newVendorGstin}
-                    onChange={(e) => setNewVendorGstin(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#070D1E] border border-slate-700 text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 mb-1">District / Location</label>
-                  <input
-                    type="text"
-                    value={newVendorDistrict}
-                    onChange={(e) => setNewVendorDistrict(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#070D1E] border border-slate-700 text-white"
-                  />
-                </div>
+              <div>
+                <label className="block text-slate-400 mb-1">District / Location</label>
+                <input
+                  type="text"
+                  value={newVendorDistrict}
+                  onChange={(e) => setNewVendorDistrict(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#070D1E] border border-slate-700 text-white"
+                />
               </div>
 
               <div>
@@ -522,7 +526,7 @@ export default function SubcontractingHub() {
                   type="submit"
                   className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg shadow-indigo-600/30"
                 >
-                  Issue Rule 45 Challan
+                  Issue Delivery Challan
                 </button>
               </div>
             </form>

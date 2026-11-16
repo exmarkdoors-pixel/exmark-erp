@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, SessionUser, DEMO_USERS, SESSION_COOKIE_NAME, SESSION_MAX_AGE } from './session';
-import { canAccessModule, UserRole } from './roles';
+import {
+  getSession,
+  SessionUser,
+  DEMO_USERS,
+  SESSION_COOKIE_NAME,
+  parseSignedSessionToken,
+} from './session';
+import { UserRole } from './roles';
+import { canUserAccessModule } from './rbacStore';
+import {
+  findFactoryUserByEmail,
+  findFactoryUserById,
+  getAuthSecurityConfig,
+} from './userStore';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 
 export interface AuthorizationResult {
@@ -9,48 +21,10 @@ export interface AuthorizationResult {
 }
 
 /**
- * Validates and parses a base64 encoded session token or JSON string.
- */
-function parseSessionToken(token: string): SessionUser | null {
-  try {
-    let clean = token.trim();
-    if (clean.toLowerCase().startsWith('bearer ')) {
-      clean = clean.substring(7).trim();
-    }
-    try {
-      clean = decodeURIComponent(clean);
-    } catch {
-      // ignore
-    }
-    if (clean.startsWith('"') && clean.endsWith('"')) {
-      clean = clean.slice(1, -1);
-    }
-    let jsonStr: string;
-    try {
-      jsonStr = Buffer.from(clean, 'base64').toString('utf-8');
-      if (!jsonStr.trim().startsWith('{')) {
-        jsonStr = clean;
-      }
-    } catch {
-      jsonStr = clean;
-    }
-    const parsed = JSON.parse(jsonStr) as SessionUser & { issuedAt?: number };
-    if (!parsed || !parsed.id || !parsed.role || !parsed.email) {
-      return null;
-    }
-    if (parsed.issuedAt && Date.now() - parsed.issuedAt > SESSION_MAX_AGE * 1000) {
-      return null; // Expired token
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Universal server-side authorization check for Next.js Route Handlers.
- * Checks Bearer Authorization header, HTTP-only session cookie (exmark_erp_session),
- * or API headers (x-user-role / x-user-email in dev) against module permission and allowed role lists.
+ * Enforces signed session tokens / cookies across ALL factory devices (localhost, LAN, Electron),
+ * checks active account status & live role from EXMARK_DATA_DIR/users-store.json,
+ * and evaluates dynamic permissions from EXMARK_DATA_DIR/rbac-roles.json.
  */
 export async function authorizeRequest(
   req: NextRequest | Request,
@@ -62,9 +36,10 @@ export async function authorizeRequest(
 
   let user: SessionUser | null = null;
 
-  // 1. Inspect role override headers only in development/testing environments
-  const isDevOrTest = process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_HEADERS === 'true';
-  if (isDevOrTest) {
+  // 1. Inspect role override headers ONLY when explicitly enabled in non-production tests
+  const allowDevHeaders =
+    process.env.ALLOW_DEV_HEADERS === 'true' && process.env.NODE_ENV !== 'production';
+  if (allowDevHeaders) {
     if (headerEmail && DEMO_USERS[headerEmail.toLowerCase()]) {
       user = DEMO_USERS[headerEmail.toLowerCase()];
     } else if (headerRole) {
@@ -75,21 +50,22 @@ export async function authorizeRequest(
     }
   }
 
-  // 2. Inspect Authorization Bearer header (supports Electron desktop, mobile, and web clients)
+  // 2. Inspect Authorization Bearer header (Electron desktop, mobile, API clients)
   if (!user) {
     const authHeader = req.headers.get('authorization');
     if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
       const token = authHeader.substring(7).trim();
-      user = parseSessionToken(token);
+      user = parseSignedSessionToken(token);
     }
   }
 
   // 3. Inspect NextRequest cookies collection if present
   if (!user && 'cookies' in req && typeof (req as NextRequest).cookies?.get === 'function') {
     const nextReq = req as NextRequest;
-    const cookieVal = nextReq.cookies.get(SESSION_COOKIE_NAME)?.value || nextReq.cookies.get('exmark_session')?.value;
+    const cookieVal =
+      nextReq.cookies.get(SESSION_COOKIE_NAME)?.value || nextReq.cookies.get('exmark_session')?.value;
     if (cookieVal) {
-      user = parseSessionToken(cookieVal);
+      user = parseSignedSessionToken(cookieVal);
     }
   }
 
@@ -99,12 +75,12 @@ export async function authorizeRequest(
     if (cookieHeader) {
       const match = cookieHeader.match(/(?:^|;\s*)(?:exmark_erp_session|exmark_session)=([^;]+)/);
       if (match && match[1]) {
-        user = parseSessionToken(match[1]);
+        user = parseSignedSessionToken(match[1]);
       }
     }
   }
 
-  // 5. Fallback to Next.js cookies() store
+  // 5. Fallback to Next.js cookies() store (when request invoked internally from Server Components)
   if (!user) {
     try {
       user = await getSession();
@@ -113,30 +89,62 @@ export async function authorizeRequest(
     }
   }
 
-  // 6. Seamless Local Workstation / Desktop Terminal Auto-Authentication
+  // 6. Optional workstation fallback ONLY if admin disabled requireLoginOnAllDevices OR ALLOW_DEV_FALLBACK=true
   if (!user) {
-    const host = req.headers.get('host') || '';
-    const userAgent = req.headers.get('user-agent') || '';
-    const isLocal = host.includes('localhost') || host.includes('127.0.0.1') || userAgent.includes('Electron');
-    const isCloudEnv = process.env.RENDER === 'true' || process.env.VERCEL === '1';
-
-    if ((isLocal && !isCloudEnv) || process.env.ALLOW_DEV_FALLBACK === 'true' || process.env.NODE_ENV !== 'production') {
-      user = DEMO_USERS['director@exmarkdoors.com'];
+    const authCfg = getAuthSecurityConfig();
+    if (!authCfg.requireLoginOnAllDevices || process.env.ALLOW_DEV_FALLBACK === 'true') {
+      const host = req.headers.get('host') || '';
+      const userAgent = req.headers.get('user-agent') || '';
+      const isLocal = host.includes('localhost') || host.includes('127.0.0.1') || userAgent.includes('Electron');
+      const isCloudEnv = process.env.RENDER === 'true' || process.env.VERCEL === '1';
+      if ((isLocal && !isCloudEnv) || process.env.ALLOW_DEV_FALLBACK === 'true') {
+        user = DEMO_USERS['director@exmarkdoors.com'];
+      }
     }
   }
 
-  // 7. Reject unauthenticated requests in production cloud
+  // 7. Enforce mandatory authentication on all devices
   if (!user) {
     return {
       user: null,
       errorResponse: NextResponse.json(
-        { success: false, error: 'Authentication required. Please log in with valid credentials.' },
+        { success: false, error: 'Authentication required. Please log in with valid staff credentials.' },
         { status: 401 }
       ),
     };
   }
 
-  // 7. Role-based restrictions
+  // 8. Reconcile against live factory staff store (blocks deactivated/deleted users & reflects role edits immediately)
+  const storedUser = (await findFactoryUserById(user.id)) || (await findFactoryUserByEmail(user.email));
+  if (!storedUser) {
+    return {
+      user: null,
+      errorResponse: NextResponse.json(
+        { success: false, error: 'Staff account is no longer active or was removed. Please log in again.' },
+        { status: 401 }
+      ),
+    };
+  }
+  if (storedUser.isActive === false) {
+    return {
+      user: null,
+      errorResponse: NextResponse.json(
+        { success: false, error: 'Your staff account has been deactivated. Contact Super Admin.' },
+        { status: 401 }
+      ),
+    };
+  }
+  user = {
+    id: storedUser.id,
+    name: storedUser.name,
+    email: storedUser.email,
+    role: storedUser.role,
+    employeeCode: storedUser.employeeCode,
+    department: storedUser.department,
+    plantLocation: storedUser.plantLocation,
+  };
+
+  // 9. Explicit Role allowlist check
   if (allowedRoles && allowedRoles.length > 0) {
     if (!allowedRoles.includes(user.role)) {
       await logAuditEvent({
@@ -159,8 +167,11 @@ export async function authorizeRequest(
     }
   }
 
-  // 8. Module-based restrictions
-  if (requiredModule && !canAccessModule(user.role, requiredModule)) {
+  // 10. Dynamic module permission check (role matrix + optional per-user module override)
+  if (
+    requiredModule &&
+    !canUserAccessModule(user.role, requiredModule, storedUser.customAllowedModules)
+  ) {
     await logAuditEvent({
       userId: user.id,
       action: 'ACCESS_DENIED',

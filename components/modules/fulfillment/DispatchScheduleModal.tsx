@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Truck, Calendar, MapPin, Phone, Hash, Layers } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Truck, Calendar, MapPin, Phone, Hash, Layers, User, ChevronDown } from 'lucide-react';
 import { DispatchRecord } from '@/types/fulfillment';
+import { VehicleRecord, DriverRecord } from '@/types/fleet';
 
 interface Props {
   isOpen: boolean;
@@ -23,7 +24,77 @@ export function DispatchScheduleModal({ isOpen, onClose, onSuccess }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Fleet data
+  const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
+  const [drivers, setDrivers] = useState<DriverRecord[]>([]);
+  const [isCustomVehicle, setIsCustomVehicle] = useState(false);
+  const [isCustomDriver, setIsCustomDriver] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchFleet = async () => {
+      try {
+        const res = await fetch('/api/logistics/fleet');
+        const json = await res.json();
+        if (json.success && json.data) {
+          const vList: VehicleRecord[] = json.data.vehicles || [];
+          const dList: DriverRecord[] = json.data.drivers || [];
+          setVehicles(vList);
+          setDrivers(dList);
+
+          // If no vehicle selected yet, select first active vehicle
+          if (vList.length > 0 && !vehicleNumber) {
+            const defaultV = vList.find((v) => v.status === 'ACTIVE') || vList[0];
+            setVehicleNumber(defaultV.registrationNumber);
+            if (defaultV.assignedDriverName) {
+              setDriverName(defaultV.assignedDriverName);
+              setDriverPhone(defaultV.assignedDriverPhone || '');
+            }
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    };
+    fetchFleet();
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleVehicleSelect = (regNo: string) => {
+    if (regNo === '__CUSTOM__') {
+      setIsCustomVehicle(true);
+      setVehicleNumber('');
+      return;
+    }
+
+    setIsCustomVehicle(false);
+    setVehicleNumber(regNo);
+
+    // Auto-fill assigned driver
+    const matchedV = vehicles.find((v) => v.registrationNumber === regNo);
+    if (matchedV && matchedV.assignedDriverName) {
+      setDriverName(matchedV.assignedDriverName);
+      setDriverPhone(matchedV.assignedDriverPhone || '');
+      setIsCustomDriver(false);
+    }
+  };
+
+  const handleDriverSelect = (dName: string) => {
+    if (dName === '__CUSTOM__') {
+      setIsCustomDriver(true);
+      setDriverName('');
+      return;
+    }
+
+    setIsCustomDriver(false);
+    setDriverName(dName);
+
+    const matchedD = drivers.find((d) => d.name === dName);
+    if (matchedD) {
+      setDriverPhone(matchedD.phone || '');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +176,7 @@ export function DispatchScheduleModal({ isOpen, onClose, onSuccess }: Props) {
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="e.g. Malabar Interiors"
+                placeholder="e.g. Al-Hind Builders / Dr. Rashid"
                 required
                 className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500"
               />
@@ -176,49 +247,116 @@ export function DispatchScheduleModal({ isOpen, onClose, onSuccess }: Props) {
             />
           </div>
 
+          {/* ── Vehicle Selector ─────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Vehicle Registration No *
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                <Truck className="w-3.5 h-3.5 text-blue-500" />
+                Select Fleet Vehicle *
               </label>
-              <input
-                type="text"
-                value={vehicleNumber}
-                onChange={(e) => setVehicleNumber(e.target.value)}
-                placeholder="e.g. KL-09-AW-8210"
-                required
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500 font-mono"
-              />
+              {!isCustomVehicle && vehicles.length > 0 ? (
+                <div className="space-y-1">
+                  <select
+                    value={vehicleNumber}
+                    onChange={(e) => handleVehicleSelect(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-bold focus:outline-none focus:ring-1 focus:ring-red-500"
+                  >
+                    {vehicles.map((v) => (
+                      <option key={v.id} value={v.registrationNumber}>
+                        {v.registrationNumber} ({v.model} • {v.doorCapacity} Doors)
+                      </option>
+                    ))}
+                    <option value="__CUSTOM__">+ Enter Other / Rental Vehicle</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={vehicleNumber}
+                    onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g. KL-09-AW-8210"
+                    required
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono uppercase focus:outline-none focus:ring-1 focus:ring-red-500"
+                  />
+                  {vehicles.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomVehicle(false);
+                        if (vehicles[0]) handleVehicleSelect(vehicles[0].registrationNumber);
+                      }}
+                      className="text-[10px] px-2 py-2 text-slate-500 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-slate-700 rounded-lg whitespace-nowrap"
+                    >
+                      List
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
                 <Hash className="w-3.5 h-3.5 text-slate-400" />
-                GST e-Way Bill No (if &gt; ₹50k)
+                Waybill / LR Ref No (Optional)
               </label>
               <input
                 type="text"
                 value={eWayBillNo}
                 onChange={(e) => setEWayBillNo(e.target.value)}
-                placeholder="12-digit e-way bill number"
+                placeholder="Optional transport waybill / LR number"
                 className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500 font-mono"
               />
             </div>
           </div>
 
+          {/* ── Driver Selector ──────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                <User className="w-3.5 h-3.5 text-emerald-500" />
                 Driver Name *
               </label>
-              <input
-                type="text"
-                value={driverName}
-                onChange={(e) => setDriverName(e.target.value)}
-                placeholder="e.g. Suresh Babu"
-                required
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500"
-              />
+              {!isCustomDriver && drivers.length > 0 ? (
+                <div className="space-y-1">
+                  <select
+                    value={driverName}
+                    onChange={(e) => handleDriverSelect(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-1 focus:ring-red-500"
+                  >
+                    <option value="">-- Select Registered Driver --</option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.name} ({d.employeeCode})
+                      </option>
+                    ))}
+                    <option value="__CUSTOM__">+ Enter Other / Rental Driver</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={driverName}
+                    onChange={(e) => setDriverName(e.target.value)}
+                    placeholder="e.g. Suresh Babu"
+                    required
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+                  />
+                  {drivers.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomDriver(false);
+                        if (drivers[0]) handleDriverSelect(drivers[0].name);
+                      }}
+                      className="text-[10px] px-2 py-2 text-slate-500 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-slate-700 rounded-lg whitespace-nowrap"
+                    >
+                      List
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>

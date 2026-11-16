@@ -5,10 +5,14 @@ const securityHeaders = [
     key: 'X-DNS-Prefetch-Control',
     value: 'on',
   },
-  {
-    key: 'Strict-Transport-Security',
-    value: 'max-age=63072000; includeSubDomains; preload',
-  },
+  ...(process.env.EXMARK_OMIT_HSTS === 'true'
+    ? []
+    : [
+        {
+          key: 'Strict-Transport-Security',
+          value: 'max-age=63072000; includeSubDomains; preload',
+        },
+      ]),
   {
     key: 'X-XSS-Protection',
     value: '1; mode=block',
@@ -32,6 +36,24 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
+  images: {
+    unoptimized: true,
+  },
+  outputFileTracingExcludes: {
+    '*': [
+      './backups/**',
+      './data/backups/**',
+      './dist/win-unpacked/**',
+      './dist/.icon-ico/**',
+      './android/**',
+      './electron/**',
+      './electron-staging/**',
+      './scripts/**',
+      './docs/**',
+      './.git/**',
+    ],
+  },
   async headers() {
     return [
       {

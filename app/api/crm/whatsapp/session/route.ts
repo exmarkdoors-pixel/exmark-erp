@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import { WhatsAppSession, DEFAULT_WHATSAPP_SESSION } from '@/lib/services/whatsappService';
+import { getDataFilePath } from '@/lib/utils/dataPaths';
 
-const SESSION_FILE = path.join(process.cwd(), 'data', 'whatsapp-session.json');
+const getSessionFile = () => getDataFilePath('whatsapp-session.json');
 
 function getSession(): WhatsAppSession {
   try {
-    if (!fs.existsSync(SESSION_FILE)) {
-      fs.writeFileSync(SESSION_FILE, JSON.stringify(DEFAULT_WHATSAPP_SESSION, null, 2), 'utf8');
+    const sessionFile = getSessionFile();
+    if (!fs.existsSync(sessionFile)) {
+      fs.writeFileSync(sessionFile, JSON.stringify(DEFAULT_WHATSAPP_SESSION, null, 2), 'utf8');
       return DEFAULT_WHATSAPP_SESSION;
     }
-    const raw = fs.readFileSync(SESSION_FILE, 'utf8');
+    const raw = fs.readFileSync(sessionFile, 'utf8');
     return JSON.parse(raw);
   } catch {
     return DEFAULT_WHATSAPP_SESSION;
@@ -20,16 +23,20 @@ function getSession(): WhatsAppSession {
 
 function saveSession(session: WhatsAppSession): void {
   try {
-    const dir = path.dirname(SESSION_FILE);
+    const sessionFile = getSessionFile();
+    const dir = path.dirname(sessionFile);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(session, null, 2), 'utf8');
+    fs.writeFileSync(sessionFile, JSON.stringify(session, null, 2), 'utf8');
   } catch (err) {
     console.error('Failed to save WhatsApp session:', err);
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'crm');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const session = getSession();
     return NextResponse.json({ success: true, session });
   } catch (error: unknown) {
@@ -40,6 +47,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'crm', ['Super Admin', 'Management', 'Sales']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const current = getSession();
 
@@ -61,8 +71,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, 'crm', ['Super Admin', 'Management', 'Sales']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const disconnected: WhatsAppSession = {
       connected: false,
       phoneNumber: '',

@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import { getMeasurementById, updateMeasurement } from '@/lib/services/measurementService';
 import { createQuotation } from '@/lib/services/quotationService';
 import { getCatalogMaster } from '@/lib/services/catalogService';
+import { listStaffTargets } from '@/lib/services/salesTargetService';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'quotations', [
+      'Super Admin',
+      'Management',
+      'Sales',
+      'Site Engineer',
+    ]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
 
@@ -79,18 +89,41 @@ export async function POST(
         finishColor: door.colour || 'Natural Teak (EXGC-510)',
         quantity: qty,
         unitPrice,
-        gstRate: 18,
+        gstRate: 0,
         totalPrice,
       };
     });
 
+    // Resolve Sales Staff attribution from measurement.engineerName
+    const staffTargets = await listStaffTargets().catch(() => []);
+    const engName = (measurement.engineerName || '').trim();
+    const matchedStaff = staffTargets.find(
+      (s) =>
+        (measurement.measuredById && s.employeeId === measurement.measuredById) ||
+        (engName && s.employeeName.toLowerCase().includes(engName.toLowerCase().split(' ')[0]))
+    );
+
+    const salespersonName = engName || matchedStaff?.employeeName || 'Anoop Krishnan (Sr. Site Engineer)';
+    const salespersonId = matchedStaff?.employeeId || measurement.measuredById || 'EMP-01';
+    const salespersonCode = matchedStaff?.employeeCode || 'ENG-01';
+
     // Create the formal Quotation
     const createdQuotation = await createQuotation({
       customerId: measurement.customerId || `cust-${Date.now()}`,
+      customerName: measurement.customerName || undefined,
+      location: `${measurement.siteName || ''}, ${measurement.district || 'Kerala'}`.trim(),
       date: new Date().toISOString().split('T')[0],
       validUntil: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
       discount,
-      notes: `Auto-generated from Site Measurement ${measurement.refNumber} (${measurement.siteName}, ${measurement.district}) using ${
+      quotationCategory: 'SITE_MEASUREMENT',
+      siteMeasurementId: measurement.id,
+      siteMeasurementRef: measurement.refNumber,
+      measuringStaffName: salespersonName,
+      salespersonId,
+      salespersonName,
+      salespersonCode,
+      territoryDistrict: measurement.district,
+      notes: `Auto-generated from Site Measurement ${measurement.refNumber} (${measurement.siteName}, ${measurement.district}) by ${salespersonName} using ${
         pricingStrategy === 'PER_SQFT' ? 'Square Feet Rate' : 'Per Piece Rate'
       } mode. Total ${measurement.doors.length} openings.`,
       items: quotationItems,

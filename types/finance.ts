@@ -63,15 +63,24 @@ export interface BreakEvenAnalysis {
   variableCostPerDoor: number;
   contributionMarginPerDoor: number;
   contributionMarginRatio: number;
+  isViable: boolean;
   breakEvenUnits: number;
   breakEvenRevenue: number;
   targetSalesRevenue: number;
+  targetProfit: number;
+  requiredUnitsForTargetProfit: number;
+  requiredRevenueForTargetProfit: number;
+  workingDaysPerMonth: number;
+  dailyBreakEvenUnits: number;
+  dailyTargetProfitUnits: number;
+  marginOfSafetyAmount: number;
   marginOfSafetyPercentage: number;
   formulaDetails: {
     cmPerDoor: string;
     breakEvenUnits: string;
     breakEvenRevenue: string;
     marginOfSafety: string;
+    targetProfitUnits: string;
   };
 }
 
@@ -81,30 +90,61 @@ export interface FinanceStore {
   targets: FinancialTarget[];
 }
 
+function formatInrNum(val: number): string {
+  return `₹${Math.round(val).toLocaleString('en-IN')}`;
+}
+
 /**
- * FRP Manufacturing Break-Even Calculator
- * Explicitly displays all financial accounting formulas and ratios
+ * FRP Manufacturing Break-Even Calculator (CVP Engine)
+ * Dynamically computes Contribution Margin, BEP Units/Revenue, Daily Pace & Target Profit.
  */
 export function calculateBreakEven(params?: {
   fixedOverheadCosts?: number;
   averageFRPPricePerDoor?: number;
   variableCostPerDoor?: number;
   targetSalesRevenue?: number;
+  targetProfit?: number;
+  workingDaysPerMonth?: number;
 }): BreakEvenAnalysis {
-  // Typical Kerala FRP Door Factory baseline parameters:
-  const fixedOverhead = params?.fixedOverheadCosts ?? 450000; // Rent, depreciation, plant staff, utilities
-  const avgPrice = params?.averageFRPPricePerDoor ?? 8500;   // 32mm Molded FRP door avg retail/dealer rate
-  const varCost = params?.variableCostPerDoor ?? 4800;      // Resin, fiberglass mat, core filler, PU paint, labor
+  const fixedOverhead = Math.max(0, Number(params?.fixedOverheadCosts ?? 450000) || 0);
+  const avgPrice = Math.max(0, Number(params?.averageFRPPricePerDoor ?? 8500) || 0);
+  const varCost = Math.max(0, Number(params?.variableCostPerDoor ?? 4800) || 0);
+  const targetRevenue = Math.max(0, Number(params?.targetSalesRevenue ?? 2500000) || 0);
+  const targetProfit = Math.max(0, Number(params?.targetProfit ?? 0) || 0);
+  const workingDaysPerMonth = Math.max(1, Math.min(31, Number(params?.workingDaysPerMonth ?? 26) || 26));
 
   const cmPerDoor = avgPrice - varCost;
-  const cmRatio = parseFloat((cmPerDoor / avgPrice).toFixed(4));
-  const breakEvenUnits = Math.ceil(fixedOverhead / cmPerDoor);
-  const breakEvenRevenue = Math.round(fixedOverhead / cmRatio);
-  const targetRevenue = params?.targetSalesRevenue ?? 2500000;
+  const cmRatio = avgPrice > 0 ? parseFloat((cmPerDoor / avgPrice).toFixed(4)) : 0;
+  const isViable = avgPrice > 0 && cmPerDoor > 0 && cmRatio > 0;
 
-  const marginOfSafety = targetRevenue > breakEvenRevenue
-    ? parseFloat((((targetRevenue - breakEvenRevenue) / targetRevenue) * 100).toFixed(1))
+  const breakEvenUnits = isViable ? Math.ceil(fixedOverhead / cmPerDoor) : 0;
+  const breakEvenRevenue = isViable ? Math.round(fixedOverhead / cmRatio) : 0;
+
+  const requiredUnitsForTargetProfit = isViable
+    ? Math.ceil((fixedOverhead + targetProfit) / cmPerDoor)
     : 0;
+  const requiredRevenueForTargetProfit = isViable
+    ? Math.round((fixedOverhead + targetProfit) / cmRatio)
+    : 0;
+
+  const dailyBreakEvenUnits = isViable
+    ? parseFloat((breakEvenUnits / workingDaysPerMonth).toFixed(1))
+    : 0;
+  const dailyTargetProfitUnits = isViable
+    ? parseFloat((requiredUnitsForTargetProfit / workingDaysPerMonth).toFixed(1))
+    : 0;
+
+  const marginOfSafetyAmount =
+    isViable && targetRevenue > breakEvenRevenue
+      ? Math.round(targetRevenue - breakEvenRevenue)
+      : 0;
+
+  const marginOfSafety =
+    isViable && targetRevenue > breakEvenRevenue && targetRevenue > 0
+      ? parseFloat((((targetRevenue - breakEvenRevenue) / targetRevenue) * 100).toFixed(1))
+      : 0;
+
+  const cmPctLabel = `${(cmRatio * 100).toFixed(2)}%`;
 
   return {
     fixedOverheadCosts: fixedOverhead,
@@ -112,15 +152,32 @@ export function calculateBreakEven(params?: {
     variableCostPerDoor: varCost,
     contributionMarginPerDoor: cmPerDoor,
     contributionMarginRatio: cmRatio,
+    isViable,
     breakEvenUnits,
     breakEvenRevenue,
     targetSalesRevenue: targetRevenue,
+    targetProfit,
+    requiredUnitsForTargetProfit,
+    requiredRevenueForTargetProfit,
+    workingDaysPerMonth,
+    dailyBreakEvenUnits,
+    dailyTargetProfitUnits,
+    marginOfSafetyAmount,
     marginOfSafetyPercentage: marginOfSafety,
     formulaDetails: {
-      cmPerDoor: 'Contribution Margin = Selling Price (₹8,500) - Variable Cost (₹4,800) = ₹3,700/Door',
-      breakEvenUnits: 'Break-Even Units = Fixed Overheads (₹4,50,000) / Contribution Margin (₹3,700) = 122 Doors',
-      breakEvenRevenue: 'Break-Even Sales = Fixed Overheads / CM Ratio (43.53%) = ₹10,33,770',
-      marginOfSafety: 'Margin of Safety = (Target Revenue - Break-Even Revenue) / Target Revenue * 100',
+      cmPerDoor: `Contribution Margin = Avg Price (${formatInrNum(avgPrice)}) - Variable Cost (${formatInrNum(varCost)}) = ${formatInrNum(cmPerDoor)}/Door`,
+      breakEvenUnits: isViable
+        ? `Break-Even Units = Fixed Overheads (${formatInrNum(fixedOverhead)}) / CM (${formatInrNum(cmPerDoor)}) = ${breakEvenUnits} Doors`
+        : 'Not Viable: Variable Cost per Door >= Avg Selling Price (Contribution Margin <= 0)',
+      breakEvenRevenue: isViable
+        ? `Break-Even Sales = Fixed Overheads (${formatInrNum(fixedOverhead)}) / CM Ratio (${cmPctLabel}) = ${formatInrNum(breakEvenRevenue)}`
+        : 'Not Viable: CM Ratio <= 0%',
+      marginOfSafety: isViable
+        ? `Margin of Safety = (${formatInrNum(targetRevenue)} - ${formatInrNum(breakEvenRevenue)}) / ${formatInrNum(targetRevenue)} = ${marginOfSafety}%`
+        : 'Not Viable: Break-Even Boundary Unreachable at Current Unit Margin',
+      targetProfitUnits: isViable
+        ? `Target Profit Doors = (${formatInrNum(fixedOverhead)} + ${formatInrNum(targetProfit)}) / ${formatInrNum(cmPerDoor)} = ${requiredUnitsForTargetProfit} Doors`
+        : 'Adjust Selling Price or Reduce Variable Cost to achieve positive Contribution Margin',
     },
   };
 }

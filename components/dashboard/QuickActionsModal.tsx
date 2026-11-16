@@ -181,8 +181,8 @@ export default function QuickActionsModal({
               </div>
 
               <div className="p-3 bg-red-50/50 dark:bg-red-950/20 rounded-lg border border-red-200/50 dark:border-red-900/30 text-[11px] text-red-700 dark:text-red-300">
-                <span className="font-semibold block mb-0.5">Estimated Kerala Pricing:</span>
-                <span>Subtotal: ₹{((parseInt(units) || 1) * 8500).toLocaleString('en-IN')} + 18% GST (HSN 3925)</span>
+                <span className="font-semibold block mb-0.5">Estimated Direct Pricing:</span>
+                <span>Net Estimate: ₹{((parseInt(units) || 1) * 8500).toLocaleString('en-IN')} (Ex-Factory)</span>
               </div>
 
               <div className="pt-2 flex justify-end gap-2">

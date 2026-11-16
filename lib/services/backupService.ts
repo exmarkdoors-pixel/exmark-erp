@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { getBackupDir, getDataDir } from '@/lib/utils/dataPaths';
 
 export interface BackupSnapshotMeta {
   backupId: string; // EXM-BAK-20261028-120000
@@ -13,11 +14,9 @@ export interface BackupSnapshotMeta {
   manifest: Record<string, { size: number; sha256: string }>;
 }
 
-const BACKUP_DIR = path.join(process.cwd(), 'backups');
-const DATA_DIR = path.join(process.cwd(), 'data');
-
 function ensureDirectories() {
-  if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  const backupDir = getBackupDir();
+  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
 }
 
 function calculateFileSha256(filePath: string): string {
@@ -30,13 +29,15 @@ function calculateFileSha256(filePath: string): string {
 /**
  * Creates a complete point-in-time backup snapshot of all business data stores.
  */
-export async function createBackupSnapshot(trigger: 'SCHEDULED' | 'MANUAL' = 'MANUAL'): Promise<BackupSnapshotMeta> {
+export async function createBackupSnapshot(trigger: 'SCHEDULED' | 'MANUAL' | 'PRE_UPDATE' | 'PRE_RESET' | 'PRE_RESTORE' = 'MANUAL'): Promise<BackupSnapshotMeta> {
   ensureDirectories();
 
+  const backupDir = getBackupDir();
+  const dataDir = getDataDir();
   const now = new Date();
   const dateStr = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
   const backupId = `EXM-BAK-${dateStr}-${trigger.slice(0, 3)}`;
-  const targetDir = path.join(BACKUP_DIR, backupId);
+  const targetDir = path.join(backupDir, backupId);
 
   fs.mkdirSync(targetDir, { recursive: true });
 
@@ -44,11 +45,13 @@ export async function createBackupSnapshot(trigger: 'SCHEDULED' | 'MANUAL' = 'MA
   const manifest: Record<string, { size: number; sha256: string }> = {};
   let totalSizeBytes = 0;
 
-  if (fs.existsSync(DATA_DIR)) {
-    const files = fs.readdirSync(DATA_DIR).filter((f) => f.endsWith('.json'));
+  if (fs.existsSync(dataDir)) {
+    const files = fs
+      .readdirSync(dataDir)
+      .filter((f) => f.endsWith('.json') && !f.startsWith('.') && f !== 'cloud-sync-state.json');
 
     for (const file of files) {
-      const srcPath = path.join(DATA_DIR, file);
+      const srcPath = path.join(dataDir, file);
       const destPath = path.join(targetDir, file);
 
       const content = fs.readFileSync(srcPath);
@@ -97,11 +100,12 @@ export async function createBackupSnapshot(trigger: 'SCHEDULED' | 'MANUAL' = 'MA
  */
 export async function listBackupSnapshots(): Promise<BackupSnapshotMeta[]> {
   ensureDirectories();
-  const entries = fs.readdirSync(BACKUP_DIR);
+  const backupDir = getBackupDir();
+  const entries = fs.readdirSync(backupDir);
   const snapshots: BackupSnapshotMeta[] = [];
 
   for (const entry of entries) {
-    const metaPath = path.join(BACKUP_DIR, entry, 'backup-meta.json');
+    const metaPath = path.join(backupDir, entry, 'backup-meta.json');
     if (fs.existsSync(metaPath)) {
       try {
         const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as BackupSnapshotMeta;
@@ -124,7 +128,8 @@ export async function verifyBackupIntegrity(backupId: string): Promise<{
   valid: boolean;
   errors: string[];
 }> {
-  const targetDir = path.join(BACKUP_DIR, backupId);
+  const backupDir = getBackupDir();
+  const targetDir = path.join(backupDir, backupId);
   const metaPath = path.join(targetDir, 'backup-meta.json');
 
   if (!fs.existsSync(metaPath)) {

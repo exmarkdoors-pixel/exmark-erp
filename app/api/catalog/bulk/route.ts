@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import { bulkUploadCatalog } from '@/lib/services/catalogService';
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, undefined, ['Super Admin', 'Management', 'Production', 'Sales']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const categoryType = body.categoryType as 'MODELS' | 'COLOURS' | 'LOCKS';
     const items = body.items;

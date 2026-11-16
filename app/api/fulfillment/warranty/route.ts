@@ -1,11 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   listWarranties,
   generateWarrantyCertificate,
 } from '@/lib/services/fulfillmentService';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const warranties = await listWarranties();
     return NextResponse.json({ success: true, count: warranties.length, data: warranties });
   } catch (error) {
@@ -17,8 +21,16 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRequest(req, undefined, [
+      'Super Admin',
+      'Management',
+      'Sales',
+      'Installation',
+    ]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     if (!body.customerName || !body.siteAddress) {
       return NextResponse.json(

@@ -22,9 +22,9 @@ import {
 } from 'lucide-react';
 
 export interface PlantMachine {
-  id: string; // e.g. MCH-PRS-01
+  id: string; // e.g. MLD-ROYAL-01
   name: string;
-  category: 'Hydraulic Hot Press' | 'CNC Router' | 'Resin Dispenser' | 'Air Compressor';
+  category: 'FRP Master Mold' | 'Hand Power Tool' | 'Manual Spray Gun' | 'Workshop Setup';
   location: string;
   status: 'OPERATIONAL' | 'PREVENTIVE_DUE' | 'BREAKDOWN' | 'CALIBRATION';
   tonnageOrPower: string;
@@ -53,79 +53,79 @@ export interface MaintenanceTicket {
 
 const SEED_MACHINES: PlantMachine[] = [
   {
-    id: 'MCH-PRS-01',
-    name: 'Hydraulic Compression Press #1 (Main Door Bay)',
-    category: 'Hydraulic Hot Press',
-    location: 'Bay 1 - Molding Line',
+    id: 'MLD-ROYAL-01',
+    name: 'Royal Teak FRP Master Door Mold (80" × 34")',
+    category: 'FRP Master Mold',
+    location: 'Station 1 - Hand Layup Bay',
     status: 'OPERATIONAL',
-    tonnageOrPower: '200 Tonne / 45 kW Heated Platens',
+    tonnageOrPower: 'Heavy Silicon-Reinforced FRP Master Mold',
     lastServiceDate: '15 Oct 2026',
     nextServiceDueDate: '15 Nov 2026',
     totalRunHours: 3420,
     oeeAvailability: 97.2,
     oeePerformance: 95.0,
     oeeQuality: 99.4,
-    activeOperator: 'Ramesh K. (Senior Pressman)',
+    activeOperator: 'Rajesh P. (Lead Molder Gang)',
   },
   {
-    id: 'MCH-PRS-02',
-    name: 'Hydraulic Compression Press #2',
-    category: 'Hydraulic Hot Press',
-    location: 'Bay 1 - Molding Line',
+    id: 'MLD-SOLID-02',
+    name: 'Solid Core Bathroom Water-Shield Mold (78" × 30")',
+    category: 'FRP Master Mold',
+    location: 'Station 1 - Hand Layup Bay',
     status: 'OPERATIONAL',
-    tonnageOrPower: '180 Tonne / 37 kW Platens',
+    tonnageOrPower: 'High-Gloss Gelcoat Master Shutter Mold',
     lastServiceDate: '10 Oct 2026',
     nextServiceDueDate: '10 Nov 2026',
     totalRunHours: 2980,
     oeeAvailability: 95.5,
     oeePerformance: 93.8,
     oeeQuality: 98.9,
-    activeOperator: 'Sujith M.',
+    activeOperator: 'Sujith M. (Artisan Molder)',
   },
   {
-    id: 'MCH-CNC-01',
-    name: '3-Axis Heavy CNC Router (Lock & Hinge Rebater)',
-    category: 'CNC Router',
-    location: 'Bay 2 - Finishing Floor',
+    id: 'TOOL-SAW-01',
+    name: 'Heavy Duty Circular Hand Saw & Guide Rail',
+    category: 'Hand Power Tool',
+    location: 'Station 3 - Hand Cutting Bench',
     status: 'PREVENTIVE_DUE',
-    tonnageOrPower: '9 kW Spindle / 24000 RPM',
+    tonnageOrPower: '1800W Carbide Tipped Hand Sizing Saw',
     lastServiceDate: '01 Oct 2026',
     nextServiceDueDate: '02 Nov 2026 (Due Tomorrow)',
     totalRunHours: 1850,
     oeeAvailability: 92.0,
     oeePerformance: 91.5,
     oeeQuality: 99.8,
-    activeOperator: 'Arun Prasad',
+    activeOperator: 'Faizal Rahman (Master Carpenter)',
   },
   {
-    id: 'MCH-PRS-03',
-    name: 'Hydraulic Heated Press #3',
-    category: 'Hydraulic Hot Press',
-    location: 'Bay 1 - Molding Line',
-    status: 'BREAKDOWN',
-    tonnageOrPower: '160 Tonne / 30 kW Platens',
-    lastServiceDate: '12 Sep 2026',
-    nextServiceDueDate: 'Overdue',
-    totalRunHours: 4100,
-    oeeAvailability: 78.4,
-    oeePerformance: 85.0,
-    oeeQuality: 97.2,
-    activeOperator: 'Under Maintenance',
-  },
-  {
-    id: 'MCH-CMP-01',
-    name: 'Screw Air Compressor Unit (Central Pneumatics)',
-    category: 'Air Compressor',
-    location: 'Utility Room 1',
+    id: 'TOOL-SPR-01',
+    name: 'HVLP Manual Paint Spray Gun & Pressure Pot Set',
+    category: 'Manual Spray Gun',
+    location: 'Station 4 - Hand Paint & Spray Booth',
     status: 'OPERATIONAL',
-    tonnageOrPower: '10 Bar / 22 kW Rotary Screw',
+    tonnageOrPower: '2.0 Bar / 1.4mm Stainless Steel Nozzle',
+    lastServiceDate: '12 Oct 2026',
+    nextServiceDueDate: '20 Nov 2026',
+    totalRunHours: 2100,
+    oeeAvailability: 98.4,
+    oeePerformance: 97.0,
+    oeeQuality: 99.2,
+    activeOperator: 'Sudheesh Nair (Finishing Master)',
+  },
+  {
+    id: 'TOOL-GRD-01',
+    name: 'Angle Hand Grinder & Edge Sanding Kit',
+    category: 'Hand Power Tool',
+    location: 'Station 3 - Finishing Bench',
+    status: 'OPERATIONAL',
+    tonnageOrPower: '850W Diamond & Flap Disc Hand Grinder',
     lastServiceDate: '20 Oct 2026',
     nextServiceDueDate: '20 Dec 2026',
-    totalRunHours: 5200,
+    totalRunHours: 1950,
     oeeAvailability: 99.0,
     oeePerformance: 98.5,
     oeeQuality: 100.0,
-    activeOperator: 'Automated PLC',
+    activeOperator: 'Pradeep K. (Artisan Cutter)',
   },
 ];
 
@@ -159,26 +159,32 @@ const SEED_TICKETS: MaintenanceTicket[] = [
 ];
 
 export default function PlantMaintenanceHub() {
-  const [machines, setMachines] = useState<PlantMachine[]>(SEED_MACHINES);
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>(SEED_TICKETS);
-  const [selectedMachine, setSelectedMachine] = useState<PlantMachine>(SEED_MACHINES[0]);
+  const [machines, setMachines] = useState<PlantMachine[]>([]);
+  const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
+  const [selectedMachine, setSelectedMachine] = useState<PlantMachine | null>(null);
   const [activeTab, setActiveTab] = useState<'MACHINES' | 'TICKETS' | 'OEE_ANALYTICS'>('MACHINES');
   const [searchTerm, setSearchTerm] = useState('');
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
 
   // New ticket state
-  const [ticketMachineId, setTicketMachineId] = useState('MCH-PRS-01');
+  const [ticketMachineId, setTicketMachineId] = useState('');
   const [ticketType, setTicketType] = useState<MaintenanceTicket['type']>('PREVENTIVE');
   const [ticketPriority, setTicketPriority] = useState<MaintenanceTicket['priority']>('HIGH');
   const [ticketTitle, setTicketTitle] = useState('');
   const [ticketDescription, setTicketDescription] = useState('');
-  const [ticketEngineer, setTicketEngineer] = useState('Haridas (Chief Plant Engineer)');
+  const [ticketEngineer, setTicketEngineer] = useState('');
 
   // Overall OEE Index computation: Avg(Availability) * Avg(Performance) * Avg(Quality)
-  const avgAvailability = machines.reduce((sum, m) => sum + m.oeeAvailability, 0) / machines.length;
-  const avgPerformance = machines.reduce((sum, m) => sum + m.oeePerformance, 0) / machines.length;
-  const avgQuality = machines.reduce((sum, m) => sum + m.oeeQuality, 0) / machines.length;
-  const plantOeeIndex = (avgAvailability / 100) * (avgPerformance / 100) * (avgQuality / 100) * 100;
+  const avgAvailability =
+    machines.length > 0 ? machines.reduce((sum, m) => sum + m.oeeAvailability, 0) / machines.length : 0;
+  const avgPerformance =
+    machines.length > 0 ? machines.reduce((sum, m) => sum + m.oeePerformance, 0) / machines.length : 0;
+  const avgQuality =
+    machines.length > 0 ? machines.reduce((sum, m) => sum + m.oeeQuality, 0) / machines.length : 0;
+  const plantOeeIndex =
+    machines.length > 0
+      ? (avgAvailability / 100) * (avgPerformance / 100) * (avgQuality / 100) * 100
+      : 0;
 
   const handleCreateTicket = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,8 +194,8 @@ export default function PlantMaintenanceHub() {
 
     const newTkt: MaintenanceTicket = {
       id: `TKT-2026-${Date.now().toString().slice(-3)}`,
-      machineId: mach.id,
-      machineName: mach.name,
+      machineId: mach?.id || ticketMachineId || 'TOOL-GEN',
+      machineName: mach?.name || 'Workshop Equipment',
       type: ticketType,
       priority: ticketPriority,
       title: ticketTitle,
@@ -218,14 +224,14 @@ export default function PlantMaintenanceHub() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-black tracking-tight text-white">
-                  Plant & Machinery Maintenance (OEE)
+                  Molds &amp; Hand Tools Care
                 </h1>
-                <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  SAP PM / Total Productive Maintenance
+                <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  100% Handcrafted Workshop
                 </span>
               </div>
               <p className="text-sm text-slate-400 mt-0.5">
-                പ്ലാന്റ് മെയിന്റനൻസ് & മെഷീൻ കാര്യക്ഷമത • Hydraulic compression presses, CNC routers, uptime & OEE
+                മാസ്റ്റർ മോൾഡുകൾ &amp; കൈ ഉപകരണങ്ങൾ • FRP master door molds, manual spray guns, hand circular saws &amp; artisan tool readiness
               </p>
             </div>
           </div>
@@ -279,7 +285,9 @@ export default function PlantMaintenanceHub() {
           <div className="mt-2 text-2xl font-black text-rose-400">
             {tickets.filter((t) => t.status !== 'RESOLVED').length} Open
           </div>
-          <p className="text-xs text-rose-400/80 mt-1">1 Critical Breakdown</p>
+          <p className="text-xs text-rose-400/80 mt-1">
+            {tickets.filter((t) => t.priority === 'CRITICAL' && t.status !== 'RESOLVED').length} Critical Breakdown
+          </p>
         </div>
       </div>
 
@@ -311,8 +319,13 @@ export default function PlantMaintenanceHub() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Machine List */}
           <div className="lg:col-span-6 space-y-3">
-            {machines.map((mach) => {
-              const isSelected = selectedMachine.id === mach.id;
+            {machines.length === 0 ? (
+              <div className="p-8 rounded-xl bg-[#0B132B]/80 border border-dashed border-slate-800 text-center text-xs text-slate-400">
+                No molds or workshop equipment logs registered yet.
+              </div>
+            ) : (
+            machines.map((mach) => {
+              const isSelected = selectedMachine?.id === mach.id;
               const machOee = (mach.oeeAvailability / 100) * (mach.oeePerformance / 100) * (mach.oeeQuality / 100) * 100;
               return (
                 <div
@@ -368,11 +381,21 @@ export default function PlantMaintenanceHub() {
                   </div>
                 </div>
               );
-            })}
+            })
+            )}
           </div>
 
           {/* Machine Detail & OEE Breakdown */}
           <div className="lg:col-span-6 space-y-4">
+            {!selectedMachine ? (
+              <div className="p-8 rounded-2xl bg-[#0B132B]/90 border border-dashed border-slate-800 text-center space-y-2">
+                <Wrench className="w-8 h-8 text-amber-400 mx-auto opacity-60" />
+                <h3 className="text-sm font-bold text-white">No Equipment Selected</h3>
+                <p className="text-xs text-slate-400">
+                  Add workshop molds or create a maintenance work order to begin tracking uptime and servicing.
+                </p>
+              </div>
+            ) : (
             <div className="p-6 rounded-2xl bg-[#0B132B]/90 border border-slate-800 shadow-xl space-y-5">
               <div className="pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-2">
@@ -447,6 +470,7 @@ export default function PlantMaintenanceHub() {
                 </div>
               </div>
             </div>
+            )}
           </div>
         </div>
       )}

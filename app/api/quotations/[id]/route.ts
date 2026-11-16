@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   getQuotation,
   updateQuotation,
@@ -6,10 +7,13 @@ import {
 } from '@/lib/services/quotationService';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'quotations');
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const quotation = await getQuotation(id);
     if (!quotation) {
@@ -27,6 +31,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'quotations', ['Super Admin', 'Management', 'Sales', 'Site Engineer']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const body = await req.json();
     const updated = await updateQuotation(id, body);
@@ -38,10 +45,13 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, 'quotations', ['Super Admin', 'Management', 'Sales']);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const success = await deleteQuotation(id);
     if (!success) {

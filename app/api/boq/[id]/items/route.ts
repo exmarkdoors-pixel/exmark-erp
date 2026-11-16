@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeRequest } from '@/lib/auth/authorization';
 import {
   getBoq,
   addBoqItem,
@@ -8,10 +9,13 @@ import {
 } from '@/lib/services/boqService';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const boq = await getBoq(id);
     if (!boq) {
@@ -29,6 +33,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, undefined, [
+      'Super Admin',
+      'Management',
+      'Production',
+      'Plant Supervisor',
+      'Inventory',
+      'Purchase',
+    ]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const body = await req.json();
 
@@ -57,7 +71,7 @@ export async function POST(
       quantity: qty,
       unitRate,
       amount,
-      taxRate: Number(body.taxRate) || 18,
+      taxRate: 0,
       transportRate: Number(body.transportRate) || 0,
       installationRate: Number(body.installationRate) || 0,
     });
@@ -74,6 +88,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRequest(req, undefined, [
+      'Super Admin',
+      'Management',
+      'Production',
+      'Plant Supervisor',
+    ]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { id } = await params;
     const { searchParams } = new URL(req.url);
     const itemId = searchParams.get('itemId');

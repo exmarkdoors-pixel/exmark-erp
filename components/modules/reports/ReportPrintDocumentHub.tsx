@@ -22,10 +22,10 @@ export const COMPANY_PROFILE = {
   phone: '+91 94479 28866',
   email: 'exmarkdoors@gmail.com',
   website: 'www.exmarkdoors.com',
-  gstin: '32AAHFE4489L1Z2',
-  pan: 'AAHFE4489L',
+  gstin: '',
+  pan: '',
   stateCode: '32 (Kerala)',
-  hsnCode: '39252000',
+  hsnCode: '',
 };
 
 export function ReportPrintDocumentHub({
@@ -66,7 +66,7 @@ export function ReportPrintDocumentHub({
 
   return (
     <div
-      className={`w-full bg-white text-slate-900 p-6 sm:p-8 font-sans printable-report-sheet ${
+      className={`w-full bg-white text-slate-900 p-6 sm:p-8 font-sans printable-report-sheet min-h-[1000px] print:min-h-0 ${
         isTallyClassic
           ? 'border-2 border-slate-900 font-serif'
           : isTallyFormal
@@ -75,7 +75,7 @@ export function ReportPrintDocumentHub({
           ? 'border-t-4 border-t-rose-600 border border-slate-200'
           : 'border border-slate-300'
       }`}
-      style={{ minHeight: '1000px', backgroundColor: '#ffffff', color: '#0f172a' }}
+      style={{ backgroundColor: '#ffffff', color: '#0f172a' }}
     >
       {/* 1. OFFICIAL CORPORATE HEADER */}
       <div className={`pb-4 border-b ${isTallyClassic ? 'border-b-2 border-slate-900' : isVyapar ? 'border-b-2 border-rose-600' : 'border-slate-300'}`}>
@@ -92,13 +92,11 @@ export function ReportPrintDocumentHub({
             <p className="text-xs font-medium text-slate-600">{COMPANY_PROFILE.tagline}</p>
             <p className="text-[11px] text-slate-500">{COMPANY_PROFILE.address}</p>
             <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-slate-600 pt-0.5">
-              <span><strong>GSTIN:</strong> {COMPANY_PROFILE.gstin}</span>
-              <span>•</span>
-              <span><strong>PAN:</strong> {COMPANY_PROFILE.pan}</span>
-              <span>•</span>
               <span><strong>State:</strong> {COMPANY_PROFILE.stateCode}</span>
               <span>•</span>
               <span><strong>Phone:</strong> {COMPANY_PROFILE.phone}</span>
+              <span>•</span>
+              <span><strong>Web:</strong> {COMPANY_PROFILE.website}</span>
             </div>
           </div>
 
@@ -169,7 +167,7 @@ export function ReportPrintDocumentHub({
       )}
 
       {/* 4. MAIN AUDIT TABLE */}
-      <div className="mb-6 overflow-x-auto">
+      <div className="mb-6 overflow-x-auto print:overflow-visible">
         {rows.length === 0 ? (
           <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-300 rounded-lg">
             No report data recorded for the selected period.

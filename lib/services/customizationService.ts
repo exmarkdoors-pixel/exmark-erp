@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getDataFilePath } from '../utils/dataPaths';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 import { CompanyProfile, DEFAULT_COMPANY_PROFILE, FactoryProfile } from '@/types/companyProfile';
 
@@ -192,7 +193,7 @@ export interface CustomizationStore {
   revisions: ConfigurationRevision[];
 }
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'customization-store.json');
+const getStorePath = () => getDataFilePath('customization-store.json');
 
 // Default initial ERP configuration
 export const DEFAULT_ERP_CONFIG: ERPConfiguration = {
@@ -354,16 +355,16 @@ export const DEFAULT_ERP_CONFIG: ERPConfiguration = {
     currency: 'INR',
   },
 
-  // 10. GST Configuration
+  // 10. Business Entity Defaults (Zero Tax Mode)
   gstConfig: {
     companyName: 'EXMARK DOORS PRIVATE LIMITED',
-    gstin: '32AABCE1234F1Z5',
-    hsnCode: '3925.20.00',
-    cgstRate: 9,
-    sgstRate: 9,
-    igstRate: 18,
+    gstin: '',
+    hsnCode: '',
+    cgstRate: 0,
+    sgstRate: 0,
+    igstRate: 0,
     stateCode: '32',
-    eWayBillThreshold: 50000,
+    eWayBillThreshold: 0,
   },
 
   // 11. Financial Targets
@@ -441,7 +442,7 @@ export const DEFAULT_ERP_CONFIG: ERPConfiguration = {
     },
     {
       roleName: 'Accounts',
-      description: 'GST compliance (HSN 3925), e-Way bills, invoicing, dealer payment ledgers, and receivables.',
+      description: 'Commercial billing, dealer payment ledgers, advance receipts, and receivables governance.',
       allowedModules: ['dashboard', 'customers', 'quotations', 'sales-orders', 'purchases', 'accounts', 'reports'],
       canApproveProduction: false,
       canAuthorizeFinance: true,
@@ -486,12 +487,13 @@ function getNextVersion(revisions: ConfigurationRevision[]): number {
 
 function readStore(): CustomizationStore {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
-    if (!fs.existsSync(STORE_PATH)) {
+    if (!fs.existsSync(storePath)) {
       const initial: CustomizationStore = {
         active: DEFAULT_ERP_CONFIG,
         draft: DEFAULT_ERP_CONFIG,
@@ -506,11 +508,11 @@ function readStore(): CustomizationStore {
           },
         ],
       };
-      fs.writeFileSync(STORE_PATH, JSON.stringify(initial, null, 2), 'utf8');
+      fs.writeFileSync(storePath, JSON.stringify(initial, null, 2), 'utf8');
       return initial;
     }
 
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed = JSON.parse(raw);
     let modified = false;
 
@@ -549,7 +551,7 @@ function readStore(): CustomizationStore {
     }
 
     if (modified) {
-      fs.writeFileSync(STORE_PATH, JSON.stringify(parsed, null, 2), 'utf8');
+      fs.writeFileSync(storePath, JSON.stringify(parsed, null, 2), 'utf8');
     }
 
     return parsed;
@@ -565,11 +567,12 @@ function readStore(): CustomizationStore {
 
 function writeStore(store: CustomizationStore) {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(store, null, 2), 'utf8');
   } catch (err) {
     console.error('[CustomizationService] Failed to write store:', err);
   }

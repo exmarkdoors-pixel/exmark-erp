@@ -18,7 +18,7 @@ export default function SalesChart({ data }: SalesChartProps) {
   const maxScale = 55;
 
   const totalPeriodRevenue = data.reduce((acc, curr) => acc + curr.totalSalesLakhs, 0);
-  const avgMonthly = totalPeriodRevenue / data.length;
+  const avgMonthly = data.length > 0 ? totalPeriodRevenue / data.length : 0;
 
   return (
     <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
@@ -92,19 +92,31 @@ export default function SalesChart({ data }: SalesChartProps) {
         <div>
           <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Top Product Line</span>
           <span className="font-bold text-red-600 dark:text-red-400 text-sm">
-            FRP Teak Series (50.5%)
+            {data.length > 0 ? 'FRP Series (Live Mix)' : 'No Sales Yet'}
           </span>
         </div>
         <div>
-          <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Leading Territory</span>
+          <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Period Coverage</span>
           <span className="font-bold text-slate-900 dark:text-white text-sm">
-            Malabar & Ernakulam
+            {data.length > 0 ? `${data.length} Months Recorded` : 'Fresh Factory Baseline'}
           </span>
         </div>
       </div>
 
       {/* Chart Visualization Container */}
       <div className="relative pt-6 pb-2">
+        {data.length === 0 ? (
+          <div className="h-56 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 p-6">
+            <BarChart3 className="w-8 h-8 text-slate-400 mb-2 opacity-60" />
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+              No monthly sales history recorded yet
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Create quotations and confirm factory orders to populate live monthly analytics.
+            </p>
+          </div>
+        ) : (
+        <>
         {/* Y-axis guidelines */}
         <div className="absolute inset-x-0 top-6 bottom-10 flex flex-col justify-between pointer-events-none opacity-40">
           <div className="border-b border-dashed border-slate-200 dark:border-slate-800 text-[10px] text-slate-400 pb-0.5">₹50L</div>
@@ -191,6 +203,8 @@ export default function SalesChart({ data }: SalesChartProps) {
             );
           })}
         </div>
+        </>
+        )}
       </div>
 
       {/* Legend */}
@@ -210,7 +224,7 @@ export default function SalesChart({ data }: SalesChartProps) {
           </div>
         </div>
         <span className="text-[11px] text-slate-400 italic">
-          *Kerala Monsoon Peak July: ₹48.4L volume
+          {data.length > 0 ? 'Live EXMARK ERP ledger figures' : 'Live ledger mode active'}
         </span>
       </div>
     </div>

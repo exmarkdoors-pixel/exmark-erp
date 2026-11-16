@@ -21,6 +21,7 @@ export type NavigationTab =
   | 'employees'
   | 'marketing'
   | 'reports'
+  | 'mobile-field'
   | 'settings';
 
 export interface KpiMetric {
@@ -39,6 +40,8 @@ export interface KpiMetric {
 
 export type OrderStatus =
   | 'In Production'
+  | 'Hand Crafting'
+  | 'Cutting & Finishing'
   | 'CNC Routing'
   | 'Quality Check'
   | 'Ready to Dispatch'

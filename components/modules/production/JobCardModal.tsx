@@ -9,6 +9,7 @@ interface JobCardModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaved: (order: ProductionOrder) => void;
+  prefillParentOrder?: ProductionOrder | null;
 }
 
 interface DoorInputRow {
@@ -25,18 +26,18 @@ const DEFAULT_FRP_MODELS = [
   '32mm Molded Teak FRP Door',
   '30mm Waterproof Solid Bathroom FRP Door',
   '35mm Heavy Duty Rosewood FRP Door',
-  '32mm CNC Routed Frost White FRP Door',
+  '32mm Hand-Crafted Frost White FRP Door',
   '32mm Antibacterial Hospital FRP Door',
 ];
 
 const FACTORY_LINES = [
-  'Line 1: FRP Hydraulic Press (300 Ton)',
-  'Line 2: Heavy-Duty CNC Routing & Mortising',
-  'Line 3: Polyurethane (PU) Coating & Foiling',
-  'Line 4: Quality Inspection & Submersion Testing',
+  'Hand Station 1: Hand-Layup & Manual Mold Benches (Molders Gang)',
+  'Hand Station 2: Manual Cutting, Edge Grinding & Sizing Bench',
+  'Hand Station 3: Artisan Hand Wood-Graining & Spray Booth',
+  'Hand Station 4: Manual Measurement QC & Hand Fitting Bench',
 ];
 
-export function JobCardModal({ isOpen, onClose, onSaved }: JobCardModalProps) {
+export function JobCardModal({ isOpen, onClose, onSaved, prefillParentOrder }: JobCardModalProps) {
   const [measurements, setMeasurements] = useState<SiteMeasurementRecord[]>([]);
   const [selectedMeasurementId, setSelectedMeasurementId] = useState<string>('');
   const [customerName, setCustomerName] = useState<string>('');
@@ -44,6 +45,7 @@ export function JobCardModal({ isOpen, onClose, onSaved }: JobCardModalProps) {
   const [district, setDistrict] = useState<string>('Kozhikode');
   const [lineAssigned, setLineAssigned] = useState<string>(FACTORY_LINES[0]);
   const [priority, setPriority] = useState<ProductionPriority>('NORMAL');
+  const [includeInstallation, setIncludeInstallation] = useState<boolean>(false);
   const [heightTolerance, setHeightTolerance] = useState<number>(10);
   const [widthTolerance, setWidthTolerance] = useState<number>(10);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -60,6 +62,32 @@ export function JobCardModal({ isOpen, onClose, onSaved }: JobCardModalProps) {
       finishColor: 'Burma Teak',
     },
   ]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (prefillParentOrder) {
+      setCustomerName(prefillParentOrder.customerName || '');
+      setSiteName(prefillParentOrder.siteName || '');
+      setDistrict(prefillParentOrder.district || 'Kozhikode');
+      setIncludeInstallation(Boolean(prefillParentOrder.includeInstallation));
+      if (prefillParentOrder.lineAssigned) {
+        setLineAssigned(prefillParentOrder.lineAssigned);
+      }
+      if (prefillParentOrder.doors && prefillParentOrder.doors.length > 0) {
+        setDoors(
+          prefillParentOrder.doors.map((d) => ({
+            doorNumber: d.doorNumber,
+            model: d.model,
+            rawHeightMm: d.rawHeightMm || 2100,
+            rawWidthMm: d.rawWidthMm || 900,
+            handing: d.handing || 'RH',
+            lockType: d.lockType || 'Baby Latch Black',
+            finishColor: d.finishColor || 'Natural Teak Matte',
+          }))
+        );
+      }
+    }
+  }, [isOpen, prefillParentOrder]);
 
   useEffect(() => {
     let active = true;
@@ -163,11 +191,15 @@ export function JobCardModal({ isOpen, onClose, onSaved }: JobCardModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           measurementRef: selectedMeasurementId || null,
+          parentJobCardNumber: prefillParentOrder?.jobCardNumber || null,
+          isSupplementaryJobWork: Boolean(prefillParentOrder),
           customerName: customerName.trim(),
           siteName: siteName.trim(),
           district,
           lineAssigned,
           priority,
+          includeInstallation,
+          orderDate: new Date().toISOString().split('T')[0],
           tolerances: {
             heightDeductionMm: heightTolerance,
             widthDeductionMm: widthTolerance,
@@ -198,10 +230,10 @@ export function JobCardModal({ isOpen, onClose, onSaved }: JobCardModalProps) {
             <Factory className="w-5 h-5 text-red-500" />
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Release Production Job Card & CNC Cutting Order
+                Release Production Job Card &amp; Hand Cutting Order
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                FRP Compression Press • Finished cutting size calculated from raw masonry measurements
+                100% Handcrafted FRP • Finished hand-cutting size calculated from raw masonry measurements
               </p>
             </div>
           </div>
@@ -217,6 +249,13 @@ export function JobCardModal({ isOpen, onClose, onSaved }: JobCardModalProps) {
           <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-500 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {prefillParentOrder && (
+          <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-xs text-indigo-300">
+            <strong>New Additional / Supplementary Job Work</strong> linked to completed/existing Job Card{' '}
+            <span className="font-mono font-bold text-white">{prefillParentOrder.jobCardNumber}</span> (enables fresh 1× piece-rate slot cleanly without duplicating work on the original Job Card).
           </div>
         )}
 
@@ -330,6 +369,23 @@ export function JobCardModal({ isOpen, onClose, onSaved }: JobCardModalProps) {
               />
             </div>
           </div>
+
+          <label className="flex items-center gap-2.5 p-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 rounded-xl cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeInstallation}
+              onChange={(e) => setIncludeInstallation(e.target.checked)}
+              className="w-4 h-4 accent-indigo-600 rounded"
+            />
+            <div>
+              <span className="text-xs font-bold text-indigo-800 dark:text-indigo-200 block">
+                Site Door Installation Included (After Delivery)
+              </span>
+              <span className="text-[10px] text-indigo-600/80 dark:text-indigo-300/80">
+                Leave unchecked for factory supply-only orders (auto-completes at Delivery stage)
+              </span>
+            </div>
+          </label>
 
           {/* Door rows table */}
           <div className="space-y-2">

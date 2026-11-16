@@ -1,17 +1,26 @@
 import fs from 'fs';
 import path from 'path';
 import prisma from '@/lib/prisma';
+import { getDataFilePath } from '../utils/dataPaths';
 import { assertWriteAllowed, isPostgresAvailable } from './dbSyncEngine';
+import {
+  ProductionStage,
+  ProductionStageAssignment,
+  ACTIVE_BOARD_STAGES,
+  STAGE_DISPLAY_LABELS,
+  getNextProductionStage,
+  getPrevProductionStage,
+} from '../utils/productionStages';
+
+export {
+  ACTIVE_BOARD_STAGES,
+  STAGE_DISPLAY_LABELS,
+  getNextProductionStage,
+  getPrevProductionStage,
+};
+export type { ProductionStage, ProductionStageAssignment };
 
 // ── Types ────────────────────────────────────────────────────────────────────
-
-export type ProductionStage =
-  | 'QUEUED'
-  | 'MOLDING'
-  | 'CNC_ROUTING'
-  | 'PU_COATING'
-  | 'QA_INSPECTION'
-  | 'COMPLETED';
 
 export type ProductionPriority = 'NORMAL' | 'HIGH' | 'URGENT';
 export type QcStatus = 'PENDING' | 'PASSED' | 'REJECTED';
@@ -55,10 +64,23 @@ export interface ProductionDoorItem {
   model: string;
   rawHeightMm: number;
   rawWidthMm: number;
+  rawWidthBottomMm?: number;
+  rawHeightCm?: number;
+  rawWidthTopCm?: number;
+  rawWidthBtmCm?: number;
+  widthLinked?: boolean;
+  frameTypeId?: string;
+  frameTypeName?: string;
+  doorThicknessMm?: number;
+  doorThicknessLabel?: string;
+  swing?: 'INWARD' | 'OUTWARD';
+  remark?: string;
   finishedHeightMm: number;
   finishedWidthMm: number;
   handing: 'LH' | 'RH';
+  lockId?: string;
   lockType: string;
+  lockPrice?: number;
   finishColor: string;
   qcStatus: QcStatus;
   qrPayload: string;
@@ -66,6 +88,10 @@ export interface ProductionDoorItem {
   stickerRemovedAt?: string | null;
   stickerRemovedBy?: string | null;
   stickerRemovalNotes?: string | null;
+  moldedByGangId?: string;
+  moldedByGangName?: string;
+  moldedAt?: string;
+  moldingNotes?: string;
 }
 
 export interface ProductionOrder {
@@ -74,6 +100,8 @@ export interface ProductionOrder {
   jobCardNumber: string; // JC-2026-001
   salesOrderId?: string | null;
   measurementRef?: string | null;
+  parentJobCardNumber?: string | null;
+  isSupplementaryJobWork?: boolean;
   customerName: string;
   siteName: string;
   district: string;
@@ -83,6 +111,11 @@ export interface ProductionOrder {
   batchNumber: string;
   priority: ProductionPriority;
   status: ProductionStage;
+  includeInstallation?: boolean;
+  installationNotes?: string;
+  orderDate?: string;
+  boqIssuedAt?: string | null;
+  stageHistory?: ProductionStageAssignment[];
   tolerancesApplied: {
     heightDeductionMm: number;
     widthDeductionMm: number;
@@ -98,12 +131,17 @@ export interface ProductionOrder {
 export interface ProductionOrderCreateInput {
   salesOrderId?: string | null;
   measurementRef?: string | null;
+  parentJobCardNumber?: string | null;
+  isSupplementaryJobWork?: boolean;
   customerName: string;
   siteName: string;
   district: string;
   doorCategory?: 'FRP_DOORS' | 'WPC_DOORS';
   lineAssigned?: string;
   priority?: ProductionPriority;
+  includeInstallation?: boolean;
+  installationNotes?: string;
+  orderDate?: string;
   tolerances?: {
     heightDeductionMm?: number;
     widthDeductionMm?: number;
@@ -113,6 +151,16 @@ export interface ProductionOrderCreateInput {
     model: string;
     rawHeightMm: number;
     rawWidthMm: number;
+    rawWidthBottomMm?: number;
+    rawHeightCm?: number;
+    rawWidthTopCm?: number;
+    rawWidthBtmCm?: number;
+    frameTypeId?: string;
+    frameTypeName?: string;
+    doorThicknessMm?: number;
+    doorThicknessLabel?: string;
+    swing?: 'INWARD' | 'OUTWARD';
+    remark?: string;
     handing?: 'LH' | 'RH';
     lockType?: string;
     finishColor?: string;
@@ -127,19 +175,36 @@ export interface ProductionFilter {
 
 // ── Store Helpers ─────────────────────────────────────────────────────────────
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'production-store.json');
+const getStorePath = () => getDataFilePath('production-store.json');
 
 function readStore(): ProductionOrder[] {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(STORE_PATH)) {
-      fs.writeFileSync(STORE_PATH, '[]', 'utf8');
+    if (!fs.existsSync(storePath)) {
+      fs.writeFileSync(storePath, '[]', 'utf8');
       return [];
     }
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as ProductionOrder[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    let migrated = false;
+    const normalized = (parsed as ProductionOrder[]).map((o) => {
+      if (o.status === 'FINISHING_GRAINS' || o.status === 'PU_COATING') {
+        migrated = true;
+        return { ...o, status: 'PAINT_SECTION' as ProductionStage };
+      }
+      if (o.status === 'CNC_ROUTING' || o.status === 'QA_INSPECTION') {
+        migrated = true;
+        return { ...o, status: 'CUTTING_FINISHING' as ProductionStage };
+      }
+      return o;
+    });
+    if (migrated) {
+      writeStore(normalized);
+    }
+    return normalized;
   } catch {
     return [];
   }
@@ -147,9 +212,10 @@ function readStore(): ProductionOrder[] {
 
 function writeStore(orders: ProductionOrder[]): void {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STORE_PATH, JSON.stringify(orders, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(orders, null, 2), 'utf8');
   } catch (err) {
     console.error('[productionService] Failed to write store:', err);
   }
@@ -238,6 +304,16 @@ export async function createProductionOrder(input: ProductionOrderCreateInput): 
       model: d.model,
       rawHeightMm: d.rawHeightMm,
       rawWidthMm: d.rawWidthMm,
+      rawWidthBottomMm: d.rawWidthBottomMm ?? d.rawWidthMm,
+      rawHeightCm: d.rawHeightCm ?? Number((d.rawHeightMm / 10).toFixed(2)),
+      rawWidthTopCm: d.rawWidthTopCm ?? Number((d.rawWidthMm / 10).toFixed(2)),
+      rawWidthBtmCm: d.rawWidthBtmCm ?? Number(((d.rawWidthBottomMm ?? d.rawWidthMm) / 10).toFixed(2)),
+      frameTypeId: d.frameTypeId || 'FRM-REGULAR',
+      frameTypeName: d.frameTypeName || 'Regular Frame (72×50mm)',
+      doorThicknessMm: d.doorThicknessMm,
+      doorThicknessLabel: d.doorThicknessLabel,
+      swing: d.swing || 'INWARD',
+      remark: d.remark || '',
       finishedHeightMm,
       finishedWidthMm,
       handing: d.handing || 'RH',
@@ -258,15 +334,22 @@ export async function createProductionOrder(input: ProductionOrderCreateInput): 
     jobCardNumber,
     salesOrderId: input.salesOrderId || null,
     measurementRef: input.measurementRef || null,
+    parentJobCardNumber: input.parentJobCardNumber || null,
+    isSupplementaryJobWork: Boolean(input.isSupplementaryJobWork),
     customerName: input.customerName,
     siteName: input.siteName,
     district: input.district,
     doorCategory: input.doorCategory || 'FRP_DOORS',
     quantity: doors.length,
-    lineAssigned: input.lineAssigned || 'Line 1: FRP Hydraulic Press (300 Ton)',
+    lineAssigned: input.lineAssigned || 'Hand Station 1: Hand-Layup & Manual Mold Benches',
     batchNumber,
     priority: input.priority || 'NORMAL',
     status: 'QUEUED',
+    includeInstallation: Boolean(input.includeInstallation),
+    installationNotes: input.installationNotes || undefined,
+    orderDate: input.orderDate || new Date().toISOString().split('T')[0],
+    boqIssuedAt: null,
+    stageHistory: [],
     tolerancesApplied: {
       heightDeductionMm: heightDeduction,
       widthDeductionMm: widthDeduction,
@@ -316,7 +399,25 @@ export async function createProductionOrder(input: ProductionOrderCreateInput): 
   return newOrder;
 }
 
-export async function updateProductionStage(id: string, stage: ProductionStage): Promise<ProductionOrder> {
+export async function updateProductionStage(
+  id: string,
+  stage: ProductionStage,
+  stageMeta?: {
+    gangId?: string;
+    gangName?: string;
+    operation?: string;
+    amount?: number;
+    isRework?: boolean;
+    reworkReason?: string;
+    pieceRateSkippedReason?: string;
+    doorAssignments?: Array<{
+      doorId: string;
+      gangId: string;
+      gangName: string;
+      moldingNotes?: string;
+    }>;
+  }
+): Promise<ProductionOrder> {
   await assertWriteAllowed('update production stage');
 
   const all = readStore();
@@ -332,17 +433,64 @@ export async function updateProductionStage(id: string, stage: ProductionStage):
   }
   if (stage === 'COMPLETED') {
     completedAt = new Date().toISOString();
-    // Auto-mark remaining doors as PASSED in QC upon completion if not rejected
+    // Auto-mark doors passed upon completion
     order.doors.forEach((d) => {
       if (d.qcStatus === 'PENDING') d.qcStatus = 'PASSED';
     });
+  } else {
+    completedAt = null;
   }
+
+  // Stamp individual doors with molding gang if provided or if single gang is supplied
+  const nowIso = new Date().toISOString();
+  let updatedDoors = [...order.doors];
+  if (Array.isArray(stageMeta?.doorAssignments) && stageMeta.doorAssignments.length > 0) {
+    const assignMap = new Map(stageMeta.doorAssignments.map((a) => [a.doorId, a]));
+    updatedDoors = updatedDoors.map((d) => {
+      const match = assignMap.get(d.id) || assignMap.get(d.doorId);
+      if (match) {
+        return {
+          ...d,
+          moldedByGangId: match.gangId,
+          moldedByGangName: match.gangName,
+          moldedAt: nowIso,
+          moldingNotes: match.moldingNotes ?? d.moldingNotes,
+        };
+      }
+      return d;
+    });
+  } else if (stage === 'MOLDING' && stageMeta?.gangId && stageMeta?.gangName) {
+    // Single gang molding entire batch or remaining unstamped doors
+    updatedDoors = updatedDoors.map((d) => ({
+      ...d,
+      moldedByGangId: d.moldedByGangId || stageMeta.gangId,
+      moldedByGangName: d.moldedByGangName || stageMeta.gangName,
+      moldedAt: d.moldedAt || nowIso,
+    }));
+  }
+
+  const nextHistory: ProductionStageAssignment[] = Array.isArray(order.stageHistory)
+    ? [...order.stageHistory]
+    : [];
+  nextHistory.push({
+    stage,
+    gangId: stageMeta?.gangId,
+    gangName: stageMeta?.gangName,
+    operation: stageMeta?.operation,
+    amount: stageMeta?.amount,
+    isRework: stageMeta?.isRework,
+    reworkReason: stageMeta?.reworkReason,
+    pieceRateSkippedReason: stageMeta?.pieceRateSkippedReason,
+    completedAt: new Date().toISOString(),
+  });
 
   const updated: ProductionOrder = {
     ...order,
+    doors: updatedDoors,
     status: stage,
     startedAt,
     completedAt,
+    stageHistory: nextHistory,
     updatedAt: new Date().toISOString(),
   };
 
@@ -362,6 +510,28 @@ export async function updateProductionStage(id: string, stage: ProductionStage):
       console.warn('[productionService] PostgreSQL stage sync failed:', err);
     }
   }
+
+  all[idx] = updated;
+  writeStore(all);
+  return updated;
+}
+
+export async function updateProductionOrderDoors(
+  id: string,
+  doors: ProductionDoorItem[]
+): Promise<ProductionOrder> {
+  await assertWriteAllowed('update production door specs');
+
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === id || o.jobCardNumber === id || o.prodOrderNumber === id);
+  if (idx === -1) throw new Error(`Production order ${id} not found`);
+
+  const updated: ProductionOrder = {
+    ...all[idx],
+    doors,
+    quantity: doors.length,
+    updatedAt: new Date().toISOString(),
+  };
 
   all[idx] = updated;
   writeStore(all);
@@ -431,6 +601,43 @@ export async function confirmStickerRemoval(
   throw new Error(`Door with ID "${doorId}" was not found.`);
 }
 
+export async function markProductionBoqIssued(id: string): Promise<ProductionOrder> {
+  await assertWriteAllowed('mark BOQ issued');
+
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === id || o.jobCardNumber === id || o.prodOrderNumber === id || o.salesOrderId === id);
+  if (idx === -1) throw new Error(`Production order ${id} not found`);
+
+  const updated: ProductionOrder = {
+    ...all[idx],
+    boqIssuedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  all[idx] = updated;
+  writeStore(all);
+  return updated;
+}
+
+export async function toggleProductionInstallation(
+  id: string,
+  includeInstallation: boolean
+): Promise<ProductionOrder> {
+  await assertWriteAllowed('toggle installation requirement');
+
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === id);
+  if (idx === -1) throw new Error(`Production order ${id} not found`);
+
+  const updated: ProductionOrder = {
+    ...all[idx],
+    includeInstallation,
+    updatedAt: new Date().toISOString(),
+  };
+  all[idx] = updated;
+  writeStore(all);
+  return updated;
+}
+
 export async function deleteProductionOrder(id: string): Promise<boolean> {
   await assertWriteAllowed('delete production order');
 
@@ -439,4 +646,48 @@ export async function deleteProductionOrder(id: string): Promise<boolean> {
   if (filtered.length === all.length) return false;
   writeStore(filtered);
   return true;
+}
+
+export async function stampDoorsMoldingGang(
+  orderId: string,
+  doorAssignments: Array<{
+    doorId: string;
+    gangId: string;
+    gangName: string;
+    moldingNotes?: string;
+  }>
+): Promise<ProductionOrder> {
+  await assertWriteAllowed('stamp doors molding gang');
+
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === orderId || o.jobCardNumber === orderId || o.prodOrderNumber === orderId);
+  if (idx === -1) throw new Error(`Production order ${orderId} not found`);
+
+  const order = all[idx];
+  const nowIso = new Date().toISOString();
+  const assignMap = new Map(doorAssignments.map((a) => [a.doorId, a]));
+
+  const updatedDoors = order.doors.map((door) => {
+    const match = assignMap.get(door.id) || assignMap.get(door.doorId);
+    if (match) {
+      return {
+        ...door,
+        moldedByGangId: match.gangId,
+        moldedByGangName: match.gangName,
+        moldedAt: nowIso,
+        moldingNotes: match.moldingNotes ?? door.moldingNotes,
+      };
+    }
+    return door;
+  });
+
+  const updated: ProductionOrder = {
+    ...order,
+    doors: updatedDoors,
+    updatedAt: nowIso,
+  };
+
+  all[idx] = updated;
+  writeStore(all);
+  return updated;
 }

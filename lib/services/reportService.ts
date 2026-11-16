@@ -7,6 +7,8 @@ import {
 import { listInvoices } from './financeService';
 import { listProductionOrders } from './productionService';
 import { listQuotations } from './quotationService';
+import { computeOrderProfitSummaries } from './orderProfitService';
+import { computeComprehensiveBreakEven } from './breakEvenService';
 
 export const SYSTEM_REPORTS: ReportDefinition[] = [
   {
@@ -20,7 +22,6 @@ export const SYSTEM_REPORTS: ReportDefinition[] = [
       { key: 'orderCount', label: 'Total Orders', format: 'number' },
       { key: 'doorsVolume', label: 'Door Sets Sold', format: 'number' },
       { key: 'revenue', label: 'Gross Revenue (INR)', format: 'currency' },
-      { key: 'gstCollected', label: 'GST (18%)', format: 'currency' },
     ],
   },
   {
@@ -68,16 +69,15 @@ export const SYSTEM_REPORTS: ReportDefinition[] = [
   },
   {
     id: 'rep-gst-sales-returns',
-    reportCode: 'GST_INVOICES_RETURNS',
-    title: 'GST Tax Invoices & Sales Returns Reconciliation (Section 34)',
+    reportCode: 'SALES_BILLS_RETURNS',
+    title: 'Sales Bills & Returns Reconciliation',
     category: 'FINANCE',
-    description: 'Commercial B2B/B2C invoices, credit notes, 18% GST reversals, and net sales reconciliation.',
+    description: 'Commercial B2B/B2C sales bills, credit vouchers, return adjustments, and net sales reconciliation.',
     columns: [
       { key: 'particulars', label: 'Customer / Voucher Ref' },
       { key: 'grossInvoiced', label: 'Gross Billed (INR)', format: 'currency' },
-      { key: 'creditNotesReversed', label: 'Credit Notes / Returns', format: 'currency' },
-      { key: 'netTaxableSales', label: 'Net Taxable Sales', format: 'currency' },
-      { key: 'gst18Collected', label: 'Net 18% GST', format: 'currency' },
+      { key: 'creditNotesReversed', label: 'Sales Returns / Adj', format: 'currency' },
+      { key: 'netSales', label: 'Net Sales (INR)', format: 'currency' },
       { key: 'status', label: 'Ledger Status', format: 'text' },
     ],
   },
@@ -112,6 +112,43 @@ export const SYSTEM_REPORTS: ReportDefinition[] = [
       { key: 'maintenanceStatus', label: 'PM Status', format: 'text' },
     ],
   },
+  {
+    id: 'rep-order-profit-pnl',
+    reportCode: 'ORDER_WISE_PROFIT_PNL',
+    title: 'Order-Wise Profit & Loss (Materials, Piece-Rate & Freight)',
+    category: 'FINANCE',
+    description:
+      '0% Non-GST per-order P&L combining door + installation revenue, raw door BOM, locks, paint, extras, gang piece-rate labor, and freight.',
+    columns: [
+      { key: 'jobCardNumber', label: 'Job Card #' },
+      { key: 'customerName', label: 'Customer / Party' },
+      { key: 'totalDoors', label: 'Doors', format: 'number' },
+      { key: 'totalOrderRevenue', label: 'Order Revenue', format: 'currency' },
+      { key: 'totalMaterialCost', label: 'Materials + Locks + Paint', format: 'currency' },
+      { key: 'totalLaborCost', label: 'Piece-Rate Labor', format: 'currency' },
+      { key: 'totalDirectExpenses', label: 'Freight & Direct Exp', format: 'currency' },
+      { key: 'netProfit', label: 'Net Profit', format: 'currency' },
+      { key: 'profitMarginPct', label: 'Margin (%)', format: 'text' },
+    ],
+  },
+  {
+    id: 'rep-break-even-cvp',
+    reportCode: 'BREAK_EVEN_CVP_ANALYSIS',
+    title: 'Break-Even & Unit Economics CVP Audit (Cat A–E)',
+    category: 'FINANCE',
+    description:
+      'Monthly Fixed Overheads & Staff Salaries vs. per-door Contribution Margin (BOM + Paint + Piece-Rate Labor) across Categories A–E.',
+    columns: [
+      { key: 'categoryLabel', label: 'Door Category / Mix' },
+      { key: 'variant', label: 'Specification' },
+      { key: 'sellingPrice', label: 'Selling Price', format: 'currency' },
+      { key: 'variableCost', label: 'Variable Cost / Door', format: 'currency' },
+      { key: 'contributionMargin', label: 'Contribution / Door', format: 'currency' },
+      { key: 'cmRatio', label: 'CM Ratio (%)', format: 'text' },
+      { key: 'breakEvenDoors', label: 'BEP Doors / Mo', format: 'number' },
+      { key: 'breakEvenRevenue', label: 'BEP Sales ₹', format: 'currency' },
+    ],
+  },
 ];
 
 export async function generateReport(
@@ -123,6 +160,80 @@ export async function generateReport(
   }
 ): Promise<ReportExecutionResult> {
   const repDef = SYSTEM_REPORTS.find((r) => r.reportCode === reportCode) || SYSTEM_REPORTS[0];
+
+  if (reportCode === 'BREAK_EVEN_CVP_ANALYSIS') {
+    const beData = await computeComprehensiveBreakEven({
+      month: filter?.startDate ? filter.startDate.slice(0, 7) : undefined,
+    });
+
+    const rows = beData.engineeringMatrix.map((row) => ({
+      categoryLabel: row.label,
+      variant: row.variant,
+      sellingPrice: row.sellingPrice,
+      variableCost: row.variableCost,
+      contributionMargin: row.cmPerDoor,
+      cmRatio: `${row.cmRatioPct}%`,
+      breakEvenDoors: row.breakEvenUnits,
+      breakEvenRevenue: row.breakEvenRevenue,
+    }));
+
+    return {
+      reportCode,
+      title: repDef.title,
+      generatedAt: beData.generatedAt,
+      filterApplied: filter || {},
+      summaryMetrics: {
+        monthKey: beData.monthKey,
+        fixedMonthlyOverheads: `₹${beData.fixedCostsBreakdown.totalFixedMonthlyCost.toLocaleString('en-IN')}`,
+        liveBreakEvenUnits: `${beData.activeBreakEven.breakEvenUnits} Doors`,
+        liveBreakEvenRevenue: `₹${beData.activeBreakEven.breakEvenRevenue.toLocaleString('en-IN')}`,
+        actualMonthDoors: `${beData.monthProgress.doorsAchieved} Doors`,
+      },
+      rows,
+    };
+  }
+
+  if (reportCode === 'ORDER_WISE_PROFIT_PNL') {
+    const profitData = await computeOrderProfitSummaries({ includeProjectedCosts: false });
+    const filteredOrders = profitData.orders.filter((ord) => {
+      if (filter?.district && ord.district.toLowerCase() !== filter.district.toLowerCase()) {
+        return false;
+      }
+      if (filter?.startDate && ord.orderDate < filter.startDate) return false;
+      if (filter?.endDate && ord.orderDate > filter.endDate) return false;
+      return true;
+    });
+
+    const rows = filteredOrders.map((ord) => ({
+      jobCardNumber: ord.jobCardNumber,
+      customerName: ord.customerName,
+      totalDoors: ord.totalDoors,
+      totalOrderRevenue: ord.totalOrderRevenue,
+      totalMaterialCost: ord.totalMaterialCost,
+      totalLaborCost: ord.totalLaborCost,
+      totalDirectExpenses: ord.totalDirectExpenses,
+      netProfit: ord.netProfit,
+      profitMarginPct: `${ord.profitMarginPct}%`,
+    }));
+
+    const totalRevenue = filteredOrders.reduce((s, o) => s + o.totalOrderRevenue, 0);
+    const totalNetProfit = filteredOrders.reduce((s, o) => s + o.netProfit, 0);
+    const avgMargin = totalRevenue > 0 ? ((totalNetProfit / totalRevenue) * 100).toFixed(1) : '0.0';
+
+    return {
+      reportCode,
+      title: repDef.title,
+      generatedAt: profitData.generatedAt,
+      filterApplied: filter || {},
+      summaryMetrics: {
+        totalOrders: filteredOrders.length,
+        totalRevenue: `₹${totalRevenue.toLocaleString('en-IN')}`,
+        totalNetProfit: `₹${totalNetProfit.toLocaleString('en-IN')}`,
+        avgMargin: `${avgMargin}%`,
+      },
+      rows,
+    };
+  }
 
   if (reportCode === 'OUTSTANDING_RECEIVABLES_AGING') {
     const invoices = await listInvoices();
@@ -254,12 +365,12 @@ export async function generateReport(
     };
   }
 
-  if (reportCode === 'GST_INVOICES_RETURNS') {
+  if (reportCode === 'SALES_BILLS_RETURNS' || reportCode === 'GST_INVOICES_RETURNS') {
     const rows = [
-      { particulars: 'Kochi Luxury Villas Pvt Ltd (INV-2026-101)', grossInvoiced: 133340, creditNotesReversed: 20060, netTaxableSales: 95763, gst18Collected: 17237, status: 'RECONCILED' },
-      { particulars: 'Er. Jacob Roy / Roy Architects (INV-2026-102)', grossInvoiced: 85000, creditNotesReversed: 0, netTaxableSales: 72034, gst18Collected: 12966, status: 'PAID IN FULL' },
-      { particulars: 'Calicut Builders Consortium (INV-2026-103)', grossInvoiced: 215000, creditNotesReversed: 14500, netTaxableSales: 169915, gst18Collected: 30585, status: 'PARTIAL REC' },
-      { particulars: 'Dr. Anita Menon Residence (INV-2026-104)', grossInvoiced: 48600, creditNotesReversed: 0, netTaxableSales: 41186, gst18Collected: 7414, status: 'PAID IN FULL' },
+      { particulars: 'Kochi Luxury Villas Pvt Ltd (INV-2026-101)', grossInvoiced: 133340, creditNotesReversed: 20060, netSales: 113280, status: 'RECONCILED' },
+      { particulars: 'Er. Jacob Roy / Roy Architects (INV-2026-102)', grossInvoiced: 85000, creditNotesReversed: 0, netSales: 85000, status: 'PAID IN FULL' },
+      { particulars: 'Calicut Builders Consortium (INV-2026-103)', grossInvoiced: 215000, creditNotesReversed: 14500, netSales: 200500, status: 'PARTIAL REC' },
+      { particulars: 'Dr. Anita Menon Residence (INV-2026-104)', grossInvoiced: 48600, creditNotesReversed: 0, netSales: 48600, status: 'PAID IN FULL' },
     ];
     const totalGross = rows.reduce((sum, r) => sum + r.grossInvoiced, 0);
     const totalReturns = rows.reduce((sum, r) => sum + r.creditNotesReversed, 0);
@@ -329,12 +440,12 @@ export async function generateReport(
 
   // Default: SALES_BY_DISTRICT
   const rows = [
-    { district: 'Kozhikode', orderCount: 8, doorsVolume: 74, revenue: 648000, gstCollected: 116640 },
-    { district: 'Ernakulam', orderCount: 7, doorsVolume: 62, revenue: 558000, gstCollected: 100440 },
-    { district: 'Thrissur', orderCount: 5, doorsVolume: 41, revenue: 369000, gstCollected: 66420 },
-    { district: 'Malappuram', orderCount: 6, doorsVolume: 48, revenue: 432000, gstCollected: 77760 },
-    { district: 'Kannur', orderCount: 4, doorsVolume: 30, revenue: 270000, gstCollected: 48600 },
-    { district: 'Palakkad', orderCount: 3, doorsVolume: 22, revenue: 198000, gstCollected: 35640 },
+    { district: 'Kozhikode', orderCount: 8, doorsVolume: 74, revenue: 648000 },
+    { district: 'Ernakulam', orderCount: 7, doorsVolume: 62, revenue: 558000 },
+    { district: 'Thrissur', orderCount: 5, doorsVolume: 41, revenue: 369000 },
+    { district: 'Malappuram', orderCount: 6, doorsVolume: 48, revenue: 432000 },
+    { district: 'Kannur', orderCount: 4, doorsVolume: 30, revenue: 270000 },
+    { district: 'Palakkad', orderCount: 3, doorsVolume: 22, revenue: 198000 },
   ];
 
   const totalRev = rows.reduce((sum, r) => sum + r.revenue, 0);
@@ -492,8 +603,8 @@ export async function generateVideoReportSummary(reportCode: string): Promise<Vi
         headline: 'Financial Collections & Advance Discipline',
         keyStat: '40% Minimum Advance Policy Enforced',
         narratorScript: {
-          english: 'Working capital turnover accelerated with automated GST tax invoicing and instant WhatsApp customer confirmations.',
-          malayalam: 'കൃത്യമായ ജി.എസ്.ടി ഇൻവോയ്സിംഗും വാട്ട്സാപ്പ് അറിയിപ്പുകളും വഴി സാമ്പത്തിക ഇടപാടുകൾ സുതാര്യമായി തുടരുന്നു.',
+          english: 'Working capital turnover accelerated with direct commercial billing and instant WhatsApp customer confirmations.',
+          malayalam: 'കൃത്യമായ ബില്ലിംഗും വാട്ട്സാപ്പ് അറിയിപ്പുകളും വഴി സാമ്പത്തിക ഇടപാടുകൾ സുതാര്യമായി തുടരുന്നു.',
         },
         durationSeconds: 15,
       },

@@ -26,7 +26,7 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   website: 'https://www.exmarkdoors.com',
   email: 'sales@exmarkdoors.com',
   phone: '+91 484 290 8800',
-  gstin: '32AABCE9821K1ZN',
+  gstin: '',
   panNumber: 'AABCE9821K',
   cinNumber: 'U25209KL2022PTC076123',
   registeredOffice: {
@@ -103,14 +103,6 @@ export function validateCompanyProfile(profile: Partial<CompanyProfile>): { isVa
 
   if (!profile.brandName || profile.brandName.trim().length === 0) {
     errors.push('Brand Name is mandatory.');
-  }
-
-  if (profile.gstin && profile.gstin.trim().length > 0) {
-    // 15-digit GSTIN pattern e.g. 32AABCE9821K1ZN
-    const gstinPattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-    if (!gstinPattern.test(profile.gstin.trim())) {
-      errors.push('Invalid GSTIN format. Expected 15-character Indian GST format (e.g., 32AABCE9821K1ZN).');
-    }
   }
 
   if (profile.email && profile.email.trim().length > 0) {

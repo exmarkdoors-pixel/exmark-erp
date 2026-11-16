@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import prisma from '@/lib/prisma';
+import { getDataFilePath } from '../utils/dataPaths';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 import { DoorItemInput, SiteMeasurementRecord } from '@/types/measurements';
 import {
@@ -22,7 +23,7 @@ export interface MeasurementSaveResult {
   message: string;
 }
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'measurements-store.json');
+const getStorePath = () => getDataFilePath('measurements-store.json');
 
 // Initial default seed measurements matching Kerala door sites
 const INITIAL_RECORDS: SiteMeasurementRecord[] = [
@@ -246,25 +247,36 @@ const INITIAL_RECORDS: SiteMeasurementRecord[] = [
 
 // In-memory cache for fast responsive reads
 let cachedRecords: SiteMeasurementRecord[] | null = null;
+let cachedRecordsPath: string | null = null;
 
 function ensureFileStore(): SiteMeasurementRecord[] {
+  const storePath = getStorePath();
+  if (cachedRecordsPath !== storePath) {
+    cachedRecords = null;
+    cachedRecordsPath = storePath;
+  }
   try {
-    const dir = path.dirname(STORE_PATH);
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
-    if (!fs.existsSync(STORE_PATH)) {
-      fs.writeFileSync(STORE_PATH, '[]', 'utf8');
-      cachedRecords = [];
+    if (!fs.existsSync(storePath)) {
+      fs.writeFileSync(storePath, JSON.stringify(INITIAL_RECORDS, null, 2), 'utf8');
+      cachedRecords = INITIAL_RECORDS;
       return cachedRecords;
     }
 
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
+    if (Array.isArray(parsed) && parsed.length > 0) {
       cachedRecords = parsed;
       return parsed;
+    }
+    if (Array.isArray(parsed) && parsed.length === 0) {
+      fs.writeFileSync(storePath, JSON.stringify(INITIAL_RECORDS, null, 2), 'utf8');
+      cachedRecords = INITIAL_RECORDS;
+      return cachedRecords;
     }
     return [];
   } catch (err) {
@@ -274,13 +286,15 @@ function ensureFileStore(): SiteMeasurementRecord[] {
 }
 
 function persistToFile(records: SiteMeasurementRecord[]) {
+  const storePath = getStorePath();
   cachedRecords = records;
+  cachedRecordsPath = storePath;
   try {
-    const dir = path.dirname(STORE_PATH);
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(STORE_PATH, JSON.stringify(records, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(records, null, 2), 'utf8');
   } catch (err) {
     console.error('[MeasurementService] Failed to write file store:', err);
   }
@@ -368,6 +382,20 @@ export async function getAllMeasurements(): Promise<SiteMeasurementRecord[]> {
 export async function getMeasurementById(id: string): Promise<SiteMeasurementRecord | null> {
   const all = await getAllMeasurements();
   return all.find((m) => m.id === id || m.refNumber === id) || null;
+}
+
+/**
+ * Filter site measurements by measuring staff / engineer name or ID
+ */
+export async function getMeasurementsByStaff(staffNameOrId: string): Promise<SiteMeasurementRecord[]> {
+  const all = await getAllMeasurements();
+  if (!staffNameOrId || staffNameOrId === 'ALL') return all;
+  const query = staffNameOrId.trim().toLowerCase();
+  return all.filter(
+    (m) =>
+      (m.measuredById && m.measuredById.toLowerCase() === query) ||
+      (m.engineerName && m.engineerName.toLowerCase().includes(query))
+  );
 }
 
 /**

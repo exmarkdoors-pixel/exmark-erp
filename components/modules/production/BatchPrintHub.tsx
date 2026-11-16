@@ -12,7 +12,6 @@ import {
   Sparkles,
   QrCode,
   Tag,
-  Eye,
   CheckCircle2,
   X,
   Building2,
@@ -49,56 +48,6 @@ interface BatchOrderData {
   doorsList: BatchDoorScheduleItem[];
 }
 
-const SEED_BATCH_ORDERS: BatchOrderData[] = [
-  {
-    id: 'SO-2026-091',
-    orderNumber: 'SO-2026-091',
-    customerName: 'Skyline Builders (Kochi)',
-    siteName: 'Skyline Prime Villa, Kakkanad, Ernakulam',
-    district: 'Ernakulam',
-    jobCardNumber: 'JC-2026-881',
-    totalAmount: 280000,
-    doorsDesc: '18 Sets FRP Heavy Molded Doors (Rose Wood finish)',
-    doorsList: [
-      { tag: 'D1 - Master Bed', frameSize: '206.1 × 81.3 cm', shutterSize: '204.4 × 73.3 cm', tape: '80 1/2" × 28 7/8"', profile: 'FRP Molded 30mm', finish: 'Rose Wood (EXGC-511)', lock: 'Baby Latch', hand: 'RH Inside', qty: 4 },
-      { tag: 'D2 - Bed 2 (1st Floor)', frameSize: '206.1 × 81.3 cm', shutterSize: '204.4 × 73.3 cm', tape: '80 1/2" × 28 7/8"', profile: 'FRP Molded 30mm', finish: 'Rose Wood (EXGC-511)', lock: 'Baby Latch', hand: 'LH Inside', qty: 4 },
-      { tag: 'D3 - Bed 3 (Guest)', frameSize: '206.1 × 81.3 cm', shutterSize: '204.4 × 73.3 cm', tape: '80 1/2" × 28 7/8"', profile: 'FRP Molded 30mm', finish: 'Rose Wood (EXGC-511)', lock: 'Baby Latch', hand: 'RH Inside', qty: 4 },
-      { tag: 'D4 - Kitchen & Work Area', frameSize: '203.2 × 76.2 cm', shutterSize: '201.5 × 68.2 cm', tape: '79 3/8" × 26 7/8"', profile: 'FRP Waterproof 28mm', finish: 'Natural Teak', lock: 'Mortise 60mm', hand: 'RH Outside', qty: 3 },
-      { tag: 'D5 - Bathrooms (Waterproof)', frameSize: '198.1 × 71.1 cm', shutterSize: '196.4 × 63.1 cm', tape: '77 3/8" × 24 7/8"', profile: 'FRP Pure White 28mm', finish: 'Glossy White', lock: 'Cylindrical Knob', hand: 'LH Inside', qty: 3 },
-    ],
-  },
-  {
-    id: 'SO-2026-092',
-    orderNumber: 'SO-2026-092',
-    customerName: 'Malabar Heritage Project',
-    siteName: 'Heritage Villas, Westhill, Kozhikode',
-    district: 'Kozhikode',
-    jobCardNumber: 'JC-2026-882',
-    totalAmount: 218000,
-    doorsDesc: '14 Sets WPC Solid Core Waterproof Doors (Teak finish)',
-    doorsList: [
-      { tag: 'M1 - Main Entrance Inner', frameSize: '210.0 × 90.0 cm', shutterSize: '208.3 × 82.0 cm', tape: '82" × 32 1/4"', profile: 'WPC Solid Extruded 32mm', finish: 'Natural Teak (EXGC-510)', lock: 'Mortise 60mm', hand: 'RH Inside', qty: 4 },
-      { tag: 'M2 - Bed 1 & 2', frameSize: '206.1 × 81.3 cm', shutterSize: '204.4 × 73.3 cm', tape: '80 1/2" × 28 7/8"', profile: 'WPC Solid Core 30mm', finish: 'Natural Teak (EXGC-510)', lock: 'Baby Latch', hand: 'LH Inside', qty: 6 },
-      { tag: 'M3 - Balcony & Patio', frameSize: '203.2 × 76.2 cm', shutterSize: '201.5 × 68.2 cm', tape: '79 3/8" × 26 7/8"', profile: 'WPC Waterproof 28mm', finish: 'Natural Teak (EXGC-510)', lock: 'Tower Bolt', hand: 'RH Inside', qty: 4 },
-    ],
-  },
-  {
-    id: 'SO-2026-093',
-    orderNumber: 'SO-2026-093',
-    customerName: 'Dr. Jacob Abraham',
-    siteName: 'Ottapalam, Palakkad',
-    district: 'Palakkad',
-    jobCardNumber: 'JC-2026-883',
-    totalAmount: 130000,
-    doorsDesc: '10 Sets Luxury Designer FRP Doors (Mahogany finish)',
-    doorsList: [
-      { tag: 'V1 - Master Suite', frameSize: '208.3 × 83.8 cm', shutterSize: '206.6 × 75.8 cm', tape: '81 3/8" × 29 7/8"', profile: 'FRP Luxury 30mm', finish: 'Mahogany Dark (EXGC-503)', lock: 'Mortise 60mm', hand: 'RH Inside', qty: 3 },
-      { tag: 'V2 - Family Living', frameSize: '206.1 × 81.3 cm', shutterSize: '204.4 × 73.3 cm', tape: '80 1/2" × 28 7/8"', profile: 'FRP Luxury 30mm', finish: 'Mahogany Dark (EXGC-503)', lock: 'Baby Latch', hand: 'LH Inside', qty: 4 },
-      { tag: 'V3 - Attached Bathrooms', frameSize: '198.1 × 71.1 cm', shutterSize: '196.4 × 63.1 cm', tape: '77 3/8" × 24 7/8"', profile: 'FRP Solid Core 28mm', finish: 'Pure White Glossy', lock: 'Baby Latch', hand: 'RH Inside', qty: 3 },
-    ],
-  },
-];
-
 export interface ExpandedSticker {
   id?: string;
   orderId?: string;
@@ -129,19 +78,18 @@ export default function BatchPrintHub({
   initialSelectedOrderIds,
   onClose,
 }: BatchPrintHubProps = {}) {
-  const [orders, setOrders] = useState<BatchOrderData[]>(SEED_BATCH_ORDERS);
+  const [orders, setOrders] = useState<BatchOrderData[]>([]);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>(
     initialSelectedOrderIds && initialSelectedOrderIds.length > 0
       ? initialSelectedOrderIds
-      : ['SO-2026-091', 'SO-2026-092', 'SO-2026-093']
+      : []
   );
   const [partyFilter, setPartyFilter] = useState<string>('ALL');
   const [activePrintModal, setActivePrintModal] = useState<'STICKERS' | 'QC_PDF' | 'A4_SCHEDULE' | null>(null);
   const [stickerFormat, setStickerFormat] = useState<'A4_12L' | 'THERMAL_ROLL'>('A4_12L');
+  const [gridLayout, setGridLayout] = useState<'2x6' | '3x4'>('2x6');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [doorRemarks, setDoorRemarks] = useState<Record<string, string>>({
-    'SO-2026-091-D1 - Master Bed-1': 'Customer Special Handle Groove',
-  });
+  const [doorRemarks, setDoorRemarks] = useState<Record<string, string>>({});
   const [isRemarksManagerOpen, setIsRemarksManagerOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
@@ -150,7 +98,11 @@ export default function BatchPrintHub({
     fetch('/api/production')
       .then((res) => res.json())
       .then((json) => {
-        if (!active || !json.success || !Array.isArray(json.data) || json.data.length === 0) return;
+        if (!active || !json.success || !Array.isArray(json.data)) return;
+        if (json.data.length === 0) {
+          setOrders([]);
+          return;
+        }
         const apiOrders: BatchOrderData[] = json.data.map((p: {
           id: string;
           salesOrderId?: string;
@@ -171,10 +123,10 @@ export default function BatchPrintHub({
             lockType?: string;
             handing?: string;
           }>;
-          doorCategory?: string;
+            doorCategory?: string;
         }) => ({
-          id: p.salesOrderId || p.id,
-          orderNumber: p.salesOrderId || p.prodOrderNumber,
+          id: p.id, // Unique production order ID prevents duplicate key collisions for shared salesOrderId
+          orderNumber: p.salesOrderId ? `${p.jobCardNumber} (${p.salesOrderId})` : p.prodOrderNumber,
           customerName: p.customerName || 'Kerala Customer',
           siteName: p.siteName || `${p.customerName || 'Client'} Site`,
           district: p.district || 'Ernakulam',
@@ -195,10 +147,29 @@ export default function BatchPrintHub({
         }));
 
         setOrders((prev) => {
-          const existingIds = new Set(prev.map((o) => o.id));
-          const newOrders = apiOrders.filter((o) => !existingIds.has(o.id));
-          return [...prev, ...newOrders];
+          const seen = new Set(prev.map((o) => o.id));
+          const uniqueNew: BatchOrderData[] = [];
+          for (const ord of apiOrders) {
+            if (!seen.has(ord.id)) {
+              seen.add(ord.id);
+              uniqueNew.push(ord);
+            }
+          }
+          return [...prev, ...uniqueNew];
         });
+
+        if (initialSelectedOrderIds && initialSelectedOrderIds.length > 0) {
+          const matchedIds = apiOrders
+            .filter((o) =>
+              initialSelectedOrderIds.some(
+                (sel) => sel === o.id || sel === o.jobCardNumber || o.orderNumber.includes(sel)
+              )
+            )
+            .map((o) => o.id);
+          if (matchedIds.length > 0) {
+            setSelectedOrderIds((prev) => Array.from(new Set([...prev, ...matchedIds])));
+          }
+        }
       })
       .catch(() => {});
     return () => {
@@ -230,9 +201,10 @@ export default function BatchPrintHub({
     orders.forEach((ord) => {
       if (!selectedOrderIds.includes(ord.id)) return;
       let doorIdx = 1;
-      ord.doorsList.forEach((door) => {
+      ord.doorsList.forEach((door, dIdx) => {
         for (let q = 1; q <= door.qty; q++) {
-          const uniqueKey = `${ord.id}-${door.tag}-${q}`;
+          const uniqueKey = `${ord.id}-${door.tag}-${dIdx}-${q}`;
+          const remarkKey = `${ord.id}-${door.tag}-${q}`;
           list.push({
             id: uniqueKey,
             orderId: ord.id,
@@ -251,7 +223,12 @@ export default function BatchPrintHub({
             lock: door.lock,
             hand: door.hand,
             barcode: `*EXM-${ord.orderNumber.slice(-3)}-D0${doorIdx}-${q.toString().padStart(2, '0')}*`,
-            remark: doorRemarks[uniqueKey] !== undefined ? doorRemarks[uniqueKey] : (door.remark || ''),
+            remark:
+              doorRemarks[uniqueKey] !== undefined
+                ? doorRemarks[uniqueKey]
+                : doorRemarks[remarkKey] !== undefined
+                ? doorRemarks[remarkKey]
+                : (door.remark || ''),
           });
         }
         doorIdx++;
@@ -263,10 +240,11 @@ export default function BatchPrintHub({
   const handleDownloadVectorPdf = async () => {
     try {
       setIsDownloadingPdf(true);
-      const { generate12LStickerPdf } = await import('@/lib/utils/pdfStickerEngine');
+      const { generate12LStickerPdf, generateThermal4x2Pdf } = await import('@/lib/utils/pdfStickerEngine');
       const printableItems = stickers.map((st, idx) => ({
         id: st.id || `stk-${idx}`,
         orderNumber: st.orderNumber,
+        jobCardNumber: st.jobCardNumber,
         customerName: st.customerName,
         siteName: st.siteName,
         doorNumber: idx + 1,
@@ -276,17 +254,24 @@ export default function BatchPrintHub({
         profile: st.profile,
         finish: st.finish,
         hand: st.hand,
+        hingeSide: st.hand.startsWith('LH') ? 'L' : 'R',
         lock: st.lock,
         remark: st.remark, // Strictly conditional: only populated if non-empty!
         barcode: st.barcode,
       }));
 
-      const pdf = await generate12LStickerPdf(printableItems, {
-        companyName: 'EXMARK DOORS',
-        layout: '2x6',
-      });
-      pdf.save(`EXMARK_12L_Sticker_Sheet_${new Date().toISOString().slice(0, 10)}.pdf`);
-      setToastMessage('12L Vector PDF generated and downloaded successfully!');
+      if (stickerFormat === 'THERMAL_ROLL') {
+        const pdf = await generateThermal4x2Pdf(printableItems, { companyName: 'EXMARK DOORS' });
+        pdf.save(`EXMARK_Thermal_4x2_Batch_${new Date().toISOString().slice(0, 10)}.pdf`);
+        setToastMessage(`4"x2" Thermal Vector PDF generated (${printableItems.length} labels)!`);
+      } else {
+        const pdf = await generate12LStickerPdf(printableItems, {
+          companyName: 'EXMARK DOORS',
+          layout: gridLayout,
+        });
+        pdf.save(`EXMARK_12L_${gridLayout}_${new Date().toISOString().slice(0, 10)}.pdf`);
+        setToastMessage(`12L (${gridLayout.toUpperCase()}) Top-Left Vector PDF downloaded!`);
+      }
       setTimeout(() => setToastMessage(null), 4000);
     } catch (err: any) {
       console.error('Vector PDF generation failed:', err);
@@ -383,10 +368,12 @@ export default function BatchPrintHub({
               onChange={(e) => setPartyFilter(e.target.value)}
               className="bg-[#070D1E] border border-slate-700 text-slate-200 rounded-lg p-1.5 text-xs font-medium focus:outline-none focus:border-rose-500 cursor-pointer"
             >
-              <option value="ALL">All Parties & Projects (എല്ലാ പാർട്ടികളും)</option>
-              <option value="Skyline">Skyline Builders (Kochi)</option>
-              <option value="Malabar">Malabar Heritage (Calicut)</option>
-              <option value="Jacob">Dr. Jacob Abraham (Palakkad)</option>
+              <option value="ALL">All Parties &amp; Projects</option>
+              {Array.from(new Set(orders.map((o) => o.customerName).filter(Boolean))).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -398,9 +385,20 @@ export default function BatchPrintHub({
             onChange={(e) => setStickerFormat(e.target.value as 'A4_12L' | 'THERMAL_ROLL')}
             className="bg-[#070D1E] border border-rose-600/80 text-rose-200 rounded-xl p-2 text-xs font-bold focus:outline-none cursor-pointer"
           >
-            <option value="A4_12L">📄 A4 12-Up Sheet (12L Compact)</option>
-            <option value="THERMAL_ROLL">🏷️ Single Thermal Roll (4"×2" / 100×50mm)</option>
+            <option value="A4_12L">📄 A4 12-Up Sheet (12L)</option>
+            <option value="THERMAL_ROLL">🏷️ Thermal Label (4&quot;×2&quot; / 101.6×50.8mm)</option>
           </select>
+
+          {stickerFormat === 'A4_12L' && (
+            <select
+              value={gridLayout}
+              onChange={(e) => setGridLayout(e.target.value as '2x6' | '3x4')}
+              className="bg-[#070D1E] border border-emerald-600/70 text-emerald-200 rounded-xl p-2 text-xs font-bold focus:outline-none cursor-pointer"
+            >
+              <option value="2x6">2×6 Wide Grid</option>
+              <option value="3x4">3×4 Grid</option>
+            </select>
+          )}
 
           <button
             onClick={() => setActivePrintModal('STICKERS')}
@@ -408,17 +406,25 @@ export default function BatchPrintHub({
             className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-950/40 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <Tag className="w-4 h-4" />
-            <span>Print 12L Stickers {stickerFormat === 'THERMAL_ROLL' ? '(Thermal Roll)' : '(12-Up A4)'} 🏷️</span>
+            <span>
+              Print Stickers {stickerFormat === 'THERMAL_ROLL' ? '(4"×2" Thermal)' : `(12L ${gridLayout.toUpperCase()})`}
+            </span>
           </button>
 
           <button
             onClick={handleDownloadVectorPdf}
             disabled={isDownloadingPdf || totalStickers === 0}
             className="px-3.5 py-2 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-sky-950/40 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            title="Download high-resolution 12-Up vector PDF via jsPDF engine"
+            title="Download exact top-left 12L or 4x2 thermal vector PDF"
           >
             <Download className="w-4 h-4" />
-            <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download 12L Vector PDF'}</span>
+            <span>
+              {isDownloadingPdf
+                ? 'Generating PDF...'
+                : stickerFormat === 'THERMAL_ROLL'
+                ? 'Download 4"×2" Thermal PDF'
+                : `Download 12L (${gridLayout.toUpperCase()}) PDF`}
+            </span>
           </button>
 
           <button
@@ -461,7 +467,12 @@ export default function BatchPrintHub({
         </div>
 
         <div className="divide-y divide-slate-800/60">
-          {filteredOrders.map((ord) => {
+          {filteredOrders.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-400">
+              No live Production Job Cards available yet. Confirm a Quotation in Sales Quotations or release a Job Card on the Production Floor to print 12L / 4&quot;×2&quot; Thermal door labels.
+            </div>
+          ) : (
+            filteredOrders.map((ord) => {
             const isChecked = selectedOrderIds.includes(ord.id);
             const doorCount = ord.doorsList.reduce((acc, d) => acc + d.qty, 0);
 
@@ -504,7 +515,8 @@ export default function BatchPrintHub({
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
       </div>
 
@@ -594,81 +606,9 @@ export default function BatchPrintHub({
         </div>
       )}
 
-      {/* Live Sample Sticker Preview Grid */}
-      <div className="bg-[#0B132B] border border-slate-800 rounded-xl p-5 space-y-3">
-        <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-          <h3 className="font-bold text-white text-xs flex items-center gap-1.5">
-            <Eye className="w-4 h-4 text-rose-400" />
-            <span>Batch 12L Sticker Sheet Layout (Live Sample Preview)</span>
-          </h3>
-          <span className="text-[11px] text-slate-400">
-            Standard 12-Up A4 Die-Cut Sticker Paper (70mm × 74mm per label)
-          </span>
-        </div>
-
-        {stickers.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-xs">
-            Please tick at least one order to preview batch stickers.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-            {stickers.slice(0, 4).map((st, idx) => (
-              <div
-                key={idx}
-                className="bg-[#070D1E] border border-slate-700/80 rounded-xl p-3 space-y-1.5 relative shadow-md"
-              >
-                <div className="flex justify-between items-start border-b border-slate-800 pb-1">
-                  <div className="font-black text-rose-500 text-[10px] tracking-wide">EXMARK DOORS</div>
-                  <div className="text-[9px] font-bold text-slate-400">
-                    {st.orderNumber} • #{idx + 1}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="font-bold text-white text-[11px] truncate">{st.customerName}</div>
-                  <div className="text-[10px] font-semibold text-cyan-400">
-                    {st.tag} ({st.unitIndex}/{st.totalUnitsInTag})
-                  </div>
-                </div>
-
-                <div className="bg-slate-900/90 p-2 rounded-lg border border-slate-800 space-y-0.5">
-                  <div className="text-[9px] text-slate-400">FACTORY SHUTTER SIZE:</div>
-                  <div className="font-black text-emerald-400 text-xs">{st.shutterSize}</div>
-                  <div className="text-[9px] text-slate-300">Tape: {st.tape}</div>
-                </div>
-
-                <div className="text-[9px] text-slate-400 space-y-0.5">
-                  <div>
-                    <strong className="text-slate-300">Spec:</strong> {st.profile}
-                  </div>
-                  <div>
-                    <strong className="text-slate-300">Finish:</strong> {st.finish}
-                  </div>
-                  <div>
-                    <strong className="text-slate-300">Hardware:</strong> {st.hand} • {st.lock}
-                  </div>
-                </div>
-
-                {/* STRICT CONDITIONAL REMARK IN LIVE PREVIEW */}
-                {st.remark && st.remark.trim().length > 0 && (
-                  <div className="p-1 rounded bg-amber-950/60 border border-amber-600/70 text-amber-300 text-[8.5px] font-bold leading-tight flex items-start gap-1">
-                    <span className="text-amber-400 font-black shrink-0">REMARK:</span>
-                    <span className="truncate">{st.remark.trim()}</span>
-                  </div>
-                )}
-
-                <div className="pt-1 border-t border-slate-800 text-center font-mono text-[9px] tracking-widest text-slate-400">
-                  {st.barcode}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* ================= PRINT / PDF PREVIEW MODAL ================= */}
       {activePrintModal && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-2 bg-black/85 backdrop-blur-md">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-2 bg-black/85 backdrop-blur-md printable-modal-root">
           <div className="bg-white text-slate-900 w-full max-w-5xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Controls Header (Hidden in Print) */}
             <div className="bg-slate-900 text-white p-3.5 flex justify-between items-center print:hidden">
@@ -712,9 +652,44 @@ export default function BatchPrintHub({
                           : 'text-slate-300 hover:text-white'
                       }`}
                     >
-                      🏷️ Thermal Roll (4"×2")
+                      🏷️ Thermal (4&quot;×2&quot;)
                     </button>
                   </div>
+                )}
+
+                {activePrintModal === 'STICKERS' && stickerFormat === 'A4_12L' && (
+                  <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-0.5 text-xs mr-1">
+                    <button
+                      type="button"
+                      onClick={() => setGridLayout('2x6')}
+                      className={`px-2 py-1 rounded font-bold cursor-pointer ${
+                        gridLayout === '2x6' ? 'bg-emerald-600 text-white' : 'text-slate-300'
+                      }`}
+                    >
+                      2×6
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGridLayout('3x4')}
+                      className={`px-2 py-1 rounded font-bold cursor-pointer ${
+                        gridLayout === '3x4' ? 'bg-emerald-600 text-white' : 'text-slate-300'
+                      }`}
+                    >
+                      3×4
+                    </button>
+                  </div>
+                )}
+
+                {activePrintModal === 'STICKERS' && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadVectorPdf}
+                    disabled={isDownloadingPdf}
+                    className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow cursor-pointer disabled:opacity-50"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{stickerFormat === 'THERMAL_ROLL' ? '4"×2" PDF' : '12L Vector PDF'}</span>
+                  </button>
                 )}
 
                 <button
@@ -739,127 +714,158 @@ export default function BatchPrintHub({
               {activePrintModal === 'STICKERS' && (
                 <>
                   {stickerFormat === 'A4_12L' ? (
-                    /* A4 12-UP COMPACT DIE-CUT SHEETS (EXACT 67mm PER CARD, ZERO OVERFLOW) */
-                    <div className="space-y-8">
+                    /* A4 12-UP DIE-CUT SHEETS (TOP-LEFT ANCHORED 2×6 OR 3×4, ZERO CENTERING) */
+                    <div className="space-y-8 print:space-y-0">
                       {Array.from({ length: totalSheets }).map((_, sIdx) => {
                         const sheetStickers = stickers.slice(sIdx * 12, (sIdx + 1) * 12);
+                        const cardHeightMm = gridLayout === '2x6' ? '46.5mm' : '69mm';
                         return (
                           <div
                             key={sIdx}
-                            className="sheet-12l bg-white border border-slate-300 rounded-xl shadow-sm break-after-page print:border-none print:shadow-none print:m-0"
+                            className="sheet-12l bg-white border border-slate-300 rounded-xl shadow-sm break-after-page print:border-none print:shadow-none print:rounded-none print:m-0"
                             style={{
                               width: '210mm',
-                              height: '292mm',
-                              maxHeight: '294mm',
-                              padding: '5mm 5mm',
+                              minHeight: '295mm',
+                              padding: '4mm',
                               margin: '0 auto',
                               boxSizing: 'border-box',
                               display: 'grid',
-                              gridTemplateColumns: 'repeat(3, 1fr)',
-                              gridTemplateRows: 'repeat(4, 1fr)',
-                              gap: '2.5mm',
+                              gridTemplateColumns:
+                                gridLayout === '2x6'
+                                  ? 'repeat(2, minmax(0, 1fr))'
+                                  : 'repeat(3, minmax(0, 1fr))',
+                              gridAutoRows: cardHeightMm,
+                              alignContent: 'start',
+                              gap: '2mm',
                             }}
                           >
                             {sheetStickers.map((st, idx) => {
                               const globalNum = sIdx * 12 + idx + 1;
+                              const hSide = (st.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R';
+                              const hLabel = hSide === 'R' ? 'H-LEFT' : 'H-RIGHT';
+                              const hasRemark = st.remark && st.remark.trim().length > 0;
+
+                              // Parse finished height and width for cutting box (e.g. 205.5 x 82.4)
+                              const parts = (st.shutterSize || '').replace(/[^0-9.x×]/gi, '').split(/[x×]/);
+                              const finHVal = parts[0] ? parseFloat(parts[0]) : 205.5;
+                              const finWVal = parts[1] ? parseFloat(parts[1]) : 82.4;
+                              const finHText = `-${(finHVal > 50 ? finHVal : finHVal * 2.54).toFixed(1)}`;
+                              const finWText = `-${(finWVal > 30 ? finWVal : finWVal * 2.54).toFixed(1)}`;
+
                               return (
                                 <div
                                   key={idx}
-                                  className="sticker-card-12l border border-dashed border-slate-400 font-sans bg-white"
+                                  className="sticker-card-12l border border-slate-700 font-sans bg-white rounded-lg p-2 flex flex-col justify-between overflow-hidden"
                                   style={{
-                                    height: '67mm',
-                                    maxHeight: '67mm',
-                                    overflow: 'hidden',
-                                    padding: '2mm 2.5mm',
+                                    height: cardHeightMm,
+                                    maxHeight: cardHeightMm,
                                     boxSizing: 'border-box',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'space-between',
                                     fontSize: '8.5px',
                                     lineHeight: 1.15,
                                     pageBreakInside: 'avoid',
                                     breakInside: 'avoid',
                                   }}
                                 >
-                                  <div>
-                                    <div className="flex justify-between items-center border-b border-slate-800 pb-0.5 mb-1">
-                                      <span className="font-black text-rose-700 tracking-wider text-[9px]">
-                                        EXMARK DOORS
+                                  {/* Line 1: Party (Left) + Job Card Badge (Right) */}
+                                  <div className="flex justify-between items-center gap-1.5">
+                                    <div className="flex items-baseline gap-1.5 min-w-0">
+                                      <span className="text-[8.5px] text-slate-500 font-normal shrink-0">Party</span>
+                                      <span className="font-black text-[10.5px] text-slate-950 uppercase truncate">
+                                        {st.customerName}
                                       </span>
-                                      <span className="font-bold text-[8px] text-slate-700">
-                                        {st.orderNumber} #{globalNum}/{totalStickers}
-                                      </span>
                                     </div>
-                                    <div className="font-bold text-slate-950 text-[10px] leading-tight truncate">
-                                      {st.customerName}
-                                    </div>
-                                    <div className="text-[8px] text-slate-500 truncate mb-0.5">
-                                      {st.siteName}
-                                    </div>
-
-                                    <div className="bg-slate-50 p-1 rounded border border-slate-300 my-0.5 text-center">
-                                      <div className="font-bold text-slate-900 text-[9px] truncate">
-                                        {st.tag} ({st.unitIndex}/{st.totalUnitsInTag})
-                                      </div>
-                                      <div className="font-black text-slate-950 text-[11px] leading-tight">
-                                        {st.shutterSize}
-                                      </div>
-                                      <div className="text-[8px] text-slate-600">Tape: {st.tape}</div>
-                                    </div>
-
-                                    <div className="text-[8px] text-slate-700 leading-tight">
-                                      <div className="truncate"><strong>Spec:</strong> {st.profile}</div>
-                                      <div className="truncate"><strong>Finish:</strong> {st.finish}</div>
-                                      <div className="truncate"><strong>Hdw:</strong> {st.hand} • {st.lock}</div>
-                                    </div>
-
-                                    {/* STRICT CONDITIONAL REMARK CONTAINER IN 12L PRINT SHEET */}
-                                    {st.remark && st.remark.trim().length > 0 && (
-                                      <div className="mt-0.5 p-0.5 px-1 rounded bg-amber-50 border border-amber-400 text-amber-900 text-[7.5px] font-bold leading-tight flex items-start gap-0.5">
-                                        <span className="text-amber-700 font-black shrink-0">REMARK:</span>
-                                        <span className="truncate">{st.remark.trim()}</span>
-                                      </div>
-                                    )}
+                                    <span className="font-mono text-[8.5px] font-bold px-1.5 py-0.2 rounded border border-slate-700 bg-slate-50 text-slate-900 shrink-0">
+                                      {st.jobCardNumber || st.orderNumber}
+                                    </span>
                                   </div>
 
-                                  <div className="pt-0.5 border-t border-slate-300 text-center font-mono text-[8px] tracking-wider text-slate-800">
-                                    {st.barcode}
+                                  {/* Line 2: Model (Left) + Circled Door Number (Right) */}
+                                  <div className="flex justify-between items-center gap-1.5">
+                                    <div className="flex items-baseline gap-1.5 min-w-0">
+                                      <span className="text-[8px] text-slate-500 font-normal shrink-0">Model</span>
+                                      <span className="font-bold text-[10px] text-slate-900 uppercase truncate">
+                                        {st.profile || st.tag || 'EXM-A-101'}
+                                      </span>
+                                    </div>
+                                    <span className="w-5 h-5 rounded-full border border-slate-700 flex items-center justify-center font-bold text-[9px] text-slate-950 shrink-0">
+                                      {globalNum}
+                                    </span>
                                   </div>
+
+                                  {/* Line 3: H: (R) • LOCK: BABY LATCH • CLR: NATURAL TEAK */}
+                                  <div className="flex items-center gap-1.5 text-[8px]">
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <span className="text-slate-600">H:</span>
+                                      <span className="w-4 h-4 rounded-full border border-slate-700 flex items-center justify-center font-bold text-[8px] text-slate-950">
+                                        {hSide}
+                                      </span>
+                                    </div>
+
+                                    <div className="border border-slate-400 rounded px-1.5 py-0.2 flex items-center gap-1 bg-slate-50 min-w-0 flex-1">
+                                      <span className="text-slate-500 text-[7px] shrink-0">LOCK:</span>
+                                      <span className="font-bold text-slate-900 truncate uppercase text-[8px]">{st.lock || 'Baby Latch'}</span>
+                                    </div>
+
+                                    <div className="border border-slate-400 rounded px-1.5 py-0.2 flex items-center gap-1 bg-slate-50 min-w-0 flex-1">
+                                      <span className="text-slate-500 text-[7px] shrink-0">CLR:</span>
+                                      <span className="font-bold text-slate-900 truncate uppercase text-[8px]">{st.finish || 'Teak'}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Line 4: 3-Cell Industrial Cutting Box (H-LEFT, TOP/BTM, QR Code) */}
+                                  <div className="border border-slate-800 rounded grid grid-cols-12 overflow-hidden bg-slate-50/50">
+                                    {/* Cell 1: H-LEFT or H-RIGHT */}
+                                    <div className="col-span-5 border-r border-slate-800 p-1 flex flex-col justify-between">
+                                      <span className="text-[7.5px] font-bold text-slate-700 uppercase">{hLabel}</span>
+                                      <span className="font-mono text-xs font-black text-slate-950 text-right">{finHText}</span>
+                                    </div>
+
+                                    {/* Cell 2: Stacked TOP and BTM */}
+                                    <div className="col-span-4 border-r border-slate-800 divide-y divide-slate-800">
+                                      <div className="px-1 py-0.2 flex items-center justify-between">
+                                        <span className="text-[7px] font-bold text-slate-600">TOP</span>
+                                        <span className="font-mono text-[9.5px] font-bold text-slate-950">{finWText}</span>
+                                      </div>
+                                      <div className="px-1 py-0.2 flex items-center justify-between">
+                                        <span className="text-[7px] font-bold text-slate-600">BTM</span>
+                                        <span className="font-mono text-[9.5px] font-bold text-slate-950">{finWText}</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Cell 3: QR Code Icon / Sequence */}
+                                    <div className="col-span-3 flex flex-col items-center justify-center p-0.5 bg-white">
+                                      <QrCode className="w-5 h-5 text-slate-900" />
+                                      <span className="text-[6.5px] font-mono font-bold text-slate-700">#{globalNum}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Line 5: STRICT CONDITIONAL REMARK CONTAINER */}
+                                  {hasRemark && (
+                                    <div className="p-0.5 px-1 rounded bg-amber-50 border border-amber-400 text-amber-900 text-[7px] font-bold leading-tight flex items-start gap-1">
+                                      <span className="text-amber-800 font-black shrink-0">REMARK:</span>
+                                      <span className="truncate">{st.remark!.trim()}</span>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
-
-                            {/* Blank slots up to 12 */}
-                            {Array.from({ length: 12 - sheetStickers.length }).map((_, bIdx) => (
-                              <div
-                                key={bIdx}
-                                className="sticker-card-12l border border-dashed border-slate-300 text-center text-slate-300 text-[8px] flex items-center justify-center rounded"
-                                style={{
-                                  height: '67mm',
-                                  maxHeight: '67mm',
-                                  boxSizing: 'border-box',
-                                }}
-                              >
-                                [Blank 12L Die-Cut Slot]
-                              </div>
-                            ))}
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    /* SINGLE CONTINUOUS THERMAL ROLL LABELS (4" x 2" / 100mm x 50mm) */
-                    <div className="thermal-roll-container mx-auto space-y-4 max-w-[100mm]">
+                    /* SINGLE CONTINUOUS THERMAL ROLL LABELS (EXACT 4" x 2" / 101.6mm x 50.8mm) */
+                    <div className="thermal-roll-container mx-auto space-y-4 max-w-[101.6mm] print:max-w-none print:mx-0 print:space-y-0">
                       {stickers.map((st, idx) => (
                         <div
                           key={idx}
-                          className="thermal-single-label bg-white text-black border border-slate-900 rounded p-2.5 break-after-page shadow-sm"
+                          className="thermal-single-label bg-white text-black border border-slate-900 rounded p-2.5 break-after-page shadow-sm print:shadow-none print:rounded-none print:m-0"
                           style={{
-                            width: '100mm',
-                            height: '50mm',
-                            maxHeight: '50mm',
-                            padding: '2.5mm 3.5mm',
-                            margin: '0 auto 5mm auto',
+                            width: '101.6mm',
+                            height: '50.8mm',
+                            maxHeight: '50.8mm',
+                            padding: '2.2mm 3mm',
+                            margin: '0 auto 4mm auto',
                             boxSizing: 'border-box',
                             display: 'flex',
                             flexDirection: 'column',
@@ -1187,6 +1193,25 @@ export default function BatchPrintHub({
             </div>
           </div>
         </div>
+      )}
+      {/* Dynamic Thermal 4"x2" vs A4 Top-Left Print Rule */}
+      {activePrintModal === 'STICKERS' && (
+        <style jsx global>{`
+          @media print {
+            @page {
+              size: ${stickerFormat === 'THERMAL_ROLL' ? '4in 2in' : 'A4 portrait'};
+              margin: 0mm;
+            }
+            .printable-modal-root {
+              position: static !important;
+              display: block !important;
+              align-items: flex-start !important;
+              justify-content: flex-start !important;
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+          }
+        `}</style>
       )}
     </div>
   );

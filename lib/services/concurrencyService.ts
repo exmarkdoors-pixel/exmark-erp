@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getDataFilePath } from '@/lib/utils/dataPaths';
 
 export interface ConcurrencyRecord {
   entityType: 'MEASUREMENT' | 'QUOTATION' | 'SALES_ORDER' | 'JOB_CARD' | 'CUSTOMER';
@@ -24,19 +25,20 @@ export interface ConcurrencyStore {
   leases: ActiveSessionLease[];
 }
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'concurrency-store.json');
+const getStorePath = () => getDataFilePath('concurrency-store.json');
 const LEASE_DURATION_MS = 5 * 60 * 1000; // 5 minute lock lease
 
 function readStore(): ConcurrencyStore {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(STORE_PATH)) {
+    if (!fs.existsSync(storePath)) {
       const initial: ConcurrencyStore = { versions: [], leases: [] };
-      fs.writeFileSync(STORE_PATH, JSON.stringify(initial, null, 2), 'utf8');
+      fs.writeFileSync(storePath, JSON.stringify(initial, null, 2), 'utf8');
       return initial;
     }
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
     const valid = parsed as ConcurrencyStore;
     return {
@@ -50,9 +52,10 @@ function readStore(): ConcurrencyStore {
 
 function writeStore(store: ConcurrencyStore): void {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(store, null, 2), 'utf8');
   } catch (err) {
     console.error('[concurrencyService] Failed to write store:', err);
   }

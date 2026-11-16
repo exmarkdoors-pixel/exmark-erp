@@ -80,7 +80,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, data: customer }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create customer';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    const isConflict = message.includes('already exists');
+    return NextResponse.json({ success: false, error: message }, { status: isConflict ? 409 : 500 });
   }
 }
 

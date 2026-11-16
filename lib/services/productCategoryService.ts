@@ -1,13 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import prisma from '@/lib/prisma';
+import { getDataFilePath } from '../utils/dataPaths';
 import { logAuditEvent } from '@/lib/audit/auditLogger';
 import { ProductCategoryConfig } from '@/types/categories';
 import { assertWriteAllowed } from './dbSyncEngine';
 
 export type { ProductCategoryConfig };
 
-const CATEGORIES_STORE_PATH = path.join(process.cwd(), 'data', 'product-categories.json');
+const getCategoriesStorePath = () => getDataFilePath('product-categories.json');
 
 // Default initial state: FRP is Primary and Enabled; WPC is Optional and Disabled by default
 export const DEFAULT_PRODUCT_CATEGORIES: ProductCategoryConfig[] = [
@@ -29,8 +30,8 @@ export const DEFAULT_PRODUCT_CATEGORIES: ProductCategoryConfig[] = [
     ],
     pricing: {
       baseRateSqFt: 185,
-      standardGstPercent: 18,
-      hsnCode: '3925.20.00',
+      standardGstPercent: 0,
+      hsnCode: '',
       minimumOrderSqFt: 18,
     },
     production: {
@@ -64,8 +65,8 @@ export const DEFAULT_PRODUCT_CATEGORIES: ProductCategoryConfig[] = [
     ],
     pricing: {
       baseRateSqFt: 145,
-      standardGstPercent: 18,
-      hsnCode: '3918.90.00',
+      standardGstPercent: 0,
+      hsnCode: '',
       minimumOrderSqFt: 15,
     },
     production: {
@@ -89,17 +90,18 @@ export const DEFAULT_PRODUCT_CATEGORIES: ProductCategoryConfig[] = [
  */
 function ensureCategoryStore(): ProductCategoryConfig[] {
   try {
-    const dir = path.dirname(CATEGORIES_STORE_PATH);
+    const storePath = getCategoriesStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
-    if (!fs.existsSync(CATEGORIES_STORE_PATH)) {
-      fs.writeFileSync(CATEGORIES_STORE_PATH, JSON.stringify(DEFAULT_PRODUCT_CATEGORIES, null, 2), 'utf8');
+    if (!fs.existsSync(storePath)) {
+      fs.writeFileSync(storePath, JSON.stringify(DEFAULT_PRODUCT_CATEGORIES, null, 2), 'utf8');
       return DEFAULT_PRODUCT_CATEGORIES;
     }
 
-    const raw = fs.readFileSync(CATEGORIES_STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed;
@@ -115,11 +117,12 @@ function ensureCategoryStore(): ProductCategoryConfig[] {
  */
 function persistCategoriesToFile(categories: ProductCategoryConfig[]) {
   try {
-    const dir = path.dirname(CATEGORIES_STORE_PATH);
+    const storePath = getCategoriesStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(CATEGORIES_STORE_PATH, JSON.stringify(categories, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(categories, null, 2), 'utf8');
   } catch (err) {
     console.error('[ProductCategoryService] Failed to write to store file:', err);
   }
@@ -147,7 +150,7 @@ export async function getProductCategories(): Promise<ProductCategoryConfig[]> {
           isPrimary: r.isPrimary,
           description: r.description || '',
           fields: r.fieldsConfig ? JSON.parse(r.fieldsConfig) : [],
-          pricing: r.pricingConfig ? JSON.parse(r.pricingConfig) : { baseRateSqFt: 185, standardGstPercent: 18, hsnCode: '3925.20.00' },
+          pricing: r.pricingConfig ? JSON.parse(r.pricingConfig) : { baseRateSqFt: 185, standardGstPercent: 0, hsnCode: '' },
           production: r.productionConfig ? JSON.parse(r.productionConfig) : { lineCode: 'FRP-01', lineName: 'FRP Line', cycleTimeMinutes: 45, qcCheckpoints: [] },
           reportingVisibility: r.reportingVisibility,
           updatedAt: r.updatedAt.toISOString(),

@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorizeRequest(req, 'production', ['Super Admin', 'Management', 'Production']);
+    const auth = await authorizeRequest(req, 'production', ['Super Admin', 'Management', 'Production', 'Sales']);
     if (auth.errorResponse) return auth.errorResponse;
 
     const body = await req.json();
@@ -56,12 +56,17 @@ export async function POST(req: NextRequest) {
     const order = await createProductionOrder({
       salesOrderId: body.salesOrderId || null,
       measurementRef: body.measurementRef || null,
+      parentJobCardNumber: body.parentJobCardNumber || null,
+      isSupplementaryJobWork: Boolean(body.isSupplementaryJobWork),
       customerName: body.customerName.trim(),
       siteName: body.siteName.trim(),
       district: body.district.trim(),
       doorCategory: body.doorCategory || 'FRP_DOORS',
-      lineAssigned: body.lineAssigned || 'Line 1: FRP Hydraulic Press (300 Ton)',
+      lineAssigned: body.lineAssigned || 'Hand Station 1: Hand-Layup & Manual Mold Benches',
       priority: body.priority || 'NORMAL',
+      includeInstallation: Boolean(body.includeInstallation),
+      installationNotes: body.installationNotes ? String(body.installationNotes) : undefined,
+      orderDate: body.orderDate ? String(body.orderDate) : undefined,
       tolerances: body.tolerances,
       doors: body.doors,
     });

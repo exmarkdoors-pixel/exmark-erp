@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import prisma from '@/lib/prisma';
+import { getDataFilePath } from '../utils/dataPaths';
 import { assertWriteAllowed, isPostgresAvailable } from './dbSyncEngine';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -40,17 +41,18 @@ export interface CustomerFilter {
 
 // ── Store helpers ─────────────────────────────────────────────────────────────
 
-const STORE_PATH = path.join(process.cwd(), 'data', 'customers-store.json');
+const getStorePath = () => getDataFilePath('customers-store.json');
 
 function readStore(): Customer[] {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(STORE_PATH)) {
-      fs.writeFileSync(STORE_PATH, '[]', 'utf8');
+    if (!fs.existsSync(storePath)) {
+      fs.writeFileSync(storePath, '[]', 'utf8');
       return [];
     }
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(storePath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as Customer[]) : [];
   } catch {
@@ -60,9 +62,10 @@ function readStore(): Customer[] {
 
 function writeStore(customers: Customer[]): void {
   try {
-    const dir = path.dirname(STORE_PATH);
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STORE_PATH, JSON.stringify(customers, null, 2), 'utf8');
+    fs.writeFileSync(storePath, JSON.stringify(customers, null, 2), 'utf8');
   } catch (err) {
     console.error('[customerService] Failed to write store:', err);
   }
@@ -142,6 +145,36 @@ export async function getCustomer(id: string): Promise<Customer | null> {
 export async function createCustomer(data: CustomerCreateInput): Promise<Customer> {
   await assertWriteAllowed('Customer Creation');
   const all = readStore();
+
+  const rawPhone = (data.phone || '').toString();
+  const normPhone = rawPhone.replace(/\D/g, '').slice(-10);
+  const normName = (data.name || '').toString().trim().toLowerCase();
+
+  // Enforce single-time unique customer by 10-digit mobile number
+  if (normPhone && normPhone.length >= 7) {
+    const existingByPhone = all.find((c) => {
+      const cNorm = (c.phone || '').toString().replace(/\D/g, '').slice(-10);
+      return cNorm && cNorm === normPhone;
+    });
+    if (existingByPhone) {
+      throw new Error(
+        `Customer with mobile number ${existingByPhone.phone} already exists ("${existingByPhone.name}"). Duplicate mobile numbers are not allowed.`
+      );
+    }
+  }
+
+  // Enforce single-time unique customer by name
+  if (normName) {
+    const existingByName = all.find(
+      (c) => (c.name || '').toString().trim().toLowerCase() === normName
+    );
+    if (existingByName) {
+      throw new Error(
+        `Customer with name "${existingByName.name}" already exists (${existingByName.phone || 'no phone'}). Duplicate customer names are not allowed.`
+      );
+    }
+  }
+
   const id = generateId();
   const customerCode = generateCode(all.length);
   const now = new Date().toISOString();
@@ -190,6 +223,35 @@ export async function updateCustomer(id: string, data: CustomerUpdateInput): Pro
   const all = readStore();
   const idx = all.findIndex((c) => c.id === id);
   if (idx === -1) throw new Error(`Customer ${id} not found`);
+
+  if (data.phone) {
+    const normPhone = data.phone.toString().replace(/\D/g, '').slice(-10);
+    if (normPhone && normPhone.length >= 7) {
+      const existing = all.find(
+        (c) => c.id !== id && (c.phone || '').toString().replace(/\D/g, '').slice(-10) === normPhone
+      );
+      if (existing) {
+        throw new Error(
+          `Another customer with mobile number ${existing.phone} already exists ("${existing.name}"). Duplicate mobile numbers are not allowed.`
+        );
+      }
+    }
+  }
+
+  if (data.name) {
+    const normName = data.name.toString().trim().toLowerCase();
+    if (normName) {
+      const existing = all.find(
+        (c) => c.id !== id && (c.name || '').toString().trim().toLowerCase() === normName
+      );
+      if (existing) {
+        throw new Error(
+          `Another customer with name "${existing.name}" already exists (${existing.phone || 'no phone'}). Duplicate customer names are not allowed.`
+        );
+      }
+    }
+  }
+
   const updated: Customer = {
     ...all[idx],
     ...data,

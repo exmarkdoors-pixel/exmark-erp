@@ -264,7 +264,7 @@ export default function AdminCustomizationSettings() {
           { id: 'workflows', label: '5. Workflows', icon: CheckCircle2 },
           { id: 'tolerances', label: '6. Tolerances', icon: Sliders },
           { id: 'pricing', label: '7. Price Lists', icon: DollarSign },
-          { id: 'gst_targets', label: '8. GST & Targets', icon: Award },
+          { id: 'gst_targets', label: '8. Plant Targets & Quotas', icon: Award },
           { id: 'pdf_warranty', label: '9. PDF & Warranty', icon: Printer },
           { id: 'notifications', label: '10. WhatsApp & Alerts', icon: MessageSquare },
           { id: 'roles', label: '11. Roles & Security', icon: Shield },
@@ -567,28 +567,14 @@ export default function AdminCustomizationSettings() {
         </div>
       )}
 
-      {/* Tab 8: GST & Targets */}
+      {/* Tab 8: Plant Targets & Quotas */}
       {activeTab === 'gst_targets' && (
         <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
           <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
             <Award className="w-4 h-4 text-red-500" />
-            8. Kerala GST Configuration &amp; Monthly Plant Targets
+            8. Monthly Plant Targets &amp; Operational Quotas
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div className="p-4 bg-slate-900/60 rounded-xl border border-slate-800 space-y-2">
-              <span className="font-bold text-slate-300 block">GST Compliance (HSN 3925.20.00)</span>
-              <div className="space-y-1 text-slate-400 text-[11px]">
-                <div className="flex justify-between">
-                  <span>Kerala GSTIN:</span>
-                  <span className="font-mono font-bold text-white">{config.gstConfig.gstin}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>CGST / SGST Rate:</span>
-                  <span className="font-bold text-white">{config.gstConfig.cgstRate}% + {config.gstConfig.sgstRate}% (18% Total)</span>
-                </div>
-              </div>
-            </div>
-
             <div className="p-4 bg-slate-900/60 rounded-xl border border-slate-800 space-y-2">
               <span className="font-bold text-slate-300 block">Monthly Operational Targets</span>
               <div className="space-y-1 text-slate-400 text-[11px]">
@@ -597,8 +583,26 @@ export default function AdminCustomizationSettings() {
                   <span className="font-bold text-emerald-400">₹{config.financialTargets.monthlyRevenueTarget.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span>Monthly Collections Target:</span>
+                  <span className="font-bold text-cyan-400">₹{config.financialTargets.monthlyCollectionsTarget.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between">
                   <span>Monthly FRP Door Volume:</span>
                   <span className="font-bold text-white">{config.financialTargets.monthlyFrpDoorsTarget} doors</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-900/60 rounded-xl border border-slate-800 space-y-2">
+              <span className="font-bold text-slate-300 block">Commercial Billing Policy</span>
+              <div className="space-y-1 text-slate-400 text-[11px]">
+                <div className="flex justify-between">
+                  <span>Billing Regime:</span>
+                  <span className="font-bold text-emerald-400">Direct Net Pricing (0% Tax)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Min Gross Margin Target:</span>
+                  <span className="font-bold text-white">{config.financialTargets.minGrossMarginPercentage}%</span>
                 </div>
               </div>
             </div>

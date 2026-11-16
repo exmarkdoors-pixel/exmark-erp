@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Ticket,
   Truck,
@@ -58,7 +58,7 @@ const SEED_GATE_PASSES: GatePassRecord[] = [
     securityGuardName: 'Gopinathan (Main Gate A)',
     issuedTimestamp: '01 Nov 2026 14:30',
     status: 'GATE_CLEARED',
-    notes: 'Commercial delivery with verified e-Way bill and strapped corner protectors.',
+    notes: 'Commercial delivery with verified transport slip and strapped corner protectors.',
   },
   {
     id: 'GP-2026-102',
@@ -96,11 +96,13 @@ const SEED_GATE_PASSES: GatePassRecord[] = [
 ];
 
 export default function GatePassHub() {
-  const [gatePasses, setGatePasses] = useState<GatePassRecord[]>(SEED_GATE_PASSES);
-  const [selectedPass, setSelectedPass] = useState<GatePassRecord>(SEED_GATE_PASSES[0]);
+  const [gatePasses, setGatePasses] = useState<GatePassRecord[]>([]);
+  const [selectedPass, setSelectedPass] = useState<GatePassRecord | null>(null);
   const [typeFilter, setTypeFilter] = useState<'ALL' | GatePassType>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewPassModalOpen, setIsNewPassModalOpen] = useState(false);
+  const [fleetVehicles, setFleetVehicles] = useState<any[]>([]);
+  const [fleetDrivers, setFleetDrivers] = useState<any[]>([]);
 
   // New Pass state
   const [newPassType, setNewPassType] = useState<GatePassType>('NRGP_OUTWARD');
@@ -112,6 +114,18 @@ export default function GatePassHub() {
   const [newUnits, setNewUnits] = useState(10);
   const [newInvoiceRef, setNewInvoiceRef] = useState('INV-2026-105');
   const [newEWayBill, setNewEWayBill] = useState('');
+
+  useEffect(() => {
+    fetch('/api/logistics/fleet')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data) {
+          setFleetVehicles(res.data.vehicles || []);
+          setFleetDrivers(res.data.drivers || []);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Filter
   const filteredPasses = gatePasses.filter((gp) => {
@@ -277,8 +291,13 @@ export default function GatePassHub() {
             </div>
 
             <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
-              {filteredPasses.map((gp) => {
-                const isSelected = selectedPass.id === gp.id;
+              {filteredPasses.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400">
+                  No gate passes recorded yet.
+                </div>
+              ) : (
+                filteredPasses.map((gp) => {
+                const isSelected = selectedPass?.id === gp.id;
                 return (
                   <div
                     key={gp.id}
@@ -318,13 +337,23 @@ export default function GatePassHub() {
                     </div>
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
           </div>
         </div>
 
         {/* Right Column (7 cols): Selected Official Gate Pass Preview */}
         <div className="lg:col-span-7 space-y-4">
+          {!selectedPass ? (
+            <div className="p-8 rounded-2xl bg-[#0B132B]/90 border border-dashed border-slate-800 text-center space-y-2">
+              <Ticket className="w-8 h-8 text-emerald-400 mx-auto opacity-60" />
+              <h3 className="text-sm font-bold text-white">No Gate Passes Issued</h3>
+              <p className="text-xs text-slate-400">
+                Issue a new outward or inward security gate pass to track factory material movements.
+              </p>
+            </div>
+          ) : (
           <div className="p-6 rounded-2xl bg-[#0B132B]/90 border border-slate-800 shadow-xl space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
               <div>
@@ -366,8 +395,8 @@ export default function GatePassHub() {
                 <p className="font-mono font-bold text-cyan-300 mt-0.5">{selectedPass.invoiceOrRef}</p>
               </div>
               <div>
-                <span className="text-[11px] text-slate-400">Kerala e-Way Bill</span>
-                <p className="font-mono font-bold text-purple-300 mt-0.5">{selectedPass.eWayBillNo || 'Local / Exempt'}</p>
+                <span className="text-[11px] text-slate-400">Transport Waybill / Ref</span>
+                <p className="font-mono font-bold text-purple-300 mt-0.5">{selectedPass.eWayBillNo || 'Local / Standard'}</p>
               </div>
             </div>
 
@@ -402,6 +431,7 @@ export default function GatePassHub() {
               </span>
             </div>
           </div>
+          )}
         </div>
       </div>
 
@@ -442,7 +472,29 @@ export default function GatePassHub() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Vehicle Registration #</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-400">Vehicle Registration #</label>
+                    {fleetVehicles.length > 0 && (
+                      <select
+                        onChange={(e) => {
+                          const v = fleetVehicles.find((veh) => veh.registrationNumber === e.target.value);
+                          if (v) {
+                            setNewVehicleNo(v.registrationNumber);
+                            if (v.assignedDriverName) setNewDriverName(v.assignedDriverName);
+                            if (v.assignedDriverPhone) setNewDriverPhone(v.assignedDriverPhone);
+                          }
+                        }}
+                        className="text-[10px] bg-slate-800 text-emerald-400 rounded px-1.5 py-0.5 border border-slate-700"
+                      >
+                        <option value="">Quick Fleet Auto-fill</option>
+                        {fleetVehicles.map((v) => (
+                          <option key={v.id} value={v.registrationNumber}>
+                            {v.registrationNumber} ({v.model})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                   <input
                     type="text"
                     required
@@ -456,7 +508,29 @@ export default function GatePassHub() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Driver Name</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-400">Driver Name</label>
+                    {fleetDrivers.length > 0 && (
+                      <select
+                        onChange={(e) => {
+                          const d = fleetDrivers.find((drv) => drv.name === e.target.value);
+                          if (d) {
+                            setNewDriverName(d.name);
+                            if (d.phone) setNewDriverPhone(d.phone);
+                            if (d.assignedVehicleNumber && !newVehicleNo) setNewVehicleNo(d.assignedVehicleNumber);
+                          }
+                        }}
+                        className="text-[10px] bg-slate-800 text-emerald-400 rounded px-1.5 py-0.5 border border-slate-700"
+                      >
+                        <option value="">Fleet Drivers</option>
+                        {fleetDrivers.map((d) => (
+                          <option key={d.id} value={d.name}>
+                            {d.name} ({d.employeeCode})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                   <input
                     type="text"
                     required
@@ -521,7 +595,7 @@ export default function GatePassHub() {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">e-Way Bill #</label>
+                  <label className="block text-slate-400 mb-1">Waybill / LR #</label>
                   <input
                     type="text"
                     placeholder="Optional"

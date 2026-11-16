@@ -48,6 +48,10 @@ export async function GET(
         stickerRemovedAt: door.stickerRemovedAt || null,
         stickerRemovedBy: door.stickerRemovedBy || null,
         stickerRemovalNotes: door.stickerRemovalNotes || null,
+        moldedByGangId: door.moldedByGangId || null,
+        moldedByGangName: door.moldedByGangName || null,
+        moldedAt: door.moldedAt || null,
+        moldingNotes: door.moldingNotes || null,
         lifecycle: [
           {
             stage: 'ORDER_RELEASE',
