@@ -1320,8 +1320,8 @@ export default function BatchPrintHub({
         <style jsx global>{`
           @media print {
             @page {
-              size: ${stickerFormat === 'THERMAL_ROLL' ? '4in 2in' : 'A4 portrait'};
-              margin: 0mm;
+              size: ${stickerFormat === 'THERMAL_ROLL' ? '4in 2in' : 'A4 portrait'} !important;
+              margin: 0mm !important;
             }
             .printable-modal-root {
               position: static !important;

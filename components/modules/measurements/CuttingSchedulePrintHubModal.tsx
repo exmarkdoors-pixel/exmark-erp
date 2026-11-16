@@ -19,6 +19,7 @@ import {
   Smartphone,
   ChevronDown,
   Layers,
+  Download,
 } from 'lucide-react';
 import { cmToTapeInch, parseTapeInchToCm, computeStickerSizes } from '@/lib/utils/doorStickerFormula';
 
@@ -232,6 +233,7 @@ export function CuttingSchedulePrintHubModal({
   const [nudgeXmm, setNudgeXmm] = useState<number>(-2.5);
   const [nudgeYmm, setNudgeYmm] = useState<number>(-3.0);
   const [safeMarginBuffer, setSafeMarginBuffer] = useState<boolean>(true);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
 
   // Converter Modal State
   const [convInch, setConvInch] = useState(30);
@@ -278,6 +280,64 @@ export function CuttingSchedulePrintHubModal({
       finBtmWText: res.finBtmWText,
       hLabel: res.hLabel,
     };
+  };
+
+  const handleDownloadVectorPdf = async () => {
+    try {
+      setIsDownloadingPdf(true);
+      const { generate12LStickerPdf, generateThermal4x2Pdf } = await import('@/lib/utils/pdfStickerEngine');
+
+      const printableItems = currentParty.doors.map((d, idx) => {
+        const c = calcDoorSizes(d);
+        return {
+          id: d.id,
+          orderNumber: currentParty.jobCardNumber || 'JC-2026-101',
+          jobCardNumber: currentParty.jobCardNumber || 'JC-2026-101',
+          customerName: currentParty.partyName,
+          siteName: currentParty.siteLocation,
+          doorNumber: idx + 1,
+          totalDoorsInOrder: currentParty.doors.length,
+          shutterSize: `${c.finH} x ${c.finTopW}`,
+          tape: `${c.finHText} / ${c.finTopWText}`,
+          profile: d.modelName,
+          finish: d.finishShade || d.finishCategory,
+          hand: d.hingeSide,
+          lock: d.lockSubLabel || d.lockCategory,
+          remark: d.stickerRemark || '',
+          barcode: `EXM-${currentParty.partyName.slice(0, 3).toUpperCase()}-${idx + 1}`,
+          finHText: c.finHText,
+          finTopWText: c.finTopWText,
+          finBtmWText: c.finBtmWText,
+          hingeSide: d.hingeSide,
+          rawHeightCm: d.rawHeightCm,
+          rawWidthTopCm: d.rawWidthTopCm,
+          rawWidthBtmCm: d.rawWidthBtmCm,
+          finH: c.finH,
+          finTopW: c.finTopW,
+          finBtmW: c.finBtmW,
+          modelCode: d.modelName,
+        };
+      });
+
+      if (hubPaper === 'single-4x2') {
+        const pdf = await generateThermal4x2Pdf(printableItems);
+        pdf.save(`EXMARK_Thermal_4x2_${currentParty.partyName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      } else {
+        const pdf = await generate12LStickerPdf(printableItems, {
+          companyName: 'EXMARK DOORS',
+          layout: '2x6',
+          nudgeXmm,
+          nudgeYmm,
+          safeMarginBufferActive: safeMarginBuffer,
+        });
+        pdf.save(`EXMARK_12L_Stickers_${currentParty.partyName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      }
+    } catch (err) {
+      console.error('Failed to generate sticker PDF:', err);
+      alert('Error generating vector PDF. Please print via browser.');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const filteredDoors = useMemo(() => {
@@ -1346,10 +1406,21 @@ export function CuttingSchedulePrintHubModal({
                   <button
                     type="button"
                     onClick={() => window.print()}
-                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold text-white shadow"
+                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold text-white shadow cursor-pointer"
                   >
                     🖨️ Print Now
                   </button>
+                  {hubTab === '12l-sticker' && (
+                    <button
+                      type="button"
+                      onClick={handleDownloadVectorPdf}
+                      disabled={isDownloadingPdf}
+                      className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 rounded-lg font-bold text-white shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>{isDownloadingPdf ? 'Generating PDF...' : '📄 Download Vector PDF (Exact mm)'}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1525,180 +1596,298 @@ export function CuttingSchedulePrintHubModal({
 
               {/* LIVE WHITE PRINT CANVAS */}
               <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-900 flex justify-center print:block print:p-0 print:bg-white">
-                <div className="bg-white text-slate-950 rounded-xl shadow-2xl p-6 w-full max-w-[920px]">
+                {hubTab === '12l-sticker' && (
+                  <style dangerouslySetInnerHTML={{ __html: `
+                    @media print {
+                      @page {
+                        size: ${hubPaper === 'single-4x2' ? '4in 2in' : 'A4 portrait'} !important;
+                        margin: 0mm !important;
+                      }
+                      html, body {
+                        margin: 0mm !important;
+                        padding: 0mm !important;
+                        background: #ffffff !important;
+                        overflow: visible !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                      }
+                      .sticker-print-sheet {
+                        width: 210mm !important;
+                        min-height: 297mm !important;
+                        max-height: 297mm !important;
+                        padding: 0mm !important;
+                        margin: 0mm auto !important;
+                        box-sizing: border-box !important;
+                        overflow: hidden !important;
+                        page-break-after: always !important;
+                        break-after: page !important;
+                      }
+                      .sticker-sheet-grid {
+                        display: grid !important;
+                        grid-template-columns: 105mm 105mm !important;
+                        grid-auto-rows: 49.5mm !important;
+                        gap: 0mm !important;
+                        width: 210mm !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        box-sizing: border-box !important;
+                      }
+                      .sticker-cell-box {
+                        width: 105mm !important;
+                        height: 49.5mm !important;
+                        max-width: 105mm !important;
+                        max-height: 49.5mm !important;
+                        box-sizing: border-box !important;
+                        margin: 0 !important;
+                        overflow: hidden !important;
+                        page-break-inside: avoid !important;
+                        break-inside: avoid !important;
+                      }
+                    }
+                  `}} />
+                )}
+
+                <div className="bg-white text-slate-950 rounded-xl shadow-2xl p-6 w-full max-w-[920px] print:p-0 print:shadow-none print:w-[210mm] print:max-w-[210mm]">
                   {hubTab === '12l-sticker' ? (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center border-b pb-2 text-[11px] font-bold text-slate-500">
-                        <span>PAGE 1 ({hubPaper === 'single-4x2' ? 'SINGLE 4"×2" ROLL LABELS' : '12 STICKERS PER A4 SHEET'})</span>
-                        <span>
-                          {hubFormat === 'workshop-cut'
-                            ? 'AFFIX ON TOP HINGE RAIL FOR WORKSHOP CUTTING'
-                            : 'AFFIX ON DOOR PROTECTIVE PACKAGING FOR SITE HANDOVER'}
-                        </span>
-                      </div>
-
-                      <div
-                        className={hubPaper === 'single-4x2' ? 'flex flex-col gap-4 items-center' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}
-                        style={{
-                          transform: `translate(${nudgeXmm}mm, ${nudgeYmm}mm)`,
-                          transition: 'transform 0.15s ease-out',
-                        }}
-                      >
-                        {currentParty.doors.map((d, i) => {
-                          const c = calcDoorSizes(d);
-                          const num = i + 1;
-
-                          if (hubFormat === 'workshop-cut') {
-                            // FORMAT 1: WORKSHOP CUT STICKER (EXACT IMAGE 2 MODEL + TOP-RIGHT JOB CARD #)
+                    <div className="space-y-6 print:space-y-0">
+                      {hubPaper === 'single-4x2' ? (
+                        <div className="flex flex-col gap-4 items-center">
+                          {currentParty.doors.map((d, i) => {
+                            const c = calcDoorSizes(d);
+                            const num = i + 1;
                             const hasRemark = d.stickerRemark && d.stickerRemark.trim().length > 0;
                             const jobCard = currentParty.jobCardNumber || 'JC-2026-101';
+
                             return (
                               <div
                                 key={d.id}
-                                className={`bg-white border border-slate-800 rounded-xl ${safeMarginBuffer ? 'p-2.5' : 'p-3.5'} shadow-xs flex flex-col justify-between text-slate-900 space-y-1.5 overflow-hidden`}
-                                style={{ minHeight: '175px', maxWidth: '100%' }}
+                                className="bg-white border border-slate-800 rounded-lg p-2.5 shadow-xs flex flex-col justify-between text-slate-900 w-[100mm] h-[50mm] overflow-hidden break-after-page"
                               >
                                 <div className="space-y-1">
-                                  <div className="flex justify-between items-start gap-2">
-                                    <div className="flex items-baseline gap-2 min-w-0">
-                                      <span className="text-[9.5px] text-slate-500 font-medium shrink-0">PartyName</span>
-                                      <span className={`font-black uppercase truncate max-w-[190px] ${safeMarginBuffer && currentParty.partyName.length > 20 ? 'text-[10px]' : 'text-xs'}`}>
-                                        {currentParty.partyName}
-                                      </span>
+                                  <div className="flex justify-between items-start gap-1">
+                                    <div className="flex items-baseline gap-1.5 min-w-0">
+                                      <span className="text-[9px] text-slate-500 font-medium shrink-0">Party</span>
+                                      <span className="font-black uppercase truncate text-[11px] max-w-[170px]">{currentParty.partyName}</span>
                                     </div>
-                                    <span className="font-mono text-[9.5px] font-black px-1.5 py-0.2 rounded bg-slate-100 border border-slate-400 text-slate-950 shrink-0">
-                                      {jobCard}
-                                    </span>
+                                    <span className="font-mono text-[9px] font-black px-1 rounded bg-slate-100 border border-slate-400 text-slate-950 shrink-0">{jobCard}</span>
                                   </div>
-                                  <div className="flex justify-between items-center gap-2">
-                                    <div className="flex items-baseline gap-2 min-w-0">
-                                      <span className="text-[9.5px] text-slate-500 font-medium shrink-0">Model/Part</span>
-                                      <strong className="font-black text-xs uppercase truncate max-w-[170px]">{d.modelName}</strong>
+                                  <div className="flex justify-between items-center gap-1">
+                                    <div className="flex items-baseline gap-1.5 min-w-0">
+                                      <span className="text-[9px] text-slate-500 font-medium shrink-0">Model</span>
+                                      <strong className="font-black text-xs uppercase truncate max-w-[150px]">{d.modelName}</strong>
                                     </div>
-                                    <span className="px-3.5 py-0.2 rounded-full border border-slate-800 font-black text-[11px] leading-tight shrink-0">
-                                      {num}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center justify-between gap-1.5 pt-0.5 text-[9.5px]">
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <span className="text-slate-600">Hinge:</span>
-                                      <span className="px-2.5 py-0.2 border border-slate-800 rounded-full font-black text-[10px]">
-                                        {d.hingeSide}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-1 min-w-0 border border-slate-300 rounded px-1.5 py-0.5 flex-1 bg-slate-50/70 overflow-hidden">
-                                      <span className="text-slate-500 text-[8px] font-semibold shrink-0">LOCK:</span>
-                                      <span className="font-black uppercase truncate max-w-[95px]">{d.lockSubLabel || d.lockCategory}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1 min-w-0 border border-slate-300 rounded px-1.5 py-0.5 flex-1 bg-slate-50/70 overflow-hidden">
-                                      <span className="text-slate-500 text-[8px] font-semibold shrink-0">COLOUR:</span>
-                                      <span className="font-black uppercase truncate max-w-[95px]">{d.finishShade}</span>
-                                    </div>
+                                    <span className="px-2 py-0.2 rounded-full border border-slate-800 font-black text-[10px] leading-tight shrink-0">{num}</span>
                                   </div>
                                 </div>
-
-                                <div className="border border-slate-800 rounded-lg grid grid-cols-12 overflow-hidden">
-                                  <div className="col-span-6 border-r border-slate-800 px-2.5 py-1.5 flex items-center justify-between">
-                                    <span className="text-[10.5px] font-bold text-slate-700 uppercase">{c.hLabel}</span>
-                                    <span className="font-mono text-sm font-black text-slate-950">{c.finHText}</span>
+                                <div className="border border-slate-800 rounded grid grid-cols-12 overflow-hidden text-[10px]">
+                                  <div className="col-span-6 border-r border-slate-800 px-2 py-1 flex items-center justify-between">
+                                    <span className="font-bold text-slate-700">{c.hLabel}</span>
+                                    <span className="font-mono font-black">{c.finHText}</span>
                                   </div>
-                                  <div className="col-span-6 divide-y divide-slate-800">
-                                    <div className="px-2 py-1 flex items-center justify-between">
-                                      <span className="text-[8.5px] font-bold text-slate-600 uppercase">TOP</span>
-                                      <span className="font-mono text-xs font-black text-slate-950">{c.finTopWText}</span>
-                                    </div>
-                                    <div className="px-2 py-1 flex items-center justify-between">
-                                      <span className="text-[8.5px] font-bold text-slate-600 uppercase">BOTTOM</span>
-                                      <span className="font-mono text-xs font-black text-slate-950">{c.finBtmWText}</span>
-                                    </div>
+                                  <div className="col-span-6 px-2 py-1 flex items-center justify-between font-mono font-black">
+                                    <span>W</span>
+                                    <span>{c.finTopWText}</span>
                                   </div>
                                 </div>
-
-                                {hasRemark && (
-                                  <div className="pt-1 border-t border-slate-300 text-[9.5px] font-black text-slate-950 uppercase truncate">
-                                    REMARK: {d.stickerRemark.trim()}
-                                  </div>
-                                )}
                               </div>
                             );
-                          }
+                          })}
+                        </div>
+                      ) : (
+                        Array.from({ length: Math.max(1, Math.ceil(currentParty.doors.length / 12)) }).map((_, sIdx) => {
+                          const sheetDoors = currentParty.doors.slice(sIdx * 12, (sIdx + 1) * 12);
+                          const totalSheets = Math.ceil(currentParty.doors.length / 12) || 1;
 
-                          // FORMAT 2: AFTER-PACKING SITE VERIFICATION PASS + QR
-                          const qrSvg = generateSvgQr(
-                            `EXMARK|${currentParty.partyName}|DOOR#${num}|${d.roomTag}|${c.finH}x${c.finTopW}`,
-                            64
-                          );
                           return (
                             <div
-                              key={d.id}
-                              className="bg-white border-2 border-slate-900 rounded-xl overflow-hidden shadow-xs flex flex-col justify-between text-slate-900"
-                              style={{ minHeight: '198px' }}
+                              key={sIdx}
+                              className="sticker-print-sheet bg-white border border-slate-200 rounded-xl p-4 print:p-0 print:border-none print:rounded-none shadow-sm break-after-page"
+                              style={{
+                                width: '210mm',
+                                minHeight: '297mm',
+                                margin: '0 auto',
+                                boxSizing: 'border-box',
+                              }}
                             >
-                              <div className="bg-[#0F172A] text-white px-3 py-1 flex justify-between items-center">
-                                <span className="text-[10px] font-extrabold text-amber-400">
-                                  📦 AFTER-PACKING SITE VERIFICATION PASS
-                                </span>
-                                <span className="px-2 py-0.2 bg-blue-600 text-white rounded text-[10px] font-black">
-                                  DOOR #{num}
+                              <div className="flex justify-between items-center border-b pb-2 mb-3 text-[11px] font-bold text-slate-500 print:hidden">
+                                <span>SHEET {sIdx + 1} OF {totalSheets} (12 STICKERS PER A4 SHEET)</span>
+                                <span>
+                                  {hubFormat === 'workshop-cut'
+                                    ? 'AFFIX ON TOP HINGE RAIL FOR WORKSHOP CUTTING'
+                                    : 'AFFIX ON DOOR PROTECTIVE PACKAGING FOR SITE HANDOVER'}
                                 </span>
                               </div>
 
-                              <div className="p-3 space-y-2 flex-1 flex flex-col justify-between text-[11px]">
-                                <div>
-                                  <div className="flex justify-between items-center">
-                                    <div>
-                                      <span className="text-slate-500">Party: </span>
-                                      <strong className="font-black uppercase">{currentParty.partyName}</strong>
+                              <div
+                                className="sticker-sheet-grid grid grid-cols-1 md:grid-cols-2 gap-3 print:gap-0"
+                                style={{
+                                  transform: `translate(${nudgeXmm}mm, ${nudgeYmm}mm)`,
+                                  transition: 'transform 0.15s ease-out',
+                                  width: '210mm',
+                                  boxSizing: 'border-box',
+                                }}
+                              >
+                                {sheetDoors.map((d, i) => {
+                                  const c = calcDoorSizes(d);
+                                  const num = sIdx * 12 + i + 1;
+
+                                  if (hubFormat === 'workshop-cut') {
+                                    const hasRemark = d.stickerRemark && d.stickerRemark.trim().length > 0;
+                                    const jobCard = currentParty.jobCardNumber || 'JC-2026-101';
+                                    return (
+                                      <div
+                                        key={d.id}
+                                        className={`sticker-cell-box bg-white border border-slate-800 rounded-xl ${
+                                          safeMarginBuffer ? 'p-2' : 'p-3'
+                                        } shadow-xs flex flex-col justify-between text-slate-900 space-y-1 overflow-hidden`}
+                                        style={{
+                                          width: '105mm',
+                                          height: '49.5mm',
+                                          maxHeight: '49.5mm',
+                                          boxSizing: 'border-box',
+                                        }}
+                                      >
+                                        <div className="space-y-0.5">
+                                          <div className="flex justify-between items-start gap-1">
+                                            <div className="flex items-baseline gap-1.5 min-w-0">
+                                              <span className="text-[9px] text-slate-500 font-medium shrink-0">Party</span>
+                                              <span
+                                                className={`font-black uppercase truncate max-w-[155px] ${
+                                                  safeMarginBuffer && currentParty.partyName.length > 18 ? 'text-[9.5px]' : 'text-[11px]'
+                                                }`}
+                                              >
+                                                {currentParty.partyName}
+                                              </span>
+                                            </div>
+                                            <span className="font-mono text-[9px] font-black px-1.5 py-0.2 rounded bg-slate-100 border border-slate-400 text-slate-950 shrink-0">
+                                              {jobCard}
+                                            </span>
+                                          </div>
+                                          <div className="flex justify-between items-center gap-1">
+                                            <div className="flex items-baseline gap-1.5 min-w-0">
+                                              <span className="text-[9px] text-slate-500 font-medium shrink-0">Model</span>
+                                              <strong className="font-black text-[11px] uppercase truncate max-w-[145px]">{d.modelName}</strong>
+                                            </div>
+                                            <span className="px-3 py-0.2 rounded-full border border-slate-800 font-black text-[10.5px] leading-tight shrink-0">
+                                              {num}
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center justify-between gap-1 pt-0.5 text-[9px]">
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              <span className="text-slate-600">H:</span>
+                                              <span className="px-2 py-0.2 border border-slate-800 rounded-full font-black text-[9.5px]">
+                                                {d.hingeSide}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-1 min-w-0 border border-slate-300 rounded px-1.5 py-0.5 flex-1 bg-slate-50/70 overflow-hidden">
+                                              <span className="text-slate-500 text-[8px] font-semibold shrink-0">LOCK:</span>
+                                              <span className="font-black uppercase truncate max-w-[75px]">{d.lockSubLabel || d.lockCategory}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 min-w-0 border border-slate-300 rounded px-1.5 py-0.5 flex-1 bg-slate-50/70 overflow-hidden">
+                                              <span className="text-slate-500 text-[8px] font-semibold shrink-0">COLOUR:</span>
+                                              <span className="font-black uppercase truncate max-w-[75px]">{d.finishShade}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <div className="border border-slate-800 rounded-lg grid grid-cols-12 overflow-hidden">
+                                          <div className="col-span-6 border-r border-slate-800 px-2 py-1 flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-slate-700 uppercase">{c.hLabel}</span>
+                                            <span className="font-mono text-xs font-black text-slate-950">{c.finHText}</span>
+                                          </div>
+                                          <div className="col-span-6 divide-y divide-slate-800">
+                                            <div className="px-1.5 py-0.5 flex items-center justify-between">
+                                              <span className="text-[8px] font-bold text-slate-600 uppercase">TOP</span>
+                                              <span className="font-mono text-[10.5px] font-black text-slate-950">{c.finTopWText}</span>
+                                            </div>
+                                            <div className="px-1.5 py-0.5 flex items-center justify-between">
+                                              <span className="text-[8px] font-bold text-slate-600 uppercase">BTM</span>
+                                              <span className="font-mono text-[10.5px] font-black text-slate-950">{c.finBtmWText}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {hasRemark && (
+                                          <div className="pt-0.5 border-t border-slate-300 text-[8.5px] font-black text-slate-950 uppercase truncate">
+                                            REMARK: {d.stickerRemark.trim()}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+
+                                  // FORMAT 2: AFTER-PACKING SITE VERIFICATION PASS + QR
+                                  const qrSvg = generateSvgQr(
+                                    `EXMARK|${currentParty.partyName}|DOOR#${num}|${d.roomTag}|${c.finH}x${c.finTopW}`,
+                                    56
+                                  );
+                                  return (
+                                    <div
+                                      key={d.id}
+                                      className="sticker-cell-box bg-white border border-slate-900 rounded-lg overflow-hidden shadow-xs flex flex-col justify-between text-slate-900"
+                                      style={{
+                                        width: '105mm',
+                                        height: '49.5mm',
+                                        maxHeight: '49.5mm',
+                                        boxSizing: 'border-box',
+                                      }}
+                                    >
+                                      <div className="bg-[#0F172A] text-white px-2.5 py-0.5 flex justify-between items-center text-[9px]">
+                                        <span className="font-extrabold text-amber-400 truncate max-w-[130px]">
+                                          📦 AFTER-PACKING PASS
+                                        </span>
+                                        <span className="px-1.5 py-0.2 bg-blue-600 text-white rounded font-black text-[9px]">
+                                          DOOR #{num}
+                                        </span>
+                                      </div>
+
+                                      <div className="p-2 space-y-1 flex-1 flex flex-col justify-between text-[10px]">
+                                        <div className="space-y-0.5">
+                                          <div className="flex justify-between items-center">
+                                            <div className="truncate max-w-[130px]">
+                                              <span className="text-slate-500 text-[9px]">Party: </span>
+                                              <strong className="font-black uppercase text-[10px]">{currentParty.partyName}</strong>
+                                            </div>
+                                            <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-900 border border-indigo-200 rounded font-bold text-[9px]">
+                                              {d.roomTag}
+                                            </span>
+                                          </div>
+                                          <div className="flex justify-between items-center text-[8.5px] text-slate-700">
+                                            <span className="truncate max-w-[120px]">
+                                              {d.modelName} ({d.doorThickness})
+                                            </span>
+                                            <span>
+                                              {d.hingeSide} | {d.lockSubLabel}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <div className="border border-slate-400 rounded grid grid-cols-12 overflow-hidden bg-slate-50/70 text-[9px]">
+                                          <div className="col-span-5 border-r border-slate-400 p-1 font-mono">
+                                            <div className="font-sans font-bold text-[8px] text-slate-600 border-b pb-0.5">OPENING</div>
+                                            <div className="pt-0.5 font-bold">H: {d.rawHeightCm}</div>
+                                            <div className="font-bold">W: {d.rawWidthTopCm}</div>
+                                          </div>
+
+                                          <div className="col-span-5 border-r border-slate-400 p-1 font-mono bg-emerald-50/40">
+                                            <div className="font-sans font-bold text-[8px] text-indigo-900 border-b pb-0.5">PACKED</div>
+                                            <div className="pt-0.5 font-black text-indigo-950">~{c.finH}cm</div>
+                                            <div className="font-black text-indigo-950">~{c.finTopW}cm</div>
+                                          </div>
+
+                                          <div className="col-span-2 p-0.5 flex flex-col items-center justify-center bg-white text-center">
+                                            <div dangerouslySetInnerHTML={{ __html: qrSvg }} />
+                                          </div>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-900 border border-indigo-200 rounded font-bold text-[10px]">
-                                      {d.roomTag}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between items-center text-[10px] text-slate-700 mt-0.5">
-                                    <span>
-                                      Model: <strong>{d.modelName}</strong> ({d.doorThickness}, {d.finishShade})
-                                    </span>
-                                    <span>
-                                      {d.hingeSide} ({c.hLabel}) | {d.lockSubLabel}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* 3-Column Comparison Box */}
-                                <div className="border border-slate-400 rounded grid grid-cols-12 overflow-hidden bg-slate-50/70 text-[10px]">
-                                  <div className="col-span-4 border-r border-slate-400 p-1.5 font-mono">
-                                    <div className="font-sans font-bold text-[9px] text-slate-600 border-b pb-0.5">
-                                      GIVEN OPENING
-                                    </div>
-                                    <div className="pt-1">H: <strong>{d.rawHeightCm}</strong> ({cmToTapeInch(d.rawHeightCm)})</div>
-                                    <div>W: <strong>T:{d.rawWidthTopCm} / B:{d.widthLinked ? d.rawWidthTopCm : d.rawWidthBtmCm}</strong></div>
-                                    <div className="text-[8px] text-slate-500">{c.frame.name}</div>
-                                  </div>
-
-                                  <div className="col-span-5 border-r border-slate-400 p-1.5 font-mono bg-emerald-50/40">
-                                    <div className="font-sans font-bold text-[9px] text-indigo-900 border-b pb-0.5">
-                                      CONFIRM DOOR (PACKED)
-                                    </div>
-                                    <div className="pt-1">H: <strong>~{c.finH} cm</strong></div>
-                                    <div>W: <strong>T:~{c.finTopW} | B:~{c.finBtmW}</strong></div>
-                                    <div className="text-[8px] text-slate-500">H-{c.hMinusMm}mm, W-{c.wMinusMm}mm</div>
-                                  </div>
-
-                                  <div className="col-span-3 p-1 flex flex-col items-center justify-center bg-white text-center">
-                                    <div dangerouslySetInnerHTML={{ __html: qrSvg }} />
-                                    <span className="text-[8px] font-bold text-purple-900 mt-0.5">Scan at Site</span>
-                                  </div>
-                                </div>
-
-                                <div className="flex justify-between items-center pt-0.5 text-[9px] text-slate-600">
-                                  <span>☐ <strong>SITE VERIFIED:</strong> Confirmed matches opening</span>
-                                  <span>Sign: _________________</span>
-                                </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           );
-                        })}
-                      </div>
+                        })
+                      )}
                     </div>
                   ) : hubTab === 'a4-landscape' ? (
                     <div className="space-y-4 text-xs">
