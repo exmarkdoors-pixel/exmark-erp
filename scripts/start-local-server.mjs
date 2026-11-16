@@ -260,9 +260,9 @@ async function main() {
     EXMARK_BUNDLED_DATA_DIR: path.join(rootDir, 'data'),
     EXMARK_LOCAL_FACTORY: 'true',
     COOKIE_SECURE: 'false',
-    EXMARK_CLOUD_DATABASE_URL: loadedEnv.EXMARK_CLOUD_DATABASE_URL || '',
-    DATABASE_URL: '',
-    DIRECT_URL: '',
+    EXMARK_CLOUD_DATABASE_URL: loadedEnv.EXMARK_CLOUD_DATABASE_URL || loadedEnv.DATABASE_URL || '',
+    DATABASE_URL: loadedEnv.DATABASE_URL || '',
+    DIRECT_URL: loadedEnv.DIRECT_URL || loadedEnv.DATABASE_URL || '',
     NEXT_TELEMETRY_DISABLED: '1',
   };
 
