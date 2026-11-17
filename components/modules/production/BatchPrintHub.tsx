@@ -21,6 +21,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { FRAME_DEDUCTION_PRESETS, FramePresetKey } from '@/lib/services/doorSizingEngine';
+import { computeStickerSizes, cmToTapeInch } from '@/lib/utils/doorStickerFormula';
 
 interface BatchDoorScheduleItem {
   tag: string;
@@ -34,6 +35,14 @@ interface BatchDoorScheduleItem {
   qty: number;
   remark?: string;
   presetKey?: FramePresetKey;
+  finTopW?: number;
+  finBtmW?: number;
+  finH?: number;
+  finTopWText?: string;
+  finBtmWText?: string;
+  finHText?: string;
+  hLabel?: 'H-LEFT' | 'H-RIGHT';
+  isTapered?: boolean;
 }
 
 interface BatchOrderData {
@@ -167,6 +176,221 @@ export const PAPER_PRESETS: Record<string, PaperCalibrationPreset> = {
   },
 };
 
+export const DEFAULT_BATCH_FACTORY_ORDERS: BatchOrderData[] = [
+  {
+    id: 'DEMO-RICHONE',
+    orderNumber: 'JC-2026-RICHONE (SO-8921)',
+    customerName: 'RICHONE DOOR',
+    siteName: 'Richone Residency Project',
+    district: 'Kozhikode',
+    jobCardNumber: 'JC-2026-081',
+    totalAmount: 245000,
+    doorsDesc: '3 Door Sets (Rose Wood EXMB-212)',
+    doorsList: [
+      {
+        tag: 'D1',
+        frameSize: '214.3 × 79.1 cm',
+        shutterSize: '-209.8 × -71.5 cm',
+        tape: '84 3/8" × 31 1/8"',
+        profile: 'EXMB-212',
+        finish: 'ROSE WOOD',
+        lock: 'BABY LATCH',
+        hand: 'RH',
+        qty: 1,
+        finH: 209.8,
+        finTopW: 71.5,
+        finBtmW: 71.5,
+        finHText: '-209.8',
+        finTopWText: '-71.5',
+        finBtmWText: '-71.5',
+        hLabel: 'H-LEFT',
+        isTapered: false,
+      },
+      {
+        tag: 'D2',
+        frameSize: '212.4 × 78.1 / 78.7 cm',
+        shutterSize: '-207.9 × [TOP: -70.5 / BTM: -71.1] cm',
+        tape: '83 5/8" × 30 3/4" / 31"',
+        profile: 'EXMB-212',
+        finish: 'ROSE WOOD',
+        lock: 'BABY LATCH',
+        hand: 'RH',
+        qty: 1,
+        finH: 207.9,
+        finTopW: 70.5,
+        finBtmW: 71.1,
+        finHText: '-207.9',
+        finTopWText: '-70.5',
+        finBtmWText: '-71.1',
+        hLabel: 'H-LEFT',
+        isTapered: true,
+      },
+      {
+        tag: 'D3',
+        frameSize: '211.8 × 75.6 / 75.3 cm',
+        shutterSize: '-207.3 × [TOP: -68.0 / BTM: -67.7] cm',
+        tape: '83 3/8" × 29 3/4" / 29 5/8"',
+        profile: 'EXMB-212',
+        finish: 'ROSE WOOD',
+        lock: 'BABY LATCH',
+        hand: 'RH',
+        qty: 1,
+        finH: 207.3,
+        finTopW: 68.0,
+        finBtmW: 67.7,
+        finHText: '-207.3',
+        finTopWText: '-68',
+        finBtmWText: '-67.7',
+        hLabel: 'H-LEFT',
+        isTapered: true,
+      },
+    ],
+  },
+  {
+    id: 'DEMO-GLYS-PROMOAD',
+    orderNumber: 'JC-2026-GLYS (SO-8922)',
+    customerName: 'GLYS PROMOAD',
+    siteName: 'Glyspromoad Villa',
+    district: 'Ernakulam',
+    jobCardNumber: 'JC-2026-082',
+    totalAmount: 85000,
+    doorsDesc: '1 Door Set (Oak Wood EXM-C-308)',
+    doorsList: [
+      {
+        tag: 'D1',
+        frameSize: '196.8 × 78.7 / 78.1 cm',
+        shutterSize: '-192.3 × [TOP: -71.1 / BTM: -70.5] cm',
+        tape: '77 1/2" × 31" / 30 3/4"',
+        profile: 'EXM-C-308',
+        finish: 'OAK WOOD',
+        lock: 'BABY LATCH',
+        hand: 'LH',
+        qty: 1,
+        finH: 192.3,
+        finTopW: 71.1,
+        finBtmW: 70.5,
+        finHText: '-192.3',
+        finTopWText: '-71.1',
+        finBtmWText: '-70.5',
+        hLabel: 'H-RIGHT',
+        isTapered: true,
+      },
+    ],
+  },
+  {
+    id: 'DEMO-ALLOY-FAB',
+    orderNumber: 'JC-2026-ALLOY (SO-8923)',
+    customerName: 'ALLOY FAB',
+    siteName: 'Alloy Fab Site',
+    district: 'Thrissur',
+    jobCardNumber: 'JC-2026-083',
+    totalAmount: 78000,
+    doorsDesc: '1 Door Set (Eeti Wood EXM-A-121)',
+    doorsList: [
+      {
+        tag: 'D1',
+        frameSize: '178.3 × 70.2 / 70.5 cm',
+        shutterSize: '-173.8 × [TOP: -62.6 / BTM: -62.9] cm',
+        tape: '70 1/4" × 27 5/8" / 27 3/4"',
+        profile: 'EXM-A-121',
+        finish: 'EETI WOOD',
+        lock: 'BABY LATCH',
+        hand: 'LH',
+        qty: 1,
+        finH: 173.8,
+        finTopW: 62.6,
+        finBtmW: 62.9,
+        finHText: '-173.8',
+        finTopWText: '-62.6',
+        finBtmWText: '-62.9',
+        hLabel: 'H-RIGHT',
+        isTapered: true,
+      },
+    ],
+  },
+  {
+    id: 'DEMO-EDAPPAL',
+    orderNumber: 'JC-2026-EDAPPAL (SO-8924)',
+    customerName: 'EDAPPAL',
+    siteName: 'Edappal Commercial Center',
+    district: 'Malappuram',
+    jobCardNumber: 'JC-2026-084',
+    totalAmount: 165000,
+    doorsDesc: '2 Door Sets (Mica EXM-A-100)',
+    doorsList: [
+      {
+        tag: 'D1',
+        frameSize: '196.0 × 71.3 / 71.5 cm',
+        shutterSize: '-191.5 × [TOP: -63.7 / BTM: -63.9] cm',
+        tape: '77 1/8" × 28 1/8" / 28 1/8"',
+        profile: 'EXM-A-100',
+        finish: 'MICA',
+        lock: 'BABY LATCH',
+        hand: 'LH',
+        qty: 1,
+        finH: 191.5,
+        finTopW: 63.7,
+        finBtmW: 63.9,
+        finHText: '-191.5',
+        finTopWText: '-63.7',
+        finBtmWText: '-63.9',
+        hLabel: 'H-RIGHT',
+        isTapered: true,
+      },
+      {
+        tag: 'D2',
+        frameSize: '212.5 × 74.8 / 75.2 cm',
+        shutterSize: '-208.0 × [TOP: -67.2 / BTM: -67.6] cm',
+        tape: '83 5/8" × 29 1/2" / 29 5/8"',
+        profile: 'EXM-A-100',
+        finish: 'MICA',
+        lock: 'BABY LATCH',
+        hand: 'RH',
+        qty: 1,
+        finH: 208.0,
+        finTopW: 67.2,
+        finBtmW: 67.6,
+        finHText: '-208',
+        finTopWText: '-67.2',
+        finBtmWText: '-67.6',
+        hLabel: 'H-LEFT',
+        isTapered: true,
+      },
+    ],
+  },
+  {
+    id: 'DEMO-KACHERIPADY',
+    orderNumber: 'JC-2026-KACHERIPADY (SO-8925)',
+    customerName: 'KACHERIPADY',
+    siteName: 'Kacheripady Residence',
+    district: 'Ernakulam',
+    jobCardNumber: 'JC-2026-085',
+    totalAmount: 92000,
+    doorsDesc: '1 Door Set (Natural Teak EXM-A-120)',
+    doorsList: [
+      {
+        tag: 'D1',
+        frameSize: '198.4 × 69.1 / 70.2 cm',
+        shutterSize: '-193.9 × [TOP: -61.5 / BTM: -62.6] cm',
+        tape: '78 1/8" × 27 1/4" / 27 5/8"',
+        profile: 'EXM-A-120',
+        finish: 'NATURAL TEAK',
+        lock: 'BABY LATCH',
+        hand: 'LH',
+        qty: 1,
+        finH: 193.9,
+        finTopW: 61.5,
+        finBtmW: 62.6,
+        finHText: '-193.9',
+        finTopWText: '-61.5',
+        finBtmWText: '-62.6',
+        hLabel: 'H-RIGHT',
+        isTapered: true,
+      },
+    ],
+  },
+];
+
 export interface BatchPrintHubProps {
   initialSelectedOrderIds?: string[];
   onClose?: () => void;
@@ -176,11 +400,11 @@ export default function BatchPrintHub({
   initialSelectedOrderIds,
   onClose,
 }: BatchPrintHubProps = {}) {
-  const [orders, setOrders] = useState<BatchOrderData[]>([]);
+  const [orders, setOrders] = useState<BatchOrderData[]>(DEFAULT_BATCH_FACTORY_ORDERS);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>(
     initialSelectedOrderIds && initialSelectedOrderIds.length > 0
       ? initialSelectedOrderIds
-      : []
+      : DEFAULT_BATCH_FACTORY_ORDERS.map((o) => o.id)
   );
   const [partyFilter, setPartyFilter] = useState<string>('ALL');
   const [activePrintModal, setActivePrintModal] = useState<'STICKERS' | 'QC_PDF' | 'A4_SCHEDULE' | null>(null);
@@ -238,11 +462,7 @@ export default function BatchPrintHub({
     fetch('/api/production')
       .then((res) => res.json())
       .then((json) => {
-        if (!active || !json.success || !Array.isArray(json.data)) return;
-        if (json.data.length === 0) {
-          setOrders([]);
-          return;
-        }
+        if (!active || !json.success || !Array.isArray(json.data) || json.data.length === 0) return;
         const apiOrders: BatchOrderData[] = json.data.map((p: {
           id: string;
           salesOrderId?: string;
@@ -257,6 +477,7 @@ export default function BatchPrintHub({
             rawHeightMm?: number;
             rawWidthMm?: number;
             rawWidthBottomMm?: number;
+            rawHeightCm?: number;
             rawWidthTopCm?: number;
             rawWidthBtmCm?: number;
             finishedHeightMm?: number;
@@ -277,23 +498,39 @@ export default function BatchPrintHub({
           totalAmount: 180000,
           doorsDesc: `${p.doors?.length || 1} Door Sets (${p.doorCategory?.replace('_', ' ') || 'FRP Doors'})`,
           doorsList: (p.doors || []).map((d, idx) => {
+            const rawHCm = d.rawHeightCm ?? (d.rawHeightMm ? d.rawHeightMm / 10 : 210);
             const rawTopCm = d.rawWidthTopCm ?? (d.rawWidthMm ? d.rawWidthMm / 10 : 80);
             const rawBtmCm = d.rawWidthBtmCm ?? (d.rawWidthBottomMm ? d.rawWidthBottomMm / 10 : rawTopCm);
-            const finTopWCm = (d.finishedWidthMm ? d.finishedWidthMm / 10 : Math.max(0, rawTopCm - 7.6));
-            const finBtmWCm = (d.rawWidthBottomMm ? (d.rawWidthBottomMm / 10) - 7.6 : finTopWCm);
+            const isTaperedRaw = Math.abs(rawTopCm - rawBtmCm) >= 0.05;
+            const hSide = d.handing === 'LH' ? 'L' : 'R';
+            const calc = computeStickerSizes({
+              rawHeightCm: rawHCm,
+              rawWidthTopCm: rawTopCm,
+              rawWidthBtmCm: rawBtmCm,
+              widthLinked: !isTaperedRaw,
+              hDeductionCm: 4.5,
+              wDeductionCm: 7.6,
+              hingeSide: hSide,
+            });
             return {
               tag: d.doorNumber || `#D${idx + 1}`,
-              frameSize: `${((d.rawHeightMm || 2100) / 10).toFixed(1)} × ${rawTopCm.toFixed(1)}${Math.abs(rawTopCm - rawBtmCm) >= 0.05 ? ` / ${rawBtmCm.toFixed(1)}` : ''} cm`,
-              shutterSize: `${((d.finishedHeightMm || 2080) / 10).toFixed(1)} × ${finTopWCm.toFixed(1)}${Math.abs(finTopWCm - finBtmWCm) >= 0.05 ? ` / ${finBtmWCm.toFixed(1)}` : ''} cm`,
-              tape: `${((d.rawHeightMm || 2100) / 25.4).toFixed(1)}" × ${((d.rawWidthMm || 900) / 25.4).toFixed(1)}"`,
+              frameSize: `${rawHCm.toFixed(1)} × ${rawTopCm.toFixed(1)}${isTaperedRaw ? ` / ${rawBtmCm.toFixed(1)}` : ''} cm`,
+              shutterSize: calc.isTapered
+                ? `${calc.finHText} × [TOP: ${calc.finTopWText} / BTM: ${calc.finBtmWText}] cm`
+                : `${calc.finHText} × ${calc.finTopWText} cm`,
+              tape: `${cmToTapeInch(rawHCm)} × ${cmToTapeInch(rawTopCm)}${isTaperedRaw ? ` / ${cmToTapeInch(rawBtmCm)}` : ''}`,
               profile: d.model || 'EXM-A-101',
-              finish: d.finishColor || 'Natural Teak (EXGC-510)',
-              lock: d.lockType || 'Mortise Lock 60mm',
-              hand: d.handing === 'LH' ? 'LH Inside' : 'RH Inside',
-              finTopW: finTopWCm,
-              finBtmW: finBtmWCm,
-              finTopWText: `-${finTopWCm.toFixed(1)}`,
-              finBtmWText: `-${finBtmWCm.toFixed(1)}`,
+              finish: d.finishColor || 'Natural Teak',
+              lock: d.lockType || 'Baby Latch',
+              hand: d.handing === 'LH' ? 'LH' : 'RH',
+              finH: calc.finH,
+              finTopW: calc.finTopW,
+              finBtmW: calc.finBtmW,
+              finHText: calc.finHText,
+              finTopWText: calc.finTopWText,
+              finBtmWText: calc.finBtmWText,
+              hLabel: calc.hLabel,
+              isTapered: calc.isTapered,
               qty: 1,
             };
           }),
@@ -361,7 +598,14 @@ export default function BatchPrintHub({
         for (let q = 1; q <= door.qty; q++) {
           const uniqueKey = `${ord.id}-${door.tag}-${dIdx}-${q}`;
           const remarkKey = `${ord.id}-${door.tag}-${q}`;
-          const widths = extractTopBtmWidths({ shutterSize: door.shutterSize, tape: door.tape });
+          const widths = extractTopBtmWidths({
+            shutterSize: door.shutterSize,
+            tape: door.tape,
+            finTopW: door.finTopW,
+            finBtmW: door.finBtmW,
+            finTopWText: door.finTopWText,
+            finBtmWText: door.finBtmWText,
+          });
 
           list.push({
             id: uniqueKey,
@@ -383,6 +627,8 @@ export default function BatchPrintHub({
             lock: door.lock,
             hand: door.hand,
             barcode: `*EXM-${ord.orderNumber.slice(-3)}-D0${doorIdx}-${q.toString().padStart(2, '0')}*`,
+            finH: door.finH,
+            finHText: door.finHText,
             finTopW: widths.topW,
             finBtmW: widths.btmW,
             finTopWText: widths.topText,
@@ -410,6 +656,7 @@ export default function BatchPrintHub({
       const preset = PAPER_PRESETS[calibrationPaper] || PAPER_PRESETS['Oddy 12L Borderless (105 x 49.5 mm)'];
       const printableItems = stickers.map((st, idx) => {
         const widths = extractTopBtmWidths(st);
+        const hSide = (st.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R';
         return {
           id: st.id || `stk-${idx}`,
           orderNumber: st.orderNumber,
@@ -423,10 +670,12 @@ export default function BatchPrintHub({
           profile: st.profile,
           finish: st.finish,
           hand: st.hand,
-          hingeSide: (st.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R',
+          hingeSide: hSide,
           lock: st.lock,
           remark: st.remark, // Strictly conditional: only populated if non-empty!
           barcode: st.barcode,
+          finH: st.finH,
+          finHText: st.finHText,
           finTopW: widths.topW,
           finBtmW: widths.btmW,
           finTopWText: widths.topText,
@@ -844,20 +1093,22 @@ export default function BatchPrintHub({
                     <button
                       type="button"
                       onClick={() => setGridLayout('2x6')}
-                      className={`px-2 py-1 rounded font-bold cursor-pointer ${
-                        gridLayout === '2x6' ? 'bg-emerald-600 text-white' : 'text-slate-300'
+                      className={`px-2.5 py-1 rounded font-bold cursor-pointer transition ${
+                        gridLayout === '2x6' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
                       }`}
+                      title="Standard 12L: 2 Columns × 6 Rows = 12 Stickers per A4 Page"
                     >
-                      2×6
+                      12 (2×6)
                     </button>
                     <button
                       type="button"
                       onClick={() => setGridLayout('3x4')}
-                      className={`px-2 py-1 rounded font-bold cursor-pointer ${
-                        gridLayout === '3x4' ? 'bg-emerald-600 text-white' : 'text-slate-300'
+                      className={`px-2.5 py-1 rounded font-bold cursor-pointer transition ${
+                        gridLayout === '3x4' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
                       }`}
+                      title="Compact: 3 Columns × 4 Rows = 12 Stickers per A4 Page"
                     >
-                      3×4
+                      12 (3×4)
                     </button>
                   </div>
                 )}
@@ -1047,10 +1298,8 @@ export default function BatchPrintHub({
                               const doorNumText = st.doorNumberInOrder || (idx + 1);
                               const totalDoorText = st.totalDoorsInOrder || stickers.length;
 
-                              // Parse finished height for cutting box
-                              const parts = (st.shutterSize || '').replace(/[^0-9.x×]/gi, '').split(/[x×]/);
-                              const finHVal = parts[0] ? parseFloat(parts[0]) : 205.5;
-                              const finHText = `-${(finHVal > 50 ? finHVal : finHVal * 2.54).toFixed(1)}`;
+                              // Formatted finished height for cutting box
+                              const finHText = st.finHText || (st.finH ? `-${st.finH.toFixed(1)}` : '-205.5');
 
                               return (
                                 <div
@@ -1081,7 +1330,7 @@ export default function BatchPrintHub({
                                     </span>
                                   </div>
 
-                                  {/* Line 2: Model/Part (Left) + Circled Door Number (Right) */}
+                                  {/* Line 2: Model/Part (Left) + Capsule Pill Door Number (Right) */}
                                   <div className="flex justify-between items-center gap-1">
                                     <div className="flex items-baseline gap-1 min-w-0 max-w-[135px]">
                                       <span className="text-[7.5px] text-slate-500 font-normal shrink-0">Model/Part</span>
@@ -1089,7 +1338,7 @@ export default function BatchPrintHub({
                                         {st.profile || st.tag || 'EXM-A-101'}
                                       </span>
                                     </div>
-                                    <span className="w-5 h-5 rounded-full border border-slate-800 flex items-center justify-center font-black text-[9px] text-slate-950 shrink-0 bg-slate-100" title={`Door ${doorNumText} of ${totalDoorText}`}>
+                                    <span className="px-2 py-0.5 rounded-full border border-slate-800 flex items-center justify-center font-black text-[9px] text-slate-950 shrink-0 bg-slate-50" title={`Door ${doorNumText} of ${totalDoorText}`}>
                                       {doorNumText}
                                     </span>
                                   </div>
@@ -1103,41 +1352,35 @@ export default function BatchPrintHub({
                                       </span>
                                     </div>
 
-                                    <div className="border border-slate-400 rounded px-1 py-0.2 flex items-center gap-0.5 bg-slate-50 min-w-0 flex-1 overflow-hidden">
-                                      <span className="text-slate-500 text-[6.5px] shrink-0">LOCK:</span>
+                                    <div className="border border-slate-400 rounded px-1.5 py-0.2 flex items-center gap-0.5 bg-slate-50 min-w-0 flex-1 overflow-hidden">
+                                      <span className="text-slate-500 text-[6.5px] shrink-0 font-bold">LOCK:</span>
                                       <span className="font-bold text-slate-900 truncate uppercase text-[7.5px]">{st.lock || 'Baby Latch'}</span>
                                     </div>
 
-                                    <div className="border border-slate-400 rounded px-1 py-0.2 flex items-center gap-0.5 bg-slate-50 min-w-0 flex-1 overflow-hidden">
-                                      <span className="text-slate-500 text-[6.5px] shrink-0">COLOUR:</span>
+                                    <div className="border border-slate-400 rounded px-1.5 py-0.2 flex items-center gap-0.5 bg-slate-50 min-w-0 flex-1 overflow-hidden">
+                                      <span className="text-slate-500 text-[6.5px] shrink-0 font-bold">COLOUR:</span>
                                       <span className="font-bold text-slate-900 truncate uppercase text-[7.5px]">{st.finish || 'Teak'}</span>
                                     </div>
                                   </div>
 
-                                  {/* Line 4: 3-Cell Industrial Cutting Box (H-LEFT, TOP/BOTTOM, QR Code) */}
+                                  {/* Line 4: 2-Cell Industrial Cutting Box (H-LEFT / H-RIGHT, TOP / BOTTOM) */}
                                   <div className="border border-slate-800 rounded grid grid-cols-12 overflow-hidden bg-slate-50/50">
                                     {/* Cell 1: H-LEFT or H-RIGHT */}
-                                    <div className="col-span-5 border-r border-slate-800 p-1 flex flex-col justify-between">
-                                      <span className="text-[7px] font-bold text-slate-700 uppercase">{hLabel}</span>
-                                      <span className="font-mono text-[11px] font-black text-slate-950 text-right">{finHText}</span>
+                                    <div className="col-span-6 border-r border-slate-800 p-1 flex items-center justify-between">
+                                      <span className="text-[7.5px] font-bold text-slate-700 uppercase">{hLabel}</span>
+                                      <span className="font-mono text-[12px] font-black text-slate-950 text-right">{finHText}</span>
                                     </div>
 
                                     {/* Cell 2: Stacked TOP and BOTTOM */}
-                                    <div className="col-span-4 border-r border-slate-800 divide-y divide-slate-800">
-                                      <div className="px-1 py-0.2 flex items-center justify-between">
-                                        <span className="text-[6.5px] font-bold text-slate-600">TOP</span>
-                                        <span className="font-mono text-[9px] font-bold text-slate-950">{widths.topText}</span>
+                                    <div className="col-span-6 divide-y divide-slate-800">
+                                      <div className="px-1.5 py-0.5 flex items-center justify-between">
+                                        <span className="text-[7px] font-bold text-slate-600 uppercase">TOP</span>
+                                        <span className="font-mono text-[10.5px] font-black text-slate-950">{widths.topText}</span>
                                       </div>
-                                      <div className="px-1 py-0.2 flex items-center justify-between">
-                                        <span className="text-[6.5px] font-bold text-slate-600">BOTTOM</span>
-                                        <span className="font-mono text-[9px] font-bold text-slate-950">{widths.btmText}</span>
+                                      <div className="px-1.5 py-0.5 flex items-center justify-between">
+                                        <span className="text-[7px] font-bold text-slate-600 uppercase">BOTTOM</span>
+                                        <span className="font-mono text-[10.5px] font-black text-slate-950">{widths.btmText}</span>
                                       </div>
-                                    </div>
-
-                                    {/* Cell 3: QR Code Icon / Sequence */}
-                                    <div className="col-span-3 flex flex-col items-center justify-center p-0.5 bg-white">
-                                      <QrCode className="w-4 h-4 text-slate-900" />
-                                      <span className="text-[6px] font-mono font-bold text-slate-700">#{doorNumText}/{totalDoorText}</span>
                                     </div>
                                   </div>
 

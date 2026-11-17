@@ -741,22 +741,22 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                   <button
                     type="button"
                     onClick={() => setGridLayout('2x6')}
-                    className={`px-2.5 py-1 rounded text-[11px] cursor-pointer ${
-                      gridLayout === '2x6' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                    className={`px-2.5 py-1 rounded text-[11px] cursor-pointer transition ${
+                      gridLayout === '2x6' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
                     }`}
-                    title="2 Columns × 6 Rows (Standard 12L Wide)"
+                    title="Standard 12L: 2 Columns × 6 Rows = 12 Stickers per A4 Page"
                   >
-                    2×6 Grid
+                    12 (2×6)
                   </button>
                   <button
                     type="button"
                     onClick={() => setGridLayout('3x4')}
-                    className={`px-2.5 py-1 rounded text-[11px] cursor-pointer ${
-                      gridLayout === '3x4' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                    className={`px-2.5 py-1 rounded text-[11px] cursor-pointer transition ${
+                      gridLayout === '3x4' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
                     }`}
-                    title="3 Columns × 4 Rows (Die-Cut 3×4)"
+                    title="Compact: 3 Columns × 4 Rows = 12 Stickers per A4 Page"
                   >
-                    3×4 Grid
+                    12 (3×4)
                   </button>
                 </div>
               )}
