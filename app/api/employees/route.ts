@@ -94,6 +94,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const defaultPieceRate =
+      body.defaultPieceRate !== undefined ? Math.max(0, Number(body.defaultPieceRate) || 0) : 0;
+    const commissionSlabs =
+      body.commissionSlabs && typeof body.commissionSlabs === 'object'
+        ? {
+            slab1_upto40: Math.max(0, Number(body.commissionSlabs.slab1_upto40) || 0),
+            slab2_41to60: Math.max(0, Number(body.commissionSlabs.slab2_41to60) || 0),
+            slab3_61to100: Math.max(0, Number(body.commissionSlabs.slab3_61to100) || 0),
+            slab4_above100: Math.max(0, Number(body.commissionSlabs.slab4_above100) || 0),
+          }
+        : undefined;
+
     const newEmp: StoredEmployee = {
       id: `emp-${Date.now()}`,
       employeeCode,
@@ -106,6 +118,8 @@ export async function POST(req: NextRequest) {
       location: String(body.location || 'Central Manufacturing Plant').trim(),
       shift: body.shift ? String(body.shift) : undefined,
       salary: body.salary !== undefined ? Number(body.salary) || 0 : undefined,
+      defaultPieceRate,
+      commissionSlabs,
       createdAt: now,
       updatedAt: now,
     };
@@ -151,6 +165,23 @@ export async function PATCH(req: NextRequest) {
         body.employeeCode !== undefined ? String(body.employeeCode).trim() : list[idx].employeeCode,
       status: body.status === 'INACTIVE' ? 'INACTIVE' : body.status === 'ACTIVE' ? 'ACTIVE' : list[idx].status,
       location: body.location !== undefined ? String(body.location).trim() : list[idx].location,
+      defaultPieceRate:
+        body.defaultPieceRate !== undefined
+          ? Math.max(0, Number(body.defaultPieceRate) || 0)
+          : list[idx].defaultPieceRate !== undefined
+            ? list[idx].defaultPieceRate
+            : 0,
+      commissionSlabs:
+        body.commissionSlabs !== undefined
+          ? body.commissionSlabs && typeof body.commissionSlabs === 'object'
+            ? {
+                slab1_upto40: Math.max(0, Number(body.commissionSlabs.slab1_upto40) || 0),
+                slab2_41to60: Math.max(0, Number(body.commissionSlabs.slab2_41to60) || 0),
+                slab3_61to100: Math.max(0, Number(body.commissionSlabs.slab3_61to100) || 0),
+                slab4_above100: Math.max(0, Number(body.commissionSlabs.slab4_above100) || 0),
+              }
+            : undefined
+          : list[idx].commissionSlabs,
       updatedAt: new Date().toISOString(),
     };
 

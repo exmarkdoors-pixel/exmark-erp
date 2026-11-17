@@ -437,9 +437,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
   const [isProjectRiskModalOpen, setIsProjectRiskModalOpen] = useState(false);
   const [selectedRiskQuote, setSelectedRiskQuote] = useState<any>(null);
 
-  // Staff Commission & Order Reports State
-  const [draftCommissionType, setDraftCommissionType] = useState<'PERCENTAGE' | 'PER_PIECE'>('PERCENTAGE');
-  const [draftCommissionRate, setDraftCommissionRate] = useState<number>(2.5);
+  // Staff Commission & Order Reports State (Strictly PER_PIECE, Default 0)
+  const [draftCommissionType, setDraftCommissionType] = useState<'PERCENTAGE' | 'PER_PIECE'>('PER_PIECE');
+  const [draftCommissionRate, setDraftCommissionRate] = useState<number>(0);
   const [isCommissionEditModalOpen, setIsCommissionEditModalOpen] = useState(false);
   const [selectedCommissionQuote, setSelectedCommissionQuote] = useState<any>(null);
   const [isStaffReportModalOpen, setIsStaffReportModalOpen] = useState(false);
@@ -532,7 +532,20 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
 
   // Sales Staff & Salesperson Assignment State
   const [salesStaff, setSalesStaff] = useState<
-    Array<{ id: string; name: string; employeeCode: string; department?: string; location?: string }>
+    Array<{
+      id: string;
+      name: string;
+      employeeCode: string;
+      department?: string;
+      location?: string;
+      defaultPieceRate?: number;
+      commissionSlabs?: {
+        slab1_upto40?: number;
+        slab2_41to60?: number;
+        slab3_61to100?: number;
+        slab4_above100?: number;
+      };
+    }>
   >([]);
   const [selectedSalespersonId, setSelectedSalespersonId] = useState<string>('');
   const [salespersonFilter, setSalespersonFilter] = useState<string>('ALL');
@@ -1019,12 +1032,14 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             setSiteMeasurements(measureJson.data);
           }
           if (empJson && Array.isArray(empJson.data)) {
-            const staffList = empJson.data.map((e: { id: string; name: string; employeeCode: string; department?: string; location?: string }) => ({
+            const staffList = empJson.data.map((e: any) => ({
               id: e.id,
               name: e.name,
               employeeCode: e.employeeCode,
               department: e.department,
               location: e.location,
+              defaultPieceRate: e.defaultPieceRate,
+              commissionSlabs: e.commissionSlabs,
             }));
             setSalesStaff(staffList);
             setSelectedSalespersonId((prev) => prev || (staffList[0]?.id ?? ''));
@@ -1707,10 +1722,12 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       setAdvanceInputMode('PRESET');
       setCustomAdvanceRupees('');
     }
-    const qCommType = (q as any).commissionType || 'PERCENTAGE';
+    const qCommType = 'PER_PIECE';
     const qCommRate = (q as any).commissionRate !== undefined 
       ? Number((q as any).commissionRate) 
-      : ((q as any).commissionPercent ?? 2.5);
+      : ((q as any).commissionAmount && (q as any).itemRows?.length
+          ? Math.round(Number((q as any).commissionAmount) / Math.max(1, (q as any).itemRows.reduce((s: number, r: any) => s + (Number(r.qty) || 1), 0)))
+          : ((q as any).commissionPercent ?? 0));
     setDraftCommissionType(qCommType);
     setDraftCommissionRate(qCommRate);
     setIncludeInstallation(Boolean(q.includeInstallation));
@@ -1797,8 +1814,8 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     setAdditionalDiscount(0);
     setRoundOffAmount(0);
     setSelectedSalespersonId('');
-    setDraftCommissionType('PERCENTAGE');
-    setDraftCommissionRate(2.5);
+    setDraftCommissionType('PER_PIECE');
+    setDraftCommissionRate(0);
     showToast('Edit Mode Cancelled', 'Quotation generator returned to standard new draft mode.', 'info');
   };
 
@@ -1959,18 +1976,16 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     })`;
 
     const selectedStaff = salesStaff.find((s) => s.id === selectedSalespersonId);
-    const resolvedCommAmount = draftCommissionType === 'PER_PIECE'
-      ? Math.round(totalDoors * draftCommissionRate)
-      : Math.round((grandTotal * draftCommissionRate) / 100);
+    const resolvedCommAmount = Math.round(totalDoors * draftCommissionRate);
 
     const salespersonPayload = selectedStaff
       ? {
           salespersonId: selectedStaff.id,
           salespersonName: selectedStaff.name,
           salespersonCode: selectedStaff.employeeCode,
-          commissionType: draftCommissionType,
+          commissionType: 'PER_PIECE' as const,
           commissionRate: draftCommissionRate,
-          commissionPercent: draftCommissionType === 'PERCENTAGE' ? draftCommissionRate : undefined,
+          commissionPercent: grandTotal > 0 ? Number(((resolvedCommAmount / grandTotal) * 100).toFixed(2)) : 0,
           commissionAmount: resolvedCommAmount,
           commissionStatus: 'PROJECTED' as const,
           territoryDistrict: deliveryDistrict,
@@ -2944,45 +2959,16 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 />
               </div>
 
-              {/* Sales Representative & Commission Model */}
+              {/* Sales Representative & Commission Model (Strictly Piece Rate ₹/door, Default 0) */}
               <div className="md:col-span-3">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold text-slate-200 flex items-center gap-1">
                     <UserCheck className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Sales Rep / Staff</span>
+                    <span>Sales Rep (സെയിൽസ്മാൻ)</span>
                   </label>
-                  <div className="inline-flex rounded-md p-0.5 bg-slate-900 border border-slate-700 text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDraftCommissionType('PERCENTAGE');
-                        if (draftCommissionRate > 30) setDraftCommissionRate(2.5);
-                      }}
-                      className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
-                        draftCommissionType === 'PERCENTAGE'
-                          ? 'bg-amber-500 text-slate-950 shadow-sm'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                      title="Percentage of grand total (%)"
-                    >
-                      %
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDraftCommissionType('PER_PIECE');
-                        if (draftCommissionRate <= 10) setDraftCommissionRate(150);
-                      }}
-                      className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
-                        draftCommissionType === 'PER_PIECE'
-                          ? 'bg-amber-500 text-slate-950 shadow-sm'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                      title="Fixed rate per door piece (₹/door)"
-                    >
-                      ₹/pc
-                    </button>
-                  </div>
+                  <span className="text-[10px] text-amber-300 font-bold bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/30">
+                    Piece Rate (₹/door)
+                  </span>
                 </div>
                 <div className="grid grid-cols-12 gap-1.5">
                   <select
@@ -2991,13 +2977,24 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                       const newId = e.target.value;
                       setSelectedSalespersonId(newId);
                       const staff = salesStaff.find((s) => s.id === newId);
-                      if (staff && (staff as any).defaultCommissionType) {
-                        setDraftCommissionType((staff as any).defaultCommissionType);
-                        setDraftCommissionRate(
-                          (staff as any).defaultCommissionType === 'PER_PIECE'
-                            ? (staff as any).defaultPerPieceRate || 150
-                            : (staff as any).defaultCommissionPercent || 2.5
-                        );
+                      if (staff) {
+                        const count = Math.max(1, totalQuoteDoorsQty);
+                        const slabs = staff.commissionSlabs;
+                        let matchedRate = Number(staff.defaultPieceRate || 0);
+                        if (slabs) {
+                          if (count > 100 && slabs.slab4_above100 !== undefined && slabs.slab4_above100 > 0) {
+                            matchedRate = Number(slabs.slab4_above100);
+                          } else if (count >= 61 && slabs.slab3_61to100 !== undefined && slabs.slab3_61to100 > 0) {
+                            matchedRate = Number(slabs.slab3_61to100);
+                          } else if (count >= 41 && slabs.slab2_41to60 !== undefined && slabs.slab2_41to60 > 0) {
+                            matchedRate = Number(slabs.slab2_41to60);
+                          } else if (slabs.slab1_upto40 !== undefined && slabs.slab1_upto40 > 0) {
+                            matchedRate = Number(slabs.slab1_upto40);
+                          }
+                        }
+                        setDraftCommissionRate(matchedRate);
+                      } else {
+                        setDraftCommissionRate(0);
                       }
                     }}
                     className="col-span-8 bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500 font-medium cursor-pointer"
@@ -3012,30 +3009,49 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                   <div className="col-span-4 relative">
                     <input
                       type="number"
-                      step={draftCommissionType === 'PERCENTAGE' ? '0.1' : '10'}
+                      step="5"
                       min="0"
                       value={draftCommissionRate}
                       onChange={(e) => setDraftCommissionRate(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder={draftCommissionType === 'PERCENTAGE' ? '2.5' : '150'}
-                      className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 pr-5 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-500 font-mono text-right"
-                      title={draftCommissionType === 'PERCENTAGE' ? 'Commission percentage rate' : 'Commission rate per door piece'}
+                      placeholder="0"
+                      className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 pr-7 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-500 font-mono text-right"
+                      title="Commission rate in ₹ per door"
                     />
                     <span className="absolute right-1.5 top-2.5 text-[10px] text-slate-400 font-mono pointer-events-none">
-                      {draftCommissionType === 'PERCENTAGE' ? '%' : '₹'}
+                      ₹/pc
                     </span>
                   </div>
                 </div>
                 {selectedSalespersonId && (
-                  <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400 px-1">
-                    <span>Est. Comm ({totalQuoteDoorsQty} doors):</span>
-                    <span className="text-amber-400 font-mono font-bold">
-                      ₹{Math.round(
-                        draftCommissionType === 'PER_PIECE'
-                          ? totalQuoteDoorsQty * draftCommissionRate
-                          : (grandTotal * draftCommissionRate) / 100
-                      ).toLocaleString('en-IN')}{' '}
-                      ({draftCommissionType === 'PER_PIECE' ? `₹${draftCommissionRate}/pc` : `${draftCommissionRate}%`})
-                    </span>
+                  <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400 px-1 gap-1">
+                    {(() => {
+                      const staff = salesStaff.find((s) => s.id === selectedSalespersonId);
+                      const count = Math.max(1, totalQuoteDoorsQty);
+                      const slabs = staff?.commissionSlabs;
+                      let label = 'Flat Rate';
+                      if (slabs) {
+                        if (count > 100 && slabs.slab4_above100 !== undefined && slabs.slab4_above100 > 0) {
+                          label = 'Slab 4 (>100 doors)';
+                        } else if (count >= 61 && slabs.slab3_61to100 !== undefined && slabs.slab3_61to100 > 0) {
+                          label = 'Slab 3 (61–100 doors)';
+                        } else if (count >= 41 && slabs.slab2_41to60 !== undefined && slabs.slab2_41to60 > 0) {
+                          label = 'Slab 2 (41–60 doors)';
+                        } else if (slabs.slab1_upto40 !== undefined && slabs.slab1_upto40 > 0) {
+                          label = 'Slab 1 (1–40 doors)';
+                        }
+                      }
+                      return (
+                        <>
+                          <span className="truncate text-amber-300/90 font-medium">
+                            {label}
+                          </span>
+                          <span className="text-amber-400 font-mono font-bold shrink-0">
+                            ₹{Math.round(totalQuoteDoorsQty * draftCommissionRate).toLocaleString('en-IN')}{' '}
+                            ({totalQuoteDoorsQty} drs)
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

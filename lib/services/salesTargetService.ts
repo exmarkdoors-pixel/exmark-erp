@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { getDataFilePath } from '../utils/dataPaths';
 import { assertWriteAllowed } from './dbSyncEngine';
-import { readEmployeesStore } from './employeeStore';
+import { readEmployeesStore, resolveEmployeePieceRate } from './employeeStore';
 import {
   StaffSalesTarget,
   CommissionPlan,
@@ -35,9 +35,9 @@ export const DEFAULT_COMMISSION_PLAN: CommissionPlan = {
   id: 'comm-plan-kerala-standard',
   name: 'Standard Kerala Field & Project Representative Plan',
   isDefault: true,
-  basePercent: 2.5,
-  defaultCommissionType: 'PERCENTAGE',
-  defaultPerPieceRate: 150,
+  basePercent: 0,
+  defaultCommissionType: 'PER_PIECE',
+  defaultPerPieceRate: 0,
   tiers: DEFAULT_COMMISSION_TIERS,
   productSpecificIncentives: [
     { productCategory: 'PREMIUM_PU', extraIncentivePerDoor: 100 },
@@ -515,24 +515,43 @@ export async function calculateCommissionForQuote(input: {
     staffTarget = targets.find((t) => t.employeeId === input.salespersonId);
   }
 
-  // Resolve Commission Type: explicit input > staff target setting > plan default
+  const doors = Math.max(1, Number(input.doorCount ?? input.doorsCount) || 1);
+
+  // Check employee profile in employeeStore for custom piece rate & volume slabs
+  let empProfileRate: number | undefined;
+  let empSlabLabel: string | undefined;
+  if (input.salespersonId) {
+    const employees = readEmployeesStore();
+    const matchedEmp = employees.find(
+      (e) => e.id === input.salespersonId || (e.employeeCode && e.employeeCode === input.salespersonId)
+    );
+    if (matchedEmp) {
+      const res = resolveEmployeePieceRate(matchedEmp, doors);
+      empProfileRate = res.rate;
+      empSlabLabel = res.slabLabel;
+    }
+  }
+
+  // Resolve Commission Type: explicit input > staff target setting > plan default ('PER_PIECE')
   const commissionType: 'PERCENTAGE' | 'PER_PIECE' =
-    input.commissionType || staffTarget?.commissionType || plan.defaultCommissionType || 'PERCENTAGE';
+    input.commissionType || staffTarget?.commissionType || plan.defaultCommissionType || 'PER_PIECE';
 
   let baseRate = 0;
   if (commissionType === 'PER_PIECE') {
     baseRate = input.commissionRate !== undefined
       ? Number(input.commissionRate)
-      : (staffTarget?.perPieceRate || staffTarget?.commissionRate || plan.defaultPerPieceRate || 150);
+      : (empProfileRate !== undefined
+          ? empProfileRate
+          : (staffTarget?.perPieceRate || staffTarget?.commissionRate || plan.defaultPerPieceRate || 0));
   } else {
     baseRate = input.commissionRate !== undefined
       ? Number(input.commissionRate)
-      : (staffTarget?.commissionRate || staffTarget?.baseCommissionPercent || plan.basePercent || 2.5);
+      : (staffTarget?.commissionRate || staffTarget?.baseCommissionPercent || plan.basePercent || 0);
   }
 
   let acceleratorPercent = 0;
   let acceleratorPerDoor = 0;
-  let tierLabel = 'Standard Target (70–100%)';
+  let tierLabel = empSlabLabel || 'Standard Target (Piece Rate)';
 
   // If salespersonId is provided, check their target achievement pacing
   if (staffTarget && staffTarget.revenueTarget > 0) {

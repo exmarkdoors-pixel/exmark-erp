@@ -2,6 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import { getDataFilePath } from '@/lib/utils/dataPaths';
 
+export interface SalesCommissionSlabs {
+  slab1_upto40?: number;    // 1 to 40 doors (₹/door)
+  slab2_41to60?: number;    // 41 to 60 doors (₹/door)
+  slab3_61to100?: number;   // 61 to 100 doors (₹/door)
+  slab4_above100?: number;  // Above 100 doors (₹/door)
+}
+
 export interface StoredEmployee {
   id: string;
   employeeCode: string;
@@ -14,9 +21,39 @@ export interface StoredEmployee {
   location?: string;
   shift?: string;
   salary?: number;
+  defaultPieceRate?: number; // Base piece rate in ₹/door (default 0)
+  commissionSlabs?: SalesCommissionSlabs;
   createdAt?: string;
   updatedAt?: string;
   [key: string]: unknown;
+}
+
+export function resolveEmployeePieceRate(
+  employee: StoredEmployee | null | undefined,
+  doorCount: number
+): { rate: number; slabLabel: string } {
+  if (!employee) return { rate: 0, slabLabel: 'Direct / None' };
+
+  const base = Number(employee.defaultPieceRate || 0);
+  const slabs = employee.commissionSlabs;
+  const count = Math.max(1, Number(doorCount) || 1);
+
+  if (!slabs) return { rate: base, slabLabel: 'Flat Base Rate' };
+
+  if (count > 100 && slabs.slab4_above100 !== undefined && slabs.slab4_above100 !== null) {
+    return { rate: Number(slabs.slab4_above100), slabLabel: 'Slab 4 (>100 Doors)' };
+  }
+  if (count >= 61 && slabs.slab3_61to100 !== undefined && slabs.slab3_61to100 !== null) {
+    return { rate: Number(slabs.slab3_61to100), slabLabel: 'Slab 3 (61–100 Doors)' };
+  }
+  if (count >= 41 && slabs.slab2_41to60 !== undefined && slabs.slab2_41to60 !== null) {
+    return { rate: Number(slabs.slab2_41to60), slabLabel: 'Slab 2 (41–60 Doors)' };
+  }
+  if (slabs.slab1_upto40 !== undefined && slabs.slab1_upto40 !== null) {
+    return { rate: Number(slabs.slab1_upto40), slabLabel: 'Slab 1 (1–40 Doors)' };
+  }
+
+  return { rate: base, slabLabel: 'Base Piece Rate' };
 }
 
 const getEmployeesStorePath = () => getDataFilePath('employees-store.json');
@@ -103,6 +140,7 @@ export function syncEmployeeFromUserAccount(input: {
     email: cleanEmail,
     status: input.isActive === false ? 'INACTIVE' : 'ACTIVE',
     location: input.plantLocation?.trim() || 'EXMARK Central Factory',
+    defaultPieceRate: 0,
     createdAt: now,
     updatedAt: now,
   };

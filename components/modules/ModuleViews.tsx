@@ -1804,6 +1804,13 @@ interface EmployeeListItem {
   email: string;
   status: string;
   location: string;
+  defaultPieceRate?: number;
+  commissionSlabs?: {
+    slab1_upto40?: number;
+    slab2_41to60?: number;
+    slab3_61to100?: number;
+    slab4_above100?: number;
+  };
   loginAccount?: {
     userId: string;
     role: UserRole;
@@ -1838,6 +1845,11 @@ export function EmployeesView({
   const [empPhone, setEmpPhone] = useState('');
   const [empEmail, setEmpEmail] = useState('');
   const [empLocation, setEmpLocation] = useState('Central Manufacturing Plant');
+  const [empDefaultPieceRate, setEmpDefaultPieceRate] = useState<number>(0);
+  const [empSlab1, setEmpSlab1] = useState<number>(0);
+  const [empSlab2, setEmpSlab2] = useState<number>(0);
+  const [empSlab3, setEmpSlab3] = useState<number>(0);
+  const [empSlab4, setEmpSlab4] = useState<number>(0);
   const [createLoginWithEmp, setCreateLoginWithEmp] = useState(false);
   const [empErpRole, setEmpErpRole] = useState<UserRole>('Production');
   const [empErpPassword, setEmpErpPassword] = useState('');
@@ -1893,6 +1905,11 @@ export function EmployeesView({
     setEmpPhone('');
     setEmpEmail('');
     setEmpLocation('Central Manufacturing Plant');
+    setEmpDefaultPieceRate(0);
+    setEmpSlab1(0);
+    setEmpSlab2(0);
+    setEmpSlab3(0);
+    setEmpSlab4(0);
     setCreateLoginWithEmp(false);
     setEmpErpRole('Production');
     setEmpErpPassword('');
@@ -1909,6 +1926,11 @@ export function EmployeesView({
     setEmpPhone(emp.phone);
     setEmpEmail(emp.email);
     setEmpLocation(emp.location || 'Central Manufacturing Plant');
+    setEmpDefaultPieceRate(Number(emp.defaultPieceRate || 0));
+    setEmpSlab1(Number(emp.commissionSlabs?.slab1_upto40 || 0));
+    setEmpSlab2(Number(emp.commissionSlabs?.slab2_41to60 || 0));
+    setEmpSlab3(Number(emp.commissionSlabs?.slab3_61to100 || 0));
+    setEmpSlab4(Number(emp.commissionSlabs?.slab4_above100 || 0));
     setCreateLoginWithEmp(false);
     setIsEmpModalOpen(true);
   };
@@ -1934,6 +1956,13 @@ export function EmployeesView({
           phone: empPhone.trim(),
           email: empEmail.trim().toLowerCase(),
           location: empLocation.trim(),
+          defaultPieceRate: Math.max(0, Number(empDefaultPieceRate) || 0),
+          commissionSlabs: {
+            slab1_upto40: Math.max(0, Number(empSlab1) || 0),
+            slab2_41to60: Math.max(0, Number(empSlab2) || 0),
+            slab3_61to100: Math.max(0, Number(empSlab3) || 0),
+            slab4_above100: Math.max(0, Number(empSlab4) || 0),
+          },
           ...(!editingEmp && createLoginWithEmp
             ? {
                 createLogin: true,
@@ -2132,6 +2161,17 @@ export function EmployeesView({
                 <div className="text-[11px] text-slate-400 truncate">
                   Station: {emp.location} {emp.email ? `• ${emp.email}` : ''}
                 </div>
+
+                {/* Sales Commission Rate Indicator */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400 font-medium">Commission (Piece Rate):</span>
+                  <span className="font-mono font-bold text-amber-400">
+                    ₹{Number(emp.defaultPieceRate || 0)} / door
+                    {emp.commissionSlabs && (emp.commissionSlabs.slab2_41to60 || emp.commissionSlabs.slab3_61to100 || emp.commissionSlabs.slab4_above100) ? (
+                      <span className="ml-1 text-[10px] text-cyan-400 font-normal">(Tiered Slabs)</span>
+                    ) : ''}
+                  </span>
+                </div>
               </div>
 
               {/* Linked ERP Login Status */}
@@ -2260,6 +2300,90 @@ export function EmployeesView({
                   onChange={(e) => setEmpLocation(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
                 />
+              </div>
+
+              {/* Sales Commission & Door Volume Slabs (Strictly Piece Rate ₹/door, Default 0) */}
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <label className="text-xs font-bold text-amber-300">
+                      Sales Commission Piece Rates (കമ്മീഷൻ & ഡോർ സ്ലാബുകൾ)
+                    </label>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">Piece Rate (₹/Door) • Default 0</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Configure custom per-door piece rate and volume tier slabs for this salesperson. Quotations will dynamically apply the matching slab based on total doors.
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                      Base Rate (₹/pc)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={empDefaultPieceRate}
+                      onChange={(e) => setEmpDefaultPieceRate(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="0"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 font-mono font-bold text-xs text-amber-300 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                      1–40 Doors
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={empSlab1}
+                      onChange={(e) => setEmpSlab1(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="₹/door"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                      41–60 Doors
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={empSlab2}
+                      onChange={(e) => setEmpSlab2(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="₹/door"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                      61–100 Doors
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={empSlab3}
+                      onChange={(e) => setEmpSlab3(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="₹/door"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                      &gt; 100 Doors
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={empSlab4}
+                      onChange={(e) => setEmpSlab4(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="₹/door"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-xs text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
               </div>
 
               {!editingEmp && isSuperAdmin && (

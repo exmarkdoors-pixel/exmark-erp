@@ -2,16 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Percent,
   Coins,
   CheckCircle2,
   X,
   UserCheck,
-  Building2,
-  Calendar,
   AlertCircle,
-  HelpCircle,
-  Sparkles,
+  Layers,
 } from 'lucide-react';
 
 interface StaffCommissionEditModalProps {
@@ -30,20 +26,17 @@ export function StaffCommissionEditModal({
   if (!isOpen || !quotation) return null;
 
   const quoteId = quotation.id || quotation.quoteNumber || '';
-  const customerName = quotation.customerName || 'Customer';
   const totalAmount = Number(quotation.totalAmount || quotation.grandTotal || 0);
   const doorsCount = Array.isArray(quotation.itemRows)
     ? quotation.itemRows.reduce((sum: number, r: any) => sum + (Number(r.qty) || 1), 0)
     : (Array.isArray(quotation.items) ? quotation.items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 1), 0) : 1);
 
-  const initialType: 'PERCENTAGE' | 'PER_PIECE' = quotation.commissionType === 'PER_PIECE' ? 'PER_PIECE' : 'PERCENTAGE';
   const initialRate = Number(
     quotation.commissionRate !== undefined
       ? quotation.commissionRate
-      : (quotation.commissionPercent ?? (initialType === 'PER_PIECE' ? 150 : 2.5))
+      : (quotation.commissionAmount && doorsCount > 0 ? Math.round(Number(quotation.commissionAmount) / doorsCount) : 0)
   );
 
-  const [commissionType, setCommissionType] = useState<'PERCENTAGE' | 'PER_PIECE'>(initialType);
   const [commissionRate, setCommissionRate] = useState<number>(initialRate);
   const [overrideNotes, setOverrideNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -51,22 +44,30 @@ export function StaffCommissionEditModal({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    setCommissionType(quotation.commissionType === 'PER_PIECE' ? 'PER_PIECE' : 'PERCENTAGE');
     const rate = Number(
       quotation.commissionRate !== undefined
         ? quotation.commissionRate
-        : (quotation.commissionPercent ?? (quotation.commissionType === 'PER_PIECE' ? 150 : 2.5))
+        : (quotation.commissionAmount && doorsCount > 0 ? Math.round(Number(quotation.commissionAmount) / doorsCount) : 0)
     );
     setCommissionRate(rate);
     setOverrideNotes('');
     setErrorMsg(null);
     setSuccessMsg(null);
-  }, [quotation]);
+  }, [quotation, doorsCount]);
 
-  // Live calculation
-  const calculatedCommission = commissionType === 'PER_PIECE'
-    ? Math.round(doorsCount * commissionRate)
-    : Math.round((totalAmount * commissionRate) / 100);
+  // Determine which door volume slab this order falls into
+  const activeSlabIndex = doorsCount > 100 ? 4 : doorsCount >= 61 ? 3 : doorsCount >= 41 ? 2 : 1;
+  const activeSlabLabel =
+    activeSlabIndex === 4
+      ? 'Slab 4 (>100 Doors)'
+      : activeSlabIndex === 3
+      ? 'Slab 3 (61–100 Doors)'
+      : activeSlabIndex === 2
+      ? 'Slab 2 (41–60 Doors)'
+      : 'Slab 1 (1–40 Doors)';
+
+  // Live calculation: Total doors * Piece Rate
+  const calculatedCommission = Math.round(doorsCount * commissionRate);
 
   const effectivePercentage = totalAmount > 0
     ? Number(((calculatedCommission / totalAmount) * 100).toFixed(2))
@@ -81,7 +82,7 @@ export function StaffCommissionEditModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quotationId: quotation.id,
-          commissionType,
+          commissionType: 'PER_PIECE',
           commissionRate,
           notes: overrideNotes.trim() || undefined,
         }),
@@ -92,7 +93,7 @@ export function StaffCommissionEditModal({
         throw new Error(json.error || 'Failed to update commission');
       }
 
-      setSuccessMsg('Commission override saved successfully!');
+      setSuccessMsg('Piece-rate commission saved successfully!');
       if (onUpdated && json.data?.updatedQuotation) {
         onUpdated(json.data.updatedQuotation);
       }
@@ -124,7 +125,7 @@ export function StaffCommissionEditModal({
                 </span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Switch between Percentage (%) and Per Door (₹/piece) payout
+                Strictly Piece Rate (₹/Door) sales commission payout • Default ₹0
               </p>
             </div>
           </div>
@@ -144,14 +145,14 @@ export function StaffCommissionEditModal({
             <div>
               <span className="text-[10px] text-slate-500 block uppercase font-semibold">Sales Representative</span>
               <span className="font-bold text-white flex items-center gap-1 mt-0.5">
-                <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+                <UserCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span className="truncate">{quotation.salespersonName || 'Direct / House'}</span>
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-500 block uppercase font-semibold">Total Doors</span>
+              <span className="text-[10px] text-slate-500 block uppercase font-semibold">Order Volume</span>
               <span className="font-mono font-bold text-cyan-400 text-sm mt-0.5 block">
-                {doorsCount} Units
+                {doorsCount} Doors
               </span>
             </div>
             <div>
@@ -162,53 +163,30 @@ export function StaffCommissionEditModal({
             </div>
           </div>
 
-          {/* Commission Model Selector */}
-          <div>
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
-              Select Commission Calculation Mode
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setCommissionType('PERCENTAGE');
-                  if (commissionRate > 20) setCommissionRate(2.5);
-                }}
-                className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition cursor-pointer ${
-                  commissionType === 'PERCENTAGE'
-                    ? 'bg-rose-500/15 border-rose-500 text-white shadow-lg shadow-rose-950/30'
-                    : 'bg-slate-800/40 border-slate-700/80 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold text-sm">
-                  <Percent className="w-4 h-4 text-rose-400" />
-                  <span>Percentage (%)</span>
-                </div>
-                <span className="text-[11px] text-slate-400 text-center">
-                  Share of net quoted order revenue
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setCommissionType('PER_PIECE');
-                  if (commissionRate < 10) setCommissionRate(150);
-                }}
-                className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition cursor-pointer ${
-                  commissionType === 'PER_PIECE'
-                    ? 'bg-amber-500/15 border-amber-500 text-white shadow-lg shadow-amber-900/30'
-                    : 'bg-slate-800/40 border-slate-700/80 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold text-sm">
-                  <Coins className="w-4 h-4 text-amber-400" />
-                  <span>Per Piece (₹/Door)</span>
-                </div>
-                <span className="text-[11px] text-slate-400 text-center">
-                  Fixed piece-rate payout per manufactured door
-                </span>
-              </button>
+          {/* Door Volume Slab Context Indicator */}
+          <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-cyan-400" />
+                <span>Door Volume Slab Tracking</span>
+              </span>
+              <span className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                {activeSlabLabel}
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5 text-center text-[10px]">
+              <div className={`p-1.5 rounded-lg border ${activeSlabIndex === 1 ? 'bg-amber-500/20 border-amber-500 text-amber-200 font-bold' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>
+                1–40 Doors
+              </div>
+              <div className={`p-1.5 rounded-lg border ${activeSlabIndex === 2 ? 'bg-amber-500/20 border-amber-500 text-amber-200 font-bold' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>
+                41–60 Doors
+              </div>
+              <div className={`p-1.5 rounded-lg border ${activeSlabIndex === 3 ? 'bg-amber-500/20 border-amber-500 text-amber-200 font-bold' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>
+                61–100 Doors
+              </div>
+              <div className={`p-1.5 rounded-lg border ${activeSlabIndex === 4 ? 'bg-amber-500/20 border-amber-500 text-amber-200 font-bold' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>
+                &gt;100 Doors
+              </div>
             </div>
           </div>
 
@@ -216,10 +194,10 @@ export function StaffCommissionEditModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-300">
-                {commissionType === 'PERCENTAGE' ? 'Commission Percentage Rate (%)' : 'Per Door Commission Amount (₹/door)'}
+                Per Door Commission Rate (₹ / door)
               </label>
-              <span className="text-[11px] text-slate-400">
-                {commissionType === 'PERCENTAGE' ? 'Standard: 2.5% - 5.0%' : 'Standard: ₹100 - ₹300'}
+              <span className="text-[11px] text-slate-400 font-mono">
+                Piece Rate Only (Default: ₹0)
               </span>
             </div>
 
@@ -227,54 +205,34 @@ export function StaffCommissionEditModal({
               <div className="relative flex-1">
                 <input
                   type="number"
-                  step={commissionType === 'PERCENTAGE' ? '0.1' : '10'}
+                  step="10"
                   min="0"
                   value={commissionRate}
                   onChange={(e) => setCommissionRate(Math.max(0, parseFloat(e.target.value) || 0))}
+                  placeholder="0"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 font-mono text-base font-bold text-white focus:outline-none focus:border-amber-500 transition"
                 />
                 <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-400">
-                  {commissionType === 'PERCENTAGE' ? '%' : '₹ / Door'}
+                  ₹ / Door
                 </span>
               </div>
 
               {/* Quick Presets */}
               <div className="flex items-center gap-1 shrink-0">
-                {commissionType === 'PERCENTAGE' ? (
-                  <>
-                    {[2.0, 2.5, 3.0, 5.0].map((pct) => (
-                      <button
-                        key={pct}
-                        type="button"
-                        onClick={() => setCommissionRate(pct)}
-                        className={`px-2.5 py-2 rounded-lg text-xs font-mono font-bold transition cursor-pointer ${
-                          commissionRate === pct
-                            ? 'bg-rose-600 text-white'
-                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                        }`}
-                      >
-                        {pct}%
-                      </button>
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    {[100, 150, 200, 250].map((rate) => (
-                      <button
-                        key={rate}
-                        type="button"
-                        onClick={() => setCommissionRate(rate)}
-                        className={`px-2 py-2 rounded-lg text-xs font-mono font-bold transition cursor-pointer ${
-                          commissionRate === rate
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                        }`}
-                      >
-                        ₹{rate}
-                      </button>
-                    ))}
-                  </>
-                )}
+                {[0, 100, 150, 200, 250].map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    onClick={() => setCommissionRate(rate)}
+                    className={`px-2.5 py-2 rounded-lg text-xs font-mono font-bold transition cursor-pointer ${
+                      commissionRate === rate
+                        ? 'bg-amber-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    ₹{rate}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -292,9 +250,7 @@ export function StaffCommissionEditModal({
                 </span>
               </div>
               <span className="text-[11px] text-slate-400 block mt-1">
-                {commissionType === 'PER_PIECE'
-                  ? `${doorsCount} doors × ₹${commissionRate}/door`
-                  : `${commissionRate}% of ₹${totalAmount.toLocaleString('en-IN')}`}
+                {doorsCount} doors × ₹{commissionRate}/door
               </span>
             </div>
             <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold">
@@ -309,7 +265,7 @@ export function StaffCommissionEditModal({
             </label>
             <input
               type="text"
-              placeholder="e.g. Special project rate agreed by Management..."
+              placeholder="e.g. Special slab agreed for volume builder order..."
               value={overrideNotes}
               onChange={(e) => setOverrideNotes(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-600"

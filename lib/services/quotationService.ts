@@ -229,35 +229,33 @@ export async function createQuotation(data: QuotationCreateInput): Promise<Quota
   const resolvedTotal =
     data.overrideTotalAmount !== undefined ? Number(data.overrideTotalAmount) : totalAmount;
 
-  const commissionType: 'PERCENTAGE' | 'PER_PIECE' = data.commissionType || 'PERCENTAGE';
+  const commissionType: 'PERCENTAGE' | 'PER_PIECE' = data.commissionType || 'PER_PIECE';
   let commissionRate = data.commissionRate !== undefined
     ? Number(data.commissionRate)
-    : (data.commissionPercent ?? (commissionType === 'PER_PIECE' ? 150 : 2.5));
-  let commissionPercent = commissionType === 'PERCENTAGE' ? commissionRate : (resolvedTotal > 0 ? Number(((data.commissionAmount || 0) / resolvedTotal * 100).toFixed(1)) : 0);
+    : (data.commissionPercent !== undefined ? Number(data.commissionPercent) : 0);
+  let commissionPercent = resolvedTotal > 0 && data.commissionAmount !== undefined
+    ? Number(((data.commissionAmount / resolvedTotal) * 100).toFixed(1))
+    : (commissionType === 'PERCENTAGE' ? commissionRate : 0);
   let commissionAmount = data.commissionAmount;
   const commissionStatus = data.commissionStatus || (data.isConfirmed ? 'ACCRUED' : 'PROJECTED');
 
   const totalDoorQuantity = builtItems.reduce((acc, it) => acc + (it.quantity || 1), 0);
   if (data.salespersonId && commissionAmount === undefined) {
-    if (commissionType === 'PER_PIECE') {
+    try {
+      const calc = await calculateCommissionForQuote({
+        orderAmount: resolvedTotal,
+        advancePercent: data.advancePercent || 0,
+        doorCount: totalDoorQuantity,
+        salespersonId: data.salespersonId,
+        commissionType,
+        commissionRate,
+      });
+      commissionPercent = calc.commissionPercent;
+      commissionAmount = calc.commissionAmount;
+      commissionRate = calc.commissionRate;
+    } catch {
       commissionAmount = Math.round(totalDoorQuantity * commissionRate);
       commissionPercent = resolvedTotal > 0 ? Number(((commissionAmount / resolvedTotal) * 100).toFixed(1)) : 0;
-    } else {
-      try {
-        const calc = await calculateCommissionForQuote({
-          orderAmount: resolvedTotal,
-          advancePercent: data.advancePercent || 0,
-          doorCount: totalDoorQuantity,
-          salespersonId: data.salespersonId,
-          commissionType,
-          commissionRate,
-        });
-        commissionPercent = calc.commissionPercent;
-        commissionAmount = calc.commissionAmount;
-      } catch {
-        commissionPercent = commissionRate || 2.5;
-        commissionAmount = Math.round((resolvedTotal * commissionPercent) / 100);
-      }
     }
   }
 
