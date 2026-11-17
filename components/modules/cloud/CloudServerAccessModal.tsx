@@ -20,6 +20,14 @@ import {
   Sparkles,
   ArrowRight,
   Info,
+  Play,
+  Square,
+  RotateCcw,
+  Terminal,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Lock,
 } from 'lucide-react';
 
 interface TunnelStatus {
@@ -30,9 +38,16 @@ interface TunnelStatus {
   lanIp: string;
   lanUrl: string;
   localPort: number;
+  pid: number | null;
+  mode: string;
   connectedAt: string | null;
   qrGlobal: string | null;
   qrMobile: string | null;
+  logs?: string[];
+  config?: {
+    hasToken: boolean;
+    customDomain: string | null;
+  };
 }
 
 interface CloudServerAccessModalProps {
@@ -93,11 +108,19 @@ const REGISTERED_STAFF_DIRECTORY = [
 
 export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessModalProps) {
   const [loading, setLoading] = useState(true);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [tunnel, setTunnel] = useState<TunnelStatus | null>(null);
+  const [banner, setBanner] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
   const [copiedGlobal, setCopiedGlobal] = useState(false);
   const [copiedMobile, setCopiedMobile] = useState(false);
   const [copiedLan, setCopiedLan] = useState(false);
   const [activeQrTarget, setActiveQrTarget] = useState<'GLOBAL' | 'MOBILE'>('GLOBAL');
+
+  const [showLogs, setShowLogs] = useState(false);
+  const [showTokenConfig, setShowTokenConfig] = useState(false);
+  const [tokenInput, setTokenInput] = useState('');
+  const [customDomainInput, setCustomDomainInput] = useState('');
 
   const fetchTunnelState = async () => {
     setLoading(true);
@@ -122,6 +145,11 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
 
   if (!isOpen) return null;
 
+  const notify = (type: 'ok' | 'err', text: string) => {
+    setBanner({ type, text });
+    setTimeout(() => setBanner(null), 5000);
+  };
+
   const copyToClipboard = (text: string, type: 'GLOBAL' | 'MOBILE' | 'LAN') => {
     navigator.clipboard.writeText(text);
     if (type === 'GLOBAL') {
@@ -136,6 +164,101 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
     }
   };
 
+  // 1-Click Start / Reconnect Tunnel
+  const handleStartOrRestart = async () => {
+    setActionBusy('STARTING');
+    try {
+      const res = await fetch('/api/system/cloud-tunnel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'START' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTunnel((prev) => ({
+          ...(prev || {}),
+          ...data,
+        }));
+        notify('ok', data.message || 'Cloudflare Tunnel online! Global URL generated.');
+      } else {
+        notify('err', data.error || 'Failed to start tunnel.');
+      }
+    } catch (err: any) {
+      notify('err', err.message || 'Network request failed.');
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  // 1-Click Stop Tunnel
+  const handleStopTunnel = async () => {
+    setActionBusy('STOPPING');
+    try {
+      const res = await fetch('/api/system/cloud-tunnel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'STOP' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTunnel((prev) => (prev ? { ...prev, active: false, tunnelUrl: null, staffMobileUrl: null } : null));
+        notify('ok', 'Cloudflare tunnel stopped cleanly.');
+      }
+    } catch (err: any) {
+      notify('err', err.message || 'Failed to stop tunnel.');
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  // Probe External Connectivity
+  const handleProbe = async () => {
+    setActionBusy('PROBING');
+    try {
+      const res = await fetch('/api/system/cloud-tunnel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'PROBE' }),
+      });
+      const data = await res.json();
+      if (data.reachable) {
+        notify('ok', `🎉 Verified! Global URL is reachable from the public internet (HTTP ${data.status || 200}).`);
+      } else {
+        notify('err', `Could not reach tunnel from outside: ${data.error || data.reason || 'Edge connecting'}`);
+      }
+    } catch (err: any) {
+      notify('err', `Probe failed: ${err.message}`);
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  // Save Permanent Token Configuration
+  const handleSaveConfig = async () => {
+    setActionBusy('SAVING_CONFIG');
+    try {
+      const res = await fetch('/api/system/cloud-tunnel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'SAVE_CONFIG',
+          tunnelToken: tokenInput.trim() || undefined,
+          customDomain: customDomainInput.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        notify('ok', 'Permanent Cloudflare configuration saved. Click "Start / Restart" to apply.');
+        setShowTokenConfig(false);
+      }
+    } catch (err: any) {
+      notify('err', err.message || 'Failed to save config');
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const isOnline = Boolean(tunnel?.active && tunnel?.tunnelUrl);
   const activeUrl = tunnel?.tunnelUrl || tunnel?.primaryUrl || 'http://localhost:4000';
   const mobileUrl = tunnel?.staffMobileUrl || `${activeUrl}/mobile`;
   const qrImage = activeQrTarget === 'GLOBAL' ? tunnel?.qrGlobal : tunnel?.qrMobile;
@@ -150,24 +273,29 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
               <Globe className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-base sm:text-lg font-black text-white">
-                  Cloud Server &amp; Anywhere Access Hub
+                  Cloud Server &amp; Remote Access Hub
                 </h3>
-                {tunnel?.active ? (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                {isOnline ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     GLOBAL HTTPS ONLINE
                   </span>
+                ) : actionBusy === 'STARTING' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    <RefreshCw className="w-2.5 h-2.5 animate-spin text-amber-400" />
+                    CONNECTING CLOUDFLARE EDGE...
+                  </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    LOCAL FACTORY LAN ONLY
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    TUNNEL OFFLINE
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-400">
-                Log in to the entire EXMARK ERP from any phone, laptop, or tablet worldwide using your Staff ID &amp; Password
+                Encrypted multi-device access on smartphones (4G/5G), tablets, and external laptops via Cloudflare
               </p>
             </div>
           </div>
@@ -175,7 +303,7 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
           <div className="flex items-center gap-1.5">
             <button
               onClick={fetchTunnelState}
-              disabled={loading}
+              disabled={loading || !!actionBusy}
               className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
               title="Refresh connection status"
             >
@@ -190,8 +318,95 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
           </div>
         </div>
 
+        {/* Banner Alert */}
+        {banner && (
+          <div
+            className={`px-5 py-2.5 text-xs font-semibold flex items-center justify-between border-b ${
+              banner.type === 'ok'
+                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/30'
+                : 'bg-rose-950/40 text-rose-300 border-rose-500/30'
+            }`}
+          >
+            <span>{banner.text}</span>
+            <button onClick={() => setBanner(null)} className="text-slate-400 hover:text-white">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Modal Body */}
         <div className="p-5 space-y-5 overflow-y-auto flex-1 text-xs">
+          {/* Main Action Banner: Start / Reconnect / Stop */}
+          <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <span className="font-bold text-white text-xs flex items-center gap-2">
+                <Cloud className="w-4 h-4 text-blue-400" />
+                <span>Cloudflare Global Tunnel Controls</span>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  (Port {tunnel?.localPort || 4000} &bull; {tunnel?.mode || 'TRYCLOUDFLARE'})
+                </span>
+              </span>
+              <p className="text-[11px] text-slate-400">
+                {isOnline
+                  ? 'Tunnel is running. You can verify public reachability, get a fresh link, or stop the tunnel.'
+                  : 'Tunnel is currently offline. Click below to start the Cloudflare tunnel in the background.'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              {isOnline ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleProbe}
+                    disabled={!!actionBusy}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${actionBusy === 'PROBING' ? 'animate-spin' : ''}`} />
+                    <span>Test Reachability</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStartOrRestart}
+                    disabled={!!actionBusy}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 shadow transition"
+                  >
+                    <RotateCcw className={`w-3 h-3 ${actionBusy === 'STARTING' ? 'animate-spin' : ''}`} />
+                    <span>Get New Link</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStopTunnel}
+                    disabled={!!actionBusy}
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60 text-xs font-semibold flex items-center gap-1 transition"
+                  >
+                    <Square className="w-3 h-3 text-rose-400" />
+                    <span>Stop</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleStartOrRestart}
+                  disabled={!!actionBusy}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-950/40 transition cursor-pointer"
+                >
+                  {actionBusy === 'STARTING' ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Connecting to Cloudflare Edge...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5" />
+                      <span>Start Cloud Tunnel Now</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Top Row: Global HTTPS Link + QR Scanner */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             {/* Left 7 Cols: URL Cards */}
@@ -210,9 +425,9 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
 
                 <div className="p-2.5 bg-slate-950/70 border border-slate-800 rounded-lg flex items-center justify-between gap-2">
                   <span className="font-mono text-xs text-white truncate select-all">
-                    {tunnel?.tunnelUrl || 'https://*.trycloudflare.com (Tunnel Starting...)'}
+                    {isOnline ? tunnel?.tunnelUrl : 'Tunnel Offline — Click "Start Cloud Tunnel Now" above'}
                   </span>
-                  {tunnel?.tunnelUrl && (
+                  {isOnline && tunnel?.tunnelUrl && (
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
@@ -253,7 +468,7 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
                 </div>
                 <div className="p-2 bg-slate-950/60 border border-slate-800 rounded-lg flex items-center justify-between gap-2">
                   <span className="font-mono text-[11px] text-emerald-300 truncate select-all">
-                    {mobileUrl}
+                    {isOnline ? mobileUrl : `${tunnel?.lanUrl || 'http://localhost:4000'}/mobile`}
                   </span>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
@@ -282,8 +497,8 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
                 <div className="flex items-center gap-2">
                   <Wifi className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-300 block">Factory Wi-Fi LAN Address:</span>
-                    <span className="font-mono text-slate-400">{tunnel?.lanUrl || 'http://192.168.1.150:4000'}</span>
+                    <span className="font-semibold text-slate-300 block">Factory Wi-Fi LAN Address (Super Fast):</span>
+                    <span className="font-mono text-slate-400">{tunnel?.lanUrl || 'http://192.168.8.101:4000'}</span>
                   </div>
                 </div>
                 <button
@@ -331,7 +546,7 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
                 ) : (
                   <div className="w-36 h-36 flex flex-col items-center justify-center text-slate-600">
                     <QrCode className="w-12 h-12 mb-1" />
-                    <span className="text-[10px]">Generating QR...</span>
+                    <span className="text-[10px]">Start tunnel to generate QR</span>
                   </div>
                 )}
               </div>
@@ -341,10 +556,109 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
                   Scan with any Phone Camera
                 </span>
                 <p className="text-[10px] text-slate-400 max-w-[200px] leading-tight">
-                  Opens instantly in Chrome or Safari on 4G/5G without typing the URL.
+                  Opens instantly in Chrome or Safari on 4G/5G mobile data.
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Live Connection Logs Drawer */}
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowLogs(!showLogs)}
+              className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-slate-850 transition"
+            >
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-slate-400" />
+                <span className="font-bold text-xs text-slate-200">Live Cloudflare Connection Logs</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                  {tunnel?.logs?.length || 0} events
+                </span>
+              </div>
+              {showLogs ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+            </button>
+
+            {showLogs && (
+              <div className="p-3 bg-slate-950 font-mono text-[10px] text-slate-300 max-h-40 overflow-y-auto space-y-1 border-t border-slate-800">
+                {tunnel?.logs && tunnel.logs.length > 0 ? (
+                  tunnel.logs.map((logLine, idx) => (
+                    <div key={idx} className="whitespace-pre-wrap break-all">
+                      {logLine}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-slate-500 italic">No connection log events recorded yet.</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Permanent Named Tunnel Configuration Accordion */}
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowTokenConfig(!showTokenConfig)}
+              className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-slate-850 transition"
+            >
+              <div className="flex items-center gap-2">
+                <Lock className="w-4 h-4 text-amber-400" />
+                <span className="font-bold text-xs text-white">
+                  Want a Permanent URL that Never Changes? (Cloudflare Token)
+                </span>
+                {tunnel?.config?.hasToken && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Token Configured
+                  </span>
+                )}
+              </div>
+              {showTokenConfig ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+            </button>
+
+            {showTokenConfig && (
+              <div className="p-4 bg-slate-950 border-t border-slate-800 space-y-3">
+                <p className="text-[11px] text-slate-300">
+                  TryCloudflare subdomains change whenever restarted. To give your staff a <strong>permanent fixed domain</strong> (e.g. <code className="text-amber-400">erp.exmarkdoors.com</code>), create a free tunnel in Cloudflare Zero Trust and paste the tunnel token below:
+                </p>
+
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                      Cloudflare Tunnel Token (eyJh...)
+                    </label>
+                    <input
+                      type="password"
+                      value={tokenInput}
+                      onChange={(e) => setTokenInput(e.target.value)}
+                      placeholder="Paste your Cloudflare Tunnel Token here"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                      Custom Public Domain / Hostname (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={customDomainInput}
+                      onChange={(e) => setCustomDomainInput(e.target.value)}
+                      placeholder="e.g. https://erp.exmarkdoors.com"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveConfig}
+                    disabled={actionBusy === 'SAVING_CONFIG'}
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition"
+                  >
+                    Save Permanent Configuration
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Bottom Section: Staff ID & Password Directory */}
@@ -418,25 +732,12 @@ export function CloudServerAccessModal({ isOpen, onClose }: CloudServerAccessMod
               </table>
             </div>
           </div>
-
-          {/* Host Server Runner Helper */}
-          <div className="p-3 bg-slate-950/60 border border-slate-800/90 rounded-xl flex items-center justify-between gap-3 text-[11px]">
-            <div className="flex items-center gap-2">
-              <Server className="w-4 h-4 text-emerald-400 shrink-0" />
-              <div>
-                <span className="font-semibold text-white block">Factory Cloud Server Runner (Windows)</span>
-                <span className="text-slate-400">
-                  Keep <code className="text-red-400 px-1 py-0.5 bg-slate-900 rounded font-mono">start-cloud-erp.bat</code> running on the main factory host PC to keep 24/7 global access online.
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Modal Footer */}
         <div className="px-5 py-3 border-t border-slate-800 bg-slate-900/60 flex items-center justify-between">
           <span className="text-xs text-slate-400">
-            Encrypted with 256-bit TLS &bull; Zero static IP needed &bull; Multi-Device Sync Active
+            Encrypted with 256-bit TLS &bull; Multi-Device Access Online
           </span>
           <button
             type="button"
