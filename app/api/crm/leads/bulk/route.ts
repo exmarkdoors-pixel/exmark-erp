@@ -4,7 +4,7 @@ import { createLeadsBulk, LeadCreateInput, LeadStage } from '@/lib/services/crmS
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorizeRequest(req, 'crm', ['Super Admin', 'Management', 'Sales', 'Site Engineer']);
+    const auth = await authorizeRequest(req, 'crm');
     if (auth.errorResponse) return auth.errorResponse;
 
     const body = await req.json();
@@ -19,14 +19,22 @@ export async function POST(req: NextRequest) {
 
     const preparedLeads: LeadCreateInput[] = [];
 
-    for (const item of rawLeads) {
-      const title = String(item.title || item.client || 'New Lead').trim();
-      const client = String(item.client || item.contactPerson || title).trim();
-      const contactPerson = String(item.contactPerson || client).trim();
+    for (let i = 0; i < rawLeads.length; i++) {
+      const item = rawLeads[i];
+      const rawTitle = String(item.title || '').trim();
+      const rawClient = String(item.client || '').trim();
+      const rawContact = String(item.contactPerson || '').trim();
       const phone = String(item.phone || '').trim();
       const district = String(item.district || 'Ernakulam').trim();
 
-      if (!phone) continue; // Skip invalid phone rows
+      // Only skip completely empty rows
+      if (!rawTitle && !rawClient && !rawContact && !phone) {
+        continue;
+      }
+
+      const title = rawTitle || rawClient || (rawContact ? `${rawContact} Project` : `Lead #${i + 1}`);
+      const client = rawClient || rawTitle || rawContact || `Lead #${i + 1}`;
+      const contactPerson = rawContact || client;
 
       // Map frontend stage keys to LeadStage
       let stage: LeadStage = 'NEW';
@@ -59,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     if (preparedLeads.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'None of the provided rows contained valid phone numbers.' },
+        { success: false, error: 'None of the provided rows contained valid lead data.' },
         { status: 400 }
       );
     }

@@ -37,6 +37,7 @@ import { ConvertLeadModal } from './ConvertLeadModal';
 import { BulkLeadImportModal } from './BulkLeadImportModal';
 import { Customer } from '@/lib/services/customerService';
 import { WhatsAppSession, DEFAULT_WHATSAPP_SESSION } from '@/lib/services/whatsappService';
+import { apiFetch } from '@/lib/api/apiClient';
 
 // 1. കൃത്യമായ സ്റ്റേജ് ക്രമം നിർവ്വചിക്കുക (Exact definitions as requested)
 export const PIPELINE_STAGES = [
@@ -241,7 +242,7 @@ export default function LeadsPipeline() {
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   const fetchLeadsList = () => {
-    fetch('/api/crm/leads')
+    apiFetch('/api/crm/leads')
       .then((res) => res.json())
       .then((json) => {
         if (json && Array.isArray(json.data)) {
@@ -291,7 +292,7 @@ export default function LeadsPipeline() {
       fetchLeadsList();
 
       // Fetch registered customers
-      fetch('/api/customers')
+      apiFetch('/api/customers')
         .then((res) => res.json())
         .then((json) => {
           if (json && json.success && Array.isArray(json.data)) {
@@ -301,7 +302,7 @@ export default function LeadsPipeline() {
         .catch(() => {});
 
       // Fetch WhatsApp Session
-      fetch('/api/crm/whatsapp/session')
+      apiFetch('/api/crm/whatsapp/session')
         .then((res) => res.json())
         .then((json) => {
           if (json.success && json.session) {
@@ -599,7 +600,7 @@ export default function LeadsPipeline() {
     // If user asked to also save as customer
     if (alsoCreateCustomer && !targetCustomerId) {
       try {
-        const custRes = await fetch('/api/customers', {
+        const custRes = await apiFetch('/api/customers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -635,7 +636,7 @@ export default function LeadsPipeline() {
     };
 
     try {
-      const res = await fetch('/api/crm/leads', {
+      const res = await apiFetch('/api/crm/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -690,7 +691,7 @@ export default function LeadsPipeline() {
 
   const handleConvertLeadToCustomer = async (lead: LeadItem) => {
     try {
-      const res = await fetch('/api/customers', {
+      const res = await apiFetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -710,7 +711,7 @@ export default function LeadsPipeline() {
 
       // Link lead on backend
       if (lead.id.startsWith('lead-api-')) {
-        await fetch(`/api/crm/leads/${lead.id}`, {
+        await apiFetch(`/api/crm/leads/${lead.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ customerId: customer.id }),

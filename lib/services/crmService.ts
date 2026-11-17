@@ -130,12 +130,13 @@ export async function createLeadsBulk(leadsData: LeadCreateInput[]): Promise<Lea
   const all = readStore();
   const createdLeads: Lead[] = [];
   const now = new Date().toISOString();
+  const baseCount = all.length;
 
   leadsData.forEach((data, index) => {
     const newLead: Lead = {
       ...data,
       id: generateId('lead-api'),
-      leadCode: generateLeadCode(all.length + index),
+      leadCode: generateLeadCode(baseCount + index),
       followUps: [],
       createdAt: now,
       updatedAt: now,
