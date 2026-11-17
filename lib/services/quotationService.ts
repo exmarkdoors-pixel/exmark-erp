@@ -169,8 +169,9 @@ function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
 
-function calcTotals(items: Omit<QuotationItem, 'id' | 'quotationId'>[], discount: number, gstRate: number) {
-  const subtotal = items.reduce((sum, item) => {
+function calcTotals(items: Omit<QuotationItem, 'id' | 'quotationId'>[] = [], discount: number, gstRate: number) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const subtotal = safeItems.reduce((sum, item) => {
     const itemTotal = item.totalPrice ?? ((item.unitPrice || 0) * (item.quantity || 1));
     return sum + itemTotal;
   }, 0);
@@ -209,7 +210,8 @@ export async function createQuotation(data: QuotationCreateInput): Promise<Quota
   const { subtotal, gstAmount, totalAmount } = calcTotals(data.items, discount, gstRate);
 
   const quotationId = generateId('qtn-api');
-  const builtItems: QuotationItem[] = data.items.map((item, idx) => ({
+  const safeItems = Array.isArray(data.items) ? data.items : [];
+  const builtItems: QuotationItem[] = safeItems.map((item, idx) => ({
     ...item,
     doorCategory: item.doorCategory || 'FRP_DOORS',
     heightMm: item.heightMm || 2100,
@@ -373,11 +375,16 @@ export async function updateQuotation(id: string, data: QuotationUpdateInput): P
 
   // If order is confirmed and salesperson assigned, accrue commission to ledger
   if (updated.isConfirmed && (!existing.isConfirmed || existing.commissionStatus === 'PROJECTED' || !existing.commissionStatus)) {
+    const minRequiredAdvance = Math.round((updated.totalAmount || existing.totalAmount || 0) * 0.30);
+    const advAmount = updated.advanceAmount !== undefined ? Number(updated.advanceAmount) : (existing.advanceAmount || 0);
+    if (advAmount < minRequiredAdvance) {
+      throw new Error(`Order confirmation requires minimum 30% advance deposit (₹${minRequiredAdvance.toLocaleString('en-IN')}).`);
+    }
+
     const spId = updated.salespersonId || existing.salespersonId;
     if (spId) {
       try {
         const totalDoors = rebuiltItems.reduce((acc, it) => acc + (it.quantity || 1), 0);
-        const advAmount = updated.advanceAmount !== undefined ? Number(updated.advanceAmount) : (existing.advanceAmount || 0);
 
         const rec = await recordOrderCommission({
           quotationId: existing.id,

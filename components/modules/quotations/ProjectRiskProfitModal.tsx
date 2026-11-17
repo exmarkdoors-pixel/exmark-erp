@@ -376,10 +376,10 @@ export function ProjectRiskProfitModal({
                   <label className="block text-[10px] text-slate-400 font-bold mb-1">Advance Deposit (%)</label>
                   <input
                     type="number"
-                    min="10"
+                    min="30"
                     max="100"
                     value={advancePercent}
-                    onChange={(e) => setAdvancePercent(Math.max(10, Math.min(100, Number(e.target.value))))}
+                    onChange={(e) => setAdvancePercent(Math.max(30, Math.min(100, Number(e.target.value))))}
                     className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-1.5 text-xs text-emerald-300 font-mono font-bold"
                   />
                 </div>

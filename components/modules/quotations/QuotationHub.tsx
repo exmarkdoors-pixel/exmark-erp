@@ -552,6 +552,8 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
   const [deliveryDistrict, setDeliveryDistrict] = useState<string>('Malappuram');
   const [isRouteOptimizerOpen, setIsRouteOptimizerOpen] = useState<boolean>(false);
   const [advancePercent, setAdvancePercent] = useState<number>(50);
+  const [advanceInputMode, setAdvanceInputMode] = useState<'PRESET' | 'CUSTOM'>('PRESET');
+  const [customAdvanceRupees, setCustomAdvanceRupees] = useState<number | ''>('');
   const [includeInstallation, setIncludeInstallation] = useState<boolean>(false);
   const [installationMode, setInstallationMode] = useState<'PER_DOOR' | 'FIXED_LUMP_SUM'>('PER_DOOR');
   const [installationRate, setInstallationRate] = useState<number>(500);
@@ -628,8 +630,8 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
   const [isSubmittingConfirm, setIsSubmittingConfirm] = useState<boolean>(false);
 
   const handleStartConfirmQuotation = (q: HubQuotation) => {
-    const min40 = Math.round(q.grandTotal * 0.40);
-    const suggested = q.advanceAmount && q.advanceAmount > 0 ? q.advanceAmount : min40;
+    const min30 = Math.round(q.grandTotal * 0.30);
+    const suggested = q.advanceAmount && q.advanceAmount >= min30 ? q.advanceAmount : min30;
     setConfirmingQuote(q);
     setQuoteAdvanceAmount(suggested);
     setQuotePaymentMode('UPI');
@@ -1245,8 +1247,16 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
   const grandTotal = Math.max(0, discountedTotal + (Number(roundOffAmount) || 0));
   const gstAmount = 0;
 
-  const advanceAmount = Math.round(grandTotal * (advancePercent / 100));
-  const balanceAmount = grandTotal - advanceAmount;
+  // 30% Minimum Advance Hard Lock & Dual-Mode Calculation
+  const min30AdvanceAmount = Math.round(grandTotal * 0.30);
+  const advanceAmount = advanceInputMode === 'CUSTOM' && customAdvanceRupees !== ''
+    ? Math.round(Number(customAdvanceRupees))
+    : Math.round(grandTotal * (advancePercent / 100));
+  const resolvedAdvancePercent = grandTotal > 0
+    ? Math.round((advanceAmount / grandTotal) * 100)
+    : advancePercent;
+  const isAdvanceValid = grandTotal <= 0 || (advanceAmount >= min30AdvanceAmount && resolvedAdvancePercent >= 30);
+  const balanceAmount = Math.max(0, grandTotal - advanceAmount);
 
   const handleAutoRoundOff = () => {
     const raw = (doorsSubtotal + installationAmount) - (Number(additionalDiscount) || 0);
@@ -1688,7 +1698,15 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       setSelectedCustomerId(foundCust.id);
     }
 
-    setAdvancePercent(q.advancePercent || 50);
+    const loadedAdvPct = q.advancePercent && q.advancePercent >= 30 ? q.advancePercent : 50;
+    setAdvancePercent(loadedAdvPct);
+    if (q.advanceAmount && Math.round(q.grandTotal * (loadedAdvPct / 100)) !== q.advanceAmount) {
+      setAdvanceInputMode('CUSTOM');
+      setCustomAdvanceRupees(q.advanceAmount);
+    } else {
+      setAdvanceInputMode('PRESET');
+      setCustomAdvanceRupees('');
+    }
     const qCommType = (q as any).commissionType || 'PERCENTAGE';
     const qCommRate = (q as any).commissionRate !== undefined 
       ? Number((q as any).commissionRate) 
@@ -1914,6 +1932,17 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       return;
     }
 
+    // 30% Minimum Advance Hard Lock Validation
+    if (!isAdvanceValid || advanceAmount < min30AdvanceAmount || resolvedAdvancePercent < 30) {
+      playBeep(380, 0.15);
+      showToast(
+        '30% Advance Locked',
+        `Minimum 30% advance deposit (₹${min30AdvanceAmount.toLocaleString('en-IN')}) is mandatory. Advances below 30% cannot be forwarded.`,
+        'info'
+      );
+      return;
+    }
+
     const cust = customers.find((c) => c.id === selectedCustomerId) || { name: 'Direct Client', location: 'Kerala' };
 
     const installPayload = {
@@ -1994,7 +2023,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
         roundOff: Math.round(roundOffAmount),
         gstAmount: 0,
         grandTotal: Math.round(grandTotal),
-        advancePercent,
+        advancePercent: resolvedAdvancePercent,
         advanceAmount: Math.round(advanceAmount),
         date: quoteDate,
         targetDeliveryDate,
@@ -2021,7 +2050,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             discount: Math.round(additionalDiscount),
             roundOff: Math.round(roundOffAmount),
             overrideTotalAmount: Math.round(grandTotal),
-            advancePercent,
+            advancePercent: resolvedAdvancePercent,
             advanceAmount: Math.round(advanceAmount),
             ...installPayload,
             ...salespersonPayload,
@@ -2043,6 +2072,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       setInstallationCustomQty(null);
       setAdditionalDiscount(0);
       setRoundOffAmount(0);
+      setAdvanceInputMode('PRESET');
+      setAdvancePercent(50);
+      setCustomAdvanceRupees('');
       setSelectedCustomerId('');
       setSelectedSalespersonId('');
       return;
@@ -2071,7 +2103,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           discount: Math.round(additionalDiscount),
           roundOff: Math.round(roundOffAmount),
           overrideTotalAmount: Math.round(grandTotal),
-          advancePercent,
+          advancePercent: resolvedAdvancePercent,
           advanceAmount: Math.round(advanceAmount),
           quotationCategory: activeDraftSiteRef ? 'SITE_MEASUREMENT' : 'SHOWROOM_DIRECT',
           siteMeasurementRef: activeDraftSiteRef || undefined,
@@ -2105,7 +2137,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       roundOff: Math.round(roundOffAmount),
       gstAmount: 0,
       grandTotal: Math.round(grandTotal),
-      advancePercent,
+      advancePercent: resolvedAdvancePercent,
       advanceAmount: Math.round(advanceAmount),
       date: quoteDate,
       targetDeliveryDate,
@@ -2130,6 +2162,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     setInstallationCustomQty(null);
     setAdditionalDiscount(0);
     setRoundOffAmount(0);
+    setAdvanceInputMode('PRESET');
+    setAdvancePercent(50);
+    setCustomAdvanceRupees('');
     setSelectedCustomerId('');
     setSelectedSalespersonId('');
     setActiveDraftSiteRef(null);
@@ -2348,7 +2383,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           return {
             ...o,
             stepIndex: prevIndex,
-            advancePaid: prevIndex === 0 && !o.advanceVerified ? 'Pending 40% Advance' : o.advancePaid,
+            advancePaid: prevIndex === 0 && !o.advanceVerified ? 'Pending 30% Advance' : o.advancePaid,
           };
         }
         return o;
@@ -2356,18 +2391,18 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     );
   };
 
-  // Advance Click with 40% Gatekeeper check
+  // Advance Click with 30% Gatekeeper check
   const handleAdvanceSalesOrderClick = (order: HubSalesOrder) => {
     const val = order.totalNumericValue || (parseFloat(order.value.replace(/[^0-9.]/g, '')) * 100000) || 200000;
-    const min40 = Math.round(val * 0.40);
+    const min30 = Math.round(val * 0.30);
     const recd = order.advanceAmount || 0;
-    const isAdvOk = order.advanceVerified && recd >= min40;
+    const isAdvOk = order.advanceVerified && recd >= min30;
 
     if (order.stepIndex === 0 && !isAdvOk) {
       playBeep(420, 0.12);
-      showToast('Advance Required', 'Minimum 40% advance deposit is mandatory before releasing to production.', 'info');
+      showToast('30% Advance Required', 'Minimum 30% advance deposit is mandatory before releasing to production.', 'info');
       setActiveAdvanceOrder(order);
-      setAdvanceDepositAmount(recd > 0 ? recd : min40);
+      setAdvanceDepositAmount(recd >= min30 ? recd : min30);
       setAdvanceDepositMode(order.paymentMode || 'UPI');
       setAdvanceDepositRef(order.paymentRef || '');
       setAdvanceDepositNotes('');
@@ -2380,8 +2415,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
   const confirmAdvanceDeposit = () => {
     if (!activeAdvanceOrder) return;
     const val = activeAdvanceOrder.totalNumericValue || (parseFloat(activeAdvanceOrder.value.replace(/[^0-9.]/g, '')) * 100000) || 200000;
-    const pct = Math.round((advanceDepositAmount / val) * 100);
-    const verified = pct >= 40;
+    const min30 = Math.round(val * 0.30);
+    const pct = val > 0 ? Math.round((advanceDepositAmount / val) * 100) : 0;
+    const verified = pct >= 30 && advanceDepositAmount >= min30;
 
     setSalesOrders((prev) =>
       prev.map((o) => {
@@ -2824,7 +2860,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                       customerName: cust?.name || 'Direct Client',
                       customerPhone: cust?.phone || '',
                       deliveryDistrict: deliveryDistrict || cust?.location || 'Malappuram',
-                      advancePercent: advancePercent,
+                      advancePercent: resolvedAdvancePercent,
                       grandTotal: grandTotal,
                       itemRows: quoteItemRows,
                       includeInstallation: includeInstallation,
@@ -2843,8 +2879,14 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 <button
                   type="button"
                   onClick={handleSaveQuotation}
-                  className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg shadow-rose-900/30 flex items-center gap-1.5 transition cursor-pointer"
+                  className={`text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-1.5 transition cursor-pointer ${
+                    !isAdvanceValid
+                      ? 'bg-slate-800 text-slate-300 border border-rose-500/60 hover:bg-slate-700'
+                      : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/30'
+                  }`}
+                  title={!isAdvanceValid ? `Minimum 30% advance (₹${min30AdvanceAmount.toLocaleString('en-IN')}) is required` : undefined}
                 >
+                  {!isAdvanceValid ? <Lock className="w-3.5 h-3.5 text-rose-400" /> : null}
                   <span>{editingQuoteId ? 'Update Quotation' : 'Save & Generate Quote'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
@@ -2998,32 +3040,109 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 )}
               </div>
 
-              {/* Advance Payment Setting */}
-              <div className="md:col-span-2">
+              {/* Advance Payment Setting (30% Minimum Hard Lock + Custom Amount Column) */}
+              <div className="md:col-span-3">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-slate-200">
-                    Advance *
+                  <label className="block text-xs font-bold text-slate-200 flex items-center gap-1">
+                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Advance (Min 30% Lock) *</span>
                   </label>
-                  <span className="text-[10px] text-slate-400">Std 50%</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <select
-                    value={advancePercent}
-                    onChange={(e) => setAdvancePercent(parseFloat(e.target.value) || 50)}
-                    className="bg-[#131b2e] border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-rose-500 font-medium cursor-pointer"
-                  >
-                    <option value="50">50%</option>
-                    <option value="40">40%</option>
-                    <option value="30">30%</option>
-                    <option value="100">100%</option>
-                  </select>
-                  <div className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-right">
-                    <span className="text-[9px] text-slate-400 block leading-none">Advance</span>
-                    <span className="text-xs font-bold text-emerald-400 font-mono">
-                      ₹{(advanceAmount / 100000).toFixed(2)}L
-                    </span>
+                  <div className="inline-flex rounded-md p-0.5 bg-slate-900 border border-slate-700 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setAdvanceInputMode('PRESET')}
+                      className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
+                        advanceInputMode === 'PRESET'
+                          ? 'bg-amber-500 text-slate-950 shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      % Preset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdvanceInputMode('CUSTOM');
+                        if (customAdvanceRupees === '') {
+                          setCustomAdvanceRupees(advanceAmount >= min30AdvanceAmount ? advanceAmount : min30AdvanceAmount);
+                        }
+                      }}
+                      className={`px-1.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
+                        advanceInputMode === 'CUSTOM'
+                          ? 'bg-amber-500 text-slate-950 shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Custom ₹
+                    </button>
                   </div>
                 </div>
+
+                {advanceInputMode === 'PRESET' ? (
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={advancePercent}
+                      onChange={(e) => setAdvancePercent(Math.max(30, parseFloat(e.target.value) || 30))}
+                      className="bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500 font-bold cursor-pointer shrink-0"
+                    >
+                      <option value="30">30% (Min Lock)</option>
+                      <option value="40">40%</option>
+                      <option value="50">50% (Standard)</option>
+                      <option value="100">100% (Full)</option>
+                    </select>
+                    <div className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-right">
+                      <div className="text-[9px] text-slate-400 flex justify-between">
+                        <span>Advance:</span>
+                        <span className="text-emerald-400 font-bold font-mono">₹{advanceAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="text-[9px] text-slate-500 flex justify-between mt-0.5">
+                        <span>Bal:</span>
+                        <span className="font-mono">₹{balanceAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={min30AdvanceAmount}
+                        value={customAdvanceRupees}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomAdvanceRupees(val === '' ? '' : Math.max(0, parseFloat(val) || 0));
+                        }}
+                        placeholder={`Min ₹${min30AdvanceAmount.toLocaleString('en-IN')}`}
+                        className={`w-full bg-[#131b2e] border rounded-lg p-2 pr-14 text-xs font-mono font-bold focus:outline-none ${
+                          isAdvanceValid
+                            ? 'border-emerald-600 text-emerald-300 focus:border-emerald-400'
+                            : 'border-rose-600 text-rose-300 focus:border-rose-400'
+                        }`}
+                      />
+                      <span className="absolute right-2 top-2 text-[10px] text-slate-400 font-mono font-bold pointer-events-none">
+                        ({resolvedAdvancePercent}%)
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] px-0.5">
+                      {isAdvanceValid ? (
+                        <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                          ✓ Valid (Bal: ₹{balanceAmount.toLocaleString('en-IN')})
+                        </span>
+                      ) : (
+                        <span className="text-rose-400 font-bold flex items-center gap-1">
+                          🔒 Min 30% Lock (₹{min30AdvanceAmount.toLocaleString('en-IN')})
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setCustomAdvanceRupees(min30AdvanceAmount)}
+                        className="text-[9px] text-amber-400 hover:text-amber-300 underline font-bold cursor-pointer"
+                      >
+                        Set 30% Min
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Target Delivery Date & Route Optimization */}
@@ -4809,7 +4928,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 <Layers className="w-8 h-8 text-slate-600 mx-auto" />
                 <p className="text-sm font-bold text-slate-300">0 Active Factory Work Orders</p>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  All production orders cleared to zero. Generate quotations and verify 40% advance to release jobs to the plant floor.
+                  All production orders cleared to zero. Generate quotations and verify 30% advance to release jobs to the plant floor.
                 </p>
               </div>
             ) : (
@@ -4851,9 +4970,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                         type="button"
                         onClick={() => {
                           const val = order.totalNumericValue || (parseFloat(order.value.replace(/[^0-9.]/g, '')) * 100000) || 200000;
-                          const min40 = Math.round(val * 0.40);
+                          const min30 = Math.round(val * 0.30);
                           setActiveAdvanceOrder(order);
-                          setAdvanceDepositAmount(order.advanceAmount && order.advanceAmount > 0 ? order.advanceAmount : min40);
+                          setAdvanceDepositAmount(order.advanceAmount && order.advanceAmount >= min30 ? order.advanceAmount : min30);
                           setAdvanceDepositMode(order.paymentMode || 'UPI');
                           setAdvanceDepositRef(order.paymentRef || '');
                           setAdvanceDepositNotes('');
@@ -4863,10 +4982,10 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                             ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
                             : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 animate-pulse'
                         }`}
-                        title="Record 40% advance deposit"
+                        title="Record 30% advance deposit"
                       >
                         <CreditCard className="w-3.5 h-3.5" />
-                        <span>{order.advanceVerified ? 'Deposit Paid' : 'Record 40% Advance'}</span>
+                        <span>{order.advanceVerified ? 'Deposit Paid' : 'Record 30% Advance'}</span>
                       </button>
 
                       {/* Reverse Step Button */}
@@ -5619,7 +5738,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           </div>
         </div>
       )}
-      {/* 40% ADVANCE DEPOSIT GATEKEEPER MODAL */}
+      {/* 30% ADVANCE DEPOSIT GATEKEEPER MODAL */}
       {activeAdvanceOrder && (
         <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
           <div className="bg-[#111827] border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
@@ -5640,9 +5759,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             <div className="p-5 space-y-4 text-xs">
               {(() => {
                 const totalVal = activeAdvanceOrder.totalNumericValue || (parseFloat(activeAdvanceOrder.value.replace(/[^0-9.]/g, '')) * 100000) || 200000;
-                const min40 = Math.round(totalVal * 0.40);
-                const pct = Math.round((advanceDepositAmount / totalVal) * 100);
-                const isOk = pct >= 40;
+                const min30 = Math.round(totalVal * 0.30);
+                const pct = totalVal > 0 ? Math.round((advanceDepositAmount / totalVal) * 100) : 0;
+                const isOk = pct >= 30 && advanceDepositAmount >= min30;
 
                 return (
                   <>
@@ -5660,18 +5779,51 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                         <span className="font-black text-emerald-400">₹{totalVal.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between text-amber-400 font-bold border-t border-slate-800 pt-1">
-                        <span>Mandatory 40% Minimum:</span>
-                        <span>₹{min40.toLocaleString('en-IN')}</span>
+                        <span>Mandatory 30% Minimum Lock:</span>
+                        <span>₹{min30.toLocaleString('en-IN')}</span>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-slate-300 font-bold mb-1">Deposit Amount Received (₹) *</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-slate-300 font-bold">Deposit Amount Received (₹) *</label>
+                        <div className="flex items-center gap-1 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setAdvanceDepositAmount(min30)}
+                            className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 font-bold cursor-pointer"
+                          >
+                            30% Min
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAdvanceDepositAmount(Math.round(totalVal * 0.40))}
+                            className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium cursor-pointer"
+                          >
+                            40%
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAdvanceDepositAmount(Math.round(totalVal * 0.50))}
+                            className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium cursor-pointer"
+                          >
+                            50%
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAdvanceDepositAmount(totalVal)}
+                            className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium cursor-pointer"
+                          >
+                            100%
+                          </button>
+                        </div>
+                      </div>
                       <input
                         type="number"
+                        min={min30}
                         value={advanceDepositAmount || ''}
                         onChange={(e) => setAdvanceDepositAmount(parseFloat(e.target.value) || 0)}
-                        placeholder="Enter amount (e.g. 140000)"
+                        placeholder={`Min ₹${min30.toLocaleString('en-IN')}`}
                         className="w-full bg-[#131b2e] border border-slate-700 rounded-xl p-2.5 text-white font-black text-sm focus:border-rose-500 focus:outline-none"
                       />
                       <div className="mt-2 space-y-1.5">
@@ -5691,12 +5843,12 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                           {isOk ? (
                             <>
                               <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-                              <span>Valid deposit ({pct}%). Unlocks production release immediately.</span>
+                              <span>Valid deposit ({pct}%). Next section (Production) unlocked.</span>
                             </>
                           ) : (
                             <>
                               <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
-                              <span>Deposit is under 40% (₹{min40.toLocaleString('en-IN')}). Minimum 40% required.</span>
+                              <span>🔒 Next Section Locked: Deposit is under 30% (₹{min30.toLocaleString('en-IN')}). Minimum 30% required.</span>
                             </>
                           )}
                         </div>
@@ -5755,10 +5907,19 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
               <button
                 type="button"
                 onClick={confirmAdvanceDeposit}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg flex items-center gap-1.5 cursor-pointer"
+                disabled={!activeAdvanceOrder || advanceDepositAmount < Math.round((activeAdvanceOrder.totalNumericValue || (parseFloat(activeAdvanceOrder.value.replace(/[^0-9.]/g, '')) * 100000) || 200000) * 0.30)}
+                className={`px-4 py-2 rounded-xl text-xs font-black shadow-lg flex items-center gap-1.5 transition ${
+                  activeAdvanceOrder && advanceDepositAmount >= Math.round((activeAdvanceOrder.totalNumericValue || (parseFloat(activeAdvanceOrder.value.replace(/[^0-9.]/g, '')) * 100000) || 200000) * 0.30)
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Verify &amp; Save Advance</span>
+                <span>
+                  {activeAdvanceOrder && advanceDepositAmount >= Math.round((activeAdvanceOrder.totalNumericValue || (parseFloat(activeAdvanceOrder.value.replace(/[^0-9.]/g, '')) * 100000) || 200000) * 0.30)
+                    ? 'Verify & Release to Production'
+                    : '🔒 Next Section Locked (Min 30%)'}
+                </span>
               </button>
             </div>
           </div>
@@ -5788,9 +5949,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             <div className="p-5 space-y-4 text-xs">
               {(() => {
                 const totalVal = confirmingQuote.grandTotal;
-                const min40 = Math.round(totalVal * 0.40);
-                const pct = Math.round((quoteAdvanceAmount / totalVal) * 100);
-                const isOk = pct >= 40;
+                const min30 = Math.round(totalVal * 0.30);
+                const pct = totalVal > 0 ? Math.round((quoteAdvanceAmount / totalVal) * 100) : 0;
+                const isOk = pct >= 30 && quoteAdvanceAmount >= min30;
 
                 return (
                   <>
@@ -5816,20 +5977,53 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                         <span className="font-black text-emerald-400 text-sm">₹{totalVal.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between text-amber-400 font-bold">
-                        <span>Mandatory Advance (40% Min):</span>
-                        <span>₹{min40.toLocaleString('en-IN')}</span>
+                        <span>Mandatory Advance (30% Min Lock):</span>
+                        <span>₹{min30.toLocaleString('en-IN')}</span>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-slate-300 font-bold mb-1">
-                        Advance Deposit Received (₹) *
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-slate-300 font-bold">
+                          Advance Deposit Received (₹) *
+                        </label>
+                        <div className="flex items-center gap-1 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setQuoteAdvanceAmount(min30)}
+                            className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 font-bold cursor-pointer"
+                          >
+                            30% Min
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setQuoteAdvanceAmount(Math.round(totalVal * 0.40))}
+                            className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium cursor-pointer"
+                          >
+                            40%
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setQuoteAdvanceAmount(Math.round(totalVal * 0.50))}
+                            className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium cursor-pointer"
+                          >
+                            50%
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setQuoteAdvanceAmount(totalVal)}
+                            className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium cursor-pointer"
+                          >
+                            100%
+                          </button>
+                        </div>
+                      </div>
                       <input
                         type="number"
+                        min={min30}
                         value={quoteAdvanceAmount || ''}
                         onChange={(e) => setQuoteAdvanceAmount(parseFloat(e.target.value) || 0)}
-                        placeholder="Enter advance amount"
+                        placeholder={`Min ₹${min30.toLocaleString('en-IN')}`}
                         className="w-full bg-[#131b2e] border border-slate-700 rounded-xl p-2.5 text-white font-black text-sm focus:border-rose-500 focus:outline-none"
                       />
                       <div className="mt-2 space-y-1.5">
@@ -5849,12 +6043,12 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                           {isOk ? (
                             <>
                               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                              <span>Advance verified ({pct}%). Order will be immediately released to hand crafting shop floor.</span>
+                              <span>Advance verified ({pct}%). Order unlocked for release to hand production &amp; 12L stickers.</span>
                             </>
                           ) : (
                             <>
                               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                              <span>Deposit is below minimum 40% (₹{min40.toLocaleString('en-IN')}). Kerala production requires 40% advance lock.</span>
+                              <span>🔒 Next Section Locked: Deposit is below minimum 30% (₹{min30.toLocaleString('en-IN')}). Order cannot be forwarded to production or 12L Sticker Studio until minimum 30% advance is received.</span>
                             </>
                           )}
                         </div>
@@ -5923,15 +6117,21 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
               <button
                 type="button"
                 onClick={handleConfirmQuotationOrder}
-                disabled={isSubmittingConfirm || quoteAdvanceAmount < Math.round(confirmingQuote.grandTotal * 0.40)}
+                disabled={isSubmittingConfirm || quoteAdvanceAmount < Math.round(confirmingQuote.grandTotal * 0.30)}
                 className={`px-4 py-2 rounded-xl text-xs font-black shadow-lg flex items-center gap-1.5 transition ${
-                  quoteAdvanceAmount >= Math.round(confirmingQuote.grandTotal * 0.40)
+                  quoteAdvanceAmount >= Math.round(confirmingQuote.grandTotal * 0.30)
                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{isSubmittingConfirm ? 'Confirming...' : 'Confirm & Release to Hand Production'}</span>
+                <span>
+                  {isSubmittingConfirm
+                    ? 'Confirming...'
+                    : quoteAdvanceAmount >= Math.round(confirmingQuote.grandTotal * 0.30)
+                    ? 'Confirm & Release to Hand Production'
+                    : '🔒 Next Section Locked (Min 30% Required)'}
+                </span>
               </button>
             </div>
           </div>
