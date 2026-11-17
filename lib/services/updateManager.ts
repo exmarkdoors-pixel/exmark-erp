@@ -57,7 +57,7 @@ export function getAuthoritativeAppVersion(): string {
   } catch {
     // Non-fatal fallback
   }
-  return '1.2.4';
+  return '1.2.5';
 }
 
 export function parseSemVer(v: string): number[] {
@@ -278,6 +278,18 @@ export async function checkForSystemUpdates(options: {
 
   // Curated changelog features
   const changelog = [
+    {
+      version: '1.2.5',
+      title: 'Quotation Specs, Bank Details Config, Advance 30% Lock & Salesperson Slabs',
+      features: [
+        'Door sticker remarks layout optimization and batch printing parity for remarks',
+        'Simplified door model creation (Model Number & Price only) with full quotation specifications (Lock, Color, Thickness, Frame Size, Door Size)',
+        'Mandatory minimum 30% advance payment lock with flexible custom amount input for advances >= 30%',
+        'Salesperson piece-rate commission (default 0) with per-salesperson custom rates and volume slabs (40, 60, 100+ doors)',
+        'Company Bank & UPI configuration under Settings -> Company & Factory Profile -> Bank & Payment Accounts',
+        'Hide Bank Details in Print toggle in print toolbar for Quotations, Bills, and Proforma Invoices across all themes',
+      ],
+    },
     {
       version: '1.2.4',
       title: 'Standard 12L (99×44mm) 2D Specification Layout & Obsolete Format Cleanup',
