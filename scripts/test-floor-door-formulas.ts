@@ -158,7 +158,7 @@ async function runTests() {
 
   console.log('✓ Verified Frame Extra Rates (+700/+1300/+200), 28mm/30mm (+200), & >90×230 cm (₹450/sq.ft) Tier-2 rules');
 
-  // 2. Verify all 5 sample rows from user screenshot (clean positive sticker values)
+  // 2. Verify sample rows matching factory floor reference photo (with negative cutting notation)
   const samples = [
     {
       name: 'Door #1',
@@ -168,9 +168,9 @@ async function runTests() {
       expHInch: '88 13/16"',
       expTopInch: '30 3/8"',
       expBtmInch: '30 3/4"',
-      expHOut: '221.1',
-      expTopOut: '69.5',
-      expBtmOut: '70.5',
+      expHOut: '-221.1',
+      expTopOut: '-69.5',
+      expBtmOut: '-70.5',
     },
     {
       name: 'Door #2',
@@ -180,9 +180,9 @@ async function runTests() {
       expHInch: '81 7/8"',
       expTopInch: '31 1/2"',
       expBtmInch: '31 1/16"',
-      expHOut: '203.5',
-      expTopOut: '72.4',
-      expBtmOut: '71.3',
+      expHOut: '-203.5',
+      expTopOut: '-72.4',
+      expBtmOut: '-71.3',
     },
     {
       name: 'Door #3',
@@ -192,9 +192,9 @@ async function runTests() {
       expHInch: '80 15/16"',
       expTopInch: '31 1/8"',
       expBtmInch: '31"',
-      expHOut: '201.1',
-      expTopOut: '71.5',
-      expBtmOut: '71.1',
+      expHOut: '-201.1',
+      expTopOut: '-71.5',
+      expBtmOut: '-71.1',
     },
     {
       name: 'Door #4',
@@ -204,9 +204,9 @@ async function runTests() {
       expHInch: '80"',
       expTopInch: '30 11/16"',
       expBtmInch: '30 13/16"',
-      expHOut: '198.7',
-      expTopOut: '70.3',
-      expBtmOut: '70.7',
+      expHOut: '-198.7',
+      expTopOut: '-70.3',
+      expBtmOut: '-70.7',
     },
     {
       name: 'Door #5',
@@ -216,9 +216,21 @@ async function runTests() {
       expHInch: '80 7/16"',
       expTopInch: '30 3/4"',
       expBtmInch: '30 11/16"',
-      expHOut: '199.8',
-      expTopOut: '70.5',
-      expBtmOut: '70.3',
+      expHOut: '-199.8',
+      expTopOut: '-70.5',
+      expBtmOut: '-70.3',
+    },
+    {
+      name: 'Door #6 (User Case: Top 80cm, Bottom 81cm)',
+      hCm: 210.0,
+      topCm: 80.0,
+      btmCm: 81.0,
+      expHInch: '82 11/16"',
+      expTopInch: '31 1/2"',
+      expBtmInch: '31 7/8"',
+      expHOut: '-205.5',
+      expTopOut: '-72.4',
+      expBtmOut: '-73.4',
     },
   ];
 

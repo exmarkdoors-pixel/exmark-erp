@@ -101,9 +101,9 @@ export function computeStickerSizes(input: StickerSizeInput): StickerSizeResult 
     finH,
     finTopW,
     finBtmW,
-    finHText: finH.toFixed(1),
-    finTopWText: finTopW.toFixed(1),
-    finBtmWText: finBtmW.toFixed(1),
+    finHText: `-${finH.toFixed(1)}`,
+    finTopWText: `-${finTopW.toFixed(1)}`,
+    finBtmWText: `-${finBtmW.toFixed(1)}`,
     hLabel,
     isTapered,
   };

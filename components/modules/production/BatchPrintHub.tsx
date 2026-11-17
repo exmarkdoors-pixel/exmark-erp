@@ -1068,10 +1068,10 @@ export default function BatchPrintHub({
                                     breakInside: 'avoid',
                                   }}
                                 >
-                                  {/* Line 1: Party (Left) + Job Card Badge (Right) */}
+                                  {/* Line 1: PartyName (Left) + Job Card Badge (Right) */}
                                   <div className="flex justify-between items-center gap-1">
                                     <div className="flex items-baseline gap-1 min-w-0 max-w-[130px]">
-                                      <span className="text-[8px] text-slate-500 font-normal shrink-0">Party</span>
+                                      <span className="text-[8px] text-slate-500 font-normal shrink-0">PartyName</span>
                                       <span className="font-black text-[10px] text-slate-950 uppercase truncate">
                                         {st.customerName}
                                       </span>
@@ -1081,10 +1081,10 @@ export default function BatchPrintHub({
                                     </span>
                                   </div>
 
-                                  {/* Line 2: Model (Left) + Circled Door Number (Right) */}
+                                  {/* Line 2: Model/Part (Left) + Circled Door Number (Right) */}
                                   <div className="flex justify-between items-center gap-1">
                                     <div className="flex items-baseline gap-1 min-w-0 max-w-[135px]">
-                                      <span className="text-[7.5px] text-slate-500 font-normal shrink-0">Model</span>
+                                      <span className="text-[7.5px] text-slate-500 font-normal shrink-0">Model/Part</span>
                                       <span className="font-bold text-[9.5px] text-slate-900 uppercase truncate">
                                         {st.profile || st.tag || 'EXM-A-101'}
                                       </span>
@@ -1094,10 +1094,10 @@ export default function BatchPrintHub({
                                     </span>
                                   </div>
 
-                                  {/* Line 3: H: (R) • LOCK: BABY LATCH • CLR: NATURAL TEAK */}
+                                  {/* Line 3: Hinge (R) • LOCK: BABY LATCH • COLOUR: NATURAL TEAK */}
                                   <div className="flex items-center gap-1 text-[7.5px]">
                                     <div className="flex items-center gap-0.5 shrink-0">
-                                      <span className="text-slate-600 font-bold">H:</span>
+                                      <span className="text-slate-600 font-bold">Hinge:</span>
                                       <span className="w-4 h-4 rounded-full border border-slate-700 flex items-center justify-center font-bold text-[8px] text-slate-950">
                                         {hSide}
                                       </span>
@@ -1109,12 +1109,12 @@ export default function BatchPrintHub({
                                     </div>
 
                                     <div className="border border-slate-400 rounded px-1 py-0.2 flex items-center gap-0.5 bg-slate-50 min-w-0 flex-1 overflow-hidden">
-                                      <span className="text-slate-500 text-[6.5px] shrink-0">CLR:</span>
+                                      <span className="text-slate-500 text-[6.5px] shrink-0">COLOUR:</span>
                                       <span className="font-bold text-slate-900 truncate uppercase text-[7.5px]">{st.finish || 'Teak'}</span>
                                     </div>
                                   </div>
 
-                                  {/* Line 4: 3-Cell Industrial Cutting Box (H-LEFT, TOP/BTM, QR Code) */}
+                                  {/* Line 4: 3-Cell Industrial Cutting Box (H-LEFT, TOP/BOTTOM, QR Code) */}
                                   <div className="border border-slate-800 rounded grid grid-cols-12 overflow-hidden bg-slate-50/50">
                                     {/* Cell 1: H-LEFT or H-RIGHT */}
                                     <div className="col-span-5 border-r border-slate-800 p-1 flex flex-col justify-between">
@@ -1122,14 +1122,14 @@ export default function BatchPrintHub({
                                       <span className="font-mono text-[11px] font-black text-slate-950 text-right">{finHText}</span>
                                     </div>
 
-                                    {/* Cell 2: Stacked TOP and BTM */}
+                                    {/* Cell 2: Stacked TOP and BOTTOM */}
                                     <div className="col-span-4 border-r border-slate-800 divide-y divide-slate-800">
                                       <div className="px-1 py-0.2 flex items-center justify-between">
                                         <span className="text-[6.5px] font-bold text-slate-600">TOP</span>
                                         <span className="font-mono text-[9px] font-bold text-slate-950">{widths.topText}</span>
                                       </div>
                                       <div className="px-1 py-0.2 flex items-center justify-between">
-                                        <span className="text-[6.5px] font-bold text-slate-600">BTM</span>
+                                        <span className="text-[6.5px] font-bold text-slate-600">BOTTOM</span>
                                         <span className="font-mono text-[9px] font-bold text-slate-950">{widths.btmText}</span>
                                       </div>
                                     </div>

@@ -2103,7 +2103,7 @@ export function CuttingSchedulePrintHubModal({
                                         <div className="space-y-0.5">
                                           <div className="flex justify-between items-start gap-1">
                                             <div className="flex items-baseline gap-1.5 min-w-0">
-                                              <span className="text-[9px] text-slate-500 font-medium shrink-0">Party</span>
+                                              <span className="text-[9px] text-slate-500 font-medium shrink-0">PartyName</span>
                                               <span
                                                 className={`font-black uppercase truncate max-w-[155px] ${
                                                   safeMarginBuffer && currentParty.partyName.length > 18 ? 'text-[9.5px]' : 'text-[11px]'
@@ -2118,7 +2118,7 @@ export function CuttingSchedulePrintHubModal({
                                           </div>
                                           <div className="flex justify-between items-center gap-1">
                                             <div className="flex items-baseline gap-1.5 min-w-0">
-                                              <span className="text-[9px] text-slate-500 font-medium shrink-0">Model</span>
+                                              <span className="text-[9px] text-slate-500 font-medium shrink-0">Model/Part</span>
                                               <strong className="font-black text-[11px] uppercase truncate max-w-[145px]">{d.modelName}</strong>
                                             </div>
                                             <span className="px-3 py-0.2 rounded-full border border-slate-800 font-black text-[10.5px] leading-tight shrink-0">
@@ -2127,7 +2127,7 @@ export function CuttingSchedulePrintHubModal({
                                           </div>
                                           <div className="flex items-center justify-between gap-1 pt-0.5 text-[9px]">
                                             <div className="flex items-center gap-1 shrink-0">
-                                              <span className="text-slate-600">H:</span>
+                                              <span className="text-slate-600 font-medium">Hinge:</span>
                                               <span className="px-2 py-0.2 border border-slate-800 rounded-full font-black text-[9.5px]">
                                                 {d.hingeSide}
                                               </span>
@@ -2154,7 +2154,7 @@ export function CuttingSchedulePrintHubModal({
                                               <span className="font-mono text-[10.5px] font-black text-slate-950">{c.finTopWText}</span>
                                             </div>
                                             <div className="px-1.5 py-0.5 flex items-center justify-between">
-                                              <span className="text-[8px] font-bold text-slate-600 uppercase">BTM</span>
+                                              <span className="text-[8px] font-bold text-slate-600 uppercase">BOTTOM</span>
                                               <span className="font-mono text-[10.5px] font-black text-slate-950">{c.finBtmWText}</span>
                                             </div>
                                           </div>

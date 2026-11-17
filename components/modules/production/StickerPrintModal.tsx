@@ -283,25 +283,28 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
 
           const factor = matchedRow.unit === 'inch' ? 2.54 : matchedRow.unit === 'cm' ? 1 : 0.1;
           const hCm = matchedRow.height ? Number((matchedRow.height * factor).toFixed(2)) : r.rawHeightCm;
-          const wTopCm = matchedRow.widthTop !== undefined
+          const wTopCm = matchedRow.widthTop !== undefined && matchedRow.widthTop > 0
             ? Number((matchedRow.widthTop * factor).toFixed(2))
-            : matchedRow.width !== undefined
+            : matchedRow.width !== undefined && matchedRow.width > 0
             ? Number((matchedRow.width * factor).toFixed(2))
             : r.rawWidthTopCm;
-          const wBtmCm = matchedRow.widthBottom !== undefined
+
+          const hasValidBtm = matchedRow.widthBottom !== undefined && matchedRow.widthBottom > 0;
+          const isLinked = matchedRow.widthLinked !== undefined
+            ? matchedRow.widthLinked
+            : !hasValidBtm || Math.abs((matchedRow.widthTop || matchedRow.width || 0) - matchedRow.widthBottom) < 0.05;
+
+          const wBtmCm = !isLinked && hasValidBtm
             ? Number((matchedRow.widthBottom * factor).toFixed(2))
-            : matchedRow.widthTop !== undefined
-            ? Number((matchedRow.widthTop * factor).toFixed(2))
-            : r.rawWidthBtmCm;
-          const linked = matchedRow.widthLinked !== undefined ? matchedRow.widthLinked : Math.abs(wTopCm - wBtmCm) < 0.05;
+            : wTopCm;
 
           return {
             ...r,
             modelName: resolvedModel,
             rawHeightCm: hCm,
             rawWidthTopCm: wTopCm,
-            rawWidthBtmCm: linked ? wTopCm : wBtmCm,
-            widthLinked: linked,
+            rawWidthBtmCm: wBtmCm,
+            widthLinked: isLinked,
             frameTypeId: matchedRow.frameTypeId || r.frameTypeId,
           };
         })
@@ -1093,7 +1096,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                             </div>
                             <div className="flex justify-between text-[10px] font-mono font-bold text-slate-200">
                               <span>TOP: {calc.finTopWText}</span>
-                              <span>BTM: {calc.finBtmWText}</span>
+                              <span>BOTTOM: {calc.finBtmWText}</span>
                             </div>
                           </div>
                         </td>
@@ -1418,7 +1421,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                               {/* Row 1: PartyName (Left) + JOB CARD NUMBER (Right Top Corner) */}
                               <div className="flex justify-between items-start gap-1.5">
                                 <div className="flex items-baseline gap-1.5 min-w-0">
-                                  <span className="text-[8.5px] text-slate-500 font-medium shrink-0">Party</span>
+                                  <span className="text-[8.5px] text-slate-500 font-medium shrink-0">PartyName</span>
                                   <span className="font-black text-[11px] text-slate-950 uppercase tracking-tight truncate">
                                     {order.customerName}
                                   </span>
@@ -1428,10 +1431,10 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                 </span>
                               </div>
 
-                              {/* Row 2: Model/Part + Only Door pill + Serial Pill */}
+                              {/* Row 2: Model/Part + Only Door pill + Capsule Door Number */}
                               <div className="flex justify-between items-center gap-1.5">
                                 <div className="flex items-baseline gap-1.5 min-w-0">
-                                  <span className="text-[8.5px] text-slate-500 font-medium shrink-0">Model</span>
+                                  <span className="text-[8.5px] text-slate-500 font-medium shrink-0">Model/Part</span>
                                   <span className="font-black text-[10.5px] text-slate-950 uppercase truncate">
                                     {row.modelName}
                                   </span>
@@ -1448,22 +1451,22 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                 </div>
                               </div>
 
-                              {/* Row 3: Hinge [R] • LOCK • COLOUR */}
+                              {/* Row 3: Hinge (R) • LOCK • COLOUR */}
                               <div className="flex items-center justify-between gap-1 text-[8.5px]">
                                 <div className="flex items-center gap-1 shrink-0">
-                                  <span className="text-slate-600">H:</span>
+                                  <span className="text-slate-600 font-medium">Hinge:</span>
                                   <span className="px-2 rounded-full border border-slate-800 font-black text-[9.5px] text-slate-950">
                                     {row.hingeSide}
                                   </span>
                                 </div>
 
-                                <div className="flex items-center gap-0.5 min-w-0 border border-slate-300 rounded px-1 flex-1 bg-slate-50/70">
+                                <div className="flex items-center gap-0.5 min-w-0 border border-slate-300 rounded px-1.5 flex-1 bg-slate-50/70">
                                   <span className="text-slate-500 text-[7.5px] font-semibold shrink-0">LOCK:</span>
                                   <span className="font-black text-slate-950 uppercase truncate">{row.lockType}</span>
                                 </div>
 
-                                <div className="flex items-center gap-0.5 min-w-0 border border-slate-300 rounded px-1 flex-1 bg-slate-50/70">
-                                  <span className="text-slate-500 text-[7.5px] font-semibold shrink-0">CLR:</span>
+                                <div className="flex items-center gap-0.5 min-w-0 border border-slate-300 rounded px-1.5 flex-1 bg-slate-50/70">
+                                  <span className="text-slate-500 text-[7.5px] font-semibold shrink-0">COLOUR:</span>
                                   <span className="font-black text-slate-950 uppercase truncate">{row.finishColor}</span>
                                 </div>
                               </div>
@@ -1487,7 +1490,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                       </span>
                                     </div>
                                     <div className="px-1.5 py-0.5 flex items-center justify-between">
-                                      <span className="text-[8px] font-bold text-slate-600 uppercase">BTM</span>
+                                      <span className="text-[8px] font-bold text-slate-600 uppercase">BOTTOM</span>
                                       <span className="font-mono text-[11px] font-black text-slate-950">
                                         {calc.finBtmWText}
                                       </span>

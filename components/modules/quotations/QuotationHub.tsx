@@ -638,9 +638,13 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     const doors = q.itemRows && q.itemRows.length > 0
       ? q.itemRows.flatMap((r, rIdx) => {
           const qty = r.qty || 1;
+          const isLinked = r.widthLinked !== false;
           const hInch = r.unit === 'inch' ? (r.height || 0) + parseInchFraction(r.heightFraction) : 0;
           const wTopInch = r.unit === 'inch' ? (r.widthTop || r.width || 0) + parseInchFraction(r.widthTopFraction || r.widthFraction) : 0;
-          const wBtmInch = r.unit === 'inch' ? (r.widthBottom ?? r.widthTop ?? r.width ?? 0) + parseInchFraction(r.widthBottomFraction || r.widthTopFraction || r.widthFraction) : 0;
+          const hasValidBtmInch = typeof r.widthBottom === 'number' && r.widthBottom > 0;
+          const wBtmInch = (isLinked || !hasValidBtmInch)
+            ? wTopInch
+            : (r.widthBottom || 0) + parseInchFraction(r.widthBottomFraction || r.widthTopFraction || r.widthFraction);
 
           const rawHCm =
             r.unit === 'inch'
@@ -654,12 +658,14 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
               : r.unit === 'cm'
               ? Number(((r.widthTop || r.width || 78.11)).toFixed(2))
               : Number((((r.widthTop || r.width || 781) / 10)).toFixed(2));
-          const rawBtmCm =
-            r.unit === 'inch'
-              ? Number((wBtmInch * 2.54).toFixed(2)) || rawTopCm
-              : r.unit === 'cm'
-              ? Number(((r.widthBottom ?? r.widthTop ?? r.width ?? 78.11)).toFixed(2))
-              : Number(((((r.widthBottom ?? r.widthTop ?? r.width ?? 781)) / 10)).toFixed(2));
+          const btmVal = typeof r.widthBottom === 'number' && r.widthBottom > 0 ? r.widthBottom : null;
+          const rawBtmCm = (isLinked || btmVal === null)
+            ? rawTopCm
+            : (r.unit === 'inch'
+                ? Number((wBtmInch * 2.54).toFixed(2)) || rawTopCm
+                : r.unit === 'cm'
+                ? Number(btmVal.toFixed(2))
+                : Number((btmVal / 10).toFixed(2)));
 
           const rawItem = q.items && q.items[rIdx];
           const modelObj = doorModels.find((m) => m.id === r.modelId || m.code === r.modelId);
