@@ -15,8 +15,11 @@ import {
   History,
   KeyRound,
   Trash2,
+  Globe,
+  QrCode,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/apiClient';
+import { CloudServerAccessModal } from '@/components/modules/cloud/CloudServerAccessModal';
 
 interface CloudSyncLogEntry {
   id: string;
@@ -79,6 +82,7 @@ export default function CloudSyncSettingsTab() {
   const [overview, setOverview] = useState<CloudSyncOverview | null>(null);
   const [detectedFolders, setDetectedFolders] = useState<string[]>([]);
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showAccessModal, setShowAccessModal] = useState(false);
 
   // Editable config fields
   const [enabled, setEnabled] = useState(false);
@@ -537,6 +541,36 @@ export default function CloudSyncSettingsTab() {
           </button>
         </div>
       </div>
+
+      {/* Cloud Server Anywhere Access Hub Card */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-slate-900 border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+        <div className="space-y-1">
+          <span className="font-bold text-white text-xs flex items-center gap-2">
+            <Globe className="w-4 h-4 text-blue-400" />
+            <span>Cloud Server &amp; Anywhere Access Hub (Mobile &amp; Remote Laptops)</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40">
+              Staff ID &amp; Password
+            </span>
+          </span>
+          <p className="text-[11px] text-slate-400">
+            Access the entire EXMARK ERP from any smartphone on 4G/5G, iPad, or remote laptop using your Staff ID with live QR Code pairing.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowAccessModal(true)}
+          className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shrink-0 cursor-pointer transition"
+        >
+          <QrCode className="w-3.5 h-3.5" />
+          <span>Open Access Hub &amp; QR Code</span>
+        </button>
+      </div>
+
+      {/* Cloud Server Access Modal */}
+      <CloudServerAccessModal
+        isOpen={showAccessModal}
+        onClose={() => setShowAccessModal(false)}
+      />
 
       {/* Live Test Output */}
       {testReport && (

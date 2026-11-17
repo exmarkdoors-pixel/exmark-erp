@@ -25,11 +25,14 @@ import {
   CheckCircle2,
   Smartphone,
   MessageCircle,
+  Globe,
+  Cloud,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/erp';
 import { ERP_ROLES, UserRole } from '@/lib/auth/roles';
 import { WhatsAppLoginModal } from '@/components/modules/crm/WhatsAppLoginModal';
 import { WhatsAppSession, DEFAULT_WHATSAPP_SESSION } from '@/lib/services/whatsappService';
+import { CloudServerAccessModal } from '@/components/modules/cloud/CloudServerAccessModal';
 
 interface NavbarProps {
   onOpenMobileSidebar: () => void;
@@ -122,6 +125,25 @@ export default function Navbar({
   // Inbuilt WhatsApp session state & modal
   const [waSession, setWaSession] = useState<WhatsAppSession>(DEFAULT_WHATSAPP_SESSION);
   const [isWaModalOpen, setIsWaModalOpen] = useState(false);
+
+  // Cloud Remote Access Hub state & modal
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
+  const [isCloudActive, setIsCloudActive] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/system/cloud-tunnel')
+      .then((res) => res.json())
+      .then((data) => {
+        if (active && data.success) {
+          setIsCloudActive(Boolean(data.active && data.tunnelUrl));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -462,6 +484,22 @@ export default function Navbar({
           <span className="hidden md:inline font-mono text-[11px]">
             {waSession.connected ? (waSession.phoneNumber ? waSession.phoneNumber.replace('+91 ', '') : 'Linked') : 'Connect WhatsApp'}
           </span>
+        </button>
+
+        {/* Cloud Remote Anywhere Access Hub */}
+        <button
+          type="button"
+          onClick={() => setIsCloudModalOpen(true)}
+          title={isCloudActive ? 'Cloud Server Active (Global HTTPS Online)' : 'Cloud Server & Remote Multi-Device Access Hub'}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+            isCloudActive
+              ? 'bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 border-blue-700/60 shadow-xs'
+              : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700/80'
+          }`}
+        >
+          <Globe className="w-3.5 h-3.5 text-blue-400" />
+          <span className="hidden md:inline">Cloud Access</span>
+          <span className={`w-2 h-2 rounded-full ${isCloudActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
         </button>
 
         {/* 1-Click Lock / Switch Staff for shared factory floor PCs & tablets */}
@@ -883,6 +921,12 @@ export default function Navbar({
         onClose={() => setIsWaModalOpen(false)}
         session={waSession}
         onSessionUpdated={(updated) => setWaSession(updated)}
+      />
+
+      {/* Cloud Server & Anywhere Multi-Device Access Modal */}
+      <CloudServerAccessModal
+        isOpen={isCloudModalOpen}
+        onClose={() => setIsCloudModalOpen(false)}
       />
     </header>
   );

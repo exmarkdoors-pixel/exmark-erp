@@ -48,7 +48,17 @@ function splitCsvLine(line: string): string[] {
 /**
  * Generate CSV template strings for downloads
  */
-export function getSampleCsvTemplate(type: 'MODELS' | 'COLOURS' | 'LOCKS' | 'OPENINGS'): string {
+export function getSampleCsvTemplate(type: 'MODELS' | 'COLOURS' | 'LOCKS' | 'OPENINGS' | 'LEADS'): string {
+  if (type === 'LEADS') {
+    return [
+      'title,client,contactPerson,phone,district,doors,doorCount,value,stage,assignedToId,notes',
+      'Villa Project Perinthalmanna,Skyline Builders,Shaji P,+91 98460 12345,Malappuram,14 FRP Bath + 8 Teak Bed,22,185000,inquiries,Riyas Sales,Site ready for tape measurements next week',
+      'Marine Drive Flat Renovation,Coastal Living Interiors,Deepa Nair,+91 94470 67890,Ernakulam,8 FRP Premium Doors,8,72000,measurement,Anas Site Measurer,Tape survey booked for Monday',
+      'Commercial Plaza Calicut,Malabar Infra Ltd,Hameed K,+91 97450 11223,Calicut,30 Commercial FRP Doors,30,240000,quotation,Riyas Sales,Awaiting client rate sign-off',
+      'Edappally Luxury Residence,Dr. George Varghese,Dr. George,+91 98471 99887,Ernakulam,10 Luxury CNC Main & Bed,10,145000,negotiation,Riyas Sales,Final price discount negotiation',
+    ].join('\n');
+  }
+
   if (type === 'MODELS') {
     return [
       'code,name,category,basePrice,ratePerSqFt,defaultThickness,description',
@@ -178,4 +188,196 @@ export function parseOpeningsCsv(rows: Array<Record<string, string>>): {
   }
 
   return { doors, errors };
+}
+
+export interface ParsedLeadItem {
+  id?: string;
+  title: string;
+  client: string;
+  contactPerson: string;
+  phone: string;
+  normalizedPhone: string;
+  district: string;
+  doors: string;
+  doorCount: number;
+  value: number;
+  stage: 'inquiries' | 'measurement' | 'quotation' | 'negotiation';
+  assignedToId?: string;
+  notes: string;
+  isDuplicate: boolean;
+  duplicateReason?: string;
+  warning?: string;
+  error?: string;
+  isValid: boolean;
+}
+
+const KERALA_DISTRICTS = [
+  'Alappuzha',
+  'Ernakulam',
+  'Idukki',
+  'Kannur',
+  'Kasaragod',
+  'Kollam',
+  'Kottayam',
+  'Kozhikode',
+  'Calicut',
+  'Malappuram',
+  'Palakkad',
+  'Pathanamthitta',
+  'Thiruvananthapuram',
+  'Trivandrum',
+  'Thrissur',
+  'Wayanad',
+];
+
+function normalizePhoneNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length >= 10) {
+    return digits.slice(-10);
+  }
+  return digits;
+}
+
+/**
+ * Validate and parse CSV rows into structured CRM Lead items with duplicate detection
+ */
+export function parseLeadsCsv(
+  rows: Array<Record<string, string>>,
+  existingLeads: Array<{ phone?: string; leadCode?: string; client?: string; title?: string }> = []
+): {
+  items: ParsedLeadItem[];
+  validCount: number;
+  duplicateCount: number;
+  errorCount: number;
+} {
+  const existingPhoneMap = new Map<string, string>();
+  existingLeads.forEach((l) => {
+    if (l.phone) {
+      const norm = normalizePhoneNumber(l.phone);
+      if (norm.length >= 10) {
+        existingPhoneMap.set(norm, l.leadCode || l.client || l.title || 'Existing Lead');
+      }
+    }
+  });
+
+  const batchPhoneMap = new Map<string, number>();
+  const items: ParsedLeadItem[] = [];
+  let validCount = 0;
+  let duplicateCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    // Find case-insensitive keys
+    const getVal = (...keys: string[]): string => {
+      for (const k of keys) {
+        for (const [rowKey, val] of Object.entries(r)) {
+          if (rowKey.trim().toLowerCase() === k.toLowerCase()) {
+            return (val || '').trim();
+          }
+        }
+      }
+      return '';
+    };
+
+    const rawTitle = getVal('title', 'project', 'projectName', 'leadTitle');
+    const rawClient = getVal('client', 'firm', 'clientName', 'customer', 'customerName', 'name');
+    const contactPerson = getVal('contactPerson', 'contact', 'person');
+    const rawPhone = getVal('phone', 'mobile', 'whatsapp', 'phoneNumber', 'contactNumber');
+    const rawDistrict = getVal('district', 'location', 'city', 'town');
+    const doors = getVal('doors', 'doorSpecs', 'requirement', 'doorsRequirement') || 'FRP & WPC Doors';
+    const rawDoorCount = getVal('doorCount', 'doorsCount', 'quantity', 'qty');
+    const rawValue = getVal('value', 'estimatedValue', 'amount', 'budget');
+    const rawStage = getVal('stage', 'leadStage', 'status').toLowerCase();
+    const assignedToId = getVal('assignedToId', 'salesperson', 'assignedTo', 'executive') || undefined;
+    const notes = getVal('notes', 'remarks', 'comments', 'followUpNotes');
+
+    const client = rawClient || rawTitle || `Lead #${i + 1}`;
+    const title = rawTitle || rawClient || `Lead #${i + 1}`;
+
+    const normalizedPhone = normalizePhoneNumber(rawPhone);
+    const isValidPhone = normalizedPhone.length >= 10;
+
+    let district = 'Ernakulam';
+    let warning: string | undefined;
+    if (rawDistrict) {
+      const match = KERALA_DISTRICTS.find(
+        (d) => d.toLowerCase() === rawDistrict.toLowerCase()
+      );
+      if (match) {
+        district = match === 'Calicut' ? 'Kozhikode' : match === 'Trivandrum' ? 'Thiruvananthapuram' : match;
+      } else {
+        district = rawDistrict;
+        warning = `District "${rawDistrict}" not recognized as standard Kerala district.`;
+      }
+    }
+
+    let stage: 'inquiries' | 'measurement' | 'quotation' | 'negotiation' = 'inquiries';
+    if (rawStage.includes('measure')) stage = 'measurement';
+    else if (rawStage.includes('quote') || rawStage.includes('quotation')) stage = 'quotation';
+    else if (rawStage.includes('negotiat')) stage = 'negotiation';
+
+    const doorCount = Math.max(1, parseInt(rawDoorCount || '1', 10) || 1);
+    const value = Math.max(0, parseFloat(rawValue.replace(/[^0-9.]/g, '') || '0') || 0);
+
+    let isDuplicate = false;
+    let duplicateReason: string | undefined;
+    let error: string | undefined;
+
+    if (!rawPhone || !isValidPhone) {
+      error = 'Valid 10-digit mobile or phone number is required';
+      errorCount++;
+    } else {
+      if (existingPhoneMap.has(normalizedPhone)) {
+        isDuplicate = true;
+        duplicateReason = `Matches phone of existing lead: ${existingPhoneMap.get(normalizedPhone)}`;
+        duplicateCount++;
+      } else if (batchPhoneMap.has(normalizedPhone)) {
+        isDuplicate = true;
+        duplicateReason = `Duplicate phone number in CSV (Row #${(batchPhoneMap.get(normalizedPhone) || 0) + 1})`;
+        duplicateCount++;
+      } else {
+        batchPhoneMap.set(normalizedPhone, i);
+      }
+    }
+
+    const isValid = !error;
+    if (isValid && !isDuplicate) {
+      validCount++;
+    }
+
+    // Format phone nicely: +91 XXXXX XXXXX if 10 digits
+    const formattedPhone = isValidPhone
+      ? normalizedPhone.length === 10
+        ? `+91 ${normalizedPhone.slice(0, 5)} ${normalizedPhone.slice(5)}`
+        : rawPhone
+      : rawPhone;
+
+    items.push({
+      title,
+      client,
+      contactPerson: contactPerson || client,
+      phone: formattedPhone,
+      normalizedPhone,
+      district,
+      doors,
+      doorCount,
+      value,
+      stage,
+      assignedToId,
+      notes,
+      isDuplicate,
+      duplicateReason,
+      warning,
+      error,
+      isValid,
+    });
+  }
+
+  return {
+    items,
+    validCount,
+    duplicateCount,
+    errorCount,
+  };
 }

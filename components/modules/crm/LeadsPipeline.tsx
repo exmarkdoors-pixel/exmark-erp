@@ -29,10 +29,12 @@ import {
   UserPlus,
   QrCode,
   Zap,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { WhatsAppLeadModal } from './WhatsAppLeadModal';
 import { WhatsAppLoginModal } from './WhatsAppLoginModal';
 import { ConvertLeadModal } from './ConvertLeadModal';
+import { BulkLeadImportModal } from './BulkLeadImportModal';
 import { Customer } from '@/lib/services/customerService';
 import { WhatsAppSession, DEFAULT_WHATSAPP_SESSION } from '@/lib/services/whatsappService';
 
@@ -235,45 +237,58 @@ export default function LeadsPipeline() {
   // Convert Lead Modal state
   const [activeLeadForConvert, setActiveLeadForConvert] = useState<LeadItem | null>(null);
 
+  // Bulk Lead Import Modal state
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+
+  const fetchLeadsList = () => {
+    fetch('/api/crm/leads')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json && Array.isArray(json.data)) {
+          if (json.data.length === 0) {
+            setLeads([]);
+          } else {
+            const mappedLeads: LeadItem[] = json.data.map((l: any) => {
+              let mappedStage: LeadItem['stage'] = 'inquiries';
+              if (l.stage === 'MEASUREMENT_SCHEDULED' || l.stage === 'measurement') mappedStage = 'measurement';
+              else if (l.stage === 'QUOTE_SENT' || l.stage === 'quotation') mappedStage = 'quotation';
+              else if (l.stage === 'NEGOTIATION' || l.stage === 'negotiation') mappedStage = 'negotiation';
+
+              return {
+                id: l.id,
+                leadCode: l.leadCode,
+                customerId: l.customerId,
+                title: l.title,
+                client: l.client || l.contactPerson || l.title,
+                contactPerson: l.contactPerson || l.client,
+                phone: l.phone,
+                district: l.district,
+                doors: l.doors || 'FRP & WPC Doors',
+                doorCount: l.doorCount || 20,
+                value: l.value || l.estimatedValue || 150000,
+                stage: mappedStage,
+                notes: l.notes,
+                createdAt: l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'),
+                updatedAt: l.updatedAt,
+              };
+            });
+            setLeads(mappedLeads);
+          }
+        }
+      })
+      .catch(() => {});
+  };
+
+  const handleBulkImportSuccess = (importedCount: number) => {
+    fetchLeadsList();
+    setToastMessage(`🎉 Successfully imported ${importedCount} leads into Kerala CRM Pipeline!`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // Check live database store
-      fetch('/api/crm/leads')
-        .then((res) => res.json())
-        .then((json) => {
-          if (json && Array.isArray(json.data)) {
-            if (json.data.length === 0) {
-              setLeads([]);
-            } else {
-              const mappedLeads: LeadItem[] = json.data.map((l: any) => {
-                let mappedStage: LeadItem['stage'] = 'inquiries';
-                if (l.stage === 'MEASUREMENT_SCHEDULED' || l.stage === 'measurement') mappedStage = 'measurement';
-                else if (l.stage === 'QUOTE_SENT' || l.stage === 'quotation') mappedStage = 'quotation';
-                else if (l.stage === 'NEGOTIATION' || l.stage === 'negotiation') mappedStage = 'negotiation';
-
-                return {
-                  id: l.id,
-                  leadCode: l.leadCode,
-                  customerId: l.customerId,
-                  title: l.title,
-                  client: l.client || l.contactPerson || l.title,
-                  contactPerson: l.contactPerson || l.client,
-                  phone: l.phone,
-                  district: l.district,
-                  doors: l.doors || 'FRP & WPC Doors',
-                  doorCount: l.doorCount || 20,
-                  value: l.value || l.estimatedValue || 150000,
-                  stage: mappedStage,
-                  notes: l.notes,
-                  createdAt: l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'),
-                  updatedAt: l.updatedAt,
-                };
-              });
-              setLeads(mappedLeads);
-            }
-          }
-        })
-        .catch(() => {});
+      fetchLeadsList();
 
       // Fetch registered customers
       fetch('/api/customers')
@@ -790,6 +805,16 @@ export default function LeadsPipeline() {
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsBulkImportOpen(true)}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-100 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 border border-slate-700 shadow-sm"
+            title="Import multiple leads from an Excel or CSV spreadsheet"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-red-400" />
+            <span>Bulk Import</span>
+          </button>
 
           <button
             type="button"
@@ -1583,6 +1608,14 @@ export default function LeadsPipeline() {
         onClose={() => setActiveLeadForConvert(null)}
         lead={activeLeadForConvert}
         onConverted={handleLeadConverted}
+      />
+
+      {/* BULK LEAD IMPORT MODAL */}
+      <BulkLeadImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        existingLeads={leads}
+        onImportSuccess={handleBulkImportSuccess}
       />
     </div>
   );

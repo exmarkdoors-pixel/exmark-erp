@@ -18,6 +18,8 @@ import {
   UserCheck,
   Users,
   X,
+  Globe,
+  Smartphone,
 } from 'lucide-react';
 import { setAuthToken } from '@/lib/api/apiClient';
 
@@ -353,8 +355,8 @@ export default function LoginPage() {
               Doors &amp; Frames Manufacturing OS • Staff Authentication
             </p>
             <div className="flex items-center gap-2 mt-2 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800 text-[11px] text-slate-300">
-              <Building2 className="w-3.5 h-3.5 text-amber-400" />
-              <span>Palakkad Manufacturing Plant • Secured LAN &amp; Desktop Terminal</span>
+              <Globe className="w-3.5 h-3.5 text-blue-400" />
+              <span>Cloud Server &amp; Factory LAN • Multi-Device Access on Any Phone or PC</span>
             </div>
           </div>
 
@@ -399,21 +401,29 @@ export default function LoginPage() {
                 </div>
               ) : (
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Staff Code, Email, or Phone
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                      Staff ID / Employee Code or Email
+                    </label>
+                    <span className="text-[10px] text-amber-400 font-mono">
+                      e.g. EXM-EMP-001 / FLD-01
+                    </span>
+                  </div>
                   <div className="relative">
                     <UserCheck className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                     <input
                       type="text"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="e.g. EXM-EMP-001 or admin@exmarkdoors.com"
+                      placeholder="e.g. EXM-EMP-001, FLD-01, or admin@exmarkdoors.com"
                       autoComplete="username"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500 transition-colors"
                       required
                     />
                   </div>
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    Works on any smartphone (4G/5G), tablet, or laptop worldwide with your Staff ID and Password/PIN.
+                  </p>
                 </div>
               )}
 
@@ -581,7 +591,14 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <div className="text-center pt-1 border-t border-slate-900">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-900 text-[11px]">
+                <a
+                  href="/mobile"
+                  className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1.5 transition"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Switch to Mobile Field App (/mobile)</span>
+                </a>
                 <button
                   type="button"
                   onClick={() => {
@@ -589,7 +606,7 @@ export default function LoginPage() {
                     setResetSuccess('');
                     setShowEmergencyModal(true);
                   }}
-                  className="text-[11px] text-amber-400/80 hover:text-amber-300 underline font-medium cursor-pointer"
+                  className="text-amber-400/80 hover:text-amber-300 underline font-medium cursor-pointer"
                 >
                   Forgot Super Admin password? Host Emergency Reset
                 </button>

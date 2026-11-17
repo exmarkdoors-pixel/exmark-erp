@@ -125,6 +125,29 @@ export async function createLead(data: LeadCreateInput): Promise<Lead> {
   return newLead;
 }
 
+export async function createLeadsBulk(leadsData: LeadCreateInput[]): Promise<Lead[]> {
+  await assertWriteAllowed('Bulk Lead Creation');
+  const all = readStore();
+  const createdLeads: Lead[] = [];
+  const now = new Date().toISOString();
+
+  leadsData.forEach((data, index) => {
+    const newLead: Lead = {
+      ...data,
+      id: generateId('lead-api'),
+      leadCode: generateLeadCode(all.length + index),
+      followUps: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    createdLeads.push(newLead);
+    all.push(newLead);
+  });
+
+  writeStore(all);
+  return createdLeads;
+}
+
 export async function updateLead(id: string, data: LeadUpdateInput): Promise<Lead> {
   await assertWriteAllowed('Lead Update');
   const all = readStore();
