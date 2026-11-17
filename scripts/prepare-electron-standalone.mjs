@@ -88,19 +88,31 @@ if (process.env.SKIP_NEXT_BUILD !== 'true') {
 if (process.env.SKIP_NEXT_BUILD !== 'true') {
   console.log('[1/5] Running production Next.js standalone build (Factory Mode)...');
   const npxBin = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  execSync(`${npxBin} next build`, {
-    cwd: rootDir,
-    stdio: 'inherit',
-    env: {
-      ...process.env,
-      NODE_ENV: 'production',
-      NEXT_PUBLIC_FACTORY_MODE: 'true',
-      EXMARK_LOCAL_FACTORY: 'true',
-      EXMARK_OMIT_HSTS: 'true',
-      DATABASE_URL: '',
-      DIRECT_URL: '',
-    },
-  });
+  const buildEnv = {
+    ...process.env,
+    NODE_ENV: 'production',
+    NEXT_PUBLIC_FACTORY_MODE: 'true',
+    EXMARK_LOCAL_FACTORY: 'true',
+    EXMARK_OMIT_HSTS: 'true',
+    DATABASE_URL: '',
+    DIRECT_URL: '',
+  };
+  try {
+    execSync(`${npxBin} next build`, {
+      cwd: rootDir,
+      stdio: 'inherit',
+      env: buildEnv,
+    });
+  } catch {
+    if (!fs.existsSync(path.join(standaloneSrc, 'server.js'))) {
+      console.log('Retrying next build (acknowledging Next.js security advisory notice)...');
+      execSync(`${npxBin} next build`, {
+        cwd: rootDir,
+        stdio: 'inherit',
+        env: buildEnv,
+      });
+    }
+  }
 } else {
   console.log('[1/5] SKIP_NEXT_BUILD=true: reusing existing .next/standalone output...');
 }

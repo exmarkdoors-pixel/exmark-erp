@@ -57,7 +57,7 @@ export function getAuthoritativeAppVersion(): string {
   } catch {
     // Non-fatal fallback
   }
-  return '1.2.2';
+  return '1.2.3';
 }
 
 export function parseSemVer(v: string): number[] {
@@ -278,6 +278,18 @@ export async function checkForSystemUpdates(options: {
 
   // Curated changelog features
   const changelog = [
+    {
+      version: '1.2.3',
+      title: 'Floor Door QR & 12L Sticker Studio Parity & Batch Print Standard (2×6)',
+      features: [
+        '100% unified measurement deduction formulas between Floor Door Studio and Operations Module 2',
+        'Standard 12L (2×6) sheet layout (12 stickers per A4 page) matching factory reference standard',
+        'Multi-party continuous sticker batching with negative deduction cutting box (-209.8, -70.5, -71.1)',
+        'Independent dual-width measurements (Top & Bottom widths preserved for tapered door clearance)',
+        'Quotation door model title & code automatic sync into production job cards',
+        'Offline SQL Server / PostgreSQL enterprise sync scripts & tooling',
+      ],
+    },
     {
       version: '1.2.2',
       title: 'In-Built Update Section & Auto-Updater',
