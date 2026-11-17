@@ -84,6 +84,16 @@ export interface PrintDocumentHubProps {
   customer?: HubCustomer;
   statementEntries?: StatementEntry[];
   hideSqFt?: boolean;
+  hideBankDetails?: boolean;
+  bankDetails?: {
+    bankName?: string;
+    branch?: string;
+    accountName?: string;
+    accountNumber?: string;
+    ifsc?: string;
+    upiId?: string;
+    accountType?: string;
+  };
 }
 
 export const COMPANY_PROFILE = {
@@ -164,9 +174,20 @@ export function PrintDocumentHub({
   customer,
   statementEntries,
   hideSqFt = true,
+  hideBankDetails = false,
+  bankDetails,
 }: PrintDocumentHubProps) {
   const titles = DOCUMENT_TITLES[documentType];
   const entries = statementEntries || getSampleStatementEntries(quotation);
+
+  const resolvedBank = {
+    bankName: bankDetails?.bankName || COMPANY_PROFILE.bank.bankName,
+    branch: bankDetails?.branch || COMPANY_PROFILE.bank.branch,
+    accountName: bankDetails?.accountName || COMPANY_PROFILE.bank.accountName,
+    accountNumber: bankDetails?.accountNumber || COMPANY_PROFILE.bank.accountNumber,
+    ifsc: bankDetails?.ifsc || COMPANY_PROFILE.bank.ifsc,
+    upiId: bankDetails?.upiId || COMPANY_PROFILE.bank.upiId,
+  };
 
   const customerName = customer?.name || quotation.customerName || 'Er. Jacob Roy';
   const customerLocation = customer?.location || quotation.location || 'Ernakulam, Kerala';
@@ -225,11 +246,20 @@ export function PrintDocumentHub({
         {/* Tally Financial Summary */}
         <div className="grid grid-cols-2 border-t-2 border-black">
           <div className="p-2 border-r-2 border-black space-y-2 text-[11px]">
-            <p className="font-bold uppercase">Bank Particulars for RTGS/NEFT:</p>
-            <p>Bank: {COMPANY_PROFILE.bank.bankName}</p>
-            <p>A/c No: {COMPANY_PROFILE.bank.accountNumber}</p>
-            <p>IFSC: {COMPANY_PROFILE.bank.ifsc}</p>
-            <p>Branch: {COMPANY_PROFILE.bank.branch}</p>
+            {!hideBankDetails ? (
+              <>
+                <p className="font-bold uppercase">Bank Particulars for RTGS/NEFT:</p>
+                <p>Bank: {resolvedBank.bankName}</p>
+                <p>A/c No: {resolvedBank.accountNumber}</p>
+                <p>IFSC: {resolvedBank.ifsc}</p>
+                <p>Branch: {resolvedBank.branch}</p>
+              </>
+            ) : (
+              <div className="py-1 text-slate-700">
+                <p className="font-bold uppercase text-[10px]">Payment &amp; Settlement Terms:</p>
+                <p className="text-[10px] mt-0.5">Payment settlement via verified company account upon order release.</p>
+              </div>
+            )}
             <p className="text-[10px] italic pt-1">Declaration: We declare that this document shows actual door manufacturing prices.</p>
           </div>
           <div className="p-2 space-y-1 text-right text-xs">
@@ -326,10 +356,19 @@ export function PrintDocumentHub({
         {/* Bottom Financial Grid */}
         <div className="grid grid-cols-2 border border-slate-300 mt-2 bg-slate-50/40 p-3 rounded-b-lg">
           <div className="text-[11px] space-y-1 text-slate-600">
-            <p className="font-bold text-slate-800">Electronic Bank Transfer:</p>
-            <p>A/c Name: {COMPANY_PROFILE.bank.accountName}</p>
-            <p>A/c No: {COMPANY_PROFILE.bank.accountNumber} ({COMPANY_PROFILE.bank.bankName})</p>
-            <p>IFSC: {COMPANY_PROFILE.bank.ifsc} | Branch: {COMPANY_PROFILE.bank.branch}</p>
+            {!hideBankDetails ? (
+              <>
+                <p className="font-bold text-slate-800">Electronic Bank Transfer:</p>
+                <p>A/c Name: {resolvedBank.accountName}</p>
+                <p>A/c No: {resolvedBank.accountNumber} ({resolvedBank.bankName})</p>
+                <p>IFSC: {resolvedBank.ifsc} | Branch: {resolvedBank.branch}</p>
+              </>
+            ) : (
+              <div className="py-1">
+                <p className="font-bold text-slate-800 text-[10px] uppercase">Payment Terms &amp; Settlement:</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">Subject to Kerala Jurisdiction. Valid for 30 days from date of issue.</p>
+              </div>
+            )}
           </div>
           <div className="space-y-1 text-right text-xs">
             <div className="flex justify-between text-slate-600">
@@ -492,24 +531,26 @@ export function PrintDocumentHub({
         </div>
 
         {/* Vyapar Modern Cards */}
-        <div className="grid grid-cols-2 gap-4 my-4">
+        <div className={`grid ${hideBankDetails ? 'grid-cols-1' : 'grid-cols-2'} gap-4 my-4`}>
           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
             <span className="text-[10px] font-bold uppercase text-rose-600 tracking-wider">Bill To Party</span>
             <h3 className="text-sm font-bold text-slate-900 mt-0.5">{customerName}</h3>
             <p className="text-xs text-slate-600">{customerLocation}</p>
             <p className="text-xs text-slate-600">Phone: {customerPhone}</p>
           </div>
-          <div className="bg-rose-50/50 p-3 rounded-lg border border-rose-100 flex justify-between items-center">
-            <div>
-              <span className="text-[10px] font-bold uppercase text-rose-600 tracking-wider">Instant UPI Payment</span>
-              <p className="text-xs font-semibold text-slate-800 mt-0.5">UPI ID: {COMPANY_PROFILE.bank.upiId}</p>
-              <p className="text-[10px] text-slate-500">Scan via GPay / PhonePe / Paytm</p>
-              <p className="text-xs font-bold text-emerald-700 mt-1">Advance: ₹{quotation.advanceAmount.toLocaleString('en-IN')}</p>
+          {!hideBankDetails && (
+            <div className="bg-rose-50/50 p-3 rounded-lg border border-rose-100 flex justify-between items-center">
+              <div>
+                <span className="text-[10px] font-bold uppercase text-rose-600 tracking-wider">Instant UPI Payment</span>
+                <p className="text-xs font-semibold text-slate-800 mt-0.5">UPI ID: {resolvedBank.upiId}</p>
+                <p className="text-[10px] text-slate-500">Scan via GPay / PhonePe / Paytm</p>
+                <p className="text-xs font-bold text-emerald-700 mt-1">Advance: ₹{quotation.advanceAmount.toLocaleString('en-IN')}</p>
+              </div>
+              <div className="w-16 h-16 bg-white border border-rose-200 rounded-lg flex items-center justify-center p-1 shadow-sm">
+                <QrCode className="w-12 h-12 text-rose-600" />
+              </div>
             </div>
-            <div className="w-16 h-16 bg-white border border-rose-200 rounded-lg flex items-center justify-center p-1 shadow-sm">
-              <QrCode className="w-12 h-12 text-rose-600" />
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Items or Statement */}
@@ -520,14 +561,16 @@ export function PrintDocumentHub({
         )}
 
         {/* Vyapar Summary & Bank Cards */}
-        <div className="grid grid-cols-2 gap-4 mt-4 items-start">
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1 text-[11px]">
-            <p className="font-bold text-slate-800 uppercase text-[10px]">Bank Transfer Information:</p>
-            <p className="text-slate-700">Bank: <span className="font-semibold">{COMPANY_PROFILE.bank.bankName}</span></p>
-            <p className="text-slate-700">A/c No: <span className="font-mono font-bold text-slate-900">{COMPANY_PROFILE.bank.accountNumber}</span></p>
-            <p className="text-slate-700">IFSC: <span className="font-mono font-bold text-slate-900">{COMPANY_PROFILE.bank.ifsc}</span></p>
-            <p className="text-slate-700">Branch: {COMPANY_PROFILE.bank.branch}</p>
-          </div>
+        <div className={`grid ${hideBankDetails ? 'grid-cols-1' : 'grid-cols-2'} gap-4 mt-4 items-start`}>
+          {!hideBankDetails && (
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1 text-[11px]">
+              <p className="font-bold text-slate-800 uppercase text-[10px]">Bank Transfer Information:</p>
+              <p className="text-slate-700">Bank: <span className="font-semibold">{resolvedBank.bankName}</span></p>
+              <p className="text-slate-700">A/c No: <span className="font-mono font-bold text-slate-900">{resolvedBank.accountNumber}</span></p>
+              <p className="text-slate-700">IFSC: <span className="font-mono font-bold text-slate-900">{resolvedBank.ifsc}</span></p>
+              <p className="text-slate-700">Branch: {resolvedBank.branch}</p>
+            </div>
+          )}
 
           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 text-xs">
             <div className="flex justify-between text-slate-600">

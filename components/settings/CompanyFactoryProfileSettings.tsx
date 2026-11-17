@@ -19,8 +19,16 @@ import {
   Mail,
   Printer,
   Sparkles,
+  Landmark,
 } from 'lucide-react';
-import { CompanyProfile, FactoryProfile, AddressDetails, DEFAULT_COMPANY_PROFILE } from '@/types/companyProfile';
+import {
+  CompanyProfile,
+  FactoryProfile,
+  AddressDetails,
+  DEFAULT_COMPANY_PROFILE,
+  CompanyBankDetails,
+  DEFAULT_COMPANY_BANK_DETAILS,
+} from '@/types/companyProfile';
 
 const KERALA_DISTRICTS = [
   'Alappuzha',
@@ -51,7 +59,7 @@ interface RevisionItem {
 
 export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { onSettingsUpdated?: () => void }) {
   const [profile, setProfile] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
-  const [activeSubTab, setActiveSubTab] = useState<'company' | 'addresses' | 'factories' | 'preview' | 'history'>('company');
+  const [activeSubTab, setActiveSubTab] = useState<'company' | 'banking' | 'addresses' | 'factories' | 'preview' | 'history'>('company');
   const [selectedFactoryIdx, setSelectedFactoryIdx] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -139,6 +147,16 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
 
   const updateCompanyField = (field: keyof CompanyProfile, val: unknown) => {
     setProfile((prev) => ({ ...prev, [field]: val }));
+  };
+
+  const updateBankField = (field: keyof CompanyBankDetails, val: string) => {
+    setProfile((prev) => ({
+      ...prev,
+      bankDetails: {
+        ...(prev.bankDetails || DEFAULT_COMPANY_BANK_DETAILS),
+        [field]: val,
+      },
+    }));
   };
 
   const updateAddress = (type: 'registeredOffice' | 'corporateOffice' | 'billingAddress' | 'warehouseLocation', field: keyof AddressDetails, val: string) => {
@@ -318,6 +336,17 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
           Entity &amp; Brand
         </button>
         <button
+          onClick={() => setActiveSubTab('banking')}
+          className={`px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer ${
+            activeSubTab === 'banking'
+              ? 'bg-red-600 text-white'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Landmark className="w-3.5 h-3.5" />
+          Bank &amp; Payment Accounts (ബാങ്ക് വിവരങ്ങൾ)
+        </button>
+        <button
           onClick={() => setActiveSubTab('addresses')}
           className={`px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer ${
             activeSubTab === 'addresses'
@@ -458,6 +487,162 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-medium focus:ring-1 focus:ring-red-500"
                 placeholder="/images/exmark-logo.png"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: Bank & Payment Accounts (ബാങ്ക് വിവരങ്ങൾ & UPI) */}
+      {activeSubTab === 'banking' && (
+        <div className="bg-white dark:bg-[#0B132B] p-6 rounded-xl border border-slate-200 dark:border-slate-800 space-y-6">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-red-600" />
+                <span>Primary Bank &amp; Electronic Payment Particulars (ബാങ്ക് വിവരങ്ങൾ)</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                These banking details and UPI QR coordinates are printed on Quotations, Proforma Invoices, Sales Bills, and Order Worksheets.
+              </p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold flex items-center gap-1.5 shrink-0">
+              <ShieldCheck className="w-4 h-4" />
+              <span>Official Account</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+            {/* Bank Name */}
+            <div>
+              <label className="block text-slate-500 font-semibold mb-1">
+                Bank Name (ബാങ്കിന്റെ പേര്) *
+              </label>
+              <input
+                type="text"
+                value={profile.bankDetails?.bankName ?? ''}
+                onChange={(e) => updateBankField('bankName', e.target.value)}
+                placeholder="e.g. State Bank of India / Federal Bank / HDFC Bank"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-medium focus:ring-1 focus:ring-red-500"
+              />
+            </div>
+
+            {/* Branch Name */}
+            <div>
+              <label className="block text-slate-500 font-semibold mb-1">
+                Branch Name &amp; District (ബ്രാഞ്ച്) *
+              </label>
+              <input
+                type="text"
+                value={profile.bankDetails?.branch ?? ''}
+                onChange={(e) => updateBankField('branch', e.target.value)}
+                placeholder="e.g. Vengara Branch, Malappuram"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-medium focus:ring-1 focus:ring-red-500"
+              />
+            </div>
+
+            {/* Account Holder Name */}
+            <div className="md:col-span-2">
+              <label className="block text-slate-500 font-semibold mb-1">
+                Beneficiary / Account Name (അക്കൗണ്ട് ഉടമയുടെ പേര്) *
+              </label>
+              <input
+                type="text"
+                value={profile.bankDetails?.accountName ?? ''}
+                onChange={(e) => updateBankField('accountName', e.target.value)}
+                placeholder="e.g. EXMARK DOORS PRIVATE LIMITED"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-bold tracking-wide focus:ring-1 focus:ring-red-500"
+              />
+            </div>
+
+            {/* Account Number */}
+            <div>
+              <label className="block text-slate-500 font-semibold mb-1">
+                Account Number (അക്കൗണ്ട് നമ്പർ) *
+              </label>
+              <input
+                type="text"
+                value={profile.bankDetails?.accountNumber ?? ''}
+                onChange={(e) => updateBankField('accountNumber', e.target.value.replace(/\s+/g, ''))}
+                placeholder="e.g. 38472910482"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-mono font-bold text-sm tracking-wider focus:ring-1 focus:ring-red-500"
+              />
+            </div>
+
+            {/* IFSC Code */}
+            <div>
+              <label className="block text-slate-500 font-semibold mb-1">
+                IFSC Code (ഐ.എഫ്.എസ്.സി കോഡ്) *
+              </label>
+              <input
+                type="text"
+                value={profile.bankDetails?.ifsc ?? ''}
+                onChange={(e) => updateBankField('ifsc', e.target.value.toUpperCase().replace(/\s+/g, ''))}
+                placeholder="e.g. SBIN0070241"
+                maxLength={11}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-mono font-bold uppercase tracking-wider focus:ring-1 focus:ring-red-500"
+              />
+            </div>
+
+            {/* Account Type */}
+            <div>
+              <label className="block text-slate-500 font-semibold mb-1">
+                Account Type (അക്കൗണ്ട് തരം)
+              </label>
+              <select
+                value={profile.bankDetails?.accountType ?? 'Current Account'}
+                onChange={(e) => updateBankField('accountType', e.target.value as any)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-medium focus:ring-1 focus:ring-red-500 cursor-pointer"
+              >
+                <option value="Current Account">Current Account (കറന്റ് അക്കൗണ്ട്)</option>
+                <option value="Cash Credit / OD">Cash Credit / OD (ക്യാഷ് ക്രെഡിറ്റ്)</option>
+                <option value="Savings Account">Savings Account (സേവിംഗ്സ് അക്കൗണ്ട്)</option>
+              </select>
+            </div>
+
+            {/* UPI ID / VPA */}
+            <div>
+              <label className="block text-slate-500 font-semibold mb-1">
+                UPI ID / VPA (യു.പി.ഐ ഐഡി - GPay, PhonePe, Paytm QR)
+              </label>
+              <input
+                type="text"
+                value={profile.bankDetails?.upiId ?? ''}
+                onChange={(e) => updateBankField('upiId', e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                placeholder="e.g. 9447928866@sbi / exmarkdoors@icici"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-mono font-medium focus:ring-1 focus:ring-red-500"
+              />
+            </div>
+          </div>
+
+          {/* Live Document Preview Card */}
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+              <Eye className="w-3.5 h-3.5 text-blue-400" />
+              <span>Live Quotation &amp; Bill Print Preview Card:</span>
+            </h4>
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-sans">
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider block">
+                  Official Bank Transfer Particulars
+                </span>
+                <p className="text-white font-bold text-sm">
+                  {profile.bankDetails?.accountName || 'EX-MARK DOORS PRIVATE LIMITED'}
+                </p>
+                <p className="text-slate-300">
+                  Bank: <span className="text-white font-semibold">{profile.bankDetails?.bankName || 'State Bank of India'}</span> &bull; Branch: <span className="text-slate-400">{profile.bankDetails?.branch || 'Vengara Branch'}</span>
+                </p>
+                <p className="font-mono text-slate-300">
+                  A/c No: <span className="text-amber-300 font-bold tracking-wider">{profile.bankDetails?.accountNumber || '38472910482'}</span> &bull; IFSC: <span className="text-amber-300 font-bold">{profile.bankDetails?.ifsc || 'SBIN0070241'}</span>
+                </p>
+              </div>
+
+              {profile.bankDetails?.upiId && (
+                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-right shrink-0">
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">UPI Payment</span>
+                  <span className="font-mono font-bold text-emerald-400 text-xs block">{profile.bankDetails.upiId}</span>
+                  <span className="text-[10px] text-slate-500">Scan via GPay / PhonePe</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -964,6 +1149,21 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
                 <p>{activeFactory.warehouseLocation || 'Central Warehouse Bay'}</p>
                 <p>Contact: {activeFactory.phone || profile.phone}</p>
               </div>
+            </div>
+
+            {/* Document Bank Particulars Strip */}
+            <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50 p-2.5 rounded-lg text-[11px]">
+              <div>
+                <span className="font-bold uppercase text-[10px] text-slate-600 block">Bank Transfer (RTGS / NEFT):</span>
+                <p className="font-semibold text-slate-900">{profile.bankDetails?.bankName || 'State Bank of India'} &bull; A/c: {profile.bankDetails?.accountNumber || '38472910482'}</p>
+                <p className="text-slate-600">IFSC: {profile.bankDetails?.ifsc || 'SBIN0070241'} &bull; Branch: {profile.bankDetails?.branch || 'Vengara Branch'}</p>
+              </div>
+              {profile.bankDetails?.upiId && (
+                <div className="text-right text-[10px]">
+                  <span className="font-bold text-rose-700">UPI: {profile.bankDetails.upiId}</span>
+                  <p className="text-slate-500">GPay / PhonePe / Paytm</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

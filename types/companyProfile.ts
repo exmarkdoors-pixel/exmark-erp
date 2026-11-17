@@ -30,6 +30,16 @@ export interface FactoryProfile {
   notes?: string;
 }
 
+export interface CompanyBankDetails {
+  bankName: string;          // e.g. "State Bank of India"
+  branch: string;            // e.g. "Vengara Branch, Malappuram"
+  accountName: string;       // e.g. "EX-MARK DOORS PRIVATE LIMITED"
+  accountNumber: string;     // e.g. "38472910482"
+  ifsc: string;              // e.g. "SBIN0070241"
+  upiId?: string;            // e.g. "9447928866@sbi"
+  accountType?: 'Current Account' | 'Cash Credit / OD' | 'Savings Account';
+}
+
 export interface CompanyProfile {
   registeredCompanyName: string;
   brandName: string;
@@ -51,9 +61,22 @@ export interface CompanyProfile {
   factories: FactoryProfile[];
   defaultFactoryId: string;
 
+  // Primary company banking and payment gateway details
+  bankDetails?: CompanyBankDetails;
+
   lastUpdated?: string;
   updatedBy?: string;
 }
+
+export const DEFAULT_COMPANY_BANK_DETAILS: CompanyBankDetails = {
+  bankName: 'State Bank of India',
+  branch: 'Vengara Branch, Malappuram',
+  accountName: 'EX-MARK DOORS PRIVATE LIMITED',
+  accountNumber: '38472910482',
+  ifsc: 'SBIN0070241',
+  upiId: '9447928866@sbi',
+  accountType: 'Current Account',
+};
 
 export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   registeredCompanyName: 'EXMARK DOORS PRIVATE LIMITED',
@@ -123,6 +146,7 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
     },
   ],
   defaultFactoryId: 'fac-main',
+  bankDetails: DEFAULT_COMPANY_BANK_DETAILS,
   lastUpdated: new Date().toISOString(),
   updatedBy: 'System Init',
 };

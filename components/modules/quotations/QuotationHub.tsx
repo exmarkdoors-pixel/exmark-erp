@@ -50,6 +50,7 @@ import {
   Coins,
   ChevronDown,
   ChevronUp,
+  Landmark,
 } from 'lucide-react';
 import { ProjectRiskProfitModal } from './ProjectRiskProfitModal';
 import { StaffCommissionEditModal } from './StaffCommissionEditModal';
@@ -623,6 +624,15 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
   const [additionalDiscount, setAdditionalDiscount] = useState<number>(0);
   const [roundOffAmount, setRoundOffAmount] = useState<number>(0);
   const [hideSqFtOnPrint, setHideSqFtOnPrint] = useState<boolean>(true);
+  const [hideBankDetailsOnPrint, setHideBankDetailsOnPrint] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('exmark_hide_bank_details') === 'true';
+      } catch {}
+    }
+    return false;
+  });
+  const [companyBankDetails, setCompanyBankDetails] = useState<any>(null);
   const [previewZoom, setPreviewZoom] = useState<'fit' | '100%' | '90%' | '75%'>('fit');
   const [showAddSectionMenu, setShowAddSectionMenu] = useState<boolean>(false);
 
@@ -1026,8 +1036,14 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
         apiFetch('/api/measurements')
           .then((r) => r.json())
           .catch(() => null),
+        apiFetch('/api/settings/company-profile?view=active')
+          .then((r) => r.json())
+          .catch(() => null),
       ])
-        .then(([custJson, quotesJson, prodJson, leadsJson, empJson, measureJson]) => {
+        .then(([custJson, quotesJson, prodJson, leadsJson, empJson, measureJson, profileJson]) => {
+          if (profileJson && profileJson.success && profileJson.data?.bankDetails) {
+            setCompanyBankDetails(profileJson.data.bankDetails);
+          }
           if (measureJson && Array.isArray(measureJson.data)) {
             setSiteMeasurements(measureJson.data);
           }
@@ -5223,17 +5239,36 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 </div>
               </div>
 
-              {/* View Customizations: Hide Sq.Ft & Zoom Controls */}
+              {/* View Customizations: Hide Sq.Ft, Hide Bank Details & Zoom Controls */}
               <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-800/80">
-                <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-300 bg-slate-900 border border-slate-700/80 px-2.5 py-1 rounded-md cursor-pointer hover:border-slate-600 select-none">
-                  <input
-                    type="checkbox"
-                    checked={hideSqFtOnPrint}
-                    onChange={(e) => setHideSqFtOnPrint(e.target.checked)}
-                    className="rounded border-slate-700 text-rose-500 focus:ring-rose-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span>Hide Sq.Ft in Customer Print (കസ്റ്റമർക്ക് Sq.Ft ഒഴിവാക്കുക - H × W മാത്രം)</span>
-                </label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-300 bg-slate-900 border border-slate-700/80 px-2.5 py-1 rounded-md cursor-pointer hover:border-slate-600 select-none">
+                    <input
+                      type="checkbox"
+                      checked={hideSqFtOnPrint}
+                      onChange={(e) => setHideSqFtOnPrint(e.target.checked)}
+                      className="rounded border-slate-700 text-rose-500 focus:ring-rose-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span>Hide Sq.Ft in Print (കസ്റ്റമർക്ക് Sq.Ft ഒഴിവാക്കുക)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-300 bg-slate-900 border border-slate-700/80 px-2.5 py-1 rounded-md cursor-pointer hover:border-slate-600 select-none">
+                    <input
+                      type="checkbox"
+                      checked={hideBankDetailsOnPrint}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setHideBankDetailsOnPrint(val);
+                        try {
+                          localStorage.setItem('exmark_hide_bank_details', val ? 'true' : 'false');
+                        } catch {}
+                      }}
+                      className="rounded border-slate-700 text-amber-500 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <Landmark className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Hide Bank Details in Print (ബാങ്ക് വിവരങ്ങൾ ഒഴിവാക്കുക)</span>
+                  </label>
+                </div>
 
                 <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/80 px-2 py-1 rounded-md text-[11px]">
                   <span className="text-slate-400 font-semibold">Preview Zoom:</span>
@@ -5287,6 +5322,8 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                       quotation={previewQuote}
                       doorModels={doorModels}
                       hideSqFt={hideSqFtOnPrint}
+                      hideBankDetails={hideBankDetailsOnPrint}
+                      bankDetails={companyBankDetails}
                       customer={
                         customers.find((c) => c.name === previewQuote.customerName) ||
                         customers.find((c) => c.id === selectedCustomerId)

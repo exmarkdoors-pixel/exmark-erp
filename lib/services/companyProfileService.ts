@@ -9,7 +9,7 @@
  * 5. Dynamic resolution for Dashboards, Job Cards, Cutting Sheets, Quotations, Invoices, and Warranties.
  */
 
-import { CompanyProfile, FactoryProfile, AddressDetails } from '@/types/companyProfile';
+import { CompanyProfile, FactoryProfile, AddressDetails, DEFAULT_COMPANY_BANK_DETAILS } from '@/types/companyProfile';
 import {
   getActiveConfiguration,
   getDraftConfiguration,
@@ -87,6 +87,7 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
     },
   ],
   defaultFactoryId: 'fac-main',
+  bankDetails: DEFAULT_COMPANY_BANK_DETAILS,
   lastUpdated: new Date().toISOString(),
   updatedBy: 'System Init',
 };
@@ -143,7 +144,12 @@ export function validateCompanyProfile(profile: Partial<CompanyProfile>): { isVa
  */
 export async function getCompanyProfile(): Promise<CompanyProfile> {
   const config = await getActiveConfiguration();
-  return config.companyProfile || DEFAULT_COMPANY_PROFILE;
+  const profile = config.companyProfile || DEFAULT_COMPANY_PROFILE;
+  return {
+    ...DEFAULT_COMPANY_PROFILE,
+    ...profile,
+    bankDetails: profile.bankDetails || DEFAULT_COMPANY_BANK_DETAILS,
+  };
 }
 
 /**
@@ -151,7 +157,12 @@ export async function getCompanyProfile(): Promise<CompanyProfile> {
  */
 export async function getDraftCompanyProfile(): Promise<CompanyProfile> {
   const draft = await getDraftConfiguration();
-  return draft.companyProfile || DEFAULT_COMPANY_PROFILE;
+  const profile = draft.companyProfile || DEFAULT_COMPANY_PROFILE;
+  return {
+    ...DEFAULT_COMPANY_PROFILE,
+    ...profile,
+    bankDetails: profile.bankDetails || DEFAULT_COMPANY_BANK_DETAILS,
+  };
 }
 
 /**
@@ -246,6 +257,11 @@ export async function saveCompanyProfile(
     ...DEFAULT_COMPANY_PROFILE,
     ...(currentDraft.companyProfile || {}),
     ...updatedProfile,
+    bankDetails: {
+      ...DEFAULT_COMPANY_BANK_DETAILS,
+      ...(currentDraft.companyProfile?.bankDetails || {}),
+      ...(updatedProfile.bankDetails || {}),
+    },
     lastUpdated: new Date().toISOString(),
     updatedBy: user.name,
   };
