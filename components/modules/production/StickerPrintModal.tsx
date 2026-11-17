@@ -127,11 +127,11 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
   const [tapeWTopText, setTapeWTopText] = useState<string>('30"');
   const [tapeWBtmText, setTapeWBtmText] = useState<string>('30"');
 
-  // Calibration Margins in mm (top-left anchored 12L die-cut standard)
-  const [topMarginMm, setTopMarginMm] = useState<number>(4);
-  const [leftMarginMm, setLeftMarginMm] = useState<number>(4);
-  const [verticalGapMm, setVerticalGapMm] = useState<number>(2);
-  const [horizontalGapMm, setHorizontalGapMm] = useState<number>(2);
+  // Calibration Margins in mm (Standard 12L: 99x44mm die-cut standard)
+  const [topMarginMm, setTopMarginMm] = useState<number>(9.0);
+  const [leftMarginMm, setLeftMarginMm] = useState<number>(4.4);
+  const [verticalGapMm, setVerticalGapMm] = useState<number>(3.0);
+  const [horizontalGapMm, setHorizontalGapMm] = useState<number>(3.2);
 
   // Persistence Feedback
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -690,7 +690,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                     ? 'Generating PDF...'
                     : printFormat === 'THERMAL'
                     ? 'Download 4"×2" Thermal PDF'
-                    : `Download 12L (${gridLayout.toUpperCase()}) PDF`}
+                    : 'Download 12L Vector PDF'}
                 </span>
               </button>
 
@@ -737,27 +737,8 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
               </div>
 
               {printFormat === 'A4_12L' && (
-                <div className="flex items-center bg-slate-900 border border-slate-700 rounded-lg p-0.5 font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setGridLayout('2x6')}
-                    className={`px-2.5 py-1 rounded text-[11px] cursor-pointer transition ${
-                      gridLayout === '2x6' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                    }`}
-                    title="Standard 12L: 2 Columns × 6 Rows = 12 Stickers per A4 Page"
-                  >
-                    12 (2×6)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setGridLayout('3x4')}
-                    className={`px-2.5 py-1 rounded text-[11px] cursor-pointer transition ${
-                      gridLayout === '3x4' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                    }`}
-                    title="Compact: 3 Columns × 4 Rows = 12 Stickers per A4 Page"
-                  >
-                    12 (3×4)
-                  </button>
+                <div className="flex items-center bg-slate-900 border border-emerald-500/40 rounded-lg px-2.5 py-1 text-[11px] font-bold text-emerald-300">
+                  <span>Standard 12L (99×44mm)</span>
                 </div>
               )}
             </div>
@@ -1244,8 +1225,8 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: gridLayout === '2x6' ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))',
-                    gridAutoRows: gridLayout === '2x6' ? '46.5mm' : '69mm',
+                    gridTemplateColumns: 'repeat(2, 99mm)',
+                    gridAutoRows: '44mm',
                     alignContent: 'start',
                     rowGap: `${verticalGapMm}mm`,
                     columnGap: `${horizontalGapMm}mm`,
@@ -1254,12 +1235,12 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                   {Array.from({ length: 12 }).map((_, idx) => (
                     <div
                       key={idx}
-                      style={{ height: gridLayout === '2x6' ? '46.5mm' : '69mm' }}
+                      style={{ height: '44mm', width: '99mm' }}
                       className="border-2 border-black border-dashed rounded flex flex-col items-center justify-center p-2 box-border"
                     >
                       <span className="font-mono text-xs font-black">SLOT #{idx + 1}</span>
                       <span className="text-[10px] text-gray-600 font-mono">
-                        A4 {gridLayout.toUpperCase()} ({topMarginMm}mm Top / {leftMarginMm}mm Left)
+                        12L (99×44mm) ({topMarginMm}mm Top / {leftMarginMm}mm Left)
                       </span>
                     </div>
                   ))}
@@ -1357,15 +1338,16 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
               <div className="print:space-y-0">
                 {Array.from({ length: totalPages }).map((_, pageIdx) => {
                   const sheetRows = rows.slice(pageIdx * 12, (pageIdx + 1) * 12);
-                  const cellHeightMm = gridLayout === '2x6' ? '46.5mm' : '69mm';
+                  const cellHeightMm = '44mm';
 
                   return (
                     <div
                       key={pageIdx}
                       style={{
                         width: '210mm',
-                        minHeight: '295mm',
+                        minHeight: '297mm',
                         paddingTop: `${topMarginMm}mm`,
+                        paddingBottom: `${topMarginMm}mm`,
                         paddingLeft: `${leftMarginMm}mm`,
                         paddingRight: `${leftMarginMm}mm`,
                         boxSizing: 'border-box',
@@ -1377,10 +1359,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                       <div
                         style={{
                           display: 'grid',
-                          gridTemplateColumns:
-                            gridLayout === '2x6'
-                              ? 'repeat(2, minmax(0, 1fr))'
-                              : 'repeat(3, minmax(0, 1fr))',
+                          gridTemplateColumns: 'repeat(2, 99mm)',
                           gridAutoRows: cellHeightMm,
                           alignContent: 'start',
                           justifyItems: 'stretch',
@@ -1418,17 +1397,14 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                 useYellowPaper ? 'bg-[#fef9c3]' : 'bg-white'
                               }`}
                             >
-                              {/* Row 1: PartyName (Left) + JOB CARD NUMBER (Right Top Corner) */}
-                              <div className="flex justify-between items-start gap-1.5">
+                              {/* Row 1: PartyName (Clean Left, matching factory photo) */}
+                              <div className="flex justify-between items-center gap-1.5">
                                 <div className="flex items-baseline gap-1.5 min-w-0">
                                   <span className="text-[8.5px] text-slate-500 font-medium shrink-0">PartyName</span>
                                   <span className="font-black text-[11px] text-slate-950 uppercase tracking-tight truncate">
                                     {order.customerName}
                                   </span>
                                 </div>
-                                <span className="font-mono text-[9px] font-black px-1.5 rounded bg-slate-100 border border-slate-500 text-slate-950 shrink-0">
-                                  {order.jobCardNumber}
-                                </span>
                               </div>
 
                               {/* Row 2: Model/Part + Only Door pill + Capsule Door Number */}
@@ -1471,41 +1447,30 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                 </div>
                               </div>
 
-                              {/* Row 4: Two-Column Boxed Cutting Size Grid (+ Optional QR) */}
-                              <div className="flex gap-1 items-stretch">
-                                <div className="flex-1 border border-slate-800 rounded grid grid-cols-12 overflow-hidden">
-                                  <div className="col-span-6 border-r border-slate-800 px-2 py-1 flex items-center justify-between">
-                                    <span className="text-[9.5px] font-bold text-slate-700 uppercase">
-                                      {calc.hLabel}
-                                    </span>
-                                    <span className="font-mono text-xs font-black text-slate-950">
-                                      {calc.finHText}
+                              {/* Row 4: Two-Column Boxed Cutting Size Grid (Full Width, matching factory reference photo) */}
+                              <div className="border border-slate-800 rounded grid grid-cols-12 overflow-hidden bg-slate-50/50">
+                                <div className="col-span-6 border-r border-slate-800 px-2 py-1 flex items-center justify-between">
+                                  <span className="text-[9.5px] font-bold text-slate-700 uppercase">
+                                    {calc.hLabel}
+                                  </span>
+                                  <span className="font-mono text-xs font-black text-slate-950">
+                                    {calc.finHText}
+                                  </span>
+                                </div>
+                                <div className="col-span-6 divide-y divide-slate-800">
+                                  <div className="px-1.5 py-0.5 flex items-center justify-between">
+                                    <span className="text-[8px] font-bold text-slate-600 uppercase">TOP</span>
+                                    <span className="font-mono text-[11px] font-black text-slate-950">
+                                      {calc.finTopWText}
                                     </span>
                                   </div>
-                                  <div className="col-span-6 divide-y divide-slate-800">
-                                    <div className="px-1.5 py-0.5 flex items-center justify-between">
-                                      <span className="text-[8px] font-bold text-slate-600 uppercase">TOP</span>
-                                      <span className="font-mono text-[11px] font-black text-slate-950">
-                                        {calc.finTopWText}
-                                      </span>
-                                    </div>
-                                    <div className="px-1.5 py-0.5 flex items-center justify-between">
-                                      <span className="text-[8px] font-bold text-slate-600 uppercase">BOTTOM</span>
-                                      <span className="font-mono text-[11px] font-black text-slate-950">
-                                        {calc.finBtmWText}
-                                      </span>
-                                    </div>
+                                  <div className="px-1.5 py-0.5 flex items-center justify-between">
+                                    <span className="text-[8px] font-bold text-slate-600 uppercase">BOTTOM</span>
+                                    <span className="font-mono text-[11px] font-black text-slate-950">
+                                      {calc.finBtmWText}
+                                    </span>
                                   </div>
                                 </div>
-
-                                {includeQrCode && (
-                                  <div className="flex flex-col items-center justify-center px-1 bg-white rounded border border-slate-400 shrink-0">
-                                    <QrCode className="w-7 h-7 text-black" />
-                                    <span className="text-[6px] font-mono font-bold uppercase text-slate-800">
-                                      #{doorIndex}
-                                    </span>
-                                  </div>
-                                )}
                               </div>
 
                               {/* Row 5: STRICT CONDITIONAL BOTTOM REMARK */}

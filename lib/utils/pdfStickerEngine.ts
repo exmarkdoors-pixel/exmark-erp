@@ -56,7 +56,7 @@ export interface Printable12LStickerItem {
 
 export interface StickerSheetConfig {
   companyName?: string;
-  layout?: '2x6' | '3x4'; // '2x6' (2 cols x 6 rows) or '3x4' (3 cols x 4 rows)
+  layout?: '2x6' | '3x4'; // Universal standard: strictly 2 cols x 6 rows = 12 stickers per A4 page
   brandColor?: [number, number, number]; // RGB
   topMarginMm?: number;
   leftMarginMm?: number;
@@ -335,300 +335,189 @@ export async function generate12LStickerPdf(
   settings: StickerSheetConfig = {}
 ): Promise<PureVectorPdf> {
   const doc = new PureVectorPdf();
-  const layout = settings.layout || '2x6';
-  const companyName = settings.companyName || 'EXMARK DOORS';
-  const topMargin = Math.max(0, settings.topMarginMm ?? 4);
-  const leftMargin = Math.max(0, settings.leftMarginMm ?? 4);
-  const rowGap = Math.max(0, settings.rowGapMm ?? 2);
-  const colGap = Math.max(0, settings.colGapMm ?? 2);
+  // FACTORY STANDARD 12L DIE-CUT FORMAT (2 COLUMNS x 6 ROWS = 12 STICKERS PER A4 PAGE)
+  // Exact 2D Dimensions: Label 99mm x 44mm, Top Margin 9mm, Bottom Margin 9mm, Col Gap 3.2mm, Row Gap 3.0mm
+  const cols = 2;
+  const rows = 6;
+  const perPage = cols * rows;
 
-  if (layout === '2x6') {
-    // 2 COLUMNS x 6 ROWS = 12 STICKERS PER A4 PAGE (Anchored strictly TOP-LEFT)
-    const cols = 2;
-    const rows = 6;
-    const perPage = cols * rows;
-    const usableW = 210 - leftMargin * 2 - colGap * (cols - 1);
-    const usableH = 297 - topMargin * 2 - rowGap * (rows - 1);
-    const labelWidth = Number((usableW / cols).toFixed(2));
-    const labelHeight = Math.min(49.5, Number((usableH / rows).toFixed(2)));
+  const topMargin = Math.max(0, settings.topMarginMm ?? 9.0);
+  const leftMargin = Math.max(0, settings.leftMarginMm ?? 4.4);
+  const rowGap = Math.max(0, settings.rowGapMm ?? 3.0);
+  const colGap = Math.max(0, settings.colGapMm ?? 3.2);
 
-    const nudgeX = settings.nudgeXmm ?? 0;
-    const nudgeY = settings.nudgeYmm ?? 0;
-    const safeBuffer = settings.safeMarginBufferActive !== false;
+  const labelWidth = 99.0;
+  const labelHeight = 44.0;
 
-    for (let i = 0; i < stickers.length; i++) {
-      const item = stickers[i];
-      const indexOnPage = i % perPage;
-      if (i > 0 && indexOnPage === 0) doc.addPage();
+  const nudgeX = settings.nudgeXmm ?? 0;
+  const nudgeY = settings.nudgeYmm ?? 0;
+  const safeBuffer = settings.safeMarginBufferActive !== false;
 
-      const col = indexOnPage % cols;
-      const row = Math.floor(indexOnPage / cols);
-      const x = leftMargin + col * (labelWidth + colGap) + nudgeX;
-      const y = topMargin + row * (labelHeight + rowGap) + nudgeY;
+  for (let i = 0; i < stickers.length; i++) {
+    const item = stickers[i];
+    const indexOnPage = i % perPage;
+    if (i > 0 && indexOnPage === 0) doc.addPage();
 
-      // Outer rounded border (Industrial format matching factory photo)
-      doc.setDrawColor(140, 150, 165);
-      doc.setLineWidth(0.35);
-      doc.roundedRect(x + 0.5, y + 0.5, labelWidth - 1, labelHeight - 1, 1.8, 1.8, 'S');
+    const col = indexOnPage % cols;
+    const row = Math.floor(indexOnPage / cols);
+    const x = leftMargin + col * (labelWidth + colGap) + nudgeX;
+    const y = topMargin + row * (labelHeight + rowGap) + nudgeY;
 
-      // Line 1: PartyName & Customer (matching factory reference photo)
-      const maxPartyChars = safeBuffer ? 26 : 32;
-      const safeCustomer = (item.customerName || 'Client').toUpperCase().slice(0, maxPartyChars);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(70, 80, 95);
-      doc.text('PartyName', x + 3.0, y + 5.0);
+    // Outer rounded border (Industrial format matching factory photo)
+    doc.setDrawColor(140, 150, 165);
+    doc.setLineWidth(0.35);
+    doc.roundedRect(x + 0.5, y + 0.5, labelWidth - 1, labelHeight - 1, 1.8, 1.8, 'S');
+
+    // Line 1: PartyName & Customer (matching factory reference photo)
+    const maxPartyChars = safeBuffer ? 26 : 32;
+    const safeCustomer = (item.customerName || 'Client').toUpperCase().slice(0, maxPartyChars);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(70, 80, 95);
+    doc.text('PartyName', x + 3.0, y + 4.8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text(safeCustomer, x + 18.0, y + 4.8);
+
+    // Line 2: Model/Part & Capsule Pill Door Number (matching factory reference photo)
+    const modelText = (item.modelCode || item.profile || 'EXM-A-101').slice(0, 24);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    doc.setTextColor(70, 80, 95);
+    doc.text('Model/Part', x + 3.0, y + 10.2);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text(modelText, x + 18.0, y + 10.2);
+
+    // Rounded Capsule Door Number on right (matching photo)
+    const pillW = 8.5;
+    const pillH = 4.8;
+    const pillX = x + labelWidth - pillW - 3.0;
+    const pillY = y + 7.0;
+    doc.setDrawColor(100, 116, 139);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(pillX, pillY, pillW, pillH, 2.4, 2.4, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(String(item.doorNumber), pillX + pillW / 2, pillY + 3.4, { align: 'center' });
+
+    // Line 3: Hinge circle, Lock, Colour (matching factory photo)
+    const hSide = (item.hingeSide || item.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R';
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.0);
+    doc.setTextColor(70, 80, 95);
+    doc.text('Hinge:', x + 3.0, y + 15.2);
+
+    // Circle for (R) or (L)
+    doc.roundedRect(x + 11.5, y + 12.2, 4.8, 4.2, 2.1, 2.1, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.0);
+    doc.setTextColor(15, 23, 42);
+    doc.text(hSide, x + 13.9, y + 15.3, { align: 'center' });
+
+    // Lock label and value
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.setTextColor(70, 80, 95);
+    doc.text('LOCK:', x + 19.5, y + 15.2);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text((item.lock || 'BABY LATCH').toUpperCase().slice(0, 16), x + 28.5, y + 15.2);
+
+    // Colour label and value
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.setTextColor(70, 80, 95);
+    doc.text('COLOUR:', x + 53.0, y + 15.2);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text((item.finish || 'ROSE WOOD').toUpperCase().slice(0, 22), x + 66.5, y + 15.2);
+
+    // Line 4: 2-Cell Industrial Cutting Box (Full width, matching factory photo)
+    const hasRemark = Boolean(item.remark && item.remark.trim().length > 0);
+    const boxX = x + 2.5;
+    const boxY = y + 17.0;
+    const boxW = labelWidth - 5.0; // 94.0mm
+    const boxH = hasRemark ? 19.5 : 25.0; // 25.0mm default fit inside 44mm label
+
+    // Outer box border
+    doc.setDrawColor(50, 60, 75);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(boxX, boxY, boxW, boxH, 1.0, 1.0, 'S');
+
+    // 1 Vertical divider dividing Height (~44%) and Width (~56%)
+    const c1W = Number((boxW * 0.44).toFixed(1)); // 41.4mm
+    doc.line(boxX + c1W, boxY, boxX + c1W, boxY + boxH);
+
+    // Heights and Widths formatted with minus sign as in factory photo
+    const cleanNum = (val?: string | number): number => {
+      if (typeof val === 'number') return Math.abs(val);
+      if (!val) return 0;
+      const cleaned = String(val).replace(/[^\d.]/g, '');
+      return parseFloat(cleaned) || 0;
+    };
+
+    const finHNum = cleanNum(item.finH) || cleanNum(item.finHText) || (item.heightMm ? item.heightMm / 10 : 205.5);
+    const finTopWNum = cleanNum(item.finTopW) || cleanNum(item.finTopWText) || (item.widthMm ? item.widthMm / 10 : 82.4);
+    const finBtmWNum = cleanNum(item.finBtmW) || cleanNum(item.finBtmWText) || finTopWNum;
+
+    const hCut = `-${finHNum > 0 ? finHNum.toFixed(1) : '205.5'}`;
+    const topCut = `-${finTopWNum > 0 ? finTopWNum.toFixed(1) : '82.4'}`;
+    const btmCut = `-${finBtmWNum > 0 ? finBtmWNum.toFixed(1) : finTopWNum.toFixed(1)}`;
+
+    // Cell 1: H-LEFT or H-RIGHT
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.2);
+    doc.setTextColor(30, 41, 59);
+    doc.text(hSide === 'R' ? 'H-LEFT' : 'H-RIGHT', boxX + 2.5, boxY + 5.2);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(hasRemark ? 10.5 : 12.0);
+    doc.setTextColor(15, 23, 42);
+    doc.text(hCut, boxX + c1W - 3.0, boxY + (hasRemark ? 12.5 : 15.5), { align: 'right' });
+
+    // Cell 2: Stacked TOP and BOTTOM width rows with horizontal center divider
+    doc.line(boxX + c1W, boxY + boxH / 2, boxX + boxW, boxY + boxH / 2);
+
+    // Row 1: TOP
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.0);
+    doc.setTextColor(30, 41, 59);
+    doc.text('TOP', boxX + c1W + 3.0, boxY + (hasRemark ? 5.8 : 7.2));
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(hasRemark ? 9.5 : 10.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text(topCut, boxX + boxW - 3.0, boxY + (hasRemark ? 6.2 : 7.5), { align: 'right' });
+
+    // Row 2: BOTTOM (Explicit full name matching factory photo)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.0);
+    doc.setTextColor(30, 41, 59);
+    doc.text('BOTTOM', boxX + c1W + 3.0, boxY + boxH / 2 + (hasRemark ? 6.0 : 7.5));
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(hasRemark ? 9.5 : 10.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text(btmCut, boxX + boxW - 3.0, boxY + boxH / 2 + (hasRemark ? 6.5 : 7.8), { align: 'right' });
+
+    // Line 5: Conditional Remark (if non-empty)
+    if (hasRemark) {
+      doc.setFillColor(254, 243, 199);
+      doc.setDrawColor(245, 158, 11);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(boxX, boxY + boxH + 0.8, boxW, 4.8, 0.8, 0.8, 'FD');
+
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.8);
-      doc.setTextColor(15, 23, 42);
-      doc.text(safeCustomer, x + 18.0, y + 5.0);
-
-      // Line 2: Model/Part & Capsule Pill Door Number (matching factory reference photo)
-      const modelText = (item.modelCode || item.profile || 'EXM-A-101').slice(0, 24);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.2);
-      doc.setTextColor(70, 80, 95);
-      doc.text('Model/Part', x + 3.0, y + 10.8);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.8);
-      doc.setTextColor(15, 23, 42);
-      doc.text(modelText, x + 18.0, y + 10.8);
-
-      // Rounded Capsule Door Number on right (matching photo)
-      const pillW = 8.5;
-      const pillH = 4.8;
-      const pillX = x + labelWidth - pillW - 3.0;
-      const pillY = y + 7.5;
-      doc.setDrawColor(100, 116, 139);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(pillX, pillY, pillW, pillH, 2.4, 2.4, 'S');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-      doc.setTextColor(15, 23, 42);
-      doc.text(String(item.doorNumber), pillX + pillW / 2, pillY + 3.4, { align: 'center' });
-
-      // Line 3: Hinge circle, Lock, Colour (matching factory photo)
-      const hSide = (item.hingeSide || item.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R';
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.0);
-      doc.setTextColor(70, 80, 95);
-      doc.text('Hinge:', x + 3.0, y + 16.5);
-
-      // Circle for (R) or (L)
-      doc.roundedRect(x + 11.5, y + 13.5, 4.8, 4.2, 2.1, 2.1, 'S');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.0);
-      doc.setTextColor(15, 23, 42);
-      doc.text(hSide, x + 13.9, y + 16.6, { align: 'center' });
-
-      // Lock label and value
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(70, 80, 95);
-      doc.text('LOCK:', x + 19.5, y + 16.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
-      doc.text((item.lock || 'BABY LATCH').toUpperCase().slice(0, 16), x + 28.5, y + 16.5);
-
-      // Colour label and value
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(70, 80, 95);
-      doc.text('COLOUR:', x + 53.0, y + 16.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
-      doc.text((item.finish || 'ROSE WOOD').toUpperCase().slice(0, 22), x + 66.5, y + 16.5);
-
-      // Line 4: 2-Cell Industrial Cutting Box (Full width, matching factory photo)
-      const hasRemark = Boolean(item.remark && item.remark.trim().length > 0);
-      const boxX = x + 2.5;
-      const boxY = y + 19.5;
-      const boxW = labelWidth - 5.0;
-      const boxH = hasRemark ? 18.0 : 23.5;
-
-      // Outer box border
-      doc.setDrawColor(50, 60, 75);
-      doc.setLineWidth(0.4);
-      doc.roundedRect(boxX, boxY, boxW, boxH, 1.0, 1.0, 'S');
-
-      // 1 Vertical divider dividing Height (~44%) and Width (~56%)
-      const c1W = Number((boxW * 0.44).toFixed(1));
-      doc.line(boxX + c1W, boxY, boxX + c1W, boxY + boxH);
-
-      // Heights and Widths formatted with minus sign as in factory photo
-      const cleanNum = (val?: string | number): number => {
-        if (typeof val === 'number') return Math.abs(val);
-        if (!val) return 0;
-        const cleaned = String(val).replace(/[^\d.]/g, '');
-        return parseFloat(cleaned) || 0;
-      };
-
-      const finHNum = cleanNum(item.finH) || cleanNum(item.finHText) || (item.heightMm ? item.heightMm / 10 : 205.5);
-      const finTopWNum = cleanNum(item.finTopW) || cleanNum(item.finTopWText) || (item.widthMm ? item.widthMm / 10 : 82.4);
-      const finBtmWNum = cleanNum(item.finBtmW) || cleanNum(item.finBtmWText) || finTopWNum;
-
-      const hCut = `-${finHNum > 0 ? finHNum.toFixed(1) : '205.5'}`;
-      const topCut = `-${finTopWNum > 0 ? finTopWNum.toFixed(1) : '82.4'}`;
-      const btmCut = `-${finBtmWNum > 0 ? finBtmWNum.toFixed(1) : finTopWNum.toFixed(1)}`;
-
-      // Cell 1: H-LEFT or H-RIGHT
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.2);
-      doc.setTextColor(30, 41, 59);
-      doc.text(hSide === 'R' ? 'H-LEFT' : 'H-RIGHT', boxX + 2.5, boxY + 5.5);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(hasRemark ? 10.5 : 12.0);
-      doc.setTextColor(15, 23, 42);
-      doc.text(hCut, boxX + c1W - 3.0, boxY + (hasRemark ? 12.5 : 15.0), { align: 'right' });
-
-      // Cell 2: Stacked TOP and BOTTOM width rows with horizontal center divider
-      doc.line(boxX + c1W, boxY + boxH / 2, boxX + boxW, boxY + boxH / 2);
-
-      // Row 1: TOP
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.0);
-      doc.setTextColor(30, 41, 59);
-      doc.text('TOP', boxX + c1W + 3.0, boxY + (hasRemark ? 6.0 : 7.2));
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(hasRemark ? 9.5 : 10.8);
-      doc.setTextColor(15, 23, 42);
-      doc.text(topCut, boxX + boxW - 3.0, boxY + (hasRemark ? 6.5 : 7.8), { align: 'right' });
-
-      // Row 2: BOTTOM (Explicit full name matching factory photo)
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.0);
-      doc.setTextColor(30, 41, 59);
-      doc.text('BOTTOM', boxX + c1W + 3.0, boxY + boxH / 2 + (hasRemark ? 6.2 : 7.5));
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(hasRemark ? 9.5 : 10.8);
-      doc.setTextColor(15, 23, 42);
-      doc.text(btmCut, boxX + boxW - 3.0, boxY + boxH / 2 + (hasRemark ? 6.8 : 8.1), { align: 'right' });
-
-      // Line 5: Conditional Remark (if non-empty)
-      if (hasRemark) {
-        doc.setFillColor(254, 243, 199);
-        doc.setDrawColor(245, 158, 11);
-        doc.setLineWidth(0.2);
-        doc.roundedRect(boxX, boxY + boxH + 1.0, boxW, 5.0, 0.8, 0.8, 'FD');
-
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(180, 83, 9);
-        doc.setFontSize(5.5);
-        doc.text('REMARK:', boxX + 2.0, boxY + boxH + 4.0);
-
-        doc.setTextColor(15, 23, 42);
-        doc.text(item.remark!.trim().slice(0, 48), boxX + 15.0, boxY + boxH + 4.0);
-      }
-    }
-  } else {
-    // 3 COLUMNS x 4 ROWS = 12 STICKERS PER A4 PAGE (Anchored strictly TOP-LEFT)
-    const cols = 3;
-    const rows = 4;
-    const perPage = cols * rows;
-    const usableW = 210 - leftMargin * 2 - colGap * (cols - 1);
-    const usableH = 297 - topMargin * 2 - rowGap * (rows - 1);
-    const labelWidth = Number((usableW / cols).toFixed(2));
-    const labelHeight = Math.min(72, Number((usableH / rows).toFixed(2)));
-
-    for (let i = 0; i < stickers.length; i++) {
-      const item = stickers[i];
-      const indexOnPage = i % perPage;
-      if (i > 0 && indexOnPage === 0) doc.addPage();
-
-      const col = indexOnPage % cols;
-      const row = Math.floor(indexOnPage / cols);
-      const x = leftMargin + col * (labelWidth + colGap);
-      const y = topMargin + row * (labelHeight + rowGap);
-
-      doc.setDrawColor(190, 200, 215);
-      doc.setLineWidth(0.3);
-      doc.rect(x + 0.5, y + 0.5, labelWidth - 1, labelHeight - 1);
-
-      doc.setFillColor(15, 23, 42);
-      doc.rect(x + 0.5, y + 0.5, labelWidth - 1, 6.8, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.2);
-      doc.text(companyName, x + 2.5, y + 5);
-      doc.text(item.jobCardNumber || item.orderNumber, x + labelWidth - 2.5, y + 5, { align: 'right' });
+      doc.setTextColor(180, 83, 9);
+      doc.setFontSize(5.5);
+      doc.text('REMARK:', boxX + 2.0, boxY + boxH + 3.8);
 
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(8.2);
-      doc.text((item.customerName || 'Client').toUpperCase().slice(0, 25), x + 2.5, y + 12.2);
-
-      // Dimensions box with explicit Top & Bottom
-      const cut34Y = y + 15.0;
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(203, 213, 225);
-      doc.roundedRect(x + 2, cut34Y, labelWidth - 4, 17.5, 1, 1, 'FD');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(5.8);
-      doc.setTextColor(100, 116, 139);
-      doc.text('CUTTING SIZE (cm / Tape")', x + 3.5, cut34Y + 3.8);
-
-      if (item.isTapered) {
-        doc.setFillColor(254, 243, 199);
-        doc.rect(x + labelWidth - 16, cut34Y + 1.2, 13, 3.2, 'F');
-        doc.setTextColor(180, 83, 9);
-        doc.setFontSize(4.8);
-        doc.text('▲ TAPER', x + labelWidth - 9.5, cut34Y + 3.6, { align: 'center' });
-      }
-
-      doc.setTextColor(15, 23, 42);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.2);
-      const hStr34 = item.finHText || (item.heightMm ? `${(item.heightMm / 10).toFixed(1)} cm` : '0');
-      const hTape34 = item.tapeInchH ? `(${item.tapeInchH})` : '';
-      doc.text(`H  : ${hStr34} ${hTape34}`, x + 3.5, cut34Y + 7.8);
-
-      const topStr34 = item.finTopWText || (item.widthMm ? `${(item.widthMm / 10).toFixed(1)} cm` : '0');
-      const topTape34 = item.tapeInchTopW ? `(${item.tapeInchTopW})` : '';
-      doc.text(`TOP: ${topStr34} ${topTape34}`, x + 3.5, cut34Y + 11.8);
-
-      const btmStr34 = item.finBtmWText || topStr34;
-      const btmTape34 = item.tapeInchBtmW || topTape34;
-      doc.text(`BTM: ${btmStr34} ${btmTape34}`, x + 3.5, cut34Y + 15.8);
-
-      // Center Vector QR Code
-      const qr34Size = 16.0;
-      const qr34X = x + (labelWidth - qr34Size) / 2;
-      const qr34Y = cut34Y + 19.5;
-      const targetQrUrl34 = item.qrUrl || `http://192.168.8.101:4000/track/${item.barcode.replace(/\*/g, '')}`;
-      doc.drawQrCode(targetQrUrl34, qr34X, qr34Y, qr34Size);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(5.0);
-      doc.setTextColor(100, 116, 139);
-      doc.text('SCAN FLOOR QR', x + labelWidth / 2, qr34Y + qr34Size + 2.5, { align: 'center' });
-
-      // Specs & Barcode below QR
-      doc.setFontSize(6.2);
-      doc.setTextColor(51, 65, 85);
-      doc.text(`Spec: ${(item.profile || 'FRP 30mm').slice(0, 22)}`, x + 2.5, qr34Y + qr34Size + 6.5);
-      doc.text(`Finish: ${(item.finish || 'Teak').slice(0, 22)}`, x + 2.5, qr34Y + qr34Size + 10.0);
-      doc.text(`Hdw: ${item.hand} | ${item.lock}`, x + 2.5, qr34Y + qr34Size + 13.5);
-
-      doc.setFont('courier', 'bold');
-      doc.setFontSize(6.8);
-      doc.setTextColor(30, 41, 59);
-      doc.text(item.barcode, x + labelWidth / 2, qr34Y + qr34Size + 17.5, { align: 'center' });
-
-      const hasRemark = item.remark && item.remark.trim().length > 0;
-      if (hasRemark) {
-        doc.setFillColor(254, 243, 199);
-        doc.setDrawColor(245, 158, 11);
-        doc.roundedRect(x + 2, y + 52, labelWidth - 4, 8, 1, 1, 'FD');
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(180, 83, 9);
-        doc.setFontSize(6);
-        doc.text('REMARK:', x + 3.5, y + 56.2);
-        doc.setTextColor(15, 23, 42);
-        doc.text(item.remark!.trim().slice(0, 30), x + 3.5, y + 59);
-      }
+      doc.text(item.remark!.trim().slice(0, 48), boxX + 15.0, boxY + boxH + 3.8);
     }
   }
 

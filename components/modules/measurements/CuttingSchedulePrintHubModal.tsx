@@ -377,10 +377,10 @@ export function CuttingSchedulePrintHubModal({
   const [hubPaper, setHubPaper] = useState<'a4-12l' | 'single-4x2'>('a4-12l');
   const [hubSelectedPartyIds, setHubSelectedPartyIds] = useState<string[]>(['party-1']);
 
-  // 12L Sticker Sheet Calibration State (Exact Die-Cut Fit & Safe Margin Buffer)
-  const [stickerPaperType, setStickerPaperType] = useState<string>('Oddy 12L Borderless (105 x 49.5 mm)');
-  const [nudgeXmm, setNudgeXmm] = useState<number>(-2.5);
-  const [nudgeYmm, setNudgeYmm] = useState<number>(-3.0);
+  // 12L Sticker Sheet Calibration State (Exact 99x44mm Die-Cut Fit & Safe Margin Buffer)
+  const [stickerPaperType, setStickerPaperType] = useState<string>('Standard 12L Die-Cut (99 x 44 mm)');
+  const [nudgeXmm, setNudgeXmm] = useState<number>(0);
+  const [nudgeYmm, setNudgeYmm] = useState<number>(0);
   const [safeMarginBuffer, setSafeMarginBuffer] = useState<boolean>(true);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
 
@@ -1871,9 +1871,8 @@ export function CuttingSchedulePrintHubModal({
                         onChange={(e) => setStickerPaperType(e.target.value)}
                         className="w-full bg-[#131b2e] border border-slate-700 hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold cursor-pointer"
                       >
-                        <option value="Oddy 12L Borderless (105 x 49.5 mm)">Oddy 12L Borderless (105 x 49.5 mm)</option>
-                        <option value="Standard A4 12-Up Die-Cut (105 x 48 mm)">Standard A4 12-Up Die-Cut (105 x 48 mm)</option>
-                        <option value="Desmat 12L Precision Cut (105 x 49 mm)">Desmat 12L Precision Cut (105 x 49 mm)</option>
+                        <option value="Standard 12L Die-Cut (99 x 44 mm)">Standard 12L Die-Cut (99 x 44 mm)</option>
+                        <option value="Standard 12L (Left 5.1mm / Right 3.7mm)">Standard 12L (Left 5.1mm / Right 3.7mm)</option>
                         <option value="Universal Continuous Thermal Roll (100 x 50 mm)">Universal Continuous Thermal Roll (100 x 50 mm)</option>
                       </select>
                     </div>

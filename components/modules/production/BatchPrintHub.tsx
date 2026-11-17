@@ -147,32 +147,23 @@ export interface PaperCalibrationPreset {
 }
 
 export const PAPER_PRESETS: Record<string, PaperCalibrationPreset> = {
-  'Oddy 12L Borderless (105 x 49.5 mm)': {
-    name: 'Oddy 12L Borderless (105 x 49.5 mm)',
-    topMarginMm: 0,
-    leftMarginMm: 0,
-    rowGapMm: 0,
-    colGapMm: 0,
-    labelWidthMm: 105,
-    labelHeightMm: 49.5,
+  'Standard 12L Die-Cut (99 x 44 mm)': {
+    name: 'Standard 12L Die-Cut (99 x 44 mm)',
+    topMarginMm: 9.0,
+    leftMarginMm: 4.4,
+    rowGapMm: 3.0,
+    colGapMm: 3.2,
+    labelWidthMm: 99.0,
+    labelHeightMm: 44.0,
   },
-  'Standard A4 12-Up Die-Cut (105 x 48 mm)': {
-    name: 'Standard A4 12-Up Die-Cut (105 x 48 mm)',
-    topMarginMm: 4.5,
-    leftMarginMm: 0,
-    rowGapMm: 1,
-    colGapMm: 0,
-    labelWidthMm: 105,
-    labelHeightMm: 48,
-  },
-  'Desmat 12L Precision Cut (105 x 49 mm)': {
-    name: 'Desmat 12L Precision Cut (105 x 49 mm)',
-    topMarginMm: 1.5,
-    leftMarginMm: 0,
-    rowGapMm: 0,
-    colGapMm: 0,
-    labelWidthMm: 105,
-    labelHeightMm: 49,
+  'Standard 12L (Left 5.1mm / Right 3.7mm)': {
+    name: 'Standard 12L (Left 5.1mm / Right 3.7mm)',
+    topMarginMm: 9.0,
+    leftMarginMm: 5.1,
+    rowGapMm: 3.0,
+    colGapMm: 3.2,
+    labelWidthMm: 99.0,
+    labelHeightMm: 44.0,
   },
 };
 
@@ -415,10 +406,10 @@ export default function BatchPrintHub({
   const [isRemarksManagerOpen, setIsRemarksManagerOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
-  // 12L Sticker Sheet Calibration State (Exact Die-Cut Fit & Safe Margin Buffer)
-  const [calibrationPaper, setCalibrationPaper] = useState('Oddy 12L Borderless (105 x 49.5 mm)');
-  const [nudgeXmm, setNudgeXmm] = useState<number>(-2.5);
-  const [nudgeYmm, setNudgeYmm] = useState<number>(-3.0);
+  // 12L Sticker Sheet Calibration State (Exact 99x44mm Die-Cut Fit & Safe Margin Buffer)
+  const [calibrationPaper, setCalibrationPaper] = useState('Standard 12L Die-Cut (99 x 44 mm)');
+  const [nudgeXmm, setNudgeXmm] = useState<number>(0);
+  const [nudgeYmm, setNudgeYmm] = useState<number>(0);
   const [safeMarginBuffer, setSafeMarginBuffer] = useState<boolean>(true);
 
   // Load saved calibration preferences from localStorage if available
@@ -653,7 +644,7 @@ export default function BatchPrintHub({
     try {
       setIsDownloadingPdf(true);
       const { generate12LStickerPdf, generateThermal4x2Pdf } = await import('@/lib/utils/pdfStickerEngine');
-      const preset = PAPER_PRESETS[calibrationPaper] || PAPER_PRESETS['Oddy 12L Borderless (105 x 49.5 mm)'];
+      const preset = PAPER_PRESETS[calibrationPaper] || PAPER_PRESETS['Standard 12L Die-Cut (99 x 44 mm)'];
       const printableItems = stickers.map((st, idx) => {
         const widths = extractTopBtmWidths(st);
         const hSide = (st.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R';
@@ -820,17 +811,6 @@ export default function BatchPrintHub({
             <option value="THERMAL_ROLL">🏷️ Thermal Label (4&quot;×2&quot; / 101.6×50.8mm)</option>
           </select>
 
-          {stickerFormat === 'A4_12L' && (
-            <select
-              value={gridLayout}
-              onChange={(e) => setGridLayout(e.target.value as '2x6' | '3x4')}
-              className="bg-[#070D1E] border border-emerald-600/70 text-emerald-200 rounded-xl p-2 text-xs font-bold focus:outline-none cursor-pointer"
-            >
-              <option value="2x6">2×6 Wide Grid</option>
-              <option value="3x4">3×4 Grid</option>
-            </select>
-          )}
-
           <button
             onClick={() => setActivePrintModal('STICKERS')}
             disabled={totalStickers === 0}
@@ -838,7 +818,7 @@ export default function BatchPrintHub({
           >
             <Tag className="w-4 h-4" />
             <span>
-              Print Stickers {stickerFormat === 'THERMAL_ROLL' ? '(4"×2" Thermal)' : `(12L ${gridLayout.toUpperCase()})`}
+              Print Stickers {stickerFormat === 'THERMAL_ROLL' ? '(4"×2" Thermal)' : '(12L Standard)'}
             </span>
           </button>
 
@@ -846,7 +826,7 @@ export default function BatchPrintHub({
             onClick={handleDownloadVectorPdf}
             disabled={isDownloadingPdf || totalStickers === 0}
             className="px-3.5 py-2 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-sky-950/40 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            title="Download exact top-left 12L or 4x2 thermal vector PDF"
+            title="Download exact 12L (99x44mm) or 4x2 thermal vector PDF"
           >
             <Download className="w-4 h-4" />
             <span>
@@ -854,7 +834,7 @@ export default function BatchPrintHub({
                 ? 'Generating PDF...'
                 : stickerFormat === 'THERMAL_ROLL'
                 ? 'Download 4"×2" Thermal PDF'
-                : `Download 12L (${gridLayout.toUpperCase()}) PDF`}
+                : 'Download 12L Vector PDF'}
             </span>
           </button>
 
@@ -1089,27 +1069,8 @@ export default function BatchPrintHub({
                 )}
 
                 {activePrintModal === 'STICKERS' && stickerFormat === 'A4_12L' && (
-                  <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-0.5 text-xs mr-1">
-                    <button
-                      type="button"
-                      onClick={() => setGridLayout('2x6')}
-                      className={`px-2.5 py-1 rounded font-bold cursor-pointer transition ${
-                        gridLayout === '2x6' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
-                      }`}
-                      title="Standard 12L: 2 Columns × 6 Rows = 12 Stickers per A4 Page"
-                    >
-                      12 (2×6)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setGridLayout('3x4')}
-                      className={`px-2.5 py-1 rounded font-bold cursor-pointer transition ${
-                        gridLayout === '3x4' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
-                      }`}
-                      title="Compact: 3 Columns × 4 Rows = 12 Stickers per A4 Page"
-                    >
-                      12 (3×4)
-                    </button>
+                  <div className="flex items-center bg-slate-800 border border-emerald-500/40 rounded-lg px-2.5 py-1 text-xs mr-1 text-emerald-300 font-bold">
+                    <span>12L Standard (99×44mm)</span>
                   </div>
                 )}
 
@@ -1182,9 +1143,8 @@ export default function BatchPrintHub({
                             onChange={(e) => handleSelectPaper(e.target.value)}
                             className="w-full bg-[#131b2e] border border-slate-700 hover:border-slate-500 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold cursor-pointer"
                           >
-                            <option value="Oddy 12L Borderless (105 x 49.5 mm)">Oddy 12L Borderless (105 x 49.5 mm)</option>
-                            <option value="Standard A4 12-Up Die-Cut (105 x 48 mm)">Standard A4 12-Up Die-Cut (105 x 48 mm)</option>
-                            <option value="Desmat 12L Precision Cut (105 x 49 mm)">Desmat 12L Precision Cut (105 x 49 mm)</option>
+                            <option value="Standard 12L Die-Cut (99 x 44 mm)">Standard 12L Die-Cut (99 x 44 mm)</option>
+                            <option value="Standard 12L (Left 5.1mm / Right 3.7mm)">Standard 12L (Left 5.1mm / Right 3.7mm)</option>
                           </select>
                         </div>
 
@@ -1262,9 +1222,9 @@ export default function BatchPrintHub({
                     <div className="space-y-8 print:space-y-0">
                       {Array.from({ length: totalSheets }).map((_, sIdx) => {
                         const sheetStickers = stickers.slice(sIdx * 12, (sIdx + 1) * 12);
-                        const preset = PAPER_PRESETS[calibrationPaper] || PAPER_PRESETS['Oddy 12L Borderless (105 x 49.5 mm)'];
-                        const cardHeightMm = gridLayout === '2x6' ? `${preset.labelHeightMm}mm` : '69mm';
-                        const cardWidthMm = gridLayout === '2x6' ? `${preset.labelWidthMm}mm` : '68mm';
+                        const preset = PAPER_PRESETS[calibrationPaper] || PAPER_PRESETS['Standard 12L Die-Cut (99 x 44 mm)'];
+                        const cardHeightMm = `${preset.labelHeightMm || 44}mm`;
+                        const cardWidthMm = `${preset.labelWidthMm || 99}mm`;
                         return (
                           <div
                             key={sIdx}
@@ -1280,10 +1240,7 @@ export default function BatchPrintHub({
                               boxSizing: 'border-box',
                               transform: `translate(${nudgeXmm}mm, ${nudgeYmm}mm)`,
                               display: 'grid',
-                              gridTemplateColumns:
-                                gridLayout === '2x6'
-                                  ? `repeat(2, ${cardWidthMm})`
-                                  : 'repeat(3, minmax(0, 1fr))',
+                              gridTemplateColumns: `repeat(2, ${cardWidthMm})`,
                               gridAutoRows: cardHeightMm,
                               rowGap: `${preset.rowGapMm}mm`,
                               columnGap: `${preset.colGapMm}mm`,
