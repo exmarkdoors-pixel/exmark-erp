@@ -270,10 +270,12 @@ export interface QuoteItemRow {
   frpCategory?: FrpDoorCategory | 'CUSTOM';
   autoPriceBreakdown?: string;
   lockId?: string;
+  lockName?: string;
   lockPrice?: number;
   withoutAccessories?: boolean;
   supplyMode?: SupplyMode;
   colourId?: string;
+  colourName?: string;
   colourExtraRate?: number;
   frameTypeId?: string;
   frameTypeName?: string;
@@ -507,8 +509,10 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       rate: 0,
       frpCategory: detectedCat,
       lockId: defaultLock?.id || 'lock-none',
+      lockName: defaultLock?.name || 'BABY LATCH',
       lockPrice: defaultLock?.price || 0,
       colourId: defaultColour?.id || 'col-teak-matte',
+      colourName: defaultColour?.name || 'Natural Teak',
       colourExtraRate: defaultColour?.extraRate || 0,
       frameTypeId: defaultFrame.id,
       frameTypeName: formatFrameSectionLabel(defaultFrame),
@@ -573,10 +577,12 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       rate: 0,
       frpCategory: 'A',
       lockId: 'lock-none',
+      lockName: 'BABY LATCH',
       lockPrice: 0,
       withoutAccessories: false,
       supplyMode: 'FULL_SET',
       colourId: 'col-teak-matte',
+      colourName: 'Natural Teak',
       colourExtraRate: 0,
       frameTypeId: DEFAULT_FRAME_PROFILES[0].id,
       frameTypeName: formatFrameSectionLabel(DEFAULT_FRAME_PROFILES[0]),
@@ -1424,8 +1430,10 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
         frpCategory: defaultCat,
         autoPriceBreakdown: autoCalc.breakdown,
         lockId: defaultLock?.id || 'lock-none',
+        lockName: defaultLock?.name || 'BABY LATCH',
         lockPrice: defaultLock?.price || 0,
         colourId: defaultColour?.id || 'col-teak-matte',
+        colourName: defaultColour?.name || 'Natural Teak',
         colourExtraRate: defaultColour?.extraRate || 0,
         frameTypeId: defaultFrame.id,
         frameTypeName,
@@ -1484,8 +1492,10 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
         frpCategory: defaultCat,
         autoPriceBreakdown: autoCalc.breakdown,
         lockId: defaultLock?.id || 'lock-none',
+        lockName: defaultLock?.name || 'BABY LATCH',
         lockPrice: defaultLock?.price || 0,
         colourId: defaultColour?.id || 'col-teak-matte',
+        colourName: defaultColour?.name || 'Natural Teak',
         colourExtraRate: defaultColour?.extraRate || 0,
         frameTypeId: defaultFrame.id,
         frameTypeName,
@@ -1577,18 +1587,20 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       }
     }
 
-    // Auto-sync hardware lock price
+    // Auto-sync hardware lock price & name
     if (updates.lockId !== undefined && updates.lockId !== currentRow.lockId) {
       const activeLocks = frpSettings.locks && frpSettings.locks.length > 0 ? frpSettings.locks : DEFAULT_LOCK_OPTIONS;
       const foundLock = activeLocks.find((l) => l.id === updates.lockId);
       updates.lockPrice = foundLock ? foundLock.price : 0;
+      updates.lockName = foundLock ? foundLock.name : 'BABY LATCH';
     }
 
-    // Auto-sync colour extra surcharge
+    // Auto-sync colour extra surcharge & name
     if (updates.colourId !== undefined && updates.colourId !== currentRow.colourId) {
       const activeColours = frpSettings.colours && frpSettings.colours.length > 0 ? frpSettings.colours : DEFAULT_COLOUR_OPTIONS;
       const foundCol = activeColours.find((c) => c.id === updates.colourId);
       updates.colourExtraRate = foundCol ? (foundCol.extraRate || 0) : 0;
+      updates.colourName = foundCol ? foundCol.name : 'Natural Teak';
     }
 
     // Auto-sync frame profile name & extra surcharge
@@ -2214,44 +2226,44 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     setNewCustLocation('');
   };
 
-  // Add Door Model Action
+  // Add Door Model Action (Only Model Number and Price)
   const handleSaveDoorModel = () => {
     const code = newModelCode.trim().toUpperCase();
-    const title = newModelTitle.trim();
-    if (!code || !title) {
-      showToast('Missing Details', 'Please provide Model Code and Model Title.', 'info');
+    if (!code) {
+      showToast('Missing Details', 'Please provide Door Model Number.', 'info');
       return;
     }
+    const rate = parseFloat(newModelRate) || 7000;
     const newModId = `MOD-${doorModels.length + 101}`;
     const newModel: HubDoorModel = {
       id: newModId,
       code,
-      title,
-      material: newModelMaterial,
-      rate: parseFloat(newModelRate) || 3500,
-      finish: newModelFinish.trim() || 'Standard Factory Finish',
+      title: code,
+      material: 'FRP',
+      rate,
+      finish: 'Standard Factory Finish',
     };
 
     setDoorModels([...doorModels, newModel]);
     setIsAddDoorModelOpen(false);
     playBeep(620, 0.1);
-    showToast('Model Added to Catalog', `${code} (${title}) is now available in door selectors!`);
+    showToast('Model Added to Catalog', `Model ${code} (₹${rate.toLocaleString('en-IN')}) is now available in door selectors!`);
 
     apiFetch('/api/door-models', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         code,
-        name: title,
+        name: code,
         category: detectCategoryFromModelCode(code),
-        defaultPrice: parseFloat(newModelRate) || 7000,
-        description: `${newModelMaterial} Door Model (${newModelFinish || 'Factory Finish'})`,
+        defaultPrice: rate,
+        description: `Door Model ${code}`,
       }),
     }).catch(() => {});
 
     setNewModelCode('');
     setNewModelTitle('');
-    setNewModelRate('4200');
+    setNewModelRate('7000');
   };
 
   // Pipeline Actions
@@ -4612,24 +4624,26 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                                         return (
                                           <div
                                             key={rIdx}
-                                            className="bg-slate-950 p-2 rounded border border-slate-800/80 text-[11px] space-y-1"
+                                            className="bg-slate-950 p-2.5 rounded border border-slate-800/80 text-[11px] space-y-1.5"
                                           >
                                             <div className="flex items-center justify-between font-bold">
                                               <span className="text-white">
                                                 {row.roomTag || row.doorNumber || `Door #${rIdx + 1}`}
+                                                {row.modelCode ? ` • ${row.modelCode}` : ''}
                                               </span>
                                               <span className="font-mono text-emerald-400">
                                                 ₹{rowTotal.toLocaleString('en-IN')}
                                               </span>
                                             </div>
-                                            <div className="text-slate-400 flex items-center justify-between text-[10px]">
-                                              <span>
-                                                {row.width}{unitLabel} × {row.height}{unitLabel}
-                                              </span>
-                                              <span>Qty: {row.qty || 1}</span>
+                                            <div className="text-slate-300 font-mono text-[10px] flex items-center justify-between">
+                                              <span>Size: {row.width}{unitLabel} × {row.height}{unitLabel}</span>
+                                              <span className="font-bold">Qty: {row.qty || 1}</span>
                                             </div>
-                                            <div className="text-[10px] text-slate-500 truncate">
-                                              {row.frameTypeName || 'Frame'} • {row.lockId || 'Lock'} • {row.thicknessLabel || '30mm'}
+                                            <div className="text-[10px] text-slate-400 space-y-0.5 border-t border-slate-900 pt-1">
+                                              <div><span className="text-slate-500">Lock:</span> {row.lockName || 'BABY LATCH'}</div>
+                                              <div><span className="text-slate-500">Colour:</span> {row.colourName || 'Natural Teak'}</div>
+                                              <div><span className="text-slate-500">Thickness:</span> {row.thicknessLabel || '30 mm'}</div>
+                                              <div><span className="text-slate-500">Frame:</span> {row.frameTypeName || 'Regular 72×50mm'}</div>
                                             </div>
                                           </div>
                                         );
@@ -5366,62 +5380,34 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             </div>
 
             {modelModalTab === 'SINGLE' ? (
-              <div className="p-5 space-y-3.5 text-xs overflow-y-auto">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="p-5 space-y-4 text-xs overflow-y-auto">
+                <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800 text-slate-400 text-[11px] leading-relaxed">
+                  Enter the Door Model Number and its Price. All extra material and title fields have been removed for rapid entry.
+                </div>
+                <div className="space-y-3">
                   <div>
-                    <label className="block font-medium text-slate-300 mb-1">Model Code *</label>
+                    <label className="block font-bold text-slate-200 mb-1">
+                      Door Model Number (മോഡൽ നമ്പർ) *
+                    </label>
                     <input
                       type="text"
-                      placeholder="EXM-A-128"
+                      placeholder="e.g. EXM-A-128, EXM-201, MOD-305"
                       value={newModelCode}
-                      onChange={(e) => setNewModelCode(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-cyan-500 uppercase font-mono font-bold"
+                      onChange={(e) => setNewModelCode(e.target.value.toUpperCase())}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-cyan-500 uppercase font-mono font-bold text-sm"
+                      autoFocus
                     />
                   </div>
                   <div>
-                    <label className="block font-medium text-slate-300 mb-1">Material / Type</label>
-                    <select
-                      value={newModelMaterial}
-                      onChange={(e) => setNewModelMaterial(e.target.value as 'FRP' | 'WPC' | 'Steel')}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
-                    >
-                      <option value="FRP">FRP (Fiber Reinforced Polymer)</option>
-                      <option value="WPC">WPC (Wood Plastic Composite)</option>
-                      <option value="Steel">MS / GI Steel Shaft Door</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Model Title / Finish Description *</label>
-                  <input
-                    type="text"
-                    placeholder="E.g. Natural Teak Premium Classic Molded"
-                    value={newModelTitle}
-                    onChange={(e) => setNewModelTitle(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-cyan-500 font-semibold"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-slate-300 mb-1">Default Base Rate (₹) *</label>
+                    <label className="block font-bold text-slate-200 mb-1">
+                      Model Price (പ്രൈസ് / Rate ₹) *
+                    </label>
                     <input
                       type="number"
-                      placeholder="4200"
+                      placeholder="7000"
                       value={newModelRate}
                       onChange={(e) => setNewModelRate(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-cyan-500 font-bold text-emerald-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-slate-300 mb-1">Standard Finish</label>
-                    <input
-                      type="text"
-                      placeholder="Matte Teak / Rosewood"
-                      value={newModelFinish}
-                      onChange={(e) => setNewModelFinish(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-emerald-400 focus:outline-none focus:border-cyan-500 font-mono font-bold text-sm"
                     />
                   </div>
                 </div>
@@ -5480,9 +5466,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                     <table className="w-full text-left text-[11px]">
                       <thead className="bg-[#141d33] text-slate-300 border-b border-slate-800">
                         <tr>
-                          <th className="p-2">Code</th>
-                          <th className="p-2">Title</th>
-                          <th className="p-2">Finish</th>
+                          <th className="p-2">Model Number / Code</th>
                           <th className="p-2 text-right">Standard Rate</th>
                         </tr>
                       </thead>
@@ -5490,8 +5474,6 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                         {bulkParsedModels.map((m) => (
                           <tr key={m.id} className="hover:bg-slate-800/40">
                             <td className="p-2 font-mono font-bold text-cyan-400">{m.code}</td>
-                            <td className="p-2 text-white font-medium">{m.title}</td>
-                            <td className="p-2 text-slate-300">{m.finish}</td>
                             <td className="p-2 text-right font-mono font-bold text-emerald-400">₹{m.rate.toLocaleString('en-IN')}</td>
                           </tr>
                         ))}

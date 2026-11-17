@@ -3,7 +3,64 @@
 import React from 'react';
 import type { HubQuotation, HubCustomer, HubDoorModel } from './QuotationHub';
 import { formatDimensionDisplay, calculateSqFt } from '@/lib/services/doorSizingEngine';
+import {
+  DEFAULT_LOCK_OPTIONS,
+  DEFAULT_COLOUR_OPTIONS,
+  DEFAULT_THICKNESS_OPTIONS,
+} from '@/lib/services/frpPricingEngine';
+import {
+  DEFAULT_FRAME_PROFILES,
+  formatFrameSectionLabel,
+} from '@/lib/utils/frameDefaults';
 import { Building2, Calendar, FileText, CheckCircle2, QrCode, ShieldCheck, Printer } from 'lucide-react';
+
+export function resolveItemLockName(row: any): string {
+  if (row.withoutAccessories) return 'Without Lock';
+  if (row.lockName && typeof row.lockName === 'string' && row.lockName.trim()) {
+    return row.lockName.trim();
+  }
+  if (row.lockId) {
+    const found = DEFAULT_LOCK_OPTIONS.find((l) => l.id === row.lockId);
+    if (found) return found.name;
+  }
+  return 'BABY LATCH';
+}
+
+export function resolveItemColourName(row: any, model?: { finish?: string } | HubDoorModel): string {
+  if (row.colourName && typeof row.colourName === 'string' && row.colourName.trim()) {
+    return row.colourName.trim();
+  }
+  if (row.colourId) {
+    const found = DEFAULT_COLOUR_OPTIONS.find((c) => c.id === row.colourId);
+    if (found) return found.name;
+  }
+  if (model?.finish && model.finish !== 'Std' && model.finish !== 'Standard Factory Finish') {
+    return model.finish;
+  }
+  return 'Natural Teak';
+}
+
+export function resolveItemThickness(row: any): string {
+  if (row.thicknessLabel && typeof row.thicknessLabel === 'string' && row.thicknessLabel.trim()) {
+    return row.thicknessLabel.trim();
+  }
+  if (row.thicknessId) {
+    const found = DEFAULT_THICKNESS_OPTIONS.find((t) => t.id === row.thicknessId);
+    if (found) return found.name;
+  }
+  return '30 mm';
+}
+
+export function resolveItemFrameName(row: any): string {
+  if (row.frameTypeName && typeof row.frameTypeName === 'string' && row.frameTypeName.trim()) {
+    return row.frameTypeName.trim();
+  }
+  if (row.frameTypeId) {
+    const found = DEFAULT_FRAME_PROFILES.find((f) => f.id === row.frameTypeId);
+    if (found) return formatFrameSectionLabel(found);
+  }
+  return 'Regular 72×50mm Chowkhat Section';
+}
 
 export type PrintTheme = 'tally-classic' | 'tally-modern' | 'tally-formal' | 'vyapar-elegant' | 'vyapar-modern';
 export type DocumentType = 'quotation' | 'proforma' | 'salesOrder' | 'salesInvoice' | 'statement' | 'creditNote';
@@ -600,14 +657,31 @@ function renderTallyItemTable(
   isModern = false,
   hideSqFt = true
 ) {
-  const rows = quotation.itemRows || [];
+  const rows: any[] = (quotation.itemRows && quotation.itemRows.length > 0)
+    ? quotation.itemRows
+    : ((quotation as any).items || []).map((it: any, idx: number) => ({
+        id: idx + 1,
+        modelId: it.doorModel || 'MOD-A-101',
+        modelCode: it.doorModel || 'EXM-A-101',
+        height: it.heightMm ? Math.round(it.heightMm / 10) : 210,
+        widthTop: it.widthMm ? Math.round(it.widthMm / 10) : 80,
+        widthBottom: it.widthBottomMm ? Math.round(it.widthBottomMm / 10) : (it.widthMm ? Math.round(it.widthMm / 10) : 80),
+        width: it.widthMm ? Math.round(it.widthMm / 10) : 80,
+        unit: 'cm' as const,
+        qty: it.quantity || 1,
+        rate: it.unitPrice || 7000,
+        colourName: it.finishColor || 'Natural Teak',
+        frameTypeName: 'Regular 72×50mm Chowkhat Section',
+        thicknessLabel: '30 mm',
+        lockName: 'BABY LATCH',
+      }));
 
   return (
     <table className={`w-full text-left text-xs my-2 border-collapse ${isModern ? 'border border-slate-300' : 'border-b-2 border-black'}`}>
       <thead>
         <tr className={isModern ? 'bg-slate-800 text-white font-bold text-[11px]' : 'border-b-2 border-black font-bold text-[11px]'}>
           <th className="p-2 border-r border-slate-300 text-center w-8">#</th>
-          <th className="p-2 border-r border-slate-300">Description of Door Goods</th>
+          <th className="p-2 border-r border-slate-300">Description of Door Goods &amp; Specifications</th>
           <th className="p-2 border-r border-slate-300">
             Dimensions {hideSqFt ? '(H × W)' : '(H × W & Area)'}
           </th>
@@ -617,13 +691,17 @@ function renderTallyItemTable(
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-200">
-        {rows.map((row, i) => {
+        {rows.map((row: any, i: number) => {
           const prevRow = i > 0 ? rows[i - 1] : null;
           const isNewSection = row.sectionName && (!prevRow || prevRow.sectionName !== row.sectionName);
-          const secRows = row.sectionName ? rows.filter((r) => r.sectionName === row.sectionName) : [];
-          const secTotal = secRows.reduce((sum, r) => sum + (Number(r.qty) || 0) * (r.rate || 0), 0);
+          const secRows = row.sectionName ? rows.filter((r: any) => r.sectionName === row.sectionName) : [];
+          const secTotal = secRows.reduce((sum: number, r: any) => sum + (Number(r.qty) || 0) * (r.rate || 0), 0);
 
-          const model = doorModels.find((m) => m.id === row.modelId) || { code: 'EXM', title: 'FRP Door', finish: 'Std' };
+          const model = doorModels.find((m) => m.id === row.modelId || m.code === (row as any).modelCode) || {
+            code: (row as any).modelCode || 'EXM',
+            title: (row as any).modelTitle || 'FRP Door',
+            finish: 'Std',
+          };
           const wTop = row.widthTop ?? row.width ?? 0;
           const wBottom = row.widthBottom ?? wTop;
           const wTopFrac = row.widthTopFraction || row.widthFraction || '0';
@@ -631,6 +709,11 @@ function renderTallyItemTable(
           const sqft = calculateSqFt(row.height, wTop, wBottom, row.unit, row.heightFraction, wTopFrac, wBtmFrac);
           const dim = formatDimensionDisplay(row.height, wTop, wBottom, row.unit, row.heightFraction, wTopFrac, wBtmFrac);
           const lineTotal = (Number(row.qty) || 0) * row.rate;
+
+          const lockLabel = resolveItemLockName(row);
+          const colourLabel = resolveItemColourName(row, model);
+          const thicknessLabel = resolveItemThickness(row);
+          const frameLabel = resolveItemFrameName(row);
 
           return (
             <React.Fragment key={i}>
@@ -647,12 +730,14 @@ function renderTallyItemTable(
               <tr className="text-[11px]">
               <td className="p-1.5 border-r border-slate-300 text-center font-mono">{i + 1}</td>
               <td className="p-1.5 border-r border-slate-300 break-words whitespace-normal leading-snug">
-                <span className="font-bold">{model.code} - {model.title}</span>
-                <span className="text-[10px] text-slate-500 block break-words whitespace-normal leading-tight mt-0.5">
-                  Finish: {model.finish}
-                  {row.frameTypeName ? ` • Frame: ${row.frameTypeName}` : ''}
-                  {row.thicknessLabel ? ` • Thickness: ${row.thicknessLabel}` : ''}
-                </span>
+                <span className="font-bold text-xs">{model.code}{model.title && model.title !== model.code ? ` - ${model.title}` : ''}</span>
+                <div className="text-[10px] text-slate-700 mt-1 space-y-0.5 leading-tight">
+                  <div><span className="font-bold text-slate-900">Door Size:</span> <span className="font-mono">{dim}</span></div>
+                  <div><span className="font-bold text-slate-900">Frame Size:</span> {frameLabel}</div>
+                  <div><span className="font-bold text-slate-900">Thickness:</span> {thicknessLabel}</div>
+                  <div><span className="font-bold text-slate-900">Colour:</span> {colourLabel}</div>
+                  <div><span className="font-bold text-slate-900">Lock:</span> {lockLabel}</div>
+                </div>
               </td>
               <td className="p-1.5 border-r border-slate-300 font-mono">
                 <div>{dim}</div>
@@ -701,7 +786,24 @@ function renderVyaparItemTable(
   doorModels: HubDoorModel[],
   hideSqFt = true
 ) {
-  const rows = quotation.itemRows || [];
+  const rows: any[] = (quotation.itemRows && quotation.itemRows.length > 0)
+    ? quotation.itemRows
+    : ((quotation as any).items || []).map((it: any, idx: number) => ({
+        id: idx + 1,
+        modelId: it.doorModel || 'MOD-A-101',
+        modelCode: it.doorModel || 'EXM-A-101',
+        height: it.heightMm ? Math.round(it.heightMm / 10) : 210,
+        widthTop: it.widthMm ? Math.round(it.widthMm / 10) : 80,
+        widthBottom: it.widthBottomMm ? Math.round(it.widthBottomMm / 10) : (it.widthMm ? Math.round(it.widthMm / 10) : 80),
+        width: it.widthMm ? Math.round(it.widthMm / 10) : 80,
+        unit: 'cm' as const,
+        qty: it.quantity || 1,
+        rate: it.unitPrice || 7000,
+        colourName: it.finishColor || 'Natural Teak',
+        frameTypeName: 'Regular 72×50mm Chowkhat Section',
+        thicknessLabel: '30 mm',
+        lockName: 'BABY LATCH',
+      }));
 
   return (
     <table className="w-full text-left text-xs my-2 rounded-lg overflow-hidden border border-slate-200">
@@ -718,8 +820,12 @@ function renderVyaparItemTable(
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
-        {rows.map((row, i) => {
-          const model = doorModels.find((m) => m.id === row.modelId) || { code: 'EXM', title: 'FRP Door', finish: 'Std' };
+        {rows.map((row: any, i: number) => {
+          const model = doorModels.find((m) => m.id === row.modelId || m.code === (row as any).modelCode) || {
+            code: (row as any).modelCode || 'EXM',
+            title: (row as any).modelTitle || 'FRP Door',
+            finish: 'Std',
+          };
           const wTop = row.widthTop ?? row.width ?? 0;
           const wBottom = row.widthBottom ?? wTop;
           const wTopFrac = row.widthTopFraction || row.widthFraction || '0';
@@ -728,16 +834,23 @@ function renderVyaparItemTable(
           const dim = formatDimensionDisplay(row.height, wTop, wBottom, row.unit, row.heightFraction, wTopFrac, wBtmFrac);
           const lineTotal = (Number(row.qty) || 0) * row.rate;
 
+          const lockLabel = resolveItemLockName(row);
+          const colourLabel = resolveItemColourName(row, model);
+          const thicknessLabel = resolveItemThickness(row);
+          const frameLabel = resolveItemFrameName(row);
+
           return (
             <tr key={i} className={i % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
               <td className="p-2 text-center font-mono text-slate-400">{i + 1}</td>
               <td className="p-2 break-words whitespace-normal leading-snug">
-                <span className="font-bold text-slate-900">{model.code} - {model.title}</span>
-                <span className="text-[10px] text-slate-500 block break-words whitespace-normal leading-tight mt-0.5">
-                  Finish: {model.finish}
-                  {row.frameTypeName ? ` • Frame: ${row.frameTypeName}` : ''}
-                  {row.thicknessLabel ? ` • Thickness: ${row.thicknessLabel}` : ''}
-                </span>
+                <span className="font-bold text-slate-900 text-xs">{model.code}{model.title && model.title !== model.code ? ` - ${model.title}` : ''}</span>
+                <div className="text-[10px] text-slate-700 mt-1 space-y-0.5 leading-tight">
+                  <div><span className="font-bold text-slate-900">Door Size:</span> <span className="font-mono">{dim}</span></div>
+                  <div><span className="font-bold text-slate-900">Frame Size:</span> {frameLabel}</div>
+                  <div><span className="font-bold text-slate-900">Thickness:</span> {thicknessLabel}</div>
+                  <div><span className="font-bold text-slate-900">Colour:</span> {colourLabel}</div>
+                  <div><span className="font-bold text-slate-900">Lock:</span> {lockLabel}</div>
+                </div>
               </td>
               <td className="p-2 font-mono text-slate-700">
                 <div>{dim}</div>

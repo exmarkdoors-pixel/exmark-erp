@@ -140,8 +140,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
   const [isSyncingQuotation, setIsSyncingQuotation] = useState<boolean>(false);
   const [isAddModelOpen, setIsAddModelOpen] = useState<boolean>(false);
   const [newModelCode, setNewModelCode] = useState<string>('');
-  const [newModelTitle, setNewModelTitle] = useState<string>('');
-  const [newModelCategory, setNewModelCategory] = useState<'A' | 'B' | 'C' | 'D' | 'E' | 'CUSTOM'>('A');
+  const [newModelPrice, setNewModelPrice] = useState<string>('7000');
 
   const loadFrames = async () => {
     try {
@@ -329,7 +328,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
 
   const handleSaveNewModel = async () => {
     const code = newModelCode.trim().toUpperCase();
-    const title = newModelTitle.trim() || `${newModelCategory} Series Door`;
+    const priceNum = parseFloat(newModelPrice) || 7000;
     if (!code) return;
     try {
       const res = await fetch('/api/door-models', {
@@ -337,9 +336,9 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code,
-          name: title,
-          category: `CAT_${newModelCategory}`,
-          defaultPrice: 7000,
+          name: code,
+          category: 'FRP',
+          defaultPrice: priceNum,
         }),
       });
       const json = await res.json();
@@ -349,7 +348,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
       }
       setIsAddModelOpen(false);
       setNewModelCode('');
-      setNewModelTitle('');
+      setNewModelPrice('7000');
     } catch {
       setIsAddModelOpen(false);
     }
@@ -1632,40 +1631,24 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-300 font-bold mb-1">Model Code *</label>
+                <label className="block text-slate-300 font-bold mb-1">Door Model Number / Code *</label>
                 <input
                   type="text"
-                  placeholder="e.g. EXM-A-125 or EXN-A-101"
+                  placeholder="e.g. EXM-A-125"
                   value={newModelCode}
                   onChange={(e) => setNewModelCode(e.target.value.toUpperCase())}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono font-bold uppercase"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-cyan-400 font-mono font-bold uppercase focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-bold mb-1">Category</label>
-                <select
-                  value={newModelCategory}
-                  onChange={(e) => setNewModelCategory(e.target.value as any)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-bold cursor-pointer"
-                >
-                  <option value="A">Category A (Classic Molded)</option>
-                  <option value="B">Category B (Designer 4-Panel)</option>
-                  <option value="C">Category C (Deep Carved)</option>
-                  <option value="D">Category D (Minimalist Oak)</option>
-                  <option value="E">Category E (Ultra Luxury Villa)</option>
-                  <option value="CUSTOM">Custom Category</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-bold mb-1">Model Title / Finish Description</label>
+                <label className="block text-slate-300 font-bold mb-1">Model Price (₹) *</label>
                 <input
-                  type="text"
-                  placeholder="e.g. Natural Teak Premium Classic Molded"
-                  value={newModelTitle}
-                  onChange={(e) => setNewModelTitle(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-medium"
+                  type="number"
+                  placeholder="7000"
+                  value={newModelPrice}
+                  onChange={(e) => setNewModelPrice(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-emerald-400 font-mono font-bold focus:outline-none focus:border-cyan-500"
                 />
               </div>
             </div>
