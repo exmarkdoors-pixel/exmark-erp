@@ -57,7 +57,7 @@ export function getAuthoritativeAppVersion(): string {
   } catch {
     // Non-fatal fallback
   }
-  return '1.2.3';
+  return '1.2.4';
 }
 
 export function parseSemVer(v: string): number[] {
@@ -278,6 +278,17 @@ export async function checkForSystemUpdates(options: {
 
   // Curated changelog features
   const changelog = [
+    {
+      version: '1.2.4',
+      title: 'Standard 12L (99×44mm) 2D Specification Layout & Obsolete Format Cleanup',
+      features: [
+        'Standardized 12L die-cut format strictly to 99mm × 44mm label size with 9mm top/bottom margins, 3.2mm column gap, and 3.0mm row gap',
+        'Mathematical precision fit for standard A4 portrait sheets (210mm × 297mm)',
+        'Full removal and retirement of legacy 3×4 layouts and outdated paper presets (105×49.5mm)',
+        'Expanded cutting box dimensions without QR clutter for maximum readability on shop-floor',
+        'Pure vector PDF generation calibrated to 99×44mm with zero pixelation at 100% actual size',
+      ],
+    },
     {
       version: '1.2.3',
       title: 'Floor Door QR & 12L Sticker Studio Parity & Batch Print Standard (2×6)',
