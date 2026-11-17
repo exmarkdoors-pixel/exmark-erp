@@ -19,6 +19,8 @@ import {
   Download,
   Edit3,
   MessageSquare,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { FRAME_DEDUCTION_PRESETS, FramePresetKey } from '@/lib/services/doorSizingEngine';
 import { computeStickerSizes, cmToTapeInch } from '@/lib/utils/doorStickerFormula';
@@ -405,6 +407,63 @@ export default function BatchPrintHub({
   const [doorRemarks, setDoorRemarks] = useState<Record<string, string>>({});
   const [isRemarksManagerOpen, setIsRemarksManagerOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
+  const [partyQuickRemarks, setPartyQuickRemarks] = useState<Record<string, string>>({});
+
+  const toggleOrderExpand = (orderId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setExpandedOrders((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  };
+
+  const handleApplyPartyQuickRemark = (orderId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const text = (partyQuickRemarks[orderId] || '').trim();
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+
+    setDoorRemarks((prev) => {
+      const next = { ...prev };
+      targetOrder.doorsList.forEach((door, dIdx) => {
+        for (let q = 1; q <= door.qty; q++) {
+          const uniqueKey = `${orderId}-${door.tag}-${dIdx}-${q}`;
+          const remarkKey = `${orderId}-${door.tag}-${q}`;
+          if (text) {
+            next[uniqueKey] = text;
+            next[remarkKey] = text;
+          } else {
+            delete next[uniqueKey];
+            delete next[remarkKey];
+          }
+        }
+      });
+      return next;
+    });
+
+    const totalDoors = targetOrder.doorsList.reduce((sum, d) => sum + d.qty, 0);
+    setToastMessage(
+      text
+        ? `Applied remark "${text}" to all ${totalDoors} doors of ${targetOrder.customerName}.`
+        : `Cleared remarks for all doors of ${targetOrder.customerName}.`
+    );
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleUpdateDoorRemark = (uniqueKey: string, remarkKey: string, val: string) => {
+    setDoorRemarks((prev) => {
+      const next = { ...prev };
+      if (val.trim()) {
+        next[uniqueKey] = val;
+        next[remarkKey] = val;
+      } else {
+        delete next[uniqueKey];
+        delete next[remarkKey];
+      }
+      return next;
+    });
+  };
 
   // 12L Sticker Sheet Calibration State (Exact 99x44mm Die-Cut Fit & Safe Margin Buffer)
   const [calibrationPaper, setCalibrationPaper] = useState('Standard 12L Die-Cut (99 x 44 mm)');
@@ -477,6 +536,7 @@ export default function BatchPrintHub({
             finishColor?: string;
             lockType?: string;
             handing?: string;
+            remark?: string;
           }>;
             doorCategory?: string;
         }) => ({
@@ -514,6 +574,7 @@ export default function BatchPrintHub({
               finish: d.finishColor || 'Natural Teak',
               lock: d.lockType || 'Baby Latch',
               hand: d.handing === 'LH' ? 'LH' : 'RH',
+              remark: (d.remark || '').trim(),
               finH: calc.finH,
               finTopW: calc.finTopW,
               finBtmW: calc.finBtmW,
@@ -526,6 +587,22 @@ export default function BatchPrintHub({
             };
           }),
         }));
+
+        // Seed any saved door remarks from database into doorRemarks state
+        const initialLoadedRemarks: Record<string, string> = {};
+        for (const ord of apiOrders) {
+          ord.doorsList.forEach((door, dIdx) => {
+            if (door.remark && door.remark.trim().length > 0) {
+              const uniqueKey = `${ord.id}-${door.tag}-${dIdx}-1`;
+              const remarkKey = `${ord.id}-${door.tag}-1`;
+              initialLoadedRemarks[uniqueKey] = door.remark.trim();
+              initialLoadedRemarks[remarkKey] = door.remark.trim();
+            }
+          });
+        }
+        if (Object.keys(initialLoadedRemarks).length > 0) {
+          setDoorRemarks((prev) => ({ ...initialLoadedRemarks, ...prev }));
+        }
 
         setOrders((prev) => {
           const seen = new Set(prev.map((o) => o.id));
@@ -885,45 +962,160 @@ export default function BatchPrintHub({
           ) : (
             filteredOrders.map((ord) => {
             const isChecked = selectedOrderIds.includes(ord.id);
+            const isExpanded = Boolean(expandedOrders[ord.id]);
             const doorCount = ord.doorsList.reduce((acc, d) => acc + d.qty, 0);
 
             return (
-              <div
-                key={ord.id}
-                onClick={() => toggleOrderSelection(ord.id)}
-                className={`p-4 flex items-center justify-between hover:bg-slate-800/40 transition cursor-pointer ${
-                  isChecked ? 'bg-rose-950/15' : ''
-                }`}
-              >
-                <div className="flex items-center gap-3.5">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleOrderSelection(ord.id)}
-                    className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700 focus:ring-0 cursor-pointer"
-                  />
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-bold text-white text-xs">{ord.orderNumber}</span>
-                      <span className="text-xs font-semibold text-slate-300">• {ord.customerName}</span>
-                      <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-bold">
-                        {doorCount} Total Doors
-                      </span>
+              <div key={ord.id} className={`transition ${isChecked ? 'bg-rose-950/15' : ''}`}>
+                <div
+                  onClick={() => toggleOrderSelection(ord.id)}
+                  className="p-4 flex items-center justify-between hover:bg-slate-800/40 transition cursor-pointer flex-wrap gap-2"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleOrderSelection(ord.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700 focus:ring-0 cursor-pointer"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-white text-xs">{ord.orderNumber}</span>
+                        <span className="text-xs font-semibold text-slate-300">• {ord.customerName}</span>
+                        <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-bold">
+                          {doorCount} Total Doors
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        {ord.siteName} • {ord.doorsDesc}
+                      </div>
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
-                      {ord.siteName} • {ord.doorsDesc}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={(e) => toggleOrderExpand(ord.id, e)}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                      title="View doors and customize party remarks"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{isExpanded ? 'Hide Doors & Remarks' : `Doors & Remarks (${doorCount})`}</span>
+                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+
+                    <div className="text-right min-w-[120px]">
+                      <span className={`font-bold text-xs ${isChecked ? 'text-rose-400' : 'text-slate-500'}`}>
+                        {isChecked ? '✓ Selected for Batch' : 'Not Selected'}
+                      </span>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Order Value: ₹{ord.totalAmount.toLocaleString('en-IN')}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className={`font-bold text-xs ${isChecked ? 'text-rose-400' : 'text-slate-500'}`}>
-                    {isChecked ? '✓ Selected for Batch' : 'Not Selected'}
-                  </span>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
-                    Order Value: ₹{ord.totalAmount.toLocaleString('en-IN')}
+                {/* EXPANDED PARTY DOORS & REMARKS EDITOR */}
+                {isExpanded && (
+                  <div className="p-4 pt-1 bg-[#070D1E]/90 border-t border-slate-800 space-y-3">
+                    {/* Party Quick Remark Bar */}
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="text-xs font-bold text-amber-300">
+                          Party Quick Remark ({ord.customerName}):
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 w-full sm:w-auto flex-1 sm:max-w-md">
+                        <input
+                          type="text"
+                          placeholder="e.g. Ground Floor, Urgent Site 1, Delivery Remark..."
+                          value={partyQuickRemarks[ord.id] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPartyQuickRemarks((prev) => ({ ...prev, [ord.id]: val }));
+                          }}
+                          className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-amber-200 placeholder:text-slate-600 focus:outline-none focus:border-amber-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => handleApplyPartyQuickRemark(ord.id, e)}
+                          className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-slate-950 rounded-lg text-xs font-black shadow transition cursor-pointer shrink-0"
+                        >
+                          Apply to All Doors
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Doors List with inline remark editor */}
+                    <div className="overflow-x-auto rounded-lg border border-slate-800">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#0B132B] text-slate-400 font-semibold uppercase text-[10px] border-b border-slate-800">
+                          <tr>
+                            <th className="p-2 w-12">#</th>
+                            <th className="p-2 w-20">Door Tag</th>
+                            <th className="p-2">Model &amp; Finish</th>
+                            <th className="p-2">Cutting Size (cm)</th>
+                            <th className="p-2">Hinge &amp; Lock</th>
+                            <th className="p-2">Sticker Remark (Prints on 12L &amp; 4×2)</th>
+                            <th className="p-2 w-28 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/80 bg-slate-950/40">
+                          {ord.doorsList.map((door, dIdx) => {
+                            const uniqueKey = `${ord.id}-${door.tag}-${dIdx}-1`;
+                            const remarkKey = `${ord.id}-${door.tag}-1`;
+                            const currentRemark =
+                              doorRemarks[uniqueKey] !== undefined
+                                ? doorRemarks[uniqueKey]
+                                : doorRemarks[remarkKey] !== undefined
+                                ? doorRemarks[remarkKey]
+                                : (door.remark || '');
+                            const hasActiveRemark = Boolean(currentRemark && currentRemark.trim().length > 0);
+
+                            return (
+                              <tr key={uniqueKey} className="hover:bg-slate-900/50">
+                                <td className="p-2 text-slate-500 font-mono">{dIdx + 1}</td>
+                                <td className="p-2 font-mono font-bold text-white">{door.tag}</td>
+                                <td className="p-2">
+                                  <span className="font-bold text-slate-200">{door.profile}</span>
+                                  <span className="text-[10px] text-slate-400 block">{door.finish}</span>
+                                </td>
+                                <td className="p-2 font-mono text-[11px] text-emerald-400">
+                                  {door.shutterSize}
+                                </td>
+                                <td className="p-2 text-slate-300 text-[11px]">
+                                  Hinge: <strong className="text-white">{door.hand}</strong> • Lock: {door.lock}
+                                </td>
+                                <td className="p-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Type custom remark for sticker bottom..."
+                                    value={currentRemark}
+                                    onChange={(e) => handleUpdateDoorRemark(uniqueKey, remarkKey, e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-700 text-amber-200 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-amber-400 placeholder:text-slate-600 font-medium"
+                                  />
+                                </td>
+                                <td className="p-2 text-center">
+                                  {hasActiveRemark ? (
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                      ✓ Printed
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] text-slate-500">
+                                      Blank
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             );
           })
@@ -1267,7 +1459,7 @@ export default function BatchPrintHub({
                                     height: cardHeightMm,
                                     maxHeight: cardHeightMm,
                                     boxSizing: 'border-box',
-                                    padding: safeMarginBuffer ? '2.5mm 3.5mm' : '1.5mm 2.5mm',
+                                    padding: hasRemark ? '1.8mm 2.8mm' : safeMarginBuffer ? '2.5mm 3.5mm' : '1.5mm 2.5mm',
                                     fontSize: '8px',
                                     lineHeight: 1.15,
                                     pageBreakInside: 'avoid',
@@ -1343,7 +1535,7 @@ export default function BatchPrintHub({
 
                                   {/* Line 5: STRICT CONDITIONAL REMARK CONTAINER */}
                                   {hasRemark && (
-                                    <div className="p-0.5 px-1 rounded bg-amber-50 border border-amber-400 text-amber-900 text-[6.5px] font-bold leading-tight flex items-start gap-1 max-w-full overflow-hidden">
+                                    <div className="p-0.5 px-1 rounded bg-amber-50 border border-amber-400 text-amber-900 text-[7px] font-bold leading-tight flex items-center gap-1 max-w-full overflow-hidden">
                                       <span className="text-amber-800 font-black shrink-0">REMARK:</span>
                                       <span className="truncate">{st.remark!.trim()}</span>
                                     </div>

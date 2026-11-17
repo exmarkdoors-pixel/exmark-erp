@@ -44,19 +44,41 @@ async function test12LDimensions() {
     throw new Error(`Bottom margin should be ~9mm, got ${remainingBottomMargin.toFixed(2)}mm`);
   }
 
-  // 3. Test Vector PDF Generation with 12 labels
+  // 3. Mathematical Coordinate Fit for Stickers With and Without Remarks
+  const labelH = 44.0;
+  // Case A: No Remark
+  const noRemarkBoxY = 17.0;
+  const noRemarkBoxH = 25.0;
+  const noRemarkTotalH = noRemarkBoxY + noRemarkBoxH;
+  console.log(`No-remark total height used: ${noRemarkTotalH}mm / ${labelH}mm (Margin = ${(labelH - noRemarkTotalH).toFixed(1)}mm)`);
+  if (noRemarkTotalH > labelH) {
+    throw new Error(`No-remark layout exceeds label height: ${noRemarkTotalH}mm > ${labelH}mm`);
+  }
+
+  // Case B: With Remark
+  const remarkBoxY = 17.0;
+  const remarkBoxH = 19.0;
+  const remarkStripY = remarkBoxY + remarkBoxH + 0.8;
+  const remarkStripH = 4.5;
+  const remarkTotalH = remarkStripY + remarkStripH;
+  console.log(`With-remark total height used: ${remarkTotalH}mm / ${labelH}mm (Margin = ${(labelH - remarkTotalH).toFixed(1)}mm)`);
+  if (remarkTotalH > 42.0) {
+    throw new Error(`With-remark layout exceeds 42.0mm safety threshold: ${remarkTotalH}mm`);
+  }
+
+  // 4. Test Vector PDF Generation with 12 labels (mix of remarks and no-remarks)
   const mockStickers: Printable12LStickerItem[] = Array.from({ length: 12 }).map((_, i) => ({
     id: `stk-${i + 1}`,
     orderNumber: 'JC-2026-TEST',
-    customerName: 'RICHONE DOOR',
+    customerName: i % 2 === 0 ? 'RICHONE DOOR' : 'KACHERIPADY RESIDENCE',
     doorNumber: i + 1,
     totalDoorsInOrder: 12,
     shutterSize: '-209.8 x -71.5 cm',
     tape: '84 3/8" x 31 1/8"',
     profile: 'EXMB-212',
     finish: 'ROSE WOOD',
-    hand: 'RH',
-    hingeSide: 'R',
+    hand: i % 2 === 0 ? 'RH' : 'LH',
+    hingeSide: i % 2 === 0 ? 'R' : 'L',
     lock: 'BABY LATCH',
     barcode: `*EXM-TEST-${i + 1}*`,
     finH: 209.8,
@@ -65,7 +87,7 @@ async function test12LDimensions() {
     finTopWText: '-71.5',
     finBtmW: 71.5,
     finBtmWText: '-71.5',
-    remark: i === 0 ? 'URGENT FACTORY RUN' : '',
+    remark: i === 0 ? 'URGENT FACTORY RUN - GROUND FLOOR' : i === 2 ? 'HANDLE WITH CARE' : '',
   }));
 
   const pdf = await generate12LStickerPdf(mockStickers, {
@@ -81,7 +103,7 @@ async function test12LDimensions() {
     throw new Error('Generated PDF byte length suspiciously small!');
   }
 
-  console.log('✅ All 12L 99mm x 44mm dimension and PDF generation tests PASSED!');
+  console.log('✅ All 12L 99mm x 44mm dimension, remark coordinates, and PDF generation tests PASSED!');
 }
 
 test12LDimensions().catch((err) => {

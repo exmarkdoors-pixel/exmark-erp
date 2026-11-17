@@ -1325,8 +1325,9 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                       </div>
 
                       {hasRemark && (
-                        <div className="pt-0.5 border-t border-slate-400 text-[8.5px] font-black uppercase truncate">
-                          REMARK: {row.remark.trim()}
+                        <div className="pt-0.5 border-t border-slate-400 text-[8px] font-black uppercase truncate flex items-center gap-1">
+                          <span className="text-amber-800 shrink-0 font-black">REMARK:</span>
+                          <span className="truncate">{row.remark.trim()}</span>
                         </div>
                       )}
                     </div>
@@ -1393,15 +1394,15 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                 breakInside: 'avoid',
                                 pageBreakInside: 'avoid',
                               }}
-                              className={`p-2 rounded-lg border border-slate-800 space-y-1 flex flex-col justify-between overflow-hidden ${
+                              className={`${hasRemark ? 'p-1.5 space-y-0.5' : 'p-2 space-y-1'} rounded-lg border border-slate-800 flex flex-col justify-between overflow-hidden ${
                                 useYellowPaper ? 'bg-[#fef9c3]' : 'bg-white'
                               }`}
                             >
                               {/* Row 1: PartyName (Clean Left, matching factory photo) */}
                               <div className="flex justify-between items-center gap-1.5">
                                 <div className="flex items-baseline gap-1.5 min-w-0">
-                                  <span className="text-[8.5px] text-slate-500 font-medium shrink-0">PartyName</span>
-                                  <span className="font-black text-[11px] text-slate-950 uppercase tracking-tight truncate">
+                                  <span className="text-[8px] text-slate-500 font-medium shrink-0">PartyName</span>
+                                  <span className="font-black text-[10.5px] text-slate-950 uppercase tracking-tight truncate">
                                     {order.customerName}
                                   </span>
                                 </div>
@@ -1410,63 +1411,63 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                               {/* Row 2: Model/Part + Only Door pill + Capsule Door Number */}
                               <div className="flex justify-between items-center gap-1.5">
                                 <div className="flex items-baseline gap-1.5 min-w-0">
-                                  <span className="text-[8.5px] text-slate-500 font-medium shrink-0">Model/Part</span>
-                                  <span className="font-black text-[10.5px] text-slate-950 uppercase truncate">
+                                  <span className="text-[8px] text-slate-500 font-medium shrink-0">Model/Part</span>
+                                  <span className="font-black text-[10px] text-slate-950 uppercase truncate">
                                     {row.modelName}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
                                   {isOnlyDoor && (
-                                    <span className="px-1 rounded bg-amber-300 border border-amber-700 text-[7.5px] font-black text-slate-950 uppercase">
+                                    <span className="px-1 rounded bg-amber-300 border border-amber-700 text-[7px] font-black text-slate-950 uppercase">
                                       ONLY DOOR
                                     </span>
                                   )}
-                                  <span className="px-2.5 rounded-full border border-slate-800 font-black text-[10px] text-slate-950 leading-tight">
+                                  <span className="px-2.5 rounded-full border border-slate-800 font-black text-[9.5px] text-slate-950 leading-tight">
                                     {doorIndex}
                                   </span>
                                 </div>
                               </div>
 
                               {/* Row 3: Hinge (R) • LOCK • COLOUR */}
-                              <div className="flex items-center justify-between gap-1 text-[8.5px]">
+                              <div className="flex items-center justify-between gap-1 text-[8px]">
                                 <div className="flex items-center gap-1 shrink-0">
                                   <span className="text-slate-600 font-medium">Hinge:</span>
-                                  <span className="px-2 rounded-full border border-slate-800 font-black text-[9.5px] text-slate-950">
+                                  <span className="px-1.5 rounded-full border border-slate-800 font-black text-[9px] text-slate-950">
                                     {row.hingeSide}
                                   </span>
                                 </div>
 
                                 <div className="flex items-center gap-0.5 min-w-0 border border-slate-300 rounded px-1.5 flex-1 bg-slate-50/70">
-                                  <span className="text-slate-500 text-[7.5px] font-semibold shrink-0">LOCK:</span>
+                                  <span className="text-slate-500 text-[7px] font-semibold shrink-0">LOCK:</span>
                                   <span className="font-black text-slate-950 uppercase truncate">{row.lockType}</span>
                                 </div>
 
                                 <div className="flex items-center gap-0.5 min-w-0 border border-slate-300 rounded px-1.5 flex-1 bg-slate-50/70">
-                                  <span className="text-slate-500 text-[7.5px] font-semibold shrink-0">COLOUR:</span>
+                                  <span className="text-slate-500 text-[7px] font-semibold shrink-0">COLOUR:</span>
                                   <span className="font-black text-slate-950 uppercase truncate">{row.finishColor}</span>
                                 </div>
                               </div>
 
                               {/* Row 4: Two-Column Boxed Cutting Size Grid (Full Width, matching factory reference photo) */}
                               <div className="border border-slate-800 rounded grid grid-cols-12 overflow-hidden bg-slate-50/50">
-                                <div className="col-span-6 border-r border-slate-800 px-2 py-1 flex items-center justify-between">
-                                  <span className="text-[9.5px] font-bold text-slate-700 uppercase">
+                                <div className={`col-span-6 border-r border-slate-800 px-2 ${hasRemark ? 'py-0.5' : 'py-1'} flex items-center justify-between`}>
+                                  <span className="text-[9px] font-bold text-slate-700 uppercase">
                                     {calc.hLabel}
                                   </span>
-                                  <span className="font-mono text-xs font-black text-slate-950">
+                                  <span className="font-mono text-[11.5px] font-black text-slate-950">
                                     {calc.finHText}
                                   </span>
                                 </div>
                                 <div className="col-span-6 divide-y divide-slate-800">
-                                  <div className="px-1.5 py-0.5 flex items-center justify-between">
-                                    <span className="text-[8px] font-bold text-slate-600 uppercase">TOP</span>
-                                    <span className="font-mono text-[11px] font-black text-slate-950">
+                                  <div className={`px-1.5 ${hasRemark ? 'py-0.2' : 'py-0.5'} flex items-center justify-between`}>
+                                    <span className="text-[7.5px] font-bold text-slate-600 uppercase">TOP</span>
+                                    <span className="font-mono text-[10.5px] font-black text-slate-950">
                                       {calc.finTopWText}
                                     </span>
                                   </div>
-                                  <div className="px-1.5 py-0.5 flex items-center justify-between">
-                                    <span className="text-[8px] font-bold text-slate-600 uppercase">BOTTOM</span>
-                                    <span className="font-mono text-[11px] font-black text-slate-950">
+                                  <div className={`px-1.5 ${hasRemark ? 'py-0.2' : 'py-0.5'} flex items-center justify-between`}>
+                                    <span className="text-[7.5px] font-bold text-slate-600 uppercase">BOTTOM</span>
+                                    <span className="font-mono text-[10.5px] font-black text-slate-950">
                                       {calc.finBtmWText}
                                     </span>
                                   </div>
@@ -1475,8 +1476,9 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
 
                               {/* Row 5: STRICT CONDITIONAL BOTTOM REMARK */}
                               {hasRemark && (
-                                <div className="pt-0.5 border-t border-slate-300 text-[8.5px] font-black text-slate-950 uppercase truncate">
-                                  REMARK: {row.remark.trim()}
+                                <div className="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-300 text-[8px] font-black text-slate-950 uppercase truncate leading-tight flex items-center gap-1">
+                                  <span className="text-amber-800 shrink-0 font-black">REMARK:</span>
+                                  <span className="truncate">{row.remark.trim()}</span>
                                 </div>
                               )}
                             </div>

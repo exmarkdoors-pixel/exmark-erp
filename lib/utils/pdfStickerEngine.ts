@@ -441,7 +441,7 @@ export async function generate12LStickerPdf(
     const boxX = x + 2.5;
     const boxY = y + 17.0;
     const boxW = labelWidth - 5.0; // 94.0mm
-    const boxH = hasRemark ? 19.5 : 25.0; // 25.0mm default fit inside 44mm label
+    const boxH = hasRemark ? 19.0 : 25.0; // 19.0mm when remark is present to guarantee clean 41.3mm fit inside 44mm label
 
     // Outer box border
     doc.setDrawColor(50, 60, 75);
@@ -470,54 +470,59 @@ export async function generate12LStickerPdf(
 
     // Cell 1: H-LEFT or H-RIGHT
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.2);
+    doc.setFontSize(hasRemark ? 6.8 : 7.2);
     doc.setTextColor(30, 41, 59);
-    doc.text(hSide === 'R' ? 'H-LEFT' : 'H-RIGHT', boxX + 2.5, boxY + 5.2);
+    doc.text(hSide === 'R' ? 'H-LEFT' : 'H-RIGHT', boxX + 2.5, boxY + (hasRemark ? 5.0 : 5.2));
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(hasRemark ? 10.5 : 12.0);
+    doc.setFontSize(hasRemark ? 11.0 : 12.0);
     doc.setTextColor(15, 23, 42);
-    doc.text(hCut, boxX + c1W - 3.0, boxY + (hasRemark ? 12.5 : 15.5), { align: 'right' });
+    doc.text(hCut, boxX + c1W - 3.0, boxY + (hasRemark ? 13.5 : 15.5), { align: 'right' });
 
     // Cell 2: Stacked TOP and BOTTOM width rows with horizontal center divider
-    doc.line(boxX + c1W, boxY + boxH / 2, boxX + boxW, boxY + boxH / 2);
+    const dividerY = hasRemark ? boxY + 9.0 : boxY + boxH / 2;
+    doc.line(boxX + c1W, dividerY, boxX + boxW, dividerY);
 
     // Row 1: TOP
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.0);
+    doc.setFontSize(hasRemark ? 6.8 : 7.0);
     doc.setTextColor(30, 41, 59);
-    doc.text('TOP', boxX + c1W + 3.0, boxY + (hasRemark ? 5.8 : 7.2));
+    doc.text('TOP', boxX + c1W + 3.0, boxY + (hasRemark ? 5.0 : 7.2));
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(hasRemark ? 9.5 : 10.8);
+    doc.setFontSize(hasRemark ? 9.0 : 10.8);
     doc.setTextColor(15, 23, 42);
-    doc.text(topCut, boxX + boxW - 3.0, boxY + (hasRemark ? 6.2 : 7.5), { align: 'right' });
+    doc.text(topCut, boxX + boxW - 3.0, boxY + (hasRemark ? 5.5 : 7.5), { align: 'right' });
 
     // Row 2: BOTTOM (Explicit full name matching factory photo)
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.0);
+    doc.setFontSize(hasRemark ? 6.8 : 7.0);
     doc.setTextColor(30, 41, 59);
-    doc.text('BOTTOM', boxX + c1W + 3.0, boxY + boxH / 2 + (hasRemark ? 6.0 : 7.5));
+    doc.text('BOTTOM', boxX + c1W + 3.0, dividerY + (hasRemark ? 5.0 : 7.5));
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(hasRemark ? 9.5 : 10.8);
+    doc.setFontSize(hasRemark ? 9.0 : 10.8);
     doc.setTextColor(15, 23, 42);
-    doc.text(btmCut, boxX + boxW - 3.0, boxY + boxH / 2 + (hasRemark ? 6.5 : 7.8), { align: 'right' });
+    doc.text(btmCut, boxX + boxW - 3.0, dividerY + (hasRemark ? 5.5 : 7.8), { align: 'right' });
 
     // Line 5: Conditional Remark (if non-empty)
     if (hasRemark) {
+      const remarkY = boxY + boxH + 0.8;
+      const remarkH = 4.5;
       doc.setFillColor(254, 243, 199);
       doc.setDrawColor(245, 158, 11);
-      doc.setLineWidth(0.2);
-      doc.roundedRect(boxX, boxY + boxH + 0.8, boxW, 4.8, 0.8, 0.8, 'FD');
+      doc.setLineWidth(0.25);
+      doc.roundedRect(boxX, remarkY, boxW, remarkH, 0.8, 0.8, 'FD');
 
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(180, 83, 9);
-      doc.setFontSize(5.5);
-      doc.text('REMARK:', boxX + 2.0, boxY + boxH + 3.8);
+      doc.setFontSize(6.0);
+      doc.text('REMARK:', boxX + 2.5, remarkY + 3.1);
 
+      doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 23, 42);
-      doc.text(item.remark!.trim().slice(0, 48), boxX + 15.0, boxY + boxH + 3.8);
+      doc.setFontSize(6.2);
+      doc.text(item.remark!.trim().slice(0, 60), boxX + 16.0, remarkY + 3.1);
     }
   }
 
