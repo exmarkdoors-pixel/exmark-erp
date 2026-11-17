@@ -57,11 +57,26 @@ export interface QcInspectionRecord {
   actionTaken?: string;
 }
 
+export interface DoorStageHistoryRecord {
+  stage: ProductionStage;
+  enteredAt: string;
+  gangId?: string;
+  gangName?: string;
+  operation?: string;
+  notes?: string;
+}
+
 export interface ProductionDoorItem {
   id: string;
   doorId: string; // e.g. EXM-DR-2026-1001
   doorNumber: string; // e.g. D1, Toilet 1
   model: string;
+  stage?: ProductionStage;
+  stageHistory?: DoorStageHistoryRecord[];
+  stageUpdatedAt?: string;
+  materialIssued?: boolean;
+  materialIssuedAt?: string;
+  materialIssueBatchId?: string;
   rawHeightMm: number;
   rawWidthMm: number;
   rawWidthBottomMm?: number;
@@ -730,4 +745,131 @@ export async function recallDoorsFromFloor(
   all[idx] = updated;
   writeStore(all);
   return updated;
+}
+
+export interface UpdateDoorStagesInput {
+  doorIds: string[];
+  targetStage: ProductionStage;
+  gangId?: string;
+  gangName?: string;
+  operation?: string;
+  notes?: string;
+}
+
+export async function updateDoorStages(
+  orderId: string,
+  input: UpdateDoorStagesInput
+): Promise<ProductionOrder> {
+  await assertWriteAllowed('update door stages');
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === orderId || o.jobCardNumber === orderId || o.prodOrderNumber === orderId);
+  if (idx === -1) throw new Error(`Production order ${orderId} not found`);
+
+  const order = all[idx];
+  const nowIso = new Date().toISOString();
+  const doorIdSet = new Set(input.doorIds);
+
+  const updatedDoors = order.doors.map((door) => {
+    if (doorIdSet.has(door.id) || doorIdSet.has(door.doorId)) {
+      const history = Array.isArray(door.stageHistory) ? [...door.stageHistory] : [];
+      history.push({
+        stage: input.targetStage,
+        enteredAt: nowIso,
+        gangId: input.gangId,
+        gangName: input.gangName,
+        operation: input.operation,
+        notes: input.notes,
+      });
+
+      return {
+        ...door,
+        stage: input.targetStage,
+        stageHistory: history,
+        stageUpdatedAt: nowIso,
+        ...(input.targetStage === 'MOLDING' && input.gangId
+          ? {
+              moldedByGangId: input.gangId,
+              moldedByGangName: input.gangName,
+              moldedAt: nowIso,
+              moldingNotes: input.notes ?? door.moldingNotes,
+            }
+          : {}),
+      };
+    }
+    return door;
+  });
+
+  // Calculate order-level status based on door distribution
+  const doorStages = updatedDoors.map((d) => d.stage || order.status);
+  const allCompleted = doorStages.every((s) => s === 'COMPLETED');
+  const allDelivered = doorStages.every((s) => s === 'DELIVERY' || s === 'COMPLETED');
+
+  let orderStatus = order.status;
+  if (allCompleted) {
+    orderStatus = 'COMPLETED';
+  } else if (allDelivered) {
+    orderStatus = 'DELIVERY';
+  } else if (input.targetStage === 'MOLDING' && order.status === 'QUEUED') {
+    orderStatus = 'MOLDING';
+  } else if (doorStages.some((s) => s === 'CUTTING_FINISHING') && (order.status === 'QUEUED' || order.status === 'MOLDING')) {
+    orderStatus = 'CUTTING_FINISHING';
+  } else if (doorStages.some((s) => s === 'PAINT_SECTION') && (order.status === 'QUEUED' || order.status === 'MOLDING' || order.status === 'CUTTING_FINISHING')) {
+    orderStatus = 'PAINT_SECTION';
+  }
+
+  const updatedOrder: ProductionOrder = {
+    ...order,
+    status: orderStatus,
+    doors: updatedDoors,
+    startedAt: order.startedAt || (orderStatus !== 'QUEUED' ? nowIso : null),
+    updatedAt: nowIso,
+  };
+
+  all[idx] = updatedOrder;
+  writeStore(all);
+  return updatedOrder;
+}
+
+export interface RecordDoorMaterialIssueInput {
+  doorIds: string[];
+  batchId?: string;
+  notes?: string;
+}
+
+export async function recordDoorMaterialIssue(
+  orderId: string,
+  input: RecordDoorMaterialIssueInput
+): Promise<ProductionOrder> {
+  await assertWriteAllowed('record door material issue');
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === orderId || o.jobCardNumber === orderId || o.prodOrderNumber === orderId);
+  if (idx === -1) throw new Error(`Production order ${orderId} not found`);
+
+  const order = all[idx];
+  const nowIso = new Date().toISOString();
+  const batchId = input.batchId || `ISSUE-${Date.now()}`;
+  const doorIdSet = new Set(input.doorIds);
+
+  const updatedDoors = order.doors.map((door) => {
+    if (doorIdSet.has(door.id) || doorIdSet.has(door.doorId)) {
+      return {
+        ...door,
+        materialIssued: true,
+        materialIssuedAt: nowIso,
+        materialIssueBatchId: batchId,
+      };
+    }
+    return door;
+  });
+
+  const updatedOrder: ProductionOrder = {
+    ...order,
+    boqIssuedAt: nowIso,
+    doors: updatedDoors,
+    updatedAt: nowIso,
+  };
+
+  all[idx] = updatedOrder;
+  writeStore(all);
+  return updatedOrder;
 }

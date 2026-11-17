@@ -692,23 +692,30 @@ function DoorMeasurementModalContent({
   const wBMm = toMmCalc(currentDoor.widthBottom, currentDoor.fractionWidthBottom);
 
   const avgHMm = (hLMm + hRMm) / 2;
-  const avgWMm = (wTMm + wBMm) / 2;
+  const isTaperedW = Math.abs(wTMm - wBMm) > 0.5;
 
   const totalHDeductMm = bottomFloorClearanceMm + topGapMm;
   const totalWDeductMm = (sideRebateMm * 2) + 5; // 5mm operating clearance
 
   const shutterHMm = Math.max(0, avgHMm - totalHDeductMm);
-  const shutterWMm = Math.max(0, avgWMm - totalWDeductMm);
+  const shutterWTopMm = Math.max(0, wTMm - totalWDeductMm);
+  const shutterWBtmMm = Math.max(0, wBMm - totalWDeductMm);
 
   const shutterHCm = (shutterHMm / 10).toFixed(1);
-  const shutterWCm = (shutterWMm / 10).toFixed(1);
+  const shutterWTopCm = (shutterWTopMm / 10).toFixed(1);
+  const shutterWBtmCm = (shutterWBtmMm / 10).toFixed(1);
+  const shutterWCm = isTaperedW ? `Top: ${shutterWTopCm} / Btm: ${shutterWBtmCm}` : shutterWTopCm;
 
   const shutterHInches = shutterHMm / 25.4;
-  const shutterWInches = shutterWMm / 25.4;
+  const shutterWTopInches = shutterWTopMm / 25.4;
+  const shutterWBtmInches = shutterWBtmMm / 25.4;
   const tapeH = decimalToInchWithFraction(shutterHInches);
-  const tapeW = decimalToInchWithFraction(shutterWInches);
+  const tapeWTop = decimalToInchWithFraction(shutterWTopInches);
+  const tapeWBtm = decimalToInchWithFraction(shutterWBtmInches);
   const tapeHDisplay = tapeH.fraction !== '0/8' ? `${tapeH.whole} ${tapeH.fraction}"` : `${tapeH.whole}"`;
-  const tapeWDisplay = tapeW.fraction !== '0/8' ? `${tapeW.whole} ${tapeW.fraction}"` : `${tapeW.whole}"`;
+  const tapeWTopDisplay = tapeWTop.fraction !== '0/8' ? `${tapeWTop.whole} ${tapeWTop.fraction}"` : `${tapeWTop.whole}"`;
+  const tapeWBtmDisplay = tapeWBtm.fraction !== '0/8' ? `${tapeWBtm.whole} ${tapeWBtm.fraction}"` : `${tapeWBtm.whole}"`;
+  const tapeWDisplay = isTaperedW ? `T:${tapeWTopDisplay} B:${tapeWBtmDisplay}` : tapeWTopDisplay;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
@@ -1268,9 +1275,20 @@ function DoorMeasurementModalContent({
               {/* Computed Output Box */}
               <div className="bg-emerald-950/40 border border-emerald-800/80 rounded-xl p-3 flex flex-wrap justify-between items-center gap-2">
                 <div>
-                  <div className="text-[11px] text-emerald-400 font-black tracking-wide">FINAL FACTORY SHUTTER CUTTING SIZE:</div>
-                  <div className="text-lg font-black text-white">
-                    {shutterHCm} × {shutterWCm} cm (Master CM)
+                  <div className="text-[11px] text-emerald-400 font-black tracking-wide flex items-center gap-2">
+                    <span>FINAL FACTORY SHUTTER CUTTING SIZE:</span>
+                    {isTaperedW && (
+                      <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/50 text-[9px] font-bold">
+                        ▲ TAPERED CUT (TOP ≠ BTM)
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-lg font-black text-white font-mono">
+                    {isTaperedW ? (
+                      <span>{shutterHCm} × [TOP: <strong className="text-amber-300">{shutterWTopCm}</strong> / BTM: <strong className="text-emerald-300">{shutterWBtmCm}</strong>] cm</span>
+                    ) : (
+                      <span>{shutterHCm} × {shutterWTopCm} cm (Master CM)</span>
+                    )}
                   </div>
                   <div className="text-[10px] text-slate-300 font-mono">
                     Shutter Tape: {tapeHDisplay} × {tapeWDisplay}

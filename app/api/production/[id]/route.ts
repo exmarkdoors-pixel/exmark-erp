@@ -117,6 +117,68 @@ export async function PUT(
       });
     }
 
+    if (body.action === 'UPDATE_DOOR_STAGES') {
+      const { updateDoorStages } = await import('@/lib/services/productionService');
+      const updated = await updateDoorStages(id, {
+        doorIds: body.doorIds || [],
+        targetStage: body.targetStage,
+        gangId: body.gangId,
+        gangName: body.gangName,
+        operation: body.operation,
+        notes: body.notes,
+      });
+
+      // Record piece-rate credit for only these doors if gangId is supplied and not skipped
+      let creditedCount = 0;
+      if (body.gangId && !body.skipCredit && body.operation) {
+        const { getContractorById, recordPieceRateCreditIfUnpaid } = await import('@/lib/services/contractorService');
+        const contractor = getContractorById(body.gangId);
+        if (contractor) {
+          const doorIdSet = new Set(body.doorIds || []);
+          for (const doorObj of updated.doors) {
+            if (doorIdSet.has(doorObj.id) || doorIdSet.has(doorObj.doorId)) {
+              const res = recordPieceRateCreditIfUnpaid({
+                contractorId: contractor.id,
+                orderId: updated.id,
+                orderNumber: updated.prodOrderNumber || updated.id,
+                jobCardNumber: updated.jobCardNumber,
+                doorId: doorObj.doorId || doorObj.id,
+                doorNumber: doorObj.doorNumber,
+                doorModel: doorObj.model,
+                operation: body.operation,
+                quantity: 1,
+                customRate: body.customRate,
+                notes: `${body.operation.replace(/_/g, ' ')} (${doorObj.doorNumber})`,
+                maxOrderDoorCount: updated.doors.length,
+              });
+              if (res.created) creditedCount++;
+            }
+          }
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: updated,
+        creditedCount,
+        message: `Updated ${body.doorIds?.length || 0} doors to ${body.targetStage} (${creditedCount} piece-rate credited).`,
+      });
+    }
+
+    if (body.action === 'ISSUE_DOOR_MATERIALS') {
+      const { recordDoorMaterialIssue } = await import('@/lib/services/productionService');
+      const updated = await recordDoorMaterialIssue(id, {
+        doorIds: body.doorIds || [],
+        batchId: body.batchId,
+        notes: body.notes,
+      });
+      return NextResponse.json({
+        success: true,
+        data: updated,
+        message: `Marked materials issued for ${body.doorIds?.length || 0} doors.`,
+      });
+    }
+
     if (body.action === 'ASSIGN_MOLDING_GANG') {
       const { stampDoorsMoldingGang } = await import('@/lib/services/productionService');
       const assignments = (body.doorAssignments || []).map((a: any) => ({

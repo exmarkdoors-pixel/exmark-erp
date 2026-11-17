@@ -23,7 +23,9 @@ import {
   Lock,
   Share2,
   Flame,
+  GitBranch,
 } from 'lucide-react';
+import { MultiStageDoorBatchModal } from './MultiStageDoorBatchModal';
 import type {
   ProductionOrder,
   ProductionDoorItem,
@@ -148,6 +150,7 @@ export function ProductionBoardHub() {
   const [selectedContractorWork, setSelectedContractorWork] = useState<{ order: ProductionOrder; door?: ProductionDoorItem } | null>(null);
   const [selectedLockSettingOrder, setSelectedLockSettingOrder] = useState<LockSettingOrderData | null>(null);
   const [selectedSplitBatchOrder, setSelectedSplitBatchOrder] = useState<ProductionOrder | null>(null);
+  const [batchStageModalOrder, setBatchStageModalOrder] = useState<ProductionOrder | null>(null);
   const [profitInspectOrder, setProfitInspectOrder] = useState<OrderProfitBreakdown | null>(null);
   const [isLoadingProfitModal, setIsLoadingProfitModal] = useState(false);
 
@@ -615,6 +618,48 @@ export function ProductionBoardHub() {
         </div>
       </div>
 
+      {/* FACTORY DOOR-BY-DOOR STAGE DISTRIBUTION BAR */}
+      {!isLoading && activeTab === 'BOARD' && (() => {
+        const totalDoors = activeOrders.reduce((sum, o) => sum + (o.doors?.length || o.quantity || 0), 0);
+        const stageDoors: Record<string, number> = {};
+        activeOrders.forEach((o) => {
+          o.doors?.forEach((d) => {
+            const st = d.stage || o.status || 'QUEUED';
+            stageDoors[st] = (stageDoors[st] || 0) + 1;
+          });
+        });
+        return (
+          <div className="bg-[#0B132B] border border-indigo-700/50 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse" />
+              <strong className="text-white text-xs uppercase tracking-wide">
+                Factory Door-by-Door Pipeline ({totalDoors} Total Doors):
+              </strong>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-bold">
+                Queued: <strong className="text-white">{stageDoors['QUEUED'] || 0}</strong>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-600/40 text-amber-300 font-bold">
+                Molding: <strong className="text-white">{stageDoors['MOLDING'] || 0}</strong>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-600/40 text-cyan-300 font-bold">
+                Cutting/QC: <strong className="text-white">{stageDoors['CUTTING_FINISHING'] || 0}</strong>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-600/40 text-purple-300 font-bold">
+                Painting: <strong className="text-white">{stageDoors['PAINT_SECTION'] || 0}</strong>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-teal-950/60 border border-teal-600/40 text-teal-300 font-bold">
+                Packing: <strong className="text-white">{stageDoors['PACKING'] || 0}</strong>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-blue-950/60 border border-blue-600/40 text-blue-300 font-bold">
+                Delivery/Done: <strong className="text-white">{(stageDoors['DELIVERY'] || 0) + (stageDoors['INSTALLATION'] || 0)}</strong>
+              </span>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Main Content */}
       {isLoading ? (
         <div className="p-10 text-center text-xs text-slate-400">Loading Production Floor Kanban...</div>
@@ -726,8 +771,40 @@ export function ProductionBoardHub() {
                             )}
                           </div>
 
+                          {/* Door Stage Distribution Summary */}
+                          {order.doors && order.doors.length > 1 && (() => {
+                            const stageCounts: Record<string, number> = {};
+                            order.doors.forEach((d) => {
+                              const s = d.stage || order.status || 'QUEUED';
+                              stageCounts[s] = (stageCounts[s] || 0) + 1;
+                            });
+                            const entries = Object.entries(stageCounts);
+                            return (
+                              <div className="flex flex-wrap items-center gap-1 my-1 p-1 bg-slate-900/90 rounded border border-slate-800 text-[9.5px]">
+                                <span className="text-slate-400 font-bold uppercase text-[8.5px]">Doors:</span>
+                                {entries.map(([st, cnt]) => (
+                                  <span
+                                    key={st}
+                                    className="px-1.5 py-0.2 rounded font-mono font-bold bg-slate-800 border border-slate-700 text-slate-200"
+                                  >
+                                    {cnt} {st.slice(0, 4)}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
+
                           {/* Quick Tool Strip */}
                           <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-800/70">
+                            <button
+                              type="button"
+                              onClick={() => setBatchStageModalOrder(order)}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/40 rounded text-[10px] font-bold cursor-pointer"
+                              title="Track, advance or split individual doors across Molding, Cutting, Painting, Packing"
+                            >
+                              <GitBranch className="w-3 h-3 text-indigo-400" />
+                              <span>Door Stages</span>
+                            </button>
                             <button
                               type="button"
                               onClick={() => setSelectedStickerOrder(order)}
@@ -1782,6 +1859,17 @@ export function ProductionBoardHub() {
         onOrderUpdated={(updated) => {
           setSelectedStickerOrder(updated);
           setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+        }}
+      />
+
+      <MultiStageDoorBatchModal
+        isOpen={Boolean(batchStageModalOrder)}
+        onClose={() => setBatchStageModalOrder(null)}
+        order={batchStageModalOrder}
+        onOrderUpdated={(updated) => {
+          setBatchStageModalOrder(updated);
+          setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+          notify(`Updated door stage distribution for ${updated.jobCardNumber}`);
         }}
       />
 

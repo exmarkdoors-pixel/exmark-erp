@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   FileText,
   Download,
+  RotateCcw,
 } from 'lucide-react';
 import { ProductionOrder, ProductionDoorItem } from '@/lib/services/productionService';
 import {
@@ -136,6 +137,11 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const [doorModels, setDoorModels] = useState<DoorModelOption[]>(STANDARD_DOOR_MODELS);
+  const [isSyncingQuotation, setIsSyncingQuotation] = useState<boolean>(false);
+  const [isAddModelOpen, setIsAddModelOpen] = useState<boolean>(false);
+  const [newModelCode, setNewModelCode] = useState<string>('');
+  const [newModelTitle, setNewModelTitle] = useState<string>('');
+  const [newModelCategory, setNewModelCategory] = useState<'A' | 'B' | 'C' | 'D' | 'E' | 'CUSTOM'>('A');
 
   const loadFrames = async () => {
     try {
@@ -219,6 +225,131 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
 
   const updateRow = (id: string, updates: Partial<FloorDoorRow>) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
+  };
+
+  const handleSyncFromQuotation = async () => {
+    if (!order) return;
+    setIsSyncingQuotation(true);
+    try {
+      let quote: any = null;
+      if (order.salesOrderId) {
+        const res = await fetch(`/api/quotations/${encodeURIComponent(order.salesOrderId)}`);
+        if (res.ok) {
+          const json = await res.json();
+          quote = json.data;
+        }
+      }
+      if (!quote) {
+        const res = await fetch('/api/quotations');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            quote = json.data.find(
+              (q: any) =>
+                q.quoteNumber === order.salesOrderId ||
+                q.id === order.salesOrderId ||
+                q.jobCardNumber === order.jobCardNumber ||
+                (q.customerName && order.customerName && q.customerName.toLowerCase().includes(order.customerName.toLowerCase()))
+            );
+          }
+        }
+      }
+
+      if (!quote) {
+        setSaveToast('No matching quotation found to sync.');
+        setTimeout(() => setSaveToast(null), 3500);
+        return;
+      }
+
+      const qRows: any[] = quote.itemRows || [];
+      const qItems: any[] = quote.items || [];
+      if (qRows.length === 0 && qItems.length === 0) {
+        setSaveToast('Quotation has no door item rows.');
+        setTimeout(() => setSaveToast(null), 3500);
+        return;
+      }
+
+      setRows((prev) =>
+        prev.map((r, i) => {
+          const matchedRow = qRows[i] || qRows[0] || {};
+          const matchedItem = qItems[i] || qItems[0] || {};
+          const modelObj = doorModels.find((m) => m.code === matchedRow.modelId || (m as any).id === matchedRow.modelId || m.name === matchedRow.modelId);
+          const resolvedModel =
+            matchedRow.modelCode ||
+            modelObj?.code ||
+            matchedRow.modelTitle ||
+            matchedItem.doorModel ||
+            r.modelName;
+
+          const factor = matchedRow.unit === 'inch' ? 2.54 : matchedRow.unit === 'cm' ? 1 : 0.1;
+          const hCm = matchedRow.height ? Number((matchedRow.height * factor).toFixed(2)) : r.rawHeightCm;
+          const wTopCm = matchedRow.widthTop !== undefined
+            ? Number((matchedRow.widthTop * factor).toFixed(2))
+            : matchedRow.width !== undefined
+            ? Number((matchedRow.width * factor).toFixed(2))
+            : r.rawWidthTopCm;
+          const wBtmCm = matchedRow.widthBottom !== undefined
+            ? Number((matchedRow.widthBottom * factor).toFixed(2))
+            : matchedRow.widthTop !== undefined
+            ? Number((matchedRow.widthTop * factor).toFixed(2))
+            : r.rawWidthBtmCm;
+          const linked = matchedRow.widthLinked !== undefined ? matchedRow.widthLinked : Math.abs(wTopCm - wBtmCm) < 0.05;
+
+          return {
+            ...r,
+            modelName: resolvedModel,
+            rawHeightCm: hCm,
+            rawWidthTopCm: wTopCm,
+            rawWidthBtmCm: linked ? wTopCm : wBtmCm,
+            widthLinked: linked,
+            frameTypeId: matchedRow.frameTypeId || r.frameTypeId,
+          };
+        })
+      );
+
+      setSaveToast(`✓ Synced models & measurements from Quotation (${quote.quoteNumber || quote.id})!`);
+      setTimeout(() => setSaveToast(null), 4000);
+    } catch (err) {
+      console.error('Failed to sync from quotation:', err);
+      setSaveToast('Failed to sync from quotation.');
+      setTimeout(() => setSaveToast(null), 3500);
+    } finally {
+      setIsSyncingQuotation(false);
+    }
+  };
+
+  const applyModelToAll = (modelName: string) => {
+    setRows((prev) => prev.map((r) => ({ ...r, modelName })));
+    setSaveToast(`Applied model "${modelName}" to all ${rows.length} doors.`);
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  const handleSaveNewModel = async () => {
+    const code = newModelCode.trim().toUpperCase();
+    const title = newModelTitle.trim() || `${newModelCategory} Series Door`;
+    if (!code) return;
+    try {
+      const res = await fetch('/api/door-models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          name: title,
+          category: `CAT_${newModelCategory}`,
+          defaultPrice: 7000,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setDoorModels((prev) => [...prev, json.data]);
+        applyModelToAll(code);
+      }
+      setIsAddModelOpen(false);
+      setNewModelCode('');
+      setNewModelTitle('');
+    } catch {
+      setIsAddModelOpen(false);
+    }
   };
 
   const handleAddRow = () => {
@@ -400,8 +531,12 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
           tapeInchTopW: cmToTapeInch(row.rawWidthTopCm),
           tapeInchBtmW: cmToTapeInch(row.rawWidthBtmCm),
           isTapered,
-          shutterSize: `${calc.finHText} x ${calc.finTopWText}${!row.widthLinked ? ` / ${calc.finBtmWText}` : ''} cm`,
-          tape: `${cmToTapeInch(row.rawHeightCm)} x ${cmToTapeInch(row.rawWidthTopCm)}`,
+          shutterSize: isTapered
+            ? `${calc.finHText} x [TOP: ${calc.finTopWText} / BTM: ${calc.finBtmWText}] cm`
+            : `${calc.finHText} x ${calc.finTopWText} cm`,
+          tape: isTapered
+            ? `${cmToTapeInch(row.rawHeightCm)} x [T:${cmToTapeInch(row.rawWidthTopCm)} / B:${cmToTapeInch(row.rawWidthBtmCm)}]`
+            : `${cmToTapeInch(row.rawHeightCm)} x ${cmToTapeInch(row.rawWidthTopCm)}`,
           profile: row.modelName,
           modelCode: row.modelName.split(' ')[0],
           finish: row.finishColor,
@@ -476,6 +611,17 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSyncFromQuotation}
+                disabled={isSyncingQuotation}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/50 rounded-lg text-xs font-bold transition cursor-pointer"
+                title="Re-sync model names, dimensions & hardware from the originating Quotation"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${isSyncingQuotation ? 'animate-spin' : ''}`} />
+                <span>{isSyncingQuotation ? 'Syncing...' : '🔄 Sync from Quotation'}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleAddRow}
@@ -694,14 +840,19 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
           <table className="w-full text-left text-xs border-collapse min-w-[1260px]">
               <thead>
                 <tr className="bg-[#0F172A] text-slate-200 text-[10px] font-black uppercase tracking-wider border-b border-slate-800">
-                  <th className="p-2.5 w-44">
+                  <th className="p-2.5 w-48">
                     <div className="flex items-center justify-between gap-1">
                       <span>MODEL NAME</span>
-                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[8.5px]">
-                        FETCH PDF
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddModelOpen(true)}
+                        className="px-1.5 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-[8.5px] font-black cursor-pointer"
+                        title="Add New Model to Catalog"
+                      >
+                        + Model
+                      </button>
                     </div>
-                    <span className="block text-[9px] font-normal text-slate-400 normal-case">Search Model &amp; Room / Tag</span>
+                    <span className="block text-[9px] font-normal text-slate-400 normal-case">Pick Model &amp; Room / Tag</span>
                   </th>
                   <th className="p-2.5 w-44">
                     <div className="flex items-center justify-between gap-1">
@@ -785,7 +936,29 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                             >
                               {detectCategoryFromModelCode(row.modelName).replace('CAT_', 'Cat ')}
                             </span>
+                            <button
+                              type="button"
+                              onClick={() => applyModelToAll(row.modelName)}
+                              className="px-1.5 py-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-600/40 rounded text-[9px] font-black text-amber-300 shrink-0 uppercase cursor-pointer"
+                              title="Apply this model to all doors in this job card"
+                            >
+                              All
+                            </button>
                           </div>
+                          <select
+                            value={doorModels.some((m) => m.code === row.modelName) ? row.modelName : ''}
+                            onChange={(e) => {
+                              if (e.target.value) updateRow(row.id, { modelName: e.target.value });
+                            }}
+                            className="w-full px-1.5 py-0.5 bg-slate-950 border border-slate-800 rounded text-[10px] text-slate-300 cursor-pointer"
+                          >
+                            <option value="">-- Quick Pick from Models Catalog --</option>
+                            {doorModels.map((m) => (
+                              <option key={m.code} value={m.code}>
+                                {m.code} ({m.categoryLabel || detectCategoryFromModelCode(m.code)}) - {m.name}
+                              </option>
+                            ))}
+                          </select>
                           <datalist id="floor-sticker-door-models">
                             {doorModels.map((m) => (
                               <option key={m.code} value={m.code}>
@@ -1468,6 +1641,85 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
         isOpen={isToleranceManagerOpen}
         onClose={() => setIsToleranceManagerOpen(false)}
       />
+
+      {/* INLINE ADD MODEL MODAL */}
+      {isAddModelOpen && (
+        <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-xs print:hidden">
+          <div className="bg-[#111827] border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+                <span>Add New Door Model &amp; Sync to Studio</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddModelOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Model Code *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. EXM-A-125 or EXN-A-101"
+                  value={newModelCode}
+                  onChange={(e) => setNewModelCode(e.target.value.toUpperCase())}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono font-bold uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Category</label>
+                <select
+                  value={newModelCategory}
+                  onChange={(e) => setNewModelCategory(e.target.value as any)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-bold cursor-pointer"
+                >
+                  <option value="A">Category A (Classic Molded)</option>
+                  <option value="B">Category B (Designer 4-Panel)</option>
+                  <option value="C">Category C (Deep Carved)</option>
+                  <option value="D">Category D (Minimalist Oak)</option>
+                  <option value="E">Category E (Ultra Luxury Villa)</option>
+                  <option value="CUSTOM">Custom Category</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Model Title / Finish Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Natural Teak Premium Classic Molded"
+                  value={newModelTitle}
+                  onChange={(e) => setNewModelTitle(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-medium"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsAddModelOpen(false)}
+                className="px-3 py-1.5 text-xs text-slate-400 hover:text-white rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveNewModel}
+                disabled={!newModelCode.trim()}
+                className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold text-xs shadow cursor-pointer disabled:opacity-50"
+              >
+                Save &amp; Apply to All Doors
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Scoped Print Isolation & Top-Left Sheet Alignment for 12L / 4"x2" Thermal */}
       <style jsx global>{`

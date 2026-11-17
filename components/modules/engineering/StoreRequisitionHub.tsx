@@ -37,6 +37,7 @@ import {
 } from '@/lib/utils/boqFormulaEngine';
 import type { BoqExtraItem, ExtraBoqItemCategory } from '@/lib/services/boqExtraItemsService';
 import type { LockReadinessRecord, LockReadinessStatus } from '@/lib/services/boqLockReadinessService';
+import { DailyStoreIssueSlipModal } from './DailyStoreIssueSlipModal';
 
 interface StoreRequisitionHubProps {
   initialOrderId?: string;
@@ -77,6 +78,8 @@ interface ProductionRequisitionOrder {
 }
 
 interface ApiProductionDoor {
+  id?: string;
+  doorId?: string;
   doorNumber?: string;
   rawHeightCm?: number;
   rawWidthTopCm?: number;
@@ -88,6 +91,9 @@ interface ApiProductionDoor {
   lockId?: string;
   lockType?: string;
   handing?: 'LH' | 'RH';
+  stage?: string;
+  materialIssued?: boolean;
+  materialIssuedAt?: string;
 }
 
 interface ApiProductionOrder {
@@ -124,6 +130,8 @@ export default function StoreRequisitionHub({
   const [orders, setOrders] = useState<ProductionRequisitionOrder[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string>(initialOrderId || '');
   const [orderHistoryFilter, setOrderHistoryFilter] = useState<'ALL' | 'PENDING' | 'ISSUED'>('ALL');
+  const [selectedDoorIds, setSelectedDoorIds] = useState<string[]>([]);
+  const [isDailyIssueSlipOpen, setIsDailyIssueSlipOpen] = useState<boolean>(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [isRatesModalOpen, setIsRatesModalOpen] = useState<boolean>(false);
   const [isBatchBoqMode, setIsBatchBoqMode] = useState<boolean>(false);
@@ -211,6 +219,8 @@ export default function StoreRequisitionHub({
                   ? d.finishedHeightMm / 10
                   : 210;
               return {
+                id: d.id,
+                doorId: d.doorId || `EXM-DR-${dIdx + 1}`,
                 doorNumber: d.doorNumber || `D-${dIdx + 1}`,
                 widthCm,
                 heightCm,
@@ -221,6 +231,9 @@ export default function StoreRequisitionHub({
                 lockType: d.lockType || 'Baby Latch Black',
                 handing: d.handing || 'RH',
                 quantity: 1,
+                stage: d.stage || p.status || 'QUEUED',
+                materialIssued: Boolean(d.materialIssued),
+                materialIssuedAt: d.materialIssuedAt,
               };
             });
 
@@ -623,8 +636,17 @@ export default function StoreRequisitionHub({
         };
       });
     }
+    if (!isBatchBoqMode && selectedOrder && selectedDoorIds.length > 0) {
+      const filtered = selectedOrder.doors.filter(
+        (d) =>
+          selectedDoorIds.includes(d.id || '') ||
+          selectedDoorIds.includes(d.doorId || '') ||
+          selectedDoorIds.includes(d.doorNumber || '')
+      );
+      if (filtered.length > 0) return filtered;
+    }
     return activeOrders.flatMap((o) => o.doors);
-  }, [isCustomCalcMode, customRows, framesCatalog, activeOrders]);
+  }, [isCustomCalcMode, customRows, framesCatalog, activeOrders, isBatchBoqMode, selectedOrder, selectedDoorIds]);
 
   const activeBatchKey = useMemo(() => {
     if (isCustomCalcMode) return 'CUSTOM_SIMULATOR';
@@ -1044,28 +1066,171 @@ export default function StoreRequisitionHub({
               </select>
 
               {selectedOrder && (
-                selectedOrder.boqIssuedAt ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>BOQ Issued ({selectedOrder.boqIssuedAt.slice(0, 10)})</span>
-                  </span>
-                ) : (
+                <>
                   <button
                     type="button"
-                    disabled={markingBoqIssued}
-                    onClick={handleMarkBoqIssued}
-                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow cursor-pointer disabled:opacity-50"
-                    title="Move this order into Already Issued BOQ History once materials are handed out"
+                    onClick={() => setIsDailyIssueSlipOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black shadow cursor-pointer transition"
+                    title="Print Daily Store Material Issue Voucher for today's selected batch of doors"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>{markingBoqIssued ? 'Marking...' : '✓ Mark BOQ Issued'}</span>
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Daily Issue Slip ({activeDoors.length} Doors)</span>
                   </button>
-                )
+
+                  {selectedOrder.boqIssuedAt ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>BOQ Issued ({selectedOrder.boqIssuedAt.slice(0, 10)})</span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={markingBoqIssued}
+                      onClick={handleMarkBoqIssued}
+                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow cursor-pointer disabled:opacity-50"
+                      title="Move this order into Already Issued BOQ History once materials are handed out"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{markingBoqIssued ? 'Marking...' : '✓ Mark Entire BOQ Issued'}</span>
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}
         </div>
       </div>
+
+      {/* DAILY PARTIAL DOOR SLICER (FOR PROGRESSIVE STAGES & DAILY MATERIAL LIMITS) */}
+      {!isBatchBoqMode && !isCustomCalcMode && !isConsumablesMode && selectedOrder && selectedOrder.doors.length > 0 && (
+        <div className="bg-[#0B132B] border border-amber-500/40 rounded-xl p-3.5 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+              <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                Daily Door Slicer &amp; Heat Material Planning (ഇന്നത്തെ ബാച്ച് പ്ലാനിംഗ്)
+              </h4>
+              <span className="text-[10px] text-amber-300 font-bold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-600/40">
+                Selected: {activeDoors.length} of {selectedOrder.doors.length} Doors ({Math.round((activeDoors.length / selectedOrder.doors.length) * 100)}%)
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setSelectedDoorIds([])}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition ${
+                  selectedDoorIds.length === 0
+                    ? 'bg-amber-500 text-slate-950 font-black'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                }`}
+              >
+                All Doors ({selectedOrder.doors.length})
+              </button>
+              {selectedOrder.doors.length >= 4 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const four = selectedOrder.doors.slice(0, 4).map((d) => d.id || d.doorId || d.doorNumber || '');
+                    setSelectedDoorIds(four);
+                  }}
+                  className="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 cursor-pointer"
+                >
+                  🔥 Today&apos;s 4 Doors
+                </button>
+              )}
+              {selectedOrder.doors.length >= 6 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const six = selectedOrder.doors.slice(0, 6).map((d) => d.id || d.doorId || d.doorNumber || '');
+                    setSelectedDoorIds(six);
+                  }}
+                  className="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 cursor-pointer"
+                >
+                  🔥 Today&apos;s 6 Doors
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const pending = selectedOrder.doors
+                    .filter((d) => !d.materialIssued)
+                    .map((d) => d.id || d.doorId || d.doorNumber || '');
+                  setSelectedDoorIds(pending);
+                }}
+                className="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-rose-300 border border-rose-500/30 cursor-pointer"
+              >
+                ⏳ Pending Material Issue Only
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsDailyIssueSlipOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-black shadow cursor-pointer transition"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Daily Store Issue Slip ({activeDoors.length})</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Door Chips Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+            {selectedOrder.doors.map((door, dIdx) => {
+              const dKey = door.id || door.doorId || door.doorNumber || `door-${dIdx}`;
+              const isSelected = selectedDoorIds.length === 0 || selectedDoorIds.includes(dKey);
+              return (
+                <label
+                  key={dKey}
+                  className={`flex items-start gap-2 p-2 rounded-lg border text-xs cursor-pointer transition ${
+                    isSelected
+                      ? 'bg-amber-950/40 border-amber-500/60 text-white'
+                      : 'bg-slate-900/60 border-slate-800 text-slate-400 opacity-60'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => {
+                      if (selectedDoorIds.length === 0) {
+                        const allKeys = selectedOrder.doors.map((d) => d.id || d.doorId || d.doorNumber || '');
+                        setSelectedDoorIds(allKeys.filter((k) => k !== dKey));
+                      } else if (selectedDoorIds.includes(dKey)) {
+                        setSelectedDoorIds(selectedDoorIds.filter((k) => k !== dKey));
+                      } else {
+                        setSelectedDoorIds([...selectedDoorIds, dKey]);
+                      }
+                    }}
+                    className="mt-0.5 rounded text-amber-500 bg-slate-950 border-slate-700 cursor-pointer"
+                  />
+                  <div className="min-w-0">
+                    <strong className="block text-[11px] truncate text-slate-200">
+                      {door.doorNumber || `Door #${dIdx + 1}`}
+                    </strong>
+                    <span className="block text-[10px] text-slate-400 font-mono">
+                      {door.widthCm}&times;{door.heightCm} cm
+                    </span>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="px-1 py-0.2 rounded bg-slate-800 text-[9px] font-bold text-slate-300">
+                        {door.stage || 'QUEUED'}
+                      </span>
+                      {door.materialIssued ? (
+                        <span className="px-1 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-700/50 text-[8.5px] font-black">
+                          ✓ Issued
+                        </span>
+                      ) : (
+                        <span className="px-1 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-700/50 text-[8.5px] font-bold">
+                          ⏳ Pending
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* FLOOR & EVENING CONSUMABLES REGISTER (STANDALONE EXTRA MATERIALS) */}
       {isConsumablesMode && (
@@ -3735,6 +3900,41 @@ export default function StoreRequisitionHub({
               if (json.success && Array.isArray(json.data)) setExtraItems(json.data);
             })
             .catch(() => {});
+        }}
+      />
+
+      <DailyStoreIssueSlipModal
+        isOpen={isDailyIssueSlipOpen}
+        onClose={() => setIsDailyIssueSlipOpen(false)}
+        order={
+          selectedOrder
+            ? {
+                id: selectedOrder.id,
+                prodOrderId: selectedOrder.prodOrderId,
+                jobCardNumber: selectedOrder.jobCardNumber,
+                customerName: selectedOrder.customerName,
+                siteName: selectedOrder.siteName,
+                doorsCount: selectedOrder.doorsCount,
+              }
+            : null
+        }
+        selectedDoors={activeDoors}
+        boq={boq}
+        ratesConfig={ratesConfig}
+        onIssued={(issuedIds) => {
+          setOrders((prev) =>
+            prev.map((ord) => {
+              if (ord.prodOrderId === selectedOrder?.prodOrderId) {
+                const updatedDoors = ord.doors.map((d) =>
+                  issuedIds.includes(d.id || '') || issuedIds.includes(d.doorId || '')
+                    ? { ...d, materialIssued: true, materialIssuedAt: new Date().toISOString() }
+                    : d
+                );
+                return { ...ord, doors: updatedDoors };
+              }
+              return ord;
+            })
+          );
         }}
       />
     </div>

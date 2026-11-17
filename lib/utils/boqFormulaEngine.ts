@@ -225,6 +225,8 @@ export const DEFAULT_BOQ_MATERIAL_RATES: BoqMaterialRatesConfig = {
 };
 
 export interface BoqDoorInput {
+  id?: string;
+  doorId?: string;
   doorNumber?: string;
   widthCm?: number;
   heightCm?: number;
@@ -238,6 +240,9 @@ export interface BoqDoorInput {
   lockType?: string;
   handing?: 'LH' | 'RH';
   quantity?: number;
+  stage?: string;
+  materialIssued?: boolean;
+  materialIssuedAt?: string;
 }
 
 export interface LockBoxBreakdown {

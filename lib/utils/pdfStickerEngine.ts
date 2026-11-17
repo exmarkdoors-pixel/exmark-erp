@@ -485,9 +485,9 @@ export async function generate12LStickerPdf(
       const finTopWNum = cleanNum(item.finTopW) || cleanNum(item.finTopWText) || (item.widthMm ? item.widthMm / 10 : 82.4);
       const finBtmWNum = cleanNum(item.finBtmW) || cleanNum(item.finBtmWText) || finTopWNum;
 
-      const hCut = `-${finHNum > 0 ? finHNum.toFixed(1) : '205.5'}`;
-      const topCut = `-${finTopWNum > 0 ? finTopWNum.toFixed(1) : '82.4'}`;
-      const btmCut = `-${finBtmWNum > 0 ? finBtmWNum.toFixed(1) : finTopWNum.toFixed(1)}`;
+      const hCut = `${finHNum > 0 ? finHNum.toFixed(1) : '205.5'}`;
+      const topCut = `${finTopWNum > 0 ? finTopWNum.toFixed(1) : '82.4'}`;
+      const btmCut = `${finBtmWNum > 0 ? finBtmWNum.toFixed(1) : finTopWNum.toFixed(1)}`;
 
       // Cell 1: H-LEFT or H-RIGHT
       doc.setFont('helvetica', 'bold');

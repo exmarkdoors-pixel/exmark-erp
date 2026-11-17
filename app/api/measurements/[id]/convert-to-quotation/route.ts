@@ -52,19 +52,23 @@ export async function POST(
 
       // Ensure mm dimensions for factory production
       let hMm = door.heightLeft || 2100;
-      let wMm = door.widthTop || 900;
+      let wTopMm = door.widthTop || 900;
+      let wBtmMm = door.widthBottom || door.widthTop || 900;
       const unit = door.measurementUnit || 'CM';
 
       if (unit === 'INCH') {
         hMm = hMm * 25.4;
-        wMm = wMm * 25.4;
+        wTopMm = wTopMm * 25.4;
+        wBtmMm = wBtmMm * 25.4;
       } else if (unit === 'CM') {
         hMm = hMm * 10;
-        wMm = wMm * 10;
+        wTopMm = wTopMm * 10;
+        wBtmMm = wBtmMm * 10;
       }
 
       if (!calculatedSqFt || calculatedSqFt <= 0) {
-        calculatedSqFt = Number(((hMm * wMm) / 92903.04).toFixed(2));
+        const avgWMm = (wTopMm + wBtmMm) / 2;
+        calculatedSqFt = Number(((hMm * avgWMm) / 92903.04).toFixed(2));
       }
 
       if (pricingStrategy === 'PER_SQFT') {
@@ -84,7 +88,8 @@ export async function POST(
         doorCategory: (door.categoryName?.toUpperCase().includes('WPC') ? 'WPC_DOORS' : 'FRP_DOORS') as 'FRP_DOORS' | 'WPC_DOORS',
         doorModel: `${door.doorNumber}: ${door.model} (${door.colour || 'Natural Teak'})`,
         heightMm: Math.round(hMm),
-        widthMm: Math.round(wMm),
+        widthMm: Math.round(wTopMm),
+        widthBottomMm: Math.round(wBtmMm),
         thicknessMm: 32,
         finishColor: door.colour || 'Natural Teak (EXGC-510)',
         quantity: qty,

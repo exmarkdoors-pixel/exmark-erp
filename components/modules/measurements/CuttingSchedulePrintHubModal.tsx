@@ -438,6 +438,16 @@ export function CuttingSchedulePrintHubModal({
 
       const printableItems = currentParty.doors.map((d, idx) => {
         const c = calcDoorSizes(d);
+        const isTapered = Math.abs(c.finTopW - c.finBtmW) > 0.05 || (!d.widthLinked && Math.abs(d.rawWidthTopCm - d.rawWidthBtmCm) > 0.05);
+        const topTape = cmToTapeInch(d.rawWidthTopCm);
+        const btmTape = cmToTapeInch(d.rawWidthBtmCm);
+        const shutterSize = isTapered
+          ? `${c.finH} x [TOP: ${c.finTopW} / BTM: ${c.finBtmW}] cm`
+          : `${c.finH} x ${c.finTopW} cm`;
+        const tape = isTapered
+          ? `${cmToTapeInch(d.rawHeightCm)} x [T:${topTape} / B:${btmTape}]`
+          : `${cmToTapeInch(d.rawHeightCm)} x ${topTape}`;
+
         return {
           id: d.id,
           orderNumber: currentParty.jobCardNumber || 'JC-2026-101',
@@ -446,8 +456,8 @@ export function CuttingSchedulePrintHubModal({
           siteName: currentParty.siteLocation,
           doorNumber: idx + 1,
           totalDoorsInOrder: currentParty.doors.length,
-          shutterSize: `${c.finH} x ${c.finTopW}`,
-          tape: `${c.finHText} / ${c.finTopWText}`,
+          shutterSize,
+          tape,
           profile: d.modelName,
           finish: d.finishShade || d.finishCategory,
           hand: d.hingeSide,
@@ -461,6 +471,10 @@ export function CuttingSchedulePrintHubModal({
           rawHeightCm: d.rawHeightCm,
           rawWidthTopCm: d.rawWidthTopCm,
           rawWidthBtmCm: d.rawWidthBtmCm,
+          tapeInchH: cmToTapeInch(d.rawHeightCm),
+          tapeInchTopW: topTape,
+          tapeInchBtmW: btmTape,
+          isTapered,
           finH: c.finH,
           finTopW: c.finTopW,
           finBtmW: c.finBtmW,
@@ -2204,13 +2218,27 @@ export function CuttingSchedulePrintHubModal({
                                           <div className="col-span-5 border-r border-slate-400 p-1 font-mono">
                                             <div className="font-sans font-bold text-[8px] text-slate-600 border-b pb-0.5">OPENING</div>
                                             <div className="pt-0.5 font-bold">H: {d.rawHeightCm}</div>
-                                            <div className="font-bold">W: {d.rawWidthTopCm}</div>
+                                            {Math.abs(d.rawWidthTopCm - d.rawWidthBtmCm) > 0.05 ? (
+                                              <>
+                                                <div className="font-bold text-amber-900">TOP: {d.rawWidthTopCm}</div>
+                                                <div className="font-bold text-amber-900">BTM: {d.rawWidthBtmCm}</div>
+                                              </>
+                                            ) : (
+                                              <div className="font-bold">W: {d.rawWidthTopCm}</div>
+                                            )}
                                           </div>
 
                                           <div className="col-span-5 border-r border-slate-400 p-1 font-mono bg-emerald-50/40">
                                             <div className="font-sans font-bold text-[8px] text-indigo-900 border-b pb-0.5">PACKED</div>
                                             <div className="pt-0.5 font-black text-indigo-950">~{c.finH}cm</div>
-                                            <div className="font-black text-indigo-950">~{c.finTopW}cm</div>
+                                            {Math.abs(c.finTopW - c.finBtmW) > 0.05 ? (
+                                              <>
+                                                <div className="font-black text-indigo-950">TOP: ~{c.finTopW}cm</div>
+                                                <div className="font-black text-indigo-950">BTM: ~{c.finBtmW}cm</div>
+                                              </>
+                                            ) : (
+                                              <div className="font-black text-indigo-950">~{c.finTopW}cm</div>
+                                            )}
                                           </div>
 
                                           <div className="col-span-2 p-0.5 flex flex-col items-center justify-center bg-white text-center">
@@ -2266,9 +2294,15 @@ export function CuttingSchedulePrintHubModal({
                                   <div className="text-[10px] text-slate-500">{d.roomTag}</div>
                                 </td>
                                 <td className="p-1.5">{c.frame.name}</td>
-                                <td className="p-1.5 font-mono">{cmToTapeInch(d.rawHeightCm)} × {cmToTapeInch(d.rawWidthTopCm)}</td>
-                                <td className="p-1.5 font-mono">{d.rawHeightCm} × {d.rawWidthTopCm} cm</td>
-                                <td className="p-1.5 font-mono font-black text-emerald-900">~{c.finH} × ~{c.finTopW} cm</td>
+                                <td className="p-1.5 font-mono">
+                                  {cmToTapeInch(d.rawHeightCm)} × {Math.abs(d.rawWidthTopCm - d.rawWidthBtmCm) > 0.05 ? `[T:${cmToTapeInch(d.rawWidthTopCm)} / B:${cmToTapeInch(d.rawWidthBtmCm)}]` : cmToTapeInch(d.rawWidthTopCm)}
+                                </td>
+                                <td className="p-1.5 font-mono">
+                                  {d.rawHeightCm} × {Math.abs(d.rawWidthTopCm - d.rawWidthBtmCm) > 0.05 ? `[T:${d.rawWidthTopCm} / B:${d.rawWidthBtmCm}]` : d.rawWidthTopCm} cm
+                                </td>
+                                <td className="p-1.5 font-mono font-black text-emerald-900">
+                                  ~{c.finH} × {Math.abs(c.finTopW - c.finBtmW) > 0.05 ? `[T:~${c.finTopW} / B:~${c.finBtmW}]` : `~${c.finTopW}`} cm
+                                </td>
                                 <td className="p-1.5">{d.hingeSide} | {d.lockSubLabel}</td>
                                 <td className="p-1.5">{d.finishShade}</td>
                                 <td className="p-1.5 text-[10px]">{d.stickerRemark}</td>
@@ -2312,7 +2346,9 @@ export function CuttingSchedulePrintHubModal({
                                   <strong>{d.roomTag}</strong>
                                   <div className="text-[10px] text-slate-500">{d.modelName} ({d.finishShade})</div>
                                 </td>
-                                <td className="p-1.5 font-mono font-black text-emerald-900">~{c.finH} × ~{c.finTopW} cm</td>
+                                <td className="p-1.5 font-mono font-black text-emerald-900">
+                                  ~{c.finH} × {Math.abs(c.finTopW - c.finBtmW) > 0.05 ? `[T:~${c.finTopW} / B:~${c.finBtmW}]` : `~${c.finTopW}`} cm
+                                </td>
                                 <td className="p-1.5">{d.hingeSide} ({c.hLabel}) | {d.lockSubLabel}</td>
                                 <td className="p-1.5 text-center">☐ Thickness<br />☐ Squareness</td>
                                 <td className="p-1.5 text-center">☐ Laminate<br />☐ Lock Slot</td>

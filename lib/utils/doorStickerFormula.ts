@@ -58,6 +58,7 @@ export interface StickerSizeResult {
   finTopWText: string;
   finBtmWText: string;
   hLabel: 'H-LEFT' | 'H-RIGHT';
+  isTapered: boolean;
 }
 
 function roundTenthConservative(val: number): number {
@@ -68,8 +69,7 @@ function roundTenthConservative(val: number): number {
 /**
  * Computes 12L Sticker finished dimensions using Chowkhat Frame CM deductions.
  * Rounds to 1 decimal place cleanly (exact .05 halves round conservatively downward for fitting clearance).
- * Example (Mini Type 40x25mm: hDeductionCm = 4.5, wDeductionCm = 7.6):
- *   Raw 225.59 x T:77.15 / B:78.11 -> -221.1, TOP: -69.5, BTM: -70.5
+ * Preserves distinct Top and Bottom width measurements (e.g. Top 80cm, Btm 81cm).
  */
 export function computeStickerSizes(input: StickerSizeInput): StickerSizeResult {
   const hMinus = Math.max(0, Number((input.hDeductionCm - (input.extraHAdjCm || 0)).toFixed(2)));
@@ -77,8 +77,20 @@ export function computeStickerSizes(input: StickerSizeInput): StickerSizeResult 
 
   const finH = roundTenthConservative(input.rawHeightCm - hMinus);
   const finTopW = roundTenthConservative(input.rawWidthTopCm - wMinus);
-  const rawBtm = input.widthLinked ? input.rawWidthTopCm : input.rawWidthBtmCm;
+  
+  // If rawWidthBtmCm is distinct from rawWidthTopCm, always respect the distinct bottom width
+  const hasDistinctBtm =
+    typeof input.rawWidthBtmCm === 'number' &&
+    input.rawWidthBtmCm > 0 &&
+    Math.abs(input.rawWidthTopCm - input.rawWidthBtmCm) > 0.05;
+
+  const rawBtm =
+    (!input.widthLinked || hasDistinctBtm) && (input.rawWidthBtmCm && input.rawWidthBtmCm > 0)
+      ? input.rawWidthBtmCm
+      : input.rawWidthTopCm;
+
   const finBtmW = roundTenthConservative(rawBtm - wMinus);
+  const isTapered = Math.abs(finTopW - finBtmW) > 0.05;
 
   // Workshop convention: Hinge R -> H-LEFT label on sticker, Hinge L -> H-RIGHT label
   const hLabel = input.hingeSide === 'L' ? 'H-RIGHT' : 'H-LEFT';
@@ -89,9 +101,10 @@ export function computeStickerSizes(input: StickerSizeInput): StickerSizeResult 
     finH,
     finTopW,
     finBtmW,
-    finHText: `-${finH.toFixed(1)}`,
-    finTopWText: `-${finTopW.toFixed(1)}`,
-    finBtmWText: `-${finBtmW.toFixed(1)}`,
+    finHText: finH.toFixed(1),
+    finTopWText: finTopW.toFixed(1),
+    finBtmWText: finBtmW.toFixed(1),
     hLabel,
+    isTapered,
   };
 }

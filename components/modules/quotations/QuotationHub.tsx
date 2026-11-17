@@ -664,11 +664,11 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           const rawItem = q.items && q.items[rIdx];
           const modelObj = doorModels.find((m) => m.id === r.modelId || m.code === r.modelId);
           const modelCode =
-            rawItem?.doorModel ||
             r.modelCode ||
-            r.modelTitle ||
             modelObj?.code ||
+            r.modelTitle ||
             modelObj?.title ||
+            rawItem?.doorModel ||
             r.modelId ||
             'EXM-A-101';
           const activeLocksPool =
@@ -1947,6 +1947,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           doorModel: modelObj?.code || r.modelCode || r.modelTitle || modelObj?.title || r.modelId || 'EXM-A-101',
           heightMm: Math.round((Number(r.height) || 210) * factor),
           widthMm: Math.round((Number(r.widthTop ?? r.width) || 80) * factor),
+          widthBottomMm: Math.round((Number(r.widthBottom ?? r.widthTop ?? r.width) || 80) * factor),
           thicknessMm: 32,
           finishColor: modelObj?.finish || undefined,
           quantity: qtyNum,
@@ -6104,8 +6105,8 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             frameTypeId: d.frameType || 'WPC',
             rawHeightCm: d.measurementUnit === 'INCH' ? (d.heightLeft * 2.54) : d.measurementUnit === 'MM' ? (d.heightLeft / 10) : d.heightLeft,
             rawWidthTopCm: d.measurementUnit === 'INCH' ? (d.widthTop * 2.54) : d.measurementUnit === 'MM' ? (d.widthTop / 10) : d.widthTop,
-            rawWidthBtmCm: d.measurementUnit === 'INCH' ? (d.widthBottom * 2.54) : d.measurementUnit === 'MM' ? (d.widthBottom / 10) : d.widthBottom,
-            widthLinked: true,
+            rawWidthBtmCm: d.measurementUnit === 'INCH' ? ((d.widthBottom ?? d.widthTop) * 2.54) : d.measurementUnit === 'MM' ? ((d.widthBottom ?? d.widthTop) / 10) : (d.widthBottom ?? d.widthTop),
+            widthLinked: Math.abs((d.widthTop || 0) - (d.widthBottom ?? d.widthTop ?? 0)) < 0.05,
             extraHAdjCm: 0,
             extraWAdjCm: 0,
             lockCategory: d.lockType || 'Standard',
