@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import { X, ReceiptIndianRupee, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Payment, PaymentMode, Invoice } from '@/types/finance';
 
@@ -44,7 +45,7 @@ export function PaymentReceiptModal({ isOpen, onClose, onSaved, invoices }: Paym
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/finance/payments', {
+      const res = await apiFetch('/api/finance/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

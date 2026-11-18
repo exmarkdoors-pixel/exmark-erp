@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import {
   TrendingUp,
   Calculator,
@@ -81,7 +82,7 @@ export function BreakEvenPanel() {
         workingDays: String(workingDaysPerMonth),
         targetProfit: String(targetProfit),
       });
-      const res = await fetch(`/api/finance/break-even?${qs.toString()}`);
+      const res = await apiFetch(`/api/finance/break-even?${qs.toString()}`);
       const json = await res.json();
       if (res.ok && json.success && json.data) {
         setReport(json.data as ComprehensiveBreakEvenReport);
@@ -114,7 +115,7 @@ export function BreakEvenPanel() {
     setIsSavingOh(true);
     setError(null);
     try {
-      const res = await fetch('/api/finance/break-even', {
+      const res = await apiFetch('/api/finance/break-even', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -138,7 +139,7 @@ export function BreakEvenPanel() {
 
   const handleToggleOverhead = async (item: FixedOverheadItem) => {
     try {
-      const res = await fetch('/api/finance/break-even', {
+      const res = await apiFetch('/api/finance/break-even', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...item, active: !item.active }),
@@ -151,7 +152,7 @@ export function BreakEvenPanel() {
 
   const handleDeleteOverhead = async (id: string) => {
     try {
-      const res = await fetch(`/api/finance/break-even?id=${encodeURIComponent(id)}`, {
+      const res = await apiFetch(`/api/finance/break-even?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -165,7 +166,7 @@ export function BreakEvenPanel() {
 
   const handleLoadSampleOverheads = async () => {
     try {
-      const res = await fetch('/api/finance/break-even', {
+      const res = await apiFetch('/api/finance/break-even', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'LOAD_SAMPLE_PRESET' }),

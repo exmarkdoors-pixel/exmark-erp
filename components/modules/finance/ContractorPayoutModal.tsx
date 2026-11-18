@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import { X, Receipt, CheckCircle2, AlertCircle, ArrowUpRight, DollarSign } from 'lucide-react';
 import { Contractor, PaymentDisbursementMode, ContractorPayoutVoucher } from '@/lib/services/contractorService';
 
@@ -33,7 +34,7 @@ export function ContractorPayoutModal({ isOpen, onClose, contractor, onSaved }: 
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/contractors/payout', {
+      const res = await apiFetch('/api/contractors/payout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

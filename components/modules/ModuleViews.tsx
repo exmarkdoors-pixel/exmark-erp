@@ -1456,9 +1456,9 @@ export function AccountsGstView() {
   useEffect(() => {
     let active = true;
     Promise.all([
-      fetch('/api/finance/invoices').then((r) => r.json()),
-      fetch('/api/finance/payments').then((r) => r.json()),
-      fetch('/api/finance/targets').then((r) => r.json()),
+      apiFetch('/api/finance/invoices').then((r) => r.json()),
+      apiFetch('/api/finance/payments').then((r) => r.json()),
+      apiFetch('/api/finance/targets').then((r) => r.json()),
     ])
       .then(([invData, payData, tgtData]) => {
         if (active) {
@@ -1479,7 +1479,7 @@ export function AccountsGstView() {
   const handlePaymentSaved = (saved: Payment) => {
     setPayments((prev) => [saved, ...prev]);
     // Refresh invoices to reflect updated balances
-    fetch('/api/finance/invoices')
+    apiFetch('/api/finance/invoices')
       .then((r) => r.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data)) setInvoices(json.data);

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import {
   Sparkles,
   ShieldAlert,
@@ -53,7 +54,7 @@ export function AiFinancialStrategistPanel() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/finance/ai-strategist')
+    apiFetch('/api/finance/ai-strategist')
       .then((res) => res.json())
       .then((json) => {
         if (active && json.success && json.data) {
@@ -74,7 +75,7 @@ export function AiFinancialStrategistPanel() {
     setWhatIfParams(updatedParams);
     try {
       setIsSimulating(true);
-      const res = await fetch('/api/finance/ai-strategist', {
+      const res = await apiFetch('/api/finance/ai-strategist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedParams),

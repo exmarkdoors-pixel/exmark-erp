@@ -11,8 +11,9 @@ import RecentOrdersTable from '@/components/dashboard/RecentOrdersTable';
 import FollowUpReminders from '@/components/dashboard/FollowUpReminders';
 import QuickActionsModal from '@/components/dashboard/QuickActionsModal';
 import CorporateControlCenter from '@/components/dashboard/CorporateControlCenter';
-import { ERP_ROLES, UserRole } from '@/lib/auth/roles';
+import { ALL_ERP_MODULES, ERP_ROLES, UserRole } from '@/lib/auth/roles';
 import { apiFetch, clearAuthToken } from '@/lib/api/apiClient';
+import DailyEveningClosingModal from '@/components/modules/finance/DailyEveningClosingModal';
 
 import {
   CustomersView,
@@ -55,6 +56,7 @@ import {
   ChevronUp,
   LayoutDashboard,
   FolderOpen,
+  Calendar,
 } from 'lucide-react';
 
 const ZERO_KPI_METRICS: KpiMetric[] = [
@@ -113,6 +115,7 @@ export default function Home() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
+  const [isEveningCloseOpen, setIsEveningCloseOpen] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('Super Admin');
   const [userName, setUserName] = useState<string>('EXMARK Staff');
   const [authStatus, setAuthStatus] = useState<'checking' | 'authenticated' | 'redirecting'>('checking');
@@ -165,6 +168,10 @@ export default function Home() {
   };
 
   const effectiveAllowedModules = useMemo(() => {
+    if (userRole === 'Super Admin') {
+      const extra = allRolePermissions?.['Super Admin'] || serverPermissions || [];
+      return Array.from(new Set([...ALL_ERP_MODULES, ...extra]));
+    }
     if (allRolePermissions && allRolePermissions[userRole]) {
       return allRolePermissions[userRole];
     }
@@ -514,6 +521,19 @@ export default function Home() {
                             <span>12L Stickers</span>
                           </button>
                         )}
+                        {(userRole === 'Super Admin' ||
+                          effectiveAllowedModules.includes('finance') ||
+                          effectiveAllowedModules.includes('accounts')) && (
+                          <button
+                            type="button"
+                            onClick={() => setIsEveningCloseOpen(true)}
+                            className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-extrabold shadow-md shadow-amber-950/30 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                            title="Record Daily Evening Close (Sales, Purchases, Cash & WhatsApp Summary)"
+                          >
+                            <Calendar className="w-4 h-4" />
+                            <span>Evening Close</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -563,10 +583,22 @@ export default function Home() {
                         <button
                           onClick={() => setCurrentTab('accounts')}
                           className="px-3.5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-xl text-xs font-bold border border-amber-500/30 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                          title="In-House Floor Gang Weekly Payouts & Accounts"
+                          title="Accounts, Financial Analysis & Gang Weekly Payouts"
                         >
-                          <span>👷 Floor Gang Payouts</span>
+                          <span>💰 Accounts &amp; Finance</span>
                         </button>
+                        {(userRole === 'Super Admin' ||
+                          effectiveAllowedModules.includes('finance') ||
+                          effectiveAllowedModules.includes('accounts')) && (
+                          <button
+                            type="button"
+                            onClick={() => setIsEveningCloseOpen(true)}
+                            className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-extrabold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                            title="Record Daily Evening Close"
+                          >
+                            <span>🌆 Evening Close</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => setIsQuickActionOpen(true)}
                           className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-950/40 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
@@ -724,7 +756,30 @@ export default function Home() {
             {currentTab === 'gate-pass' && effectiveAllowedModules.includes('gate-pass') && <DispatchInstallationView />}
             {currentTab === 'dispatch' && effectiveAllowedModules.includes('dispatch') && <DispatchInstallationView />}
             {currentTab === 'installation' && effectiveAllowedModules.includes('installation') && <SiteInstallationView />}
-            {currentTab === 'mobile-field' && <MobileFieldOperationsHub />}
+            {currentTab === 'mobile-field' && (
+              <MobileFieldOperationsHub
+                authenticatedUser={
+                  actualUser
+                    ? {
+                        id: actualUser.id,
+                        name: actualUser.name,
+                        role: userRole,
+                        employeeCode: actualUser.employeeCode,
+                        mobileRole:
+                          userRole === 'Super Admin' || userRole === 'Management' || userRole === 'Plant Supervisor'
+                            ? 'MANAGER'
+                            : userRole === 'Driver'
+                            ? 'DRIVER'
+                            : userRole === 'Installation'
+                            ? 'INSTALLER'
+                            : userRole === 'Production'
+                            ? 'FLOOR'
+                            : 'FIELD_STAFF',
+                      }
+                    : undefined
+                }
+              />
+            )}
             {currentTab === 'accounts' && effectiveAllowedModules.includes('accounts') && <AccountsGstView />}
             {currentTab === 'employees' && effectiveAllowedModules.includes('employees') && (
               <EmployeesView
@@ -798,6 +853,12 @@ export default function Home() {
       <QuickActionsModal
         isOpen={isQuickActionOpen}
         onClose={() => setIsQuickActionOpen(false)}
+      />
+
+      {/* Daily Evening Closing Modal (1-Click Access from Dashboard) */}
+      <DailyEveningClosingModal
+        isOpen={isEveningCloseOpen}
+        onClose={() => setIsEveningCloseOpen(false)}
       />
     </div>
   );

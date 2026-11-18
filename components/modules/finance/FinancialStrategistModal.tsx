@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import { X, TrendingUp, Calculator, Target, CheckCircle2, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { FinancialTarget, BreakEvenAnalysis, calculateBreakEven } from '@/types/finance';
 import type { ComprehensiveBreakEvenReport } from '@/lib/services/breakEvenService';
@@ -26,7 +27,7 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
 
   useEffect(() => {
     if (!isOpen) return;
-    fetch('/api/finance/break-even')
+    apiFetch('/api/finance/break-even')
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
@@ -85,7 +86,7 @@ export function FinancialStrategistModal({ isOpen, onClose, onTargetCreated }: F
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/finance/targets', {
+      const res = await apiFetch('/api/finance/targets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -68,7 +68,8 @@ const SIMPLE_LABELS: Partial<Record<NavigationTab, string>> = {
   crm: 'CRM & Leads',
   production: 'Production Floor',
   dispatch: 'Packing & Dispatch',
-  accounts: 'Accounts & Payouts',
+  'mobile-field': 'Mobile Field Ops',
+  accounts: 'Accounts & Finance',
   settings: 'Settings & Staff',
 };
 
@@ -138,6 +139,7 @@ export default function Sidebar({
   }, []);
 
   const hasModuleAccess = (tabId: NavigationTab) => {
+    if (userRole === 'Super Admin') return true;
     if (allowedModules) {
       return allowedModules.includes(tabId);
     }
@@ -230,8 +232,12 @@ export default function Sidebar({
         {/* Navigation Items List */}
         <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-1 custom-scrollbar">
           {(() => {
+            const simpleTabsForRole: NavigationTab[] =
+              userRole === 'Super Admin'
+                ? [...SIMPLE_MODE_TABS, 'mobile-field']
+                : SIMPLE_MODE_TABS;
             const visibleItems = isSimpleMode
-              ? NAV_ITEMS.filter((item) => SIMPLE_MODE_TABS.includes(item.id) || item.id === currentTab)
+              ? NAV_ITEMS.filter((item) => simpleTabsForRole.includes(item.id) || item.id === currentTab)
               : NAV_ITEMS;
 
             return visibleItems.map((item, index) => {

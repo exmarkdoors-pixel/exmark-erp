@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import { X, Sliders, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ContractorRateCard } from '@/lib/services/contractorService';
 
@@ -19,7 +20,7 @@ export function ContractorRateCardModal({ isOpen, onClose, onSaved }: Contractor
   useEffect(() => {
     if (!isOpen) return;
     setIsLoading(true);
-    fetch('/api/contractors/rates')
+    apiFetch('/api/contractors/rates')
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
@@ -37,7 +38,7 @@ export function ContractorRateCardModal({ isOpen, onClose, onSaved }: Contractor
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/contractors/rates', {
+      const res = await apiFetch('/api/contractors/rates', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rates),

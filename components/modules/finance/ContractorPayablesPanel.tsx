@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import {
   Users,
   DollarSign,
@@ -36,7 +37,7 @@ export function ContractorPayablesPanel() {
 
   const fetchContractors = () => {
     setIsLoading(true);
-    fetch('/api/contractors')
+    apiFetch('/api/contractors')
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {

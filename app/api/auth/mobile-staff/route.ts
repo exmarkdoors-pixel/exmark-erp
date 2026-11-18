@@ -7,6 +7,7 @@ import {
 import { listDrivers } from '@/lib/services/fleetService';
 import {
   findFactoryUserByIdentifier,
+  listFactoryUsers,
   verifyFactoryUserCredentials,
 } from '@/lib/auth/userStore';
 import {
@@ -82,6 +83,37 @@ export async function GET() {
       }
     }
 
+    // Include active Super Admin accounts with full MANAGER/Command mobile access
+    let superAdminCards: Array<{
+      id: string;
+      employeeCode: string;
+      name: string;
+      role: string;
+      department: string;
+      mobileRole: 'MANAGER';
+      badgeColor: string;
+      description: string;
+      hasQuickPin: boolean;
+    }> = [];
+    try {
+      const factoryUsers = await listFactoryUsers();
+      superAdminCards = factoryUsers
+        .filter((u) => u.isActive && u.role === 'Super Admin')
+        .map((u) => ({
+          id: u.id,
+          employeeCode: u.employeeCode || u.email,
+          name: u.name,
+          role: 'Super Admin',
+          department: u.department || 'Executive Plant Command',
+          mobileRole: 'MANAGER' as const,
+          badgeColor: 'bg-red-500/20 text-red-300 border-red-500/40',
+          description: 'Unrestricted Super Admin Mobile Field Command, Site Measurements, Fleet GPS & All Floor Modes',
+          hasQuickPin: Boolean(u.hasQuickPin),
+        }));
+    } catch {
+      // Non-fatal fallback
+    }
+
     // Non-driver operational roles (Field Staff, Installer, Floor Operator, Factory Manager)
     const otherOperationalCards = OPERATIONAL_STAFF_SPECS
       .filter((spec) => spec.mobileRole !== 'DRIVER')
@@ -99,7 +131,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      staff: [...driverCards, ...otherOperationalCards],
+      staff: [...superAdminCards, ...driverCards, ...otherOperationalCards],
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Failed to load mobile staff';

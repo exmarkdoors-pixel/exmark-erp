@@ -20,44 +20,55 @@ export interface RoleConfig {
   badgeColor: string;
 }
 
+/**
+ * Canonical list of every ERP navigation tab & API permission domain.
+ * Super Admin always holds unrestricted access to all of these (and any future module).
+ */
+export const ALL_ERP_MODULES: string[] = [
+  'dashboard',
+  'customers',
+  'crm',
+  'quotations',
+  'measurements',
+  'sales-orders',
+  'sales',
+  'production',
+  'bom',
+  'quality',
+  'maintenance',
+  'job-work',
+  'batch-print',
+  'inventory',
+  'purchases',
+  'gate-pass',
+  'dispatch',
+  'installation',
+  'mobile-field',
+  'accounts',
+  'finance',
+  'daily-closing',
+  'employees',
+  'marketing',
+  'reports',
+  'settings',
+];
+
 export const ERP_ROLES: Record<UserRole, RoleConfig> = {
   'Super Admin': {
     name: 'Super Admin',
-    description: 'Unrestricted enterprise control, user security, audit logs, and plant configuration.',
-    allowedModules: [
-      'dashboard',
-      'customers',
-      'crm',
-      'quotations',
-      'sales-orders',
-      'sales',
-      'production',
-      'bom',
-      'quality',
-      'maintenance',
-      'job-work',
-      'batch-print',
-      'inventory',
-      'purchases',
-      'gate-pass',
-      'dispatch',
-      'installation',
-      'accounts',
-      'employees',
-      'marketing',
-      'reports',
-      'settings',
-    ],
+    description: 'Unrestricted enterprise control across Financial, Accounts, Evening Close, Mobile Field Ops, user security, and plant configuration.',
+    allowedModules: [...ALL_ERP_MODULES],
     badgeColor: 'bg-red-500/20 text-red-300 border-red-500/40',
   },
   Management: {
     name: 'Management',
-    description: 'Executive plant oversight, sales reports, financial metrics, and operational approvals.',
+    description: 'Executive plant oversight, sales reports, financial metrics, evening close, and operational approvals.',
     allowedModules: [
       'dashboard',
       'customers',
       'crm',
       'quotations',
+      'measurements',
       'sales-orders',
       'sales',
       'production',
@@ -71,7 +82,10 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
       'gate-pass',
       'dispatch',
       'installation',
+      'mobile-field',
       'accounts',
+      'finance',
+      'daily-closing',
       'employees',
       'reports',
     ],
@@ -109,6 +123,8 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
       'job-work',
       'gate-pass',
       'accounts',
+      'finance',
+      'daily-closing',
       'reports',
     ],
     badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
@@ -238,8 +254,10 @@ export const ERP_ROLES: Record<UserRole, RoleConfig> = {
 
 /**
  * Checks if a given role is allowed access to a specific navigation tab/module.
+ * Super Admin always has unrestricted access to every module.
  */
 export function canAccessModule(roleName: UserRole | string, moduleName: string): boolean {
+  if (roleName === 'Super Admin') return true;
   const roleConfig = ERP_ROLES[roleName as UserRole];
   if (!roleConfig) return false;
   return roleConfig.allowedModules.includes(moduleName);

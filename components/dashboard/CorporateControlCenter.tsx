@@ -313,6 +313,7 @@ export default function CorporateControlCenter({
   };
 
   const hasModuleAccess = (targetTab: NavigationTab) => {
+    if (userRole === 'Super Admin') return true;
     if (allowedModules) {
       return allowedModules.includes(targetTab);
     }

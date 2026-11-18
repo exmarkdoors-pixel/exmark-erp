@@ -144,6 +144,11 @@ export async function authorizeRequest(
     plantLocation: storedUser.plantLocation,
   };
 
+  // Super Admin has unrestricted enterprise access across all APIs, Financial, Accounts, Evening Close & Mobile Field Ops
+  if (user.role === 'Super Admin') {
+    return { user, errorResponse: null };
+  }
+
   // 9. Explicit Role allowlist check
   if (allowedRoles && allowedRoles.length > 0) {
     if (!allowedRoles.includes(user.role)) {

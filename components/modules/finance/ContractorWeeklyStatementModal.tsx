@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import { X, Printer, Send, Calendar, CheckCircle2, Building2, User, Phone, DollarSign, QrCode } from 'lucide-react';
 import { Contractor, ContractorWeeklyStatement } from '@/lib/services/contractorService';
 
@@ -43,7 +44,7 @@ export function ContractorWeeklyStatementModal({ isOpen, onClose, contractor }: 
     if (start) url += `&startDate=${start}`;
     if (end) url += `&endDate=${end}`;
 
-    fetch(url)
+    apiFetch(url)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import {
   TrendingUp,
   TrendingDown,
@@ -106,7 +107,7 @@ export function OrderProfitDetailModal({
     setIsSaving(true);
     setFormError(null);
     try {
-      const res = await fetch('/api/orders/profit', {
+      const res = await apiFetch('/api/orders/profit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -140,7 +141,7 @@ export function OrderProfitDetailModal({
 
   const handleDeleteExpense = async (exp: OrderDirectExpense) => {
     try {
-      const res = await fetch(`/api/orders/profit?id=${encodeURIComponent(exp.id)}`, {
+      const res = await apiFetch(`/api/orders/profit?id=${encodeURIComponent(exp.id)}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -632,7 +633,7 @@ export function OrderProfitPanel() {
   const loadProfitData = useCallback(async (projected: boolean) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/orders/profit?includeProjected=${projected ? 'true' : 'false'}`);
+      const res = await apiFetch(`/api/orders/profit?includeProjected=${projected ? 'true' : 'false'}`);
       const json = await res.json();
       if (res.ok && json.success && json.data) {
         setReport(json.data as OrderProfitReportResponse);

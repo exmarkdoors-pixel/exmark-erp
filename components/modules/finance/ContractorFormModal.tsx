@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import { X, Save, UserCheck, AlertCircle, Calendar } from 'lucide-react';
 import { Contractor, ContractorTrade, FloorGangScope } from '@/lib/services/contractorService';
 
@@ -122,7 +123,7 @@ export function ContractorFormModal({
         : '/api/contractors';
       const method = isEditing ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

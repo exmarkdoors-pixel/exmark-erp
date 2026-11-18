@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import {
   X,
   Upload,
@@ -99,7 +100,7 @@ export function DayBookAndExpensesModal({
 
   const loadMonthData = useCallback(async (targetMonth: string) => {
     try {
-      const res = await fetch(`/api/finance/daybook?month=${encodeURIComponent(targetMonth)}`);
+      const res = await apiFetch(`/api/finance/daybook?month=${encodeURIComponent(targetMonth)}`);
       const json = await res.json();
       if (res.ok && json.success && json.data) {
         const data = json.data as MonthlyAccountingSummary;
@@ -142,7 +143,7 @@ export function DayBookAndExpensesModal({
     setError(null);
     setIsProcessing(true);
     try {
-      const res = await fetch('/api/finance/daybook', {
+      const res = await apiFetch('/api/finance/daybook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -194,7 +195,7 @@ export function DayBookAndExpensesModal({
     setIsProcessing(true);
     setError(null);
     try {
-      const res = await fetch('/api/finance/daybook', {
+      const res = await apiFetch('/api/finance/daybook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -231,7 +232,7 @@ export function DayBookAndExpensesModal({
 
   const handleDeleteBatch = async (batchId: string) => {
     try {
-      const res = await fetch(`/api/finance/daybook?batchId=${encodeURIComponent(batchId)}`, {
+      const res = await apiFetch(`/api/finance/daybook?batchId=${encodeURIComponent(batchId)}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -246,7 +247,7 @@ export function DayBookAndExpensesModal({
 
   const handleEntryBucketChange = async (entryId: string, bucket: AccountingBucket) => {
     try {
-      const res = await fetch('/api/finance/daybook', {
+      const res = await apiFetch('/api/finance/daybook', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entryId, bucket }),
@@ -264,7 +265,7 @@ export function DayBookAndExpensesModal({
     setIsProcessing(true);
     setError(null);
     try {
-      const res = await fetch('/api/finance/daybook', {
+      const res = await apiFetch('/api/finance/daybook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -297,7 +298,7 @@ export function DayBookAndExpensesModal({
     setIsProcessing(true);
     setError(null);
     try {
-      const res = await fetch('/api/finance/daybook', {
+      const res = await apiFetch('/api/finance/daybook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

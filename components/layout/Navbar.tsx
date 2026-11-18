@@ -70,6 +70,7 @@ const RBAC_MODULE_LABELS: Array<{ id: string; name: string }> = [
   { id: 'customers', name: 'Customers & Dealers' },
   { id: 'crm', name: 'CRM & Leads Pipeline' },
   { id: 'quotations', name: 'Quotations & Estimates' },
+  { id: 'measurements', name: 'Site Measurements' },
   { id: 'sales-orders', name: 'Sales Orders Registry' },
   { id: 'sales', name: 'Sales & Returns' },
   { id: 'bom', name: 'BOM & Material Issue' },
@@ -83,7 +84,10 @@ const RBAC_MODULE_LABELS: Array<{ id: string; name: string }> = [
   { id: 'gate-pass', name: 'Gate Pass' },
   { id: 'dispatch', name: 'Dispatch & Logistics' },
   { id: 'installation', name: 'Site Installation' },
+  { id: 'mobile-field', name: 'Mobile Field Ops & GPS' },
   { id: 'accounts', name: 'Accounts & Vouchers' },
+  { id: 'finance', name: 'Financial & Evening Close' },
+  { id: 'daily-closing', name: 'Evening Close Register' },
   { id: 'employees', name: 'Employees & Roster' },
   { id: 'marketing', name: 'Marketing Campaigns' },
   { id: 'reports', name: 'Analytics & Reports' },
@@ -145,7 +149,8 @@ export default function Navbar({
         { title: 'Production Floor', subtitle: 'Kanban job cards & molding gangs', tab: 'production' },
         { title: '12L & Thermal Stickers', subtitle: 'Batch door barcode sticker printing', tab: 'batch-print' },
         { title: 'Packing & Dispatch', subtitle: 'Delivery challans & gate passes', tab: 'dispatch' },
-        { title: 'Accounts & Payouts', subtitle: 'Cashbook, advances & gang weekly payout', tab: 'accounts' },
+        { title: 'Mobile Field Ops & GPS', subtitle: 'Field measurements, floor QR & fleet GPS', tab: 'mobile-field' },
+        { title: 'Accounts, Financial & Evening Close', subtitle: 'Cashbook, BEP, AI Forecast & Daily Evening Close', tab: 'accounts' },
         { title: 'Customers & Dealers', subtitle: 'Builder & architect directory', tab: 'customers' },
         { title: 'Settings & Staff Access', subtitle: 'Company bank details, staff logins & RBAC', tab: 'settings' },
       ];
@@ -661,21 +666,23 @@ export default function Navbar({
           </button>
         )}
 
+        {/* SUPER ADMIN DIRECT ACCESS: Mobile Field App (Available in BOTH Simple Mode & Full Ops Mode) */}
+        {isMounted && isRealSuperAdmin && (
+          <a
+            href="/mobile"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 transition cursor-pointer"
+            title="Open Mobile Field App (/mobile) with Fleet GPS Monitor & Universal Measurement"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Mobile Field App</span>
+          </a>
+        )}
+
         {/* SUPER ADMIN ONLY: Role View Preview & RBAC Matrix (shown in Full Ops mode to keep Simple UI clean) */}
         {isMounted && isRealSuperAdmin && !isSimpleMode && (
           <>
-            {/* Direct Super Admin Access to Mobile Field Operations */}
-            <a
-              href="/mobile"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 transition cursor-pointer"
-              title="Open Mobile Field App (/mobile) with Fleet GPS Monitor & Universal Measurement"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Mobile Field App</span>
-            </a>
-
             <div
               className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/80 px-2.5 py-1 rounded-lg text-xs"
               title="Super Admin View Preview: inspect UI permissions as another role"
@@ -1033,7 +1040,7 @@ export default function Navbar({
 
             <div className="p-4 border-t border-slate-800 bg-[#141d33] flex justify-between items-center">
               <span className="text-[11px] text-slate-400">
-                Super Admin always retains Executive Dashboard, Employees, and Settings access.
+                Super Admin always retains unrestricted access across all ERP modules (Financial, Accounts, Evening Close, Mobile Field Ops &amp; Settings).
               </span>
               <button
                 type="button"

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getDataFilePath } from '../utils/dataPaths';
-import { ERP_ROLES, UserRole } from './roles';
+import { ALL_ERP_MODULES, ERP_ROLES, UserRole } from './roles';
 
 export interface StoredRbacPolicy {
   roles: Record<string, string[]>;
@@ -44,12 +44,19 @@ export function getRbacPermissions(): StoredRbacPolicy {
             merged[roleKey] = Array.from(new Set(parsed.roles[roleKey].map(String)));
           }
         }
-        // Super Admin must always retain core administration access so plant cannot lock itself out
-        const saSet = new Set(merged['Super Admin'] || defaults['Super Admin']);
-        saSet.add('dashboard');
-        saSet.add('settings');
-        saSet.add('employees');
+        // Super Admin ALWAYS retains unrestricted access to EVERY ERP module (Financial, Accounts, Mobile Field, Evening Close, Settings, etc.)
+        const saSet = new Set([...ALL_ERP_MODULES, ...(merged['Super Admin'] || [])]);
         merged['Super Admin'] = Array.from(saSet);
+
+        // Roles with 'accounts' automatically include 'finance' and 'daily-closing' for Evening Close compatibility
+        for (const roleKey of Object.keys(merged)) {
+          if (merged[roleKey].includes('accounts')) {
+            const roleSet = new Set(merged[roleKey]);
+            roleSet.add('finance');
+            roleSet.add('daily-closing');
+            merged[roleKey] = Array.from(roleSet);
+          }
+        }
 
         return {
           roles: merged,
@@ -71,24 +78,29 @@ export function getRbacPermissions(): StoredRbacPolicy {
 /**
  * Resolves effective allowed modules for a user, honoring an explicit per-user
  * module override when present or falling back to persisted Role permissions.
+ * Super Admin ALWAYS receives every module unconditionally.
  */
 export function resolveEffectiveModules(
   roleName: UserRole | string,
   customAllowedModules?: string[] | null
 ): string[] {
+  if (roleName === 'Super Admin') {
+    const policy = getRbacPermissions();
+    const extra = Array.isArray(policy.roles['Super Admin']) ? policy.roles['Super Admin'] : [];
+    const custom = Array.isArray(customAllowedModules) ? customAllowedModules : [];
+    return Array.from(new Set([...ALL_ERP_MODULES, ...extra, ...custom]));
+  }
   const policy = getRbacPermissions();
   const baseRoleModules = Array.isArray(policy.roles[roleName]) ? policy.roles[roleName] : [];
   const source = Array.isArray(customAllowedModules) ? customAllowedModules : baseRoleModules;
   const set = new Set(source.map((m) => String(m).trim()).filter(Boolean));
   set.add('dashboard');
-  if (roleName === 'Super Admin') {
-    set.add('settings');
-    set.add('employees');
-    set.add('measurements');
-    set.add('quotations');
-  }
   if (set.has('quotations')) {
     set.add('measurements');
+  }
+  if (set.has('accounts')) {
+    set.add('finance');
+    set.add('daily-closing');
   }
   return Array.from(set);
 }
@@ -97,9 +109,13 @@ export function resolveEffectiveModules(
  * Checks dynamic persisted module permission for a given role.
  */
 export function canRoleAccessModuleDynamic(roleName: UserRole | string, moduleName: string): boolean {
+  if (roleName === 'Super Admin') return true;
   const policy = getRbacPermissions();
   const allowed = policy.roles[roleName];
   if (!Array.isArray(allowed)) return false;
+  if (moduleName === 'finance' || moduleName === 'daily-closing') {
+    return allowed.includes(moduleName) || allowed.includes('accounts');
+  }
   return allowed.includes(moduleName);
 }
 
@@ -111,6 +127,7 @@ export function canUserAccessModule(
   moduleName: string,
   customAllowedModules?: string[] | null
 ): boolean {
+  if (roleName === 'Super Admin') return true;
   return resolveEffectiveModules(roleName, customAllowedModules).includes(moduleName);
 }
 
@@ -131,12 +148,8 @@ export function saveRbacPermissions(
     }
   }
 
-  // Always protect Super Admin lockout recovery routes
-  const saSet = new Set(nextRoles['Super Admin'] || defaults['Super Admin']);
-  saSet.add('dashboard');
-  saSet.add('settings');
-  saSet.add('employees');
-  nextRoles['Super Admin'] = Array.from(saSet);
+  // Always guarantee Super Admin has unrestricted access to every system module
+  nextRoles['Super Admin'] = Array.from(new Set([...ALL_ERP_MODULES, ...(nextRoles['Super Admin'] || [])]));
 
   const saved: StoredRbacPolicy = {
     roles: nextRoles,
