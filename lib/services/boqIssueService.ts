@@ -1,8 +1,16 @@
 import fs from 'fs';
 import { getDataFilePath, writeJsonSafe } from '@/lib/utils/dataPaths';
 import type { ProductionOrder } from './productionService';
+import {
+  BoqDoorInput,
+  BoqMaterialRatesConfig,
+  calculateDoorBatchBoq,
+} from '@/lib/utils/boqFormulaEngine';
+import type { CustomFrameProfile } from '@/lib/utils/frameDefaults';
 
 export type BoqIssueShift = 'MORNING' | 'AFTERNOON' | 'EVENING';
+export type BoqIssueSource = 'DESKTOP' | 'ANDROID_APP';
+export type BoqMaterialGroupFilter = 'ALL' | 'CHEMICALS' | 'WOOD_FOAM' | 'HARDWARE';
 
 export interface BoqIssueVoucherItem {
   key: string;
@@ -64,6 +72,13 @@ export interface BoqIssueVoucherRecord {
   totalIssuedValue: number;
   bufferPercent: number;
   notes?: string;
+  source?: BoqIssueSource;
+  formulaLocked?: boolean;
+  materialGroup?: BoqMaterialGroupFilter;
+  issuedByUserId?: string;
+  receiverName?: string;
+  receiverSignatureDataUrl?: string;
+  deviceInfo?: string;
 }
 
 export interface CreateBoqIssueVoucherInput {
@@ -78,11 +93,18 @@ export interface CreateBoqIssueVoucherInput {
   shift?: BoqIssueShift;
   gangName?: string;
   issuedBy?: string;
+  issuedByUserId?: string;
   issueDate?: string;
   bufferPercent?: number;
   notes?: string;
   consolidatedBatchNumber?: string;
   isConsolidatedBatch?: boolean;
+  source?: BoqIssueSource;
+  formulaLocked?: boolean;
+  materialGroup?: BoqMaterialGroupFilter;
+  receiverName?: string;
+  receiverSignatureDataUrl?: string;
+  deviceInfo?: string;
 }
 
 export interface ConsolidatedBatchPartyEntryInput {
@@ -102,9 +124,16 @@ export interface CreateConsolidatedBoqBatchInput {
   shift?: BoqIssueShift;
   gangName?: string;
   issuedBy?: string;
+  issuedByUserId?: string;
   issueDate?: string;
   bufferPercent?: number;
   notes?: string;
+  source?: BoqIssueSource;
+  formulaLocked?: boolean;
+  materialGroup?: BoqMaterialGroupFilter;
+  receiverName?: string;
+  receiverSignatureDataUrl?: string;
+  deviceInfo?: string;
 }
 
 export interface ConsolidatedBoqBatchSummary {
@@ -538,6 +567,13 @@ export function createBoqIssueVoucher(input: CreateBoqIssueVoucherInput): BoqIss
     totalIssuedValue,
     bufferPercent: Math.max(0, Number(input.bufferPercent) || 0),
     notes: input.notes?.trim() || undefined,
+    source: input.source || 'DESKTOP',
+    formulaLocked: Boolean(input.formulaLocked),
+    materialGroup: input.materialGroup || 'ALL',
+    issuedByUserId: input.issuedByUserId,
+    receiverName: input.receiverName?.trim() || undefined,
+    receiverSignatureDataUrl: input.receiverSignatureDataUrl || undefined,
+    deviceInfo: input.deviceInfo?.trim() || undefined,
   };
 
   all.push(record);
@@ -651,6 +687,13 @@ export function createConsolidatedBoqBatchVouchers(
       totalIssuedValue: entryValue,
       bufferPercent: Math.max(0, Number(input.bufferPercent) || 0),
       notes: input.notes?.trim() || undefined,
+      source: input.source || 'DESKTOP',
+      formulaLocked: Boolean(input.formulaLocked),
+      materialGroup: input.materialGroup || 'ALL',
+      issuedByUserId: input.issuedByUserId,
+      receiverName: input.receiverName?.trim() || undefined,
+      receiverSignatureDataUrl: input.receiverSignatureDataUrl || undefined,
+      deviceInfo: input.deviceInfo?.trim() || undefined,
     };
     all.push(record);
     return record;
@@ -997,4 +1040,147 @@ export function buildBoqIssuedReport(
     orderWise,
     batchWise,
   };
+}
+
+/**
+ * Authoritative Server-Side Formula BOQ Calculator for tamper-proof Android Storekeeper mode.
+ * Computes exact material quantities & ₹ valuation directly from live factory rates & door dimensions,
+ * completely ignoring any client-submitted prices, quantities, or buffers.
+ */
+export function computeServerFormulaBoqItems(
+  doors: BoqDoorInput[],
+  framesCatalog: CustomFrameProfile[],
+  ratesConfig: BoqMaterialRatesConfig,
+  materialGroup: BoqMaterialGroupFilter = 'ALL'
+): BoqIssueVoucherItem[] {
+  if (!doors || doors.length === 0) return [];
+  const boq = calculateDoorBatchBoq(doors, framesCatalog, ratesConfig);
+  const items: BoqIssueVoucherItem[] = [];
+
+  const includeChemicals = materialGroup === 'ALL' || materialGroup === 'CHEMICALS';
+  const includeWoodFoam = materialGroup === 'ALL' || materialGroup === 'WOOD_FOAM';
+  const includeHardware = materialGroup === 'ALL' || materialGroup === 'HARDWARE';
+
+  if (includeChemicals) {
+    if (boq.resinKg > 0) {
+      items.push({
+        key: 'resin',
+        name: 'FRP Polyester Resin',
+        unit: 'Kg',
+        formulaQty: Number(boq.resinKg.toFixed(2)),
+        issuedQty: Number(boq.resinKg.toFixed(2)),
+        rate: ratesConfig.resinRatePerKg,
+        value: Math.round(boq.resinKg * ratesConfig.resinRatePerKg),
+        category: 'Chemical',
+      });
+    }
+    if (boq.gelKg > 0) {
+      items.push({
+        key: 'gel',
+        name: 'Gelcoat (GEL Surface Layer)',
+        unit: 'Kg',
+        formulaQty: Number(boq.gelKg.toFixed(2)),
+        issuedQty: Number(boq.gelKg.toFixed(2)),
+        rate: ratesConfig.gelRatePerKg,
+        value: Math.round(boq.gelKg * ratesConfig.gelRatePerKg),
+        category: 'Chemical',
+      });
+    }
+    if (boq.catalystGrams > 0) {
+      items.push({
+        key: 'catalystGrams',
+        name: 'Catalyst (MEKP Hardener)',
+        unit: 'gm',
+        formulaQty: Math.round(boq.catalystGrams),
+        issuedQty: Math.round(boq.catalystGrams),
+        rate: ratesConfig.catalystRatePerKg / 1000,
+        value: Math.round((boq.catalystGrams / 1000) * ratesConfig.catalystRatePerKg),
+        category: 'Catalyst',
+      });
+    }
+    if (boq.acceleratorGrams > 0) {
+      items.push({
+        key: 'acceleratorGrams',
+        name: 'Accelerator (Cobalt Solution)',
+        unit: 'gm',
+        formulaQty: Math.round(boq.acceleratorGrams),
+        issuedQty: Math.round(boq.acceleratorGrams),
+        rate: ratesConfig.acceleratorRatePerKg / 1000,
+        value: Math.round((boq.acceleratorGrams / 1000) * ratesConfig.acceleratorRatePerKg),
+        category: 'Accelerator',
+      });
+    }
+    if (boq.csm300Kg > 0) {
+      items.push({
+        key: 'csm300',
+        name: 'Chopped Strand Mat (300 GSM)',
+        unit: 'Kg',
+        formulaQty: Number(boq.csm300Kg.toFixed(2)),
+        issuedQty: Number(boq.csm300Kg.toFixed(2)),
+        rate: ratesConfig.csm300RatePerKg,
+        value: Math.round(boq.csm300Kg * ratesConfig.csm300RatePerKg),
+        category: '300 GSM',
+      });
+    }
+    for (const pig of boq.pigmentByColour || []) {
+      const qtyG = Math.round(pig.pigmentGrams);
+      if (qtyG > 0) {
+        items.push({
+          key: `pigment_${pig.matchedRateKey || pig.colourLabel}`,
+          name: `Pigment Paste — ${pig.colourLabel}`,
+          unit: 'gm',
+          formulaQty: qtyG,
+          issuedQty: qtyG,
+          rate: pig.ratePerKg / 1000,
+          value: Math.round((qtyG / 1000) * pig.ratePerKg),
+          category: 'Pigment',
+        });
+      }
+    }
+  }
+
+  if (includeWoodFoam) {
+    if (boq.totalWoodCuFt > 0) {
+      items.push({
+        key: 'timber',
+        name: 'Timber Reepers (Frame + Shutter Wood)',
+        unit: 'Cu.Ft',
+        formulaQty: Number(boq.totalWoodCuFt.toFixed(4)),
+        issuedQty: Number(boq.totalWoodCuFt.toFixed(4)),
+        rate: ratesConfig.woodRatePerCuFt,
+        value: Math.round(boq.totalWoodCuFt * ratesConfig.woodRatePerCuFt),
+        category: 'Timber Wood',
+      });
+    }
+    if (boq.foamSheetsExact > 0) {
+      items.push({
+        key: 'foam',
+        name: `Rigid Foam Sheet (${ratesConfig.foamSheet.widthCm}×${ratesConfig.foamSheet.heightCm} cm)`,
+        unit: 'Sheets',
+        formulaQty: Number(boq.foamSheetsExact.toFixed(2)),
+        issuedQty: Number(boq.foamSheetsExact.toFixed(2)),
+        rate: ratesConfig.foamSheet.costPerSheet,
+        value: Math.round(boq.foamSheetsExact * ratesConfig.foamSheet.costPerSheet),
+        category: 'Rigid Foam',
+      });
+    }
+  }
+
+  if (includeHardware) {
+    for (const lb of boq.lockBoxBreakdown || []) {
+      if (lb.isNoHardware || lb.doorsCount <= 0) continue;
+      items.push({
+        key: `lock_${lb.profileId}`,
+        name: `${lb.boxName} (Lock Kit Box)`,
+        unit: 'Boxes',
+        formulaQty: lb.doorsCount,
+        issuedQty: lb.doorsCount,
+        rate: lb.boxCost,
+        value: Math.round(lb.totalBoxCost || 0),
+        category: 'Hardware / Lock',
+      });
+    }
+  }
+
+  return items;
 }

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeRequest } from '@/lib/auth/authorization';
+import { logAuditEvent } from '@/lib/audit/auditLogger';
 import {
   BoqDoorInputMeta,
+  BoqIssueSource,
+  BoqIssueVoucherItem,
+  BoqMaterialGroupFilter,
+  computeServerFormulaBoqItems,
   ConsolidatedBatchPartyEntryInput,
   createBoqIssueVoucher,
   createConsolidatedBoqBatchVouchers,
@@ -19,6 +24,56 @@ import {
   recordDoorMaterialIssue,
   unmarkDoorMaterialIssue,
 } from '@/lib/services/productionService';
+import { getBoqMaterialRates } from '@/lib/services/boqRateService';
+import { getCustomFrames } from '@/lib/services/frameService';
+import type { BoqDoorInput } from '@/lib/utils/boqFormulaEngine';
+
+function normalizeMaterialGroup(val: unknown): BoqMaterialGroupFilter {
+  const s = String(val || 'ALL').toUpperCase();
+  if (s === 'CHEMICALS' || s === 'WOOD_FOAM' || s === 'HARDWARE') return s;
+  return 'ALL';
+}
+
+function getServerIstDateString(): string {
+  const istMs = Date.now() + 5.5 * 60 * 60 * 1000;
+  return new Date(istMs).toISOString().slice(0, 10);
+}
+
+function extractBoqDoorsForCalculation(order: ProductionOrder | null, doorIds: string[]): BoqDoorInput[] {
+  if (!order) return [];
+  const idSet = new Set(doorIds);
+  const matched = order.doors.filter(
+    (d) => idSet.has(d.id) || idSet.has(d.doorId) || idSet.has(d.doorNumber)
+  );
+  return matched.map((d) => {
+    const widthCm =
+      d.rawWidthTopCm && d.rawWidthTopCm > 0
+        ? d.rawWidthTopCm
+        : d.finishedWidthMm && d.finishedWidthMm > 0
+        ? d.finishedWidthMm / 10
+        : 80;
+    const heightCm =
+      d.rawHeightCm && d.rawHeightCm > 0
+        ? d.rawHeightCm
+        : d.finishedHeightMm && d.finishedHeightMm > 0
+        ? d.finishedHeightMm / 10
+        : 210;
+    return {
+      id: d.id,
+      doorId: d.doorId,
+      doorNumber: d.doorNumber,
+      widthCm,
+      heightCm,
+      frameTypeId: d.frameTypeId || 'FRM-REGULAR',
+      frameTypeName: d.frameTypeName || 'Regular Frame',
+      finishColor: d.finishColor || 'Natural Teak EXGC-510',
+      lockId: d.lockId,
+      lockType: d.lockType || 'Baby Latch Black',
+      handing: d.handing || 'RH',
+      quantity: 1,
+    };
+  });
+}
 
 function extractDoorsMeta(order: ProductionOrder | null, doorIds: string[], fallbackNumbers?: string[]): BoqDoorInputMeta[] {
   if (!order) {
@@ -70,7 +125,6 @@ function checkOrderDuplicateDoors(
   jobCardLabel: string,
   doorIds: string[]
 ): string | null {
-  // Check live production-store.json flags first
   if (order) {
     const idSet = new Set(doorIds);
     const alreadyInOrder = order.doors.filter(
@@ -86,7 +140,6 @@ function checkOrderDuplicateDoors(
     }
   }
 
-  // Cross-check active vouchers in boq-issue-log.json
   const voucherConflicts = findAlreadyIssuedDoorsInVouchers(resolvedOrderId, doorIds);
   if (voucherConflicts.length > 0) {
     const list = voucherConflicts
@@ -148,6 +201,29 @@ export async function POST(req: NextRequest) {
     if (auth.errorResponse) return auth.errorResponse;
 
     const body = await req.json();
+    const userRole = auth.user?.role || '';
+    const isAdminOrMgmt = userRole === 'Super Admin' || userRole === 'Management';
+    // ZERO-LOOPHOLE ENFORCEMENT:
+    // Storekeeper (Inventory) role OR any request flagged formulaLocked ALWAYS uses server-calculated formula quantities,
+    // authoritative server IST date, and authenticated staff identity — ignoring client-submitted prices/qty/dates/names!
+    const isFormulaLocked = userRole === 'Inventory' || Boolean(body.formulaLocked);
+    const materialGroup = normalizeMaterialGroup(body.materialGroup);
+    const source: BoqIssueSource =
+      body.source === 'ANDROID_APP' ? 'ANDROID_APP' : 'DESKTOP';
+    const authoritativeDate = isFormulaLocked || !isAdminOrMgmt
+      ? getServerIstDateString()
+      : String(body.issueDate || getServerIstDateString()).slice(0, 10);
+    const authoritativeIssuedBy = isFormulaLocked || !isAdminOrMgmt
+      ? auth.user?.name || 'Storekeeper'
+      : String(body.issuedBy || auth.user?.name || 'Storekeeper');
+    const receiverName = body.receiverName ? String(body.receiverName).trim() : undefined;
+    const receiverSignatureDataUrl =
+      typeof body.receiverSignatureDataUrl === 'string' &&
+      body.receiverSignatureDataUrl.startsWith('data:image/')
+        ? body.receiverSignatureDataUrl.slice(0, 120000)
+        : undefined;
+    const deviceInfo =
+      String(body.deviceInfo || req.headers.get('user-agent') || '').trim().slice(0, 140) || undefined;
 
     // ── CONSOLIDATED MULTI-PARTY BATCH ISSUE ──────────────────────────────────
     if (body.mode === 'CONSOLIDATED_BATCH' || Array.isArray(body.entries)) {
@@ -155,6 +231,7 @@ export async function POST(req: NextRequest) {
         ? body.entries
         : [];
       const resolvedEntries: ConsolidatedBatchPartyEntryInput[] = [];
+      const allSelectedBoqDoors: BoqDoorInput[] = [];
       const duplicateErrors: string[] = [];
 
       for (const raw of rawEntries) {
@@ -177,6 +254,7 @@ export async function POST(req: NextRequest) {
         const doorsMeta = extractDoorsMeta(existingOrder, doorIds, raw.doorNumbers);
         const doorNumbers = doorsMeta.map((m) => m.doorNumber);
         const computedSqFt = doorsMeta.reduce((s, m) => s + (m.sqFt || 18.08), 0);
+        allSelectedBoqDoors.push(...extractBoqDoorsForCalculation(existingOrder, doorIds));
 
         resolvedEntries.push({
           prodOrderId: resolvedId,
@@ -187,12 +265,10 @@ export async function POST(req: NextRequest) {
           doorIds,
           doorNumbers,
           doorsMeta,
-          selectedSqFt:
-            Number(raw.selectedSqFt) > 0 ? Number(raw.selectedSqFt) : Number(computedSqFt.toFixed(2)),
+          selectedSqFt: Number(computedSqFt.toFixed(2)),
         });
       }
 
-      // HARD BLOCK THE ENTIRE BATCH if even 1 door in any party was already issued!
       if (duplicateErrors.length > 0) {
         return NextResponse.json(
           {
@@ -211,15 +287,36 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      let authoritativeItems: BoqIssueVoucherItem[] = Array.isArray(body.items) ? body.items : [];
+      if (isFormulaLocked) {
+        const [ratesConfig, framesCatalog] = await Promise.all([
+          getBoqMaterialRates(),
+          Promise.resolve(getCustomFrames()),
+        ]);
+        authoritativeItems = computeServerFormulaBoqItems(
+          allSelectedBoqDoors,
+          framesCatalog,
+          ratesConfig,
+          materialGroup
+        );
+      }
+
       const batchResult = createConsolidatedBoqBatchVouchers({
         entries: resolvedEntries,
-        items: Array.isArray(body.items) ? body.items : [],
+        items: authoritativeItems,
         shift: body.shift,
         gangName: body.gangName,
-        issuedBy: body.issuedBy || auth.user?.name || 'Storekeeper',
-        issueDate: body.issueDate,
-        bufferPercent: body.bufferPercent,
+        issuedBy: authoritativeIssuedBy,
+        issuedByUserId: auth.user?.id,
+        issueDate: authoritativeDate,
+        bufferPercent: isFormulaLocked ? 0 : body.bufferPercent,
         notes: body.notes,
+        source,
+        formulaLocked: isFormulaLocked,
+        materialGroup,
+        receiverName,
+        receiverSignatureDataUrl,
+        deviceInfo,
       });
 
       const updatedOrders: ProductionOrder[] = [];
@@ -247,6 +344,25 @@ export async function POST(req: NextRequest) {
 
       const totalDoorsIssued = batchResult.vouchers.reduce((s, v) => s + v.doorsCount, 0);
 
+      await logAuditEvent({
+        userId: auth.user?.id || null,
+        action: 'BOQ_BATCH_ISSUED',
+        entityType: 'INVENTORY',
+        entityId: batchResult.consolidatedBatchNumber,
+        details: {
+          source,
+          formulaLocked: isFormulaLocked,
+          materialGroup,
+          partiesCount: batchResult.vouchers.length,
+          totalDoorsIssued,
+          totalBatchValue: batchResult.totalBatchValue,
+          gangName: body.gangName,
+          receiverName,
+          issuedBy: authoritativeIssuedBy,
+        },
+        userAgent: deviceInfo,
+      }).catch(() => {});
+
       return NextResponse.json({
         success: true,
         data: {
@@ -258,6 +374,7 @@ export async function POST(req: NextRequest) {
           partiesClearedCount,
           partiesWithBalanceCount,
           totalBalanceDoorsLeft,
+          formulaLocked: isFormulaLocked,
           consolidatedBatches: listConsolidatedBatchSummaries(),
         },
         message:
@@ -290,7 +407,6 @@ export async function POST(req: NextRequest) {
     const resolvedOrderId = existingOrder?.id || prodOrderId;
     const jobCardLabel = body.jobCardNumber || existingOrder?.jobCardNumber || resolvedOrderId;
 
-    // HARD ZERO-DUPLICATE GUARD BEFORE CREATING VOUCHER
     const dupErr = checkOrderDuplicateDoors(existingOrder, resolvedOrderId, jobCardLabel, doorIds);
     if (dupErr) {
       return NextResponse.json(
@@ -306,6 +422,21 @@ export async function POST(req: NextRequest) {
     const doorsMeta = extractDoorsMeta(existingOrder, doorIds, body.doorNumbers);
     const doorNumbers = doorsMeta.map((m) => m.doorNumber);
 
+    let authoritativeItems: BoqIssueVoucherItem[] = Array.isArray(body.items) ? body.items : [];
+    if (isFormulaLocked) {
+      const [ratesConfig, framesCatalog] = await Promise.all([
+        getBoqMaterialRates(),
+        Promise.resolve(getCustomFrames()),
+      ]);
+      const boqDoors = extractBoqDoorsForCalculation(existingOrder, doorIds);
+      authoritativeItems = computeServerFormulaBoqItems(
+        boqDoors,
+        framesCatalog,
+        ratesConfig,
+        materialGroup
+      );
+    }
+
     const voucher = createBoqIssueVoucher({
       prodOrderId: resolvedOrderId,
       orderNumber: body.orderNumber || existingOrder?.salesOrderId || existingOrder?.prodOrderNumber || resolvedOrderId,
@@ -314,13 +445,20 @@ export async function POST(req: NextRequest) {
       doorIds,
       doorNumbers,
       doorsMeta,
-      items: Array.isArray(body.items) ? body.items : [],
+      items: authoritativeItems,
       shift: body.shift,
       gangName: body.gangName,
-      issuedBy: body.issuedBy || auth.user?.name || 'Storekeeper',
-      issueDate: body.issueDate,
-      bufferPercent: body.bufferPercent,
+      issuedBy: authoritativeIssuedBy,
+      issuedByUserId: auth.user?.id,
+      issueDate: authoritativeDate,
+      bufferPercent: isFormulaLocked ? 0 : body.bufferPercent,
       notes: body.notes,
+      source,
+      formulaLocked: isFormulaLocked,
+      materialGroup,
+      receiverName,
+      receiverSignatureDataUrl,
+      deviceInfo,
     });
 
     const updatedOrder = await recordDoorMaterialIssue(resolvedOrderId, {
@@ -337,6 +475,25 @@ export async function POST(req: NextRequest) {
     const allDoorsIssued = totalDoorsCount > 0 && remainingPendingDoors === 0;
     const summary = getOrderIssuedValueSummary(resolvedOrderId);
 
+    await logAuditEvent({
+      userId: auth.user?.id || null,
+      action: 'BOQ_ISSUED',
+      entityType: 'INVENTORY',
+      entityId: voucher.voucherNumber,
+      details: {
+        source,
+        formulaLocked: isFormulaLocked,
+        materialGroup,
+        jobCardNumber: voucher.jobCardNumber,
+        doorsCount: voucher.doorsCount,
+        totalIssuedValue: voucher.totalIssuedValue,
+        gangName: voucher.gangName,
+        receiverName,
+        issuedBy: authoritativeIssuedBy,
+      },
+      userAgent: deviceInfo,
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       data: {
@@ -346,6 +503,7 @@ export async function POST(req: NextRequest) {
         issuedDoorsCount,
         remainingPendingDoors,
         totalOrderIssuedValue: summary.totalIssuedValue,
+        formulaLocked: isFormulaLocked,
       },
       message: allDoorsIssued
         ? `Issued ${voucher.voucherNumber} (₹${voucher.totalIssuedValue.toLocaleString('en-IN')}) — All ${totalDoorsCount} doors issued & cleared from Pending!`
@@ -365,11 +523,11 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    // STRICT ANTI-LOOPHOLE: ONLY Super Admin & Management (Desktop ERP) can reverse/undo an issued BOQ!
+    // Storekeeper (Inventory) & Floor staff can NEVER delete or edit their own issued vouchers.
     const auth = await authorizeRequest(req, 'production', [
       'Super Admin',
       'Management',
-      'Production',
-      'Plant Supervisor',
     ]);
     if (auth.errorResponse) return auth.errorResponse;
 
@@ -399,6 +557,17 @@ export async function DELETE(req: NextRequest) {
           // ignore if order deleted
         }
       }
+
+      await logAuditEvent({
+        userId: auth.user?.id || null,
+        action: 'BOQ_BATCH_REVERSED',
+        entityType: 'INVENTORY',
+        entityId: batchNumber,
+        details: {
+          reversedBy: auth.user?.name,
+          vouchersRemoved: removedList.length,
+        },
+      }).catch(() => {});
 
       const restoredDoors = removedList.reduce((s, r) => s + r.doorsCount, 0);
       return NextResponse.json({
@@ -430,8 +599,20 @@ export async function DELETE(req: NextRequest) {
         removed.consolidatedBatchNumber || removed.voucherNumber
       );
     } catch {
-      // Production order may have been archived/deleted; voucher removal still succeeded
+      // Production order may have been archived/deleted
     }
+
+    await logAuditEvent({
+      userId: auth.user?.id || null,
+      action: 'BOQ_VOUCHER_REVERSED',
+      entityType: 'INVENTORY',
+      entityId: removed.voucherNumber,
+      details: {
+        reversedBy: auth.user?.name,
+        jobCardNumber: removed.jobCardNumber,
+        doorsRestored: removed.doorsCount,
+      },
+    }).catch(() => {});
 
     const summary = getOrderIssuedValueSummary(removed.prodOrderId);
     return NextResponse.json({

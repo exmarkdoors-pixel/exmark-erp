@@ -27,6 +27,12 @@
   ],
   "shortcuts": [
     {
+      "name": "Android Store BOQ & CRM App",
+      "short_name": "Store/CRM",
+      "url": "/mobile",
+      "description": "Tamper-proof Store BOQ Issue & Live CRM Leads App"
+    },
+    {
       "name": "Record Site Measurement",
       "short_name": "Measure",
       "url": "/?tab=measurements",

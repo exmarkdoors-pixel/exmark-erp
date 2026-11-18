@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
       'Super Admin',
       'Management',
       'Purchase',
-      'Inventory',
       'Accounts',
     ]);
     if (auth.errorResponse) return auth.errorResponse;

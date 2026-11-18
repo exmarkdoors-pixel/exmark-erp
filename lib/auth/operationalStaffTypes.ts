@@ -3,7 +3,14 @@
  * Safe for both Client Components and Server code (zero fs / path / Node-only dependencies).
  */
 
-export type MobileStaffRole = 'DRIVER' | 'FIELD_STAFF' | 'INSTALLER' | 'FLOOR' | 'MANAGER';
+export type MobileStaffRole =
+  | 'DRIVER'
+  | 'FIELD_STAFF'
+  | 'INSTALLER'
+  | 'FLOOR'
+  | 'STORE_KEEPER'
+  | 'SALES_CRM'
+  | 'MANAGER';
 
 export interface OperationalStaffSpec {
   id: string;
@@ -73,6 +80,32 @@ export const OPERATIONAL_STAFF_SPECS: OperationalStaffSpec[] = [
     description: 'Plant Floor QR Scanner, Job Card Stages & 12L Sticker Verification',
   },
   {
+    id: 'usr-mobile-str-01',
+    employeeCode: 'STR-01',
+    name: 'Shafeek Storekeeper',
+    roleName: 'Inventory',
+    department: 'Factory Store & Raw Material Issue',
+    email: 'store@exmarkdoors.com',
+    phone: '+91 98472 66110',
+    mobileRole: 'STORE_KEEPER',
+    defaultPin: '6666',
+    badgeColor: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
+    description: 'Tamper-Proof Store BOQ Material Issue (Formula-Locked • Zero Edit/Undo)',
+  },
+  {
+    id: 'usr-mobile-sls-01',
+    employeeCode: 'SLS-01',
+    name: 'Riyas Sales & CRM',
+    roleName: 'Sales',
+    department: 'CRM Leads & Customer Follow-Ups',
+    email: 'sales@exmarkdoors.com',
+    phone: '+91 98473 77220',
+    mobileRole: 'SALES_CRM',
+    defaultPin: '7777',
+    badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+    description: 'Live CRM Leads Pipeline, 1-Tap Call/WhatsApp & Customer Follow-Up Logs',
+  },
+  {
     id: 'usr-mobile-mgr-01',
     employeeCode: 'MGR-01',
     name: 'Salman Factory Manager',
@@ -97,8 +130,14 @@ export function mapUserToMobileRole(roleName?: string, department?: string): Mob
   if (r.includes('driver') || d.includes('driver') || d.includes('logistics') || d.includes('delivery')) {
     return 'DRIVER';
   }
-  if (r.includes('site') || r.includes('measur') || d.includes('measur') || r.includes('sales')) {
+  if (r.includes('inventory') || r.includes('store') || d.includes('store') || d.includes('warehouse')) {
+    return 'STORE_KEEPER';
+  }
+  if (r.includes('site') || r.includes('measur') || d.includes('measur')) {
     return 'FIELD_STAFF';
+  }
+  if (r.includes('sales') || r.includes('crm') || d.includes('crm') || d.includes('sales')) {
+    return 'SALES_CRM';
   }
   if (r.includes('install') || d.includes('fitting') || d.includes('install')) {
     return 'INSTALLER';

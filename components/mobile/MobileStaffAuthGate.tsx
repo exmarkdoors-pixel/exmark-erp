@@ -15,8 +15,11 @@ import {
   CheckCircle2,
   ChevronRight,
   User,
+  Package,
+  Phone,
 } from 'lucide-react';
 import { MobileStaffRole, mapUserToMobileRole } from '@/lib/auth/operationalStaffTypes';
+import { setAuthToken, clearAuthToken } from '@/lib/api/apiClient';
 
 export interface MobileStaffUser {
   id: string;
@@ -90,6 +93,30 @@ const DEFAULT_OPERATIONAL_STAFF: StaffDirectoryCard[] = [
     color: 'from-rose-600 to-pink-800 border-rose-500/50 text-rose-300',
     badge: 'PLANT FLOOR & BARCODE QR',
     description: 'Door Job Card, Press, Sizing & QC Stickers',
+  },
+  {
+    id: 'usr-mobile-str-01',
+    employeeCode: 'STR-01',
+    name: 'Shafeek Storekeeper',
+    role: 'Inventory',
+    department: 'Factory Store & Raw Material Issue',
+    mobileRole: 'STORE_KEEPER',
+    icon: Package,
+    color: 'from-orange-600 to-amber-800 border-orange-500/50 text-orange-300',
+    badge: 'STORE BOQ ISSUE (LOCKED)',
+    description: 'Zero-Edit Formula-Locked BOQ Issue & Receiver Sign-Off',
+  },
+  {
+    id: 'usr-mobile-sls-01',
+    employeeCode: 'SLS-01',
+    name: 'Riyas Sales & CRM',
+    role: 'Sales',
+    department: 'CRM Leads & Customer Follow-Ups',
+    mobileRole: 'SALES_CRM',
+    icon: Phone,
+    color: 'from-blue-600 to-indigo-800 border-blue-500/50 text-blue-300',
+    badge: 'CRM LEADS & FOLLOW-UPS',
+    description: 'Live Customer Leads, 1-Tap Call/WhatsApp & Follow-Ups',
   },
   {
     id: 'usr-mobile-mgr-01',
@@ -203,6 +230,9 @@ export function MobileStaffAuthGate({ children }: MobileStaffAuthGateProps) {
           mobileRole,
         };
 
+        if (data.token) {
+          setAuthToken(data.token, userObj);
+        }
         setCurrentUser(userObj);
         localStorage.setItem('exmark_mobile_staff_session', JSON.stringify(userObj));
       } else {
@@ -251,6 +281,7 @@ export function MobileStaffAuthGate({ children }: MobileStaffAuthGateProps) {
     } catch {
       // ignore
     }
+    clearAuthToken();
     localStorage.removeItem('exmark_mobile_staff_session');
     setCurrentUser(null);
     setPinDigits('');

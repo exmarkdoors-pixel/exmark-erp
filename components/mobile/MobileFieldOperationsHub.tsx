@@ -46,6 +46,9 @@ import {
   DEFAULT_COLOUR_OPTIONS,
   parseFraction,
 } from '@/lib/services/frpPricingEngine';
+import type { MobileStaffRole } from '@/lib/auth/operationalStaffTypes';
+import { MobileStoreBoqPanel } from './MobileStoreBoqPanel';
+import { MobileCrmLeadsPanel } from './MobileCrmLeadsPanel';
 
 export interface MobileOpeningMeasurement {
   id: string;
@@ -81,7 +84,7 @@ export interface MobileFieldOperationsHubProps {
     role: string;
     employeeCode?: string;
     department?: string;
-    mobileRole?: 'DRIVER' | 'FIELD_STAFF' | 'INSTALLER' | 'FLOOR' | 'MANAGER';
+    mobileRole?: MobileStaffRole;
   };
   onLogout?: () => void;
 }
@@ -90,11 +93,20 @@ export function MobileFieldOperationsHub({
   authenticatedUser,
   onLogout,
 }: MobileFieldOperationsHubProps = {}) {
-  const getInitialRole = () => {
+  const getInitialRole = ():
+    | 'MEASUREMENT'
+    | 'FLOOR'
+    | 'STORE'
+    | 'SALES'
+    | 'DELIVERY'
+    | 'INSTALLATION'
+    | 'SUPER_ADMIN' => {
     if (authenticatedUser?.mobileRole === 'DRIVER') return 'DELIVERY';
     if (authenticatedUser?.mobileRole === 'FIELD_STAFF') return 'MEASUREMENT';
     if (authenticatedUser?.mobileRole === 'INSTALLER') return 'INSTALLATION';
     if (authenticatedUser?.mobileRole === 'FLOOR') return 'FLOOR';
+    if (authenticatedUser?.mobileRole === 'STORE_KEEPER') return 'STORE';
+    if (authenticatedUser?.mobileRole === 'SALES_CRM') return 'SALES';
     if (authenticatedUser?.mobileRole === 'MANAGER') return 'SUPER_ADMIN';
     return 'MEASUREMENT';
   };
@@ -115,6 +127,8 @@ export function MobileFieldOperationsHub({
       else if (authenticatedUser.mobileRole === 'FIELD_STAFF') setActiveRole('MEASUREMENT');
       else if (authenticatedUser.mobileRole === 'INSTALLER') setActiveRole('INSTALLATION');
       else if (authenticatedUser.mobileRole === 'FLOOR') setActiveRole('FLOOR');
+      else if (authenticatedUser.mobileRole === 'STORE_KEEPER') setActiveRole('STORE');
+      else if (authenticatedUser.mobileRole === 'SALES_CRM') setActiveRole('SALES');
     }
   }, [isManager, authenticatedUser?.mobileRole]);
 
@@ -1694,108 +1708,25 @@ ${includeGst ? `*GST (18%):* ₹${gstAmount.toLocaleString('en-IN')}\n` : ''}*ES
         )}
 
         {/* ========================================================================= */}
-        {/* 2. STORE: RAW MATERIAL INWARD (GRN) & BOQ REQUISITION */}
+        {/* 2. STORE: TAMPER-PROOF FORMULA-LOCKED BOQ MATERIAL ISSUE (ZERO EDIT/UNDO) */}
         {/* ========================================================================= */}
         {activeRole === 'STORE' && (
-          <div className="space-y-3 animate-in fade-in">
-            <div className="bg-[#0f172a] border border-slate-700 rounded-xl p-3 shadow-lg">
-              <h3 className="text-xs font-bold text-white uppercase flex items-center gap-1.5 mb-2">
-                <Package className="w-4 h-4 text-amber-400" />
-                Raw Material Inward (GRN Entry)
-              </h3>
-              <div className="space-y-2 text-xs">
-                <div>
-                  <label className="text-[10px] text-slate-400">Supplier / Vendor Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Malabar Resin Suppliers"
-                    className="w-full bg-[#182849] border border-slate-700 rounded-lg p-2 text-white"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] text-slate-400">Material Category</label>
-                    <select className="w-full bg-[#182849] border border-slate-700 rounded-lg p-2 text-white">
-                      <option>FRP Resin (Barrels)</option>
-                      <option>Fiberglass Mat (Rolls)</option>
-                      <option>PU Foam Infill</option>
-                      <option>Wooden Subframe Stile</option>
-                      <option>Hardware (Hinges/Locks)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-slate-400">Received Qty</label>
-                    <input
-                      type="number"
-                      placeholder="100"
-                      className="w-full bg-[#182849] border border-slate-700 rounded-lg p-2 text-white"
-                    />
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => showToast('✓ GRN Inward logged to C:\\EXMARK-ERP-DATA')}
-                  className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg transition"
-                >
-                  Log Material Inward
-                </button>
-              </div>
-            </div>
+          <div className="animate-in fade-in">
+            <MobileStoreBoqPanel
+              staffName={authenticatedUser?.name || 'Storekeeper'}
+              staffRole={authenticatedUser?.role || 'Inventory'}
+            />
           </div>
         )}
 
         {/* ========================================================================= */}
-        {/* 3. SALES EXECUTIVES: BROCHURES & INSTANT QUOTE */}
+        {/* 3. SALES & CRM: LIVE LEADS PIPELINE, 1-TAP CALL/WHATSAPP & FOLLOW-UPS    */}
         {/* ========================================================================= */}
         {activeRole === 'SALES' && (
-          <div className="space-y-3 animate-in fade-in">
-            <div className="bg-[#0f172a] border border-slate-700 rounded-xl p-3 shadow-lg">
-              <h3 className="text-xs font-bold text-white uppercase flex items-center gap-1.5 mb-2">
-                <FileText className="w-4 h-4 text-rose-400" />
-                On-Site Model Brochure Presentation
-              </h3>
-              <p className="text-[11px] text-slate-400 mb-3">
-                Present and share official PDF brochures directly with clients on site via WhatsApp.
-              </p>
-              <div className="space-y-2">
-                {['EXM-A-101', 'EXM-AB-103', 'EXM-A-113', 'EXM-A-121'].map((code) => (
-                  <div
-                    key={code}
-                    className="flex items-center justify-between p-2.5 bg-[#172138] border border-slate-700/80 rounded-lg"
-                  >
-                    <div>
-                      <div className="font-mono text-xs font-bold text-rose-400">{code}</div>
-                      <div className="text-[11px] text-slate-300">Waterproof Architectural Door</div>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <a
-                        href={`/api/catalog/brochure/${code}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-2.5 py-1 bg-indigo-600 text-white text-[10px] font-bold rounded hover:bg-indigo-500"
-                      >
-                        View PDF
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const url = `${window.location.origin}/api/catalog/brochure/${code}`;
-                          window.open(
-                            `https://api.whatsapp.com/send?text=${encodeURIComponent(
-                              `EXMARK DOORS Brochure for ${code}: ${url}`
-                            )}`,
-                            '_blank'
-                          );
-                        }}
-                        className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded hover:bg-emerald-500"
-                      >
-                        WhatsApp
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="animate-in fade-in">
+            <MobileCrmLeadsPanel
+              staffName={authenticatedUser?.name || 'Sales Executive'}
+            />
           </div>
         )}
 

@@ -4,6 +4,7 @@ import {
   mapUserToMobileRole,
   ensureOperationalStaffUsers,
 } from '@/lib/auth/operationalStaffSeed';
+import type { MobileStaffRole } from '@/lib/auth/operationalStaffTypes';
 import { listDrivers } from '@/lib/services/fleetService';
 import {
   findFactoryUserByIdentifier,
@@ -33,7 +34,7 @@ export async function GET() {
       name: string;
       role: string;
       department: string;
-      mobileRole: 'DRIVER' | 'FIELD_STAFF' | 'INSTALLER' | 'FLOOR' | 'MANAGER';
+      mobileRole: MobileStaffRole;
       badgeColor: string;
       description: string;
       hasQuickPin: boolean;
