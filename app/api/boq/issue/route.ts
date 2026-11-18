@@ -1,21 +1,102 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeRequest } from '@/lib/auth/authorization';
 import {
+  BoqDoorInputMeta,
   ConsolidatedBatchPartyEntryInput,
   createBoqIssueVoucher,
   createConsolidatedBoqBatchVouchers,
   deleteBoqIssueVoucher,
   deleteConsolidatedBatchVouchers,
+  findAlreadyIssuedDoorsInVouchers,
   getOrderIssuedValueSummary,
   listBoqIssueVouchers,
   listConsolidatedBatchSummaries,
 } from '@/lib/services/boqIssueService';
 import {
+  DuplicateBoqIssueError,
   getProductionOrder,
   ProductionOrder,
   recordDoorMaterialIssue,
   unmarkDoorMaterialIssue,
 } from '@/lib/services/productionService';
+
+function extractDoorsMeta(order: ProductionOrder | null, doorIds: string[], fallbackNumbers?: string[]): BoqDoorInputMeta[] {
+  if (!order) {
+    return doorIds.map((did, idx) => ({
+      doorId: did,
+      doorNumber: fallbackNumbers?.[idx] || did,
+      widthCm: 80,
+      heightCm: 210,
+    }));
+  }
+  const idSet = new Set(doorIds);
+  const matched = order.doors.filter(
+    (d) => idSet.has(d.id) || idSet.has(d.doorId) || idSet.has(d.doorNumber)
+  );
+  if (matched.length === 0) {
+    return doorIds.map((did, idx) => ({
+      doorId: did,
+      doorNumber: fallbackNumbers?.[idx] || did,
+      widthCm: 80,
+      heightCm: 210,
+    }));
+  }
+  return matched.map((d) => {
+    const widthCm =
+      d.rawWidthTopCm && d.rawWidthTopCm > 0
+        ? d.rawWidthTopCm
+        : d.finishedWidthMm && d.finishedWidthMm > 0
+        ? d.finishedWidthMm / 10
+        : 80;
+    const heightCm =
+      d.rawHeightCm && d.rawHeightCm > 0
+        ? d.rawHeightCm
+        : d.finishedHeightMm && d.finishedHeightMm > 0
+        ? d.finishedHeightMm / 10
+        : 210;
+    return {
+      doorId: d.id || d.doorId || d.doorNumber,
+      doorNumber: d.doorNumber,
+      widthCm,
+      heightCm,
+      sqFt: Number(((widthCm * heightCm) / 929.0304).toFixed(2)),
+    };
+  });
+}
+
+function checkOrderDuplicateDoors(
+  order: ProductionOrder | null,
+  resolvedOrderId: string,
+  jobCardLabel: string,
+  doorIds: string[]
+): string | null {
+  // Check live production-store.json flags first
+  if (order) {
+    const idSet = new Set(doorIds);
+    const alreadyInOrder = order.doors.filter(
+      (d) =>
+        Boolean(d.materialIssued) &&
+        (idSet.has(d.id) || idSet.has(d.doorId) || idSet.has(d.doorNumber))
+    );
+    if (alreadyInOrder.length > 0) {
+      const list = alreadyInOrder
+        .map((d) => `${d.doorNumber}${d.materialIssueBatchId ? ` [${d.materialIssueBatchId}]` : ''}`)
+        .join(', ');
+      return `${order.jobCardNumber || jobCardLabel} (${order.customerName}): Door(s) ${list} already issued`;
+    }
+  }
+
+  // Cross-check active vouchers in boq-issue-log.json
+  const voucherConflicts = findAlreadyIssuedDoorsInVouchers(resolvedOrderId, doorIds);
+  if (voucherConflicts.length > 0) {
+    const list = voucherConflicts
+      .map((c) => `${c.doorNumber} [${c.consolidatedBatchNumber || c.voucherNumber}]`)
+      .join(', ');
+    return `${jobCardLabel}: Door(s) ${list} already have an active BOQ voucher`;
+  }
+
+  return null;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -74,6 +155,7 @@ export async function POST(req: NextRequest) {
         ? body.entries
         : [];
       const resolvedEntries: ConsolidatedBatchPartyEntryInput[] = [];
+      const duplicateErrors: string[] = [];
 
       for (const raw of rawEntries) {
         const pid = String(raw.prodOrderId || '').trim();
@@ -84,30 +166,42 @@ export async function POST(req: NextRequest) {
 
         const existingOrder = await getProductionOrder(pid);
         const resolvedId = existingOrder?.id || pid;
-        const doorNumbers =
-          Array.isArray(raw.doorNumbers) && raw.doorNumbers.length > 0
-            ? raw.doorNumbers
-            : existingOrder
-            ? existingOrder.doors
-                .filter(
-                  (d) =>
-                    doorIds.includes(d.id) ||
-                    doorIds.includes(d.doorId) ||
-                    doorIds.includes(d.doorNumber)
-                )
-                .map((d) => d.doorNumber)
-            : doorIds;
+        const jobCardLabel = raw.jobCardNumber || existingOrder?.jobCardNumber || resolvedId;
+
+        const dupErr = checkOrderDuplicateDoors(existingOrder, resolvedId, jobCardLabel, doorIds);
+        if (dupErr) {
+          duplicateErrors.push(dupErr);
+          continue;
+        }
+
+        const doorsMeta = extractDoorsMeta(existingOrder, doorIds, raw.doorNumbers);
+        const doorNumbers = doorsMeta.map((m) => m.doorNumber);
+        const computedSqFt = doorsMeta.reduce((s, m) => s + (m.sqFt || 18.08), 0);
 
         resolvedEntries.push({
           prodOrderId: resolvedId,
           orderNumber:
             raw.orderNumber || existingOrder?.salesOrderId || existingOrder?.prodOrderNumber || resolvedId,
-          jobCardNumber: raw.jobCardNumber || existingOrder?.jobCardNumber || resolvedId,
+          jobCardNumber: jobCardLabel,
           customerName: raw.customerName || existingOrder?.customerName || 'Party Order',
           doorIds,
           doorNumbers,
-          selectedSqFt: Number(raw.selectedSqFt) > 0 ? Number(raw.selectedSqFt) : doorIds.length,
+          doorsMeta,
+          selectedSqFt:
+            Number(raw.selectedSqFt) > 0 ? Number(raw.selectedSqFt) : Number(computedSqFt.toFixed(2)),
         });
+      }
+
+      // HARD BLOCK THE ENTIRE BATCH if even 1 door in any party was already issued!
+      if (duplicateErrors.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'DUPLICATE_BOQ_ISSUE_BLOCKED',
+            error: `BLOCKED — Duplicate BOQ issue prevented! ${duplicateErrors.join(' | ')}. Undo the original batch/voucher first if a re-issue is needed.`,
+          },
+          { status: 409 }
+        );
       }
 
       if (resolvedEntries.length === 0) {
@@ -194,26 +288,32 @@ export async function POST(req: NextRequest) {
 
     const existingOrder = await getProductionOrder(prodOrderId);
     const resolvedOrderId = existingOrder?.id || prodOrderId;
-    const doorNumbers: string[] = Array.isArray(body.doorNumbers) && body.doorNumbers.length > 0
-      ? body.doorNumbers
-      : existingOrder
-      ? existingOrder.doors
-          .filter(
-            (d) =>
-              doorIds.includes(d.id) ||
-              doorIds.includes(d.doorId) ||
-              doorIds.includes(d.doorNumber)
-          )
-          .map((d) => d.doorNumber)
-      : doorIds;
+    const jobCardLabel = body.jobCardNumber || existingOrder?.jobCardNumber || resolvedOrderId;
+
+    // HARD ZERO-DUPLICATE GUARD BEFORE CREATING VOUCHER
+    const dupErr = checkOrderDuplicateDoors(existingOrder, resolvedOrderId, jobCardLabel, doorIds);
+    if (dupErr) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'DUPLICATE_BOQ_ISSUE_BLOCKED',
+          error: `BLOCKED — Duplicate BOQ issue prevented! ${dupErr}. Undo the original voucher first if a re-issue is needed.`,
+        },
+        { status: 409 }
+      );
+    }
+
+    const doorsMeta = extractDoorsMeta(existingOrder, doorIds, body.doorNumbers);
+    const doorNumbers = doorsMeta.map((m) => m.doorNumber);
 
     const voucher = createBoqIssueVoucher({
       prodOrderId: resolvedOrderId,
       orderNumber: body.orderNumber || existingOrder?.salesOrderId || existingOrder?.prodOrderNumber || resolvedOrderId,
-      jobCardNumber: body.jobCardNumber || existingOrder?.jobCardNumber || resolvedOrderId,
+      jobCardNumber: jobCardLabel,
       customerName: body.customerName || existingOrder?.customerName || 'Party Order',
       doorIds,
       doorNumbers,
+      doorsMeta,
       items: Array.isArray(body.items) ? body.items : [],
       shift: body.shift,
       gangName: body.gangName,
@@ -252,6 +352,12 @@ export async function POST(req: NextRequest) {
         : `Issued ${voucher.voucherNumber} for ${voucher.doorsCount} door(s) (₹${voucher.totalIssuedValue.toLocaleString('en-IN')}) — ${remainingPendingDoors} door(s) still Pending.`,
     });
   } catch (error: unknown) {
+    if (error instanceof DuplicateBoqIssueError) {
+      return NextResponse.json(
+        { success: false, code: 'DUPLICATE_BOQ_ISSUE_BLOCKED', error: error.message },
+        { status: 409 }
+      );
+    }
     const message = error instanceof Error ? error.message : 'Failed to issue BOQ materials';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
@@ -271,7 +377,6 @@ export async function DELETE(req: NextRequest) {
     const batchNumber = searchParams.get('batchNumber') || '';
     const id = searchParams.get('id') || '';
 
-    // ── REVERSE ENTIRE CONSOLIDATED MULTI-PARTY BATCH ─────────────────────────
     if (batchNumber) {
       const removedList = deleteConsolidatedBatchVouchers(batchNumber);
       if (removedList.length === 0) {

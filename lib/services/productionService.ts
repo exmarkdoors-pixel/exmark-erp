@@ -618,6 +618,20 @@ export async function confirmStickerRemoval(
   throw new Error(`Door with ID "${doorId}" was not found.`);
 }
 
+export class DuplicateBoqIssueError extends Error {
+  statusCode = 409;
+  duplicates: Array<{ doorId: string; doorNumber: string; existingBatchId?: string }>;
+
+  constructor(
+    message: string,
+    duplicates: Array<{ doorId: string; doorNumber: string; existingBatchId?: string }> = []
+  ) {
+    super(message);
+    this.name = 'DuplicateBoqIssueError';
+    this.duplicates = duplicates;
+  }
+}
+
 export async function markProductionBoqIssued(id: string): Promise<ProductionOrder> {
   await assertWriteAllowed('mark BOQ issued');
 
@@ -625,9 +639,22 @@ export async function markProductionBoqIssued(id: string): Promise<ProductionOrd
   const idx = all.findIndex((o) => o.id === id || o.jobCardNumber === id || o.prodOrderNumber === id || o.salesOrderId === id);
   if (idx === -1) throw new Error(`Production order ${id} not found`);
 
+  const existing = all[idx];
+  const existingDoors = existing.doors || [];
+  if (existing.boqIssuedAt && existingDoors.length > 0 && existingDoors.every((d) => Boolean(d.materialIssued))) {
+    throw new DuplicateBoqIssueError(
+      `BLOCKED: Duplicate BOQ issue prevented! All ${existingDoors.length} door(s) in ${existing.jobCardNumber} were already issued on ${existing.boqIssuedAt.slice(0, 10)}.`,
+      existingDoors.map((d) => ({
+        doorId: d.id || d.doorId,
+        doorNumber: d.doorNumber,
+        existingBatchId: d.materialIssueBatchId,
+      }))
+    );
+  }
+
   const nowIso = new Date().toISOString();
   const batchId = `BOQ-FULL-${Date.now()}`;
-  const updatedDoors = (all[idx].doors || []).map((door) =>
+  const updatedDoors = existingDoors.map((door) =>
     door.materialIssued
       ? door
       : {
@@ -639,7 +666,7 @@ export async function markProductionBoqIssued(id: string): Promise<ProductionOrd
   );
 
   const updated: ProductionOrder = {
-    ...all[idx],
+    ...existing,
     doors: updatedDoors,
     boqIssuedAt: nowIso,
     updatedAt: nowIso,
@@ -875,12 +902,30 @@ export async function recordDoorMaterialIssue(
   const doorIdSet = new Set((input.doorIds || []).filter(Boolean));
   const gangName = input.gangName?.trim() || undefined;
 
-  const matchedCount = order.doors.filter(
+  const matchedDoors = order.doors.filter(
     (door) =>
       doorIdSet.has(door.id) ||
       doorIdSet.has(door.doorId) ||
       doorIdSet.has(door.doorNumber)
-  ).length;
+  );
+
+  // HARD ZERO-DUPLICATE GUARD: Never allow issuing BOQ twice for any door already marked issued!
+  const alreadyIssuedDoors = matchedDoors.filter((door) => Boolean(door.materialIssued));
+  if (alreadyIssuedDoors.length > 0) {
+    const dupDesc = alreadyIssuedDoors
+      .map((d) => `${d.doorNumber}${d.materialIssueBatchId ? ` (${d.materialIssueBatchId})` : ''}`)
+      .join(', ');
+    throw new DuplicateBoqIssueError(
+      `BLOCKED: Duplicate BOQ issue prevented! Door(s) ${dupDesc} in ${order.jobCardNumber} (${order.customerName}) already have BOQ issued. Undo the original voucher first if re-issue is genuinely required.`,
+      alreadyIssuedDoors.map((d) => ({
+        doorId: d.id || d.doorId,
+        doorNumber: d.doorNumber,
+        existingBatchId: d.materialIssueBatchId,
+      }))
+    );
+  }
+
+  const matchedCount = matchedDoors.length;
   const perDoorValue =
     matchedCount > 0 && Number.isFinite(Number(input.totalIssuedValue)) && Number(input.totalIssuedValue) > 0
       ? Math.round(Number(input.totalIssuedValue) / matchedCount)

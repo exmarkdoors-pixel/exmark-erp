@@ -596,6 +596,10 @@ export async function PUT(
       autoBilling,
     });
   } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'statusCode' in error && (error as { statusCode?: number }).statusCode === 409) {
+      const message = error instanceof Error ? error.message : 'Duplicate BOQ issue blocked';
+      return NextResponse.json({ success: false, code: 'DUPLICATE_BOQ_ISSUE_BLOCKED', error: message }, { status: 409 });
+    }
     const message = error instanceof Error ? error.message : 'Failed to update production stage';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }

@@ -20,6 +20,7 @@ import {
   Moon,
   ShoppingBag,
   Clock,
+  BarChart3,
 } from 'lucide-react';
 import { PurchaseOrderModal } from '@/components/modules/purchases/PurchaseOrderModal';
 import type { PurchaseLineItem } from '@/app/api/purchases/route';
@@ -50,6 +51,7 @@ import {
   DailyStoreIssueResult,
   DailyStoreIssueSlipModal,
 } from './DailyStoreIssueSlipModal';
+import { BoqIssuedReportPanel } from './BoqIssuedReportPanel';
 
 interface StoreRequisitionHubProps {
   initialOrderId?: string;
@@ -152,6 +154,8 @@ export default function StoreRequisitionHub({
   const [isBatchBoqMode, setIsBatchBoqMode] = useState<boolean>(false);
   const [isCustomCalcMode, setIsCustomCalcMode] = useState<boolean>(false);
   const [isConsumablesMode, setIsConsumablesMode] = useState<boolean>(false);
+  const [isReportMode, setIsReportMode] = useState<boolean>(false);
+  const [reportInitialOrderId, setReportInitialOrderId] = useState<string>('');
   const [consumableShiftFilter, setConsumableShiftFilter] = useState<'ALL' | 'MORNING' | 'AFTERNOON' | 'EVENING'>('ALL');
   const [isPoModalOpen, setIsPoModalOpen] = useState<boolean>(false);
   const [markingBoqIssued, setMarkingBoqIssued] = useState<boolean>(false);
@@ -750,21 +754,22 @@ export default function StoreRequisitionHub({
     ord.doors.filter((d) => !d.materialIssued);
 
   const getSelectedDoorsForBatchOrder = (ord: ProductionRequisitionOrder): BoqDoorInput[] => {
+    const pending = getPendingDoorsForOrder(ord);
+    if (pending.length === 0) return [];
     const explicitKeys = batchDoorIdsByOrder[ord.id];
     if (Array.isArray(explicitKeys)) {
       const keySet = new Set(explicitKeys);
-      return ord.doors.filter((d, idx) => keySet.has(getDoorKey(d, idx)));
+      // STRICT ZERO-DUPLICATE GUARD: Never include already-issued doors in batch calculation/issue!
+      return pending.filter((d, idx) => keySet.has(getDoorKey(d, idx)));
     }
-    // Default for any checked party in Consolidated BOQ: ONLY its remaining Pending/Balance doors!
-    const pending = getPendingDoorsForOrder(ord);
-    return pending.length > 0 ? pending : ord.doors;
+    return pending;
   };
 
   const setBatchOrderDoorCount = (ord: ProductionRequisitionOrder, count: number) => {
     const pendingPool = getPendingDoorsForOrder(ord);
-    const pool = pendingPool.length > 0 ? pendingPool : ord.doors;
-    const clamped = Math.max(0, Math.min(pool.length, count));
-    const chosenKeys = pool.slice(0, clamped).map((d, idx) => getDoorKey(d, idx));
+    if (pendingPool.length === 0) return;
+    const clamped = Math.max(0, Math.min(pendingPool.length, count));
+    const chosenKeys = pendingPool.slice(0, clamped).map((d, idx) => getDoorKey(d, idx));
 
     setBatchDoorIdsByOrder((prev) => ({ ...prev, [ord.id]: chosenKeys }));
     if (clamped > 0 && !selectedBatchOrderIds.includes(ord.id)) {
@@ -775,6 +780,10 @@ export default function StoreRequisitionHub({
   };
 
   const toggleBatchOrderSpecificDoor = (ord: ProductionRequisitionOrder, doorKey: string) => {
+    const targetDoor = ord.doors.find((d, idx) => getDoorKey(d, idx) === doorKey);
+    // HARD LOCK: Prevent checking already-issued doors!
+    if (targetDoor?.materialIssued) return;
+
     const currentSelected = getSelectedDoorsForBatchOrder(ord).map((d, idx) => getDoorKey(d, idx));
     const exists = currentSelected.includes(doorKey);
     const nextKeys = exists
@@ -801,6 +810,7 @@ export default function StoreRequisitionHub({
     });
     setIsCustomCalcMode(false);
     setIsConsumablesMode(false);
+    setIsReportMode(false);
     setIsBatchBoqMode(true);
     setBatchPartyFilter('PENDING');
     setBatchDoorIdsByOrder(nextMap);
@@ -1347,7 +1357,16 @@ export default function StoreRequisitionHub({
 
   const handleDirectIssueSelectedDoors = async () => {
     if (!selectedOrder?.prodOrderId) return;
-    const targetDoors = activeDoors;
+    // STRICT ZERO-DUPLICATE GUARD: Filter out any already-issued doors before submission
+    const unissuedTargetDoors = activeDoors.filter((d) => !d.materialIssued);
+    if (unissuedTargetDoors.length === 0) {
+      setBoqIssueNotice({
+        type: 'error',
+        text: `BLOCKED: All selected doors in ${selectedOrder.jobCardNumber} already have BOQ issued! Duplicate issue is not allowed.`,
+      });
+      return;
+    }
+    const targetDoors = unissuedTargetDoors;
     const doorIds = targetDoors
       .map((d) => d.id || d.doorId || d.doorNumber)
       .filter(Boolean) as string[];
@@ -1709,15 +1728,17 @@ export default function StoreRequisitionHub({
 
   const toggleBatchOrder = (id: string) => {
     const ord = orders.find((o) => o.id === id);
+    // HARD LOCK: Prevent selecting fully-issued parties into a new Consolidated BOQ batch!
+    if (ord && getOrderIssueStats(ord).pending === 0 && !selectedBatchOrderIds.includes(id)) {
+      return;
+    }
     setSelectedBatchOrderIds((prev) => {
       if (prev.includes(id)) {
         return prev.filter((item) => item !== id);
       }
       if (ord) {
         const pending = getPendingDoorsForOrder(ord);
-        const defaultKeys = (pending.length > 0 ? pending : ord.doors).map((d, i) =>
-          getDoorKey(d, i)
-        );
+        const defaultKeys = pending.map((d, i) => getDoorKey(d, i));
         setBatchDoorIdsByOrder((m) => ({
           ...m,
           [ord.id]: m[ord.id]?.length ? m[ord.id] : defaultKeys,
@@ -1849,6 +1870,7 @@ export default function StoreRequisitionHub({
               if (next) {
                 setIsCustomCalcMode(false);
                 setIsBatchBoqMode(false);
+                setIsReportMode(false);
               }
             }}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer ${
@@ -1870,6 +1892,7 @@ export default function StoreRequisitionHub({
               if (next) {
                 setIsBatchBoqMode(false);
                 setIsConsumablesMode(false);
+                setIsReportMode(false);
               }
             }}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer ${
@@ -1890,6 +1913,7 @@ export default function StoreRequisitionHub({
               if (next) {
                 setIsCustomCalcMode(false);
                 setIsConsumablesMode(false);
+                setIsReportMode(false);
               }
             }}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer ${
@@ -1900,6 +1924,29 @@ export default function StoreRequisitionHub({
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
             <span>⚡ Consolidated Multi-Party BOQ</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const next = !isReportMode;
+              setIsReportMode(next);
+              if (next) {
+                setReportInitialOrderId('');
+                setIsBatchBoqMode(false);
+                setIsCustomCalcMode(false);
+                setIsConsumablesMode(false);
+              }
+            }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer ${
+              isReportMode
+                ? 'bg-cyan-600 hover:bg-cyan-500 text-white ring-2 ring-cyan-300/60'
+                : 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/50'
+            }`}
+            title="View Door-Wise, Order-Wise & Batch-Wise BOQ Issued Report with CSV Export and Print"
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>📊 BOQ Issued Report (Door / Order / Batch)</span>
           </button>
 
           <button
@@ -1924,7 +1971,7 @@ export default function StoreRequisitionHub({
             </span>
           </button>
 
-          {!isBatchBoqMode && !isCustomCalcMode && !isConsumablesMode && (
+          {!isBatchBoqMode && !isCustomCalcMode && !isConsumablesMode && !isReportMode && (
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={orderHistoryFilter}
@@ -1980,27 +2027,43 @@ export default function StoreRequisitionHub({
                 const selStats = getOrderIssueStats(selectedOrder);
                 return (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPreviewIssueVoucher(null);
-                        setIsDailyIssueSlipOpen(true);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black shadow cursor-pointer transition"
-                      title="Print Daily Store Material Issue Voucher for today's selected batch of doors"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Daily Issue Slip ({activeDoors.length} Doors)</span>
-                    </button>
+                    {!selStats.isFullyIssued && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreviewIssueVoucher(null);
+                          setPreviewConsolidatedBatch(null);
+                          setIsDailyIssueSlipOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black shadow cursor-pointer transition"
+                        title="Print Daily Store Material Issue Voucher for today's selected pending doors"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Daily Issue Slip ({activeDoors.filter((d) => !d.materialIssued).length} Doors)</span>
+                      </button>
+                    )}
 
                     {selStats.isFullyIssued ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>
-                          All {selStats.total} Doors Issued
-                          {selectedOrder.boqIssuedAt ? ` (${selectedOrder.boqIssuedAt.slice(0, 10)})` : ''}
+                      <div className="inline-flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold">
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>
+                            All {selStats.total} Doors Issued (Locked)
+                            {selectedOrder.boqIssuedAt ? ` • ${selectedOrder.boqIssuedAt.slice(0, 10)}` : ''}
+                          </span>
                         </span>
-                      </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReportInitialOrderId(selectedOrder.prodOrderId || selectedOrder.id);
+                            setIsReportMode(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-cyan-950/70 hover:bg-cyan-700 text-cyan-200 hover:text-white border border-cyan-500/50 text-[11px] font-bold cursor-pointer"
+                        >
+                          <BarChart3 className="w-3.5 h-3.5" />
+                          <span>Door Report</span>
+                        </button>
+                      </div>
                     ) : (
                       <button
                         type="button"
@@ -2050,13 +2113,22 @@ export default function StoreRequisitionHub({
         </div>
       )}
 
+      {/* DOOR-WISE / ORDER-WISE / BATCH-WISE BOQ ISSUED REPORT */}
+      {isReportMode && (
+        <BoqIssuedReportPanel
+          initialOrderId={reportInitialOrderId}
+          onClose={() => setIsReportMode(false)}
+        />
+      )}
+
       {/* DAILY PARTIAL DOOR SLICER (FOR TEAM-WISE 2 / 3 / 4 / 6 DOOR BATCHES & PENDING CLEARING) */}
-      {!isBatchBoqMode && !isCustomCalcMode && !isConsumablesMode && selectedOrder && selectedOrder.doors.length > 0 && (() => {
+      {!isReportMode && !isBatchBoqMode && !isCustomCalcMode && !isConsumablesMode && selectedOrder && selectedOrder.doors.length > 0 && (() => {
         const selStats = getOrderIssueStats(selectedOrder);
+        const pendingSelectedCount = activeDoors.filter((d) => !d.materialIssued).length;
         const pickNextPendingDoors = (count: number) => {
           const pendingPool = selectedOrder.doors.filter((d) => !d.materialIssued);
-          const sourcePool = pendingPool.length > 0 ? pendingPool : selectedOrder.doors;
-          setSelectedDoorIds(sourcePool.slice(0, count).map((d, i) => getDoorKey(d, i)));
+          if (pendingPool.length === 0) return;
+          setSelectedDoorIds(pendingPool.slice(0, count).map((d, i) => getDoorKey(d, i)));
         };
 
         return (
@@ -2068,14 +2140,18 @@ export default function StoreRequisitionHub({
                   Team-Wise Partial Door Slicer (പാർഷ്യൽ ഡോർ BOQ ബാച്ച്)
                 </h4>
                 <span className="text-[10px] text-amber-300 font-bold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-600/40">
-                  Selected: {activeDoors.length} of {selectedOrder.doors.length} Doors
+                  Selected: {pendingSelectedCount} Pending of {selectedOrder.doors.length} Doors
                 </span>
                 <span className="text-[10px] text-emerald-300 font-bold px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-600/40">
-                  ✓ Issued: {selStats.issued}/{selStats.total}
+                  🔒 Issued: {selStats.issued}/{selStats.total}
                 </span>
-                {selStats.pending > 0 && (
+                {selStats.pending > 0 ? (
                   <span className="text-[10px] text-rose-300 font-bold px-2 py-0.5 rounded bg-rose-950/60 border border-rose-600/40">
                     ⏳ Pending: {selStats.pending} Left
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-300 font-black px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/60">
+                    🔒 All Doors Issued — Duplicate Blocked
                   </span>
                 )}
                 {orderTotalIssuedValue > 0 && (
@@ -2086,7 +2162,7 @@ export default function StoreRequisitionHub({
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                {selectedOrder.doors.length >= 2 && (
+                {selStats.pending >= 2 && (
                   <button
                     type="button"
                     onClick={() => pickNextPendingDoors(2)}
@@ -2096,7 +2172,7 @@ export default function StoreRequisitionHub({
                     2 Doors
                   </button>
                 )}
-                {selectedOrder.doors.length >= 3 && (
+                {selStats.pending >= 3 && (
                   <button
                     type="button"
                     onClick={() => pickNextPendingDoors(3)}
@@ -2106,7 +2182,7 @@ export default function StoreRequisitionHub({
                     3 Doors
                   </button>
                 )}
-                {selectedOrder.doors.length >= 4 && (
+                {selStats.pending >= 4 && (
                   <button
                     type="button"
                     onClick={() => pickNextPendingDoors(4)}
@@ -2115,7 +2191,7 @@ export default function StoreRequisitionHub({
                     4 Doors
                   </button>
                 )}
-                {selectedOrder.doors.length >= 6 && (
+                {selStats.pending >= 6 && (
                   <button
                     type="button"
                     onClick={() => pickNextPendingDoors(6)}
@@ -2138,42 +2214,49 @@ export default function StoreRequisitionHub({
                     ⏳ All Pending ({selStats.pending})
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setSelectedDoorIds([])}
-                  className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition ${
-                    selectedDoorIds.length === 0
-                      ? 'bg-amber-500 text-slate-950 font-black'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                  }`}
-                >
-                  All Doors ({selectedOrder.doors.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDirectIssueSelectedDoors}
-                  disabled={isIssuingBoq || activeDoors.length === 0 || markedIssueItems.length === 0}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-black shadow cursor-pointer transition disabled:opacity-50"
-                  title="Directly issue marked BOQ items for the selected doors and clear them from Pending"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>
-                    {isIssuingBoq
-                      ? 'Issuing...'
-                      : `✓ Issue ${activeDoors.length} Door${activeDoors.length === 1 ? '' : 's'} (₹${markedIssueTotalValue.toLocaleString('en-IN')})`}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviewIssueVoucher(null);
-                    setIsDailyIssueSlipOpen(true);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-black shadow cursor-pointer transition"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Slip</span>
-                </button>
+                {selStats.pending > 0 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleDirectIssueSelectedDoors}
+                      disabled={isIssuingBoq || pendingSelectedCount === 0 || markedIssueItems.length === 0}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-black shadow cursor-pointer transition disabled:opacity-50"
+                      title="Directly issue marked BOQ items for the selected unissued doors and clear them from Pending"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>
+                        {isIssuingBoq
+                          ? 'Issuing...'
+                          : `✓ Issue ${pendingSelectedCount} Door${pendingSelectedCount === 1 ? '' : 's'} (₹${markedIssueTotalValue.toLocaleString('en-IN')})`}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pendingSelectedCount === 0}
+                      onClick={() => {
+                        setPreviewIssueVoucher(null);
+                        setPreviewConsolidatedBatch(null);
+                        setIsDailyIssueSlipOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-black shadow cursor-pointer transition disabled:opacity-50"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Print Slip</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReportInitialOrderId(selectedOrder.prodOrderId || selectedOrder.id);
+                      setIsReportMode(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-cyan-700 hover:bg-cyan-600 text-white rounded text-[11px] font-black shadow cursor-pointer transition"
+                  >
+                    <BarChart3 className="w-3.5 h-3.5" />
+                    <span>📊 View Door-Wise Issued Report</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2181,33 +2264,42 @@ export default function StoreRequisitionHub({
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {selectedOrder.doors.map((door, dIdx) => {
                 const dKey = getDoorKey(door, dIdx);
-                const isSelected = selectedDoorIds.length === 0 || selectedDoorIds.includes(dKey);
+                const isIssuedLocked = Boolean(door.materialIssued);
+                const isSelected = !isIssuedLocked && (selectedDoorIds.length === 0 || selectedDoorIds.includes(dKey));
                 return (
                   <label
                     key={dKey}
-                    className={`flex items-start gap-2 p-2 rounded-lg border text-xs cursor-pointer transition ${
-                      isSelected
-                        ? 'bg-amber-950/40 border-amber-500/60 text-white'
-                        : door.materialIssued
-                        ? 'bg-emerald-950/20 border-emerald-800/50 text-slate-300 opacity-75'
-                        : 'bg-slate-900/60 border-slate-800 text-slate-400 opacity-60'
+                    title={
+                      isIssuedLocked
+                        ? `LOCKED: Already issued${door.materialIssueBatchId ? ` (${door.materialIssueBatchId})` : ''}. Duplicate issue is blocked.`
+                        : 'Select this pending door for BOQ issue'
+                    }
+                    className={`flex items-start gap-2 p-2 rounded-lg border text-xs transition ${
+                      isIssuedLocked
+                        ? 'bg-emerald-950/25 border-emerald-800/60 text-slate-300 opacity-80 cursor-not-allowed'
+                        : isSelected
+                        ? 'bg-amber-950/40 border-amber-500/60 text-white cursor-pointer'
+                        : 'bg-slate-900/60 border-slate-800 text-slate-400 opacity-60 cursor-pointer'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
+                      disabled={isIssuedLocked}
                       onChange={() => {
+                        if (isIssuedLocked) return;
+                        const pendingKeys = selectedOrder.doors
+                          .filter((d) => !d.materialIssued)
+                          .map((d, i) => getDoorKey(d, i));
                         if (selectedDoorIds.length === 0) {
-                          const allKeys = selectedOrder.doors.map((d, i) => getDoorKey(d, i));
-                          setSelectedDoorIds(allKeys.filter((k) => k !== dKey));
+                          setSelectedDoorIds(pendingKeys.filter((k) => k !== dKey));
                         } else if (selectedDoorIds.includes(dKey)) {
-                          const next = selectedDoorIds.filter((k) => k !== dKey);
-                          setSelectedDoorIds(next);
+                          setSelectedDoorIds(selectedDoorIds.filter((k) => k !== dKey));
                         } else {
                           setSelectedDoorIds([...selectedDoorIds, dKey]);
                         }
                       }}
-                      className="mt-0.5 rounded text-amber-500 bg-slate-950 border-slate-700 cursor-pointer"
+                      className="mt-0.5 rounded text-amber-500 bg-slate-950 border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                     />
                     <div className="min-w-0">
                       <strong className="block text-[11px] truncate text-slate-200">
@@ -2220,9 +2312,9 @@ export default function StoreRequisitionHub({
                         <span className="px-1 py-0.2 rounded bg-slate-800 text-[9px] font-bold text-slate-300">
                           {door.stage || 'QUEUED'}
                         </span>
-                        {door.materialIssued ? (
+                        {isIssuedLocked ? (
                           <span className="px-1 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-700/50 text-[8.5px] font-black">
-                            ✓ Issued
+                            🔒 Issued
                           </span>
                         ) : (
                           <span className="px-1 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-700/50 text-[8.5px] font-bold">
@@ -2230,7 +2322,7 @@ export default function StoreRequisitionHub({
                           </span>
                         )}
                       </div>
-                      {door.materialIssued && (door.materialIssuedToGang || door.materialIssuedValue) && (
+                      {isIssuedLocked && (door.materialIssuedToGang || door.materialIssuedValue) && (
                         <div className="text-[9px] text-emerald-300/90 mt-0.5 truncate">
                           {door.materialIssuedToGang ? `${door.materialIssuedToGang}` : ''}
                           {door.materialIssuedValue ? ` • ₹${door.materialIssuedValue.toLocaleString('en-IN')}` : ''}
@@ -2677,7 +2769,7 @@ export default function StoreRequisitionHub({
       )}
 
       {/* MULTI-ORDER CONSOLIDATED SELECTION PANEL (PER-PARTY PARTIAL DOORS + NEXT-DAY BALANCE) */}
-      {isBatchBoqMode && !isCustomCalcMode && (() => {
+      {!isReportMode && isBatchBoqMode && !isCustomCalcMode && (() => {
         const visibleBatchParties =
           batchPartyFilter === 'PENDING' ? pendingBoqOrders : orders;
         const totalBalanceLeftAfterBatch = consolidatedBatchEntries.reduce(
@@ -2839,12 +2931,22 @@ export default function StoreRequisitionHub({
                     >
                       {/* Party Header Row */}
                       <div className="flex items-start justify-between gap-2">
-                        <label className="flex items-start gap-2 cursor-pointer min-w-0">
+                        <label
+                          className={`flex items-start gap-2 min-w-0 ${
+                            stats.isFullyIssued ? 'cursor-not-allowed' : 'cursor-pointer'
+                          }`}
+                          title={
+                            stats.isFullyIssued
+                              ? 'LOCKED: All doors in this order already have BOQ issued. Duplicate issue is blocked.'
+                              : 'Select this party for Consolidated BOQ'
+                          }
+                        >
                           <input
                             type="checkbox"
-                            checked={isChecked}
+                            checked={isChecked && !stats.isFullyIssued}
+                            disabled={stats.isFullyIssued}
                             onChange={() => toggleBatchOrder(ord.id)}
-                            className="mt-0.5 w-4 h-4 rounded text-emerald-500 bg-slate-950 border-slate-600 cursor-pointer shrink-0"
+                            className="mt-0.5 w-4 h-4 rounded text-emerald-500 bg-slate-950 border-slate-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
                           />
                           <div className="min-w-0">
                             <div className="font-black text-white text-xs truncate">
@@ -2859,7 +2961,7 @@ export default function StoreRequisitionHub({
                         {/* Status Badge */}
                         {stats.isFullyIssued ? (
                           <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-700/60 text-[9.5px] font-black shrink-0">
-                            ✓ All Issued
+                            🔒 All Issued
                           </span>
                         ) : stats.isPartial ? (
                           <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/50 text-[9.5px] font-black shrink-0">
@@ -2936,23 +3038,32 @@ export default function StoreRequisitionHub({
                         <div className="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-1.5">
                           {ord.doors.map((door, dIdx) => {
                             const dKey = getDoorKey(door, dIdx);
-                            const doorSelected = isChecked && chosenKeys.has(dKey);
+                            const isDoorLocked = Boolean(door.materialIssued);
+                            const doorSelected = !isDoorLocked && isChecked && chosenKeys.has(dKey);
                             return (
                               <label
                                 key={dKey}
-                                className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] cursor-pointer ${
-                                  door.materialIssued
-                                    ? 'bg-emerald-950/20 border-emerald-800/40 text-slate-400'
+                                title={
+                                  isDoorLocked
+                                    ? `LOCKED: Already issued${door.materialIssueBatchId ? ` (${door.materialIssueBatchId})` : ''}`
+                                    : 'Pick this balance door for today'
+                                }
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] ${
+                                  isDoorLocked
+                                    ? 'bg-emerald-950/20 border-emerald-800/40 text-slate-400 opacity-75 cursor-not-allowed'
                                     : doorSelected
-                                    ? 'bg-amber-950/50 border-amber-500/60 text-white font-bold'
-                                    : 'bg-slate-950/60 border-slate-800 text-slate-400'
+                                    ? 'bg-amber-950/50 border-amber-500/60 text-white font-bold cursor-pointer'
+                                    : 'bg-slate-950/60 border-slate-800 text-slate-400 cursor-pointer'
                                 }`}
                               >
                                 <input
                                   type="checkbox"
                                   checked={doorSelected}
-                                  onChange={() => toggleBatchOrderSpecificDoor(ord, dKey)}
-                                  className="rounded text-amber-500 bg-slate-950 border-slate-700 cursor-pointer"
+                                  disabled={isDoorLocked}
+                                  onChange={() => {
+                                    if (!isDoorLocked) toggleBatchOrderSpecificDoor(ord, dKey);
+                                  }}
+                                  className="rounded text-amber-500 bg-slate-950 border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                                 />
                                 <span className="truncate flex-1">
                                   {door.doorNumber || `D-${dIdx + 1}`}{' '}
@@ -2960,8 +3071,8 @@ export default function StoreRequisitionHub({
                                     ({door.widthCm}×{door.heightCm})
                                   </span>
                                 </span>
-                                {door.materialIssued ? (
-                                  <span className="text-[8.5px] font-black text-emerald-400">✓</span>
+                                {isDoorLocked ? (
+                                  <span className="text-[8.5px] font-black text-emerald-400">🔒</span>
                                 ) : (
                                   <span className="text-[8.5px] font-bold text-rose-300">⏳</span>
                                 )}
@@ -3056,7 +3167,7 @@ export default function StoreRequisitionHub({
         );
       })()}
 
-      {!isConsumablesMode && (
+      {!isConsumablesMode && !isReportMode && (
         <>
       {/* KPI Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">

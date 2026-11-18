@@ -277,9 +277,23 @@ export function DailyStoreIssueSlipModal({
     effectiveItems.reduce((sum, item) => sum + (Number(item.value) || 0), 0)
   );
 
+  const alreadyIssuedInSelection = useMemo(() => {
+    if (isHistoricalPreview || isConsolidatedMode) return [];
+    return selectedDoors.filter((d) => Boolean(d.materialIssued));
+  }, [isHistoricalPreview, isConsolidatedMode, selectedDoors]);
+
   const handleConfirmAndPrint = async () => {
     if (isHistoricalPreview) {
       window.print();
+      return;
+    }
+
+    if (alreadyIssuedInSelection.length > 0) {
+      setIssueError(
+        `BLOCKED: Duplicate BOQ issue prevented! Door(s) ${alreadyIssuedInSelection
+          .map((d) => d.doorNumber || d.doorId)
+          .join(', ')} already have BOQ issued.`
+      );
       return;
     }
 
@@ -435,13 +449,20 @@ export function DailyStoreIssueSlipModal({
             <button
               type="button"
               onClick={handleConfirmAndPrint}
-              disabled={isSubmitting || selectedCount === 0 || effectiveItems.length === 0}
+              disabled={
+                isSubmitting ||
+                selectedCount === 0 ||
+                effectiveItems.length === 0 ||
+                alreadyIssuedInSelection.length > 0
+              }
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-950/50 cursor-pointer transition disabled:opacity-50"
             >
               <Printer className="w-4 h-4" />
               <span>
                 {isHistoricalPreview
                   ? 'Print Voucher'
+                  : alreadyIssuedInSelection.length > 0
+                  ? '🔒 Duplicate Blocked'
                   : isSubmitting
                   ? 'Recording Issue...'
                   : `Confirm Issue (₹${totalSlipValue.toLocaleString('en-IN')}) & Print`}

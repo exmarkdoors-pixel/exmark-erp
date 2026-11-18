@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { getDataFilePath, writeJsonSafe } from '@/lib/utils/dataPaths';
+import type { ProductionOrder } from './productionService';
 
 export type BoqIssueShift = 'MORNING' | 'AFTERNOON' | 'EVENING';
 
@@ -12,6 +13,33 @@ export interface BoqIssueVoucherItem {
   rate: number;
   value: number;
   category: string;
+}
+
+export interface BoqDoorInputMeta {
+  doorId: string;
+  doorNumber: string;
+  widthCm?: number;
+  heightCm?: number;
+  sqFt?: number;
+}
+
+export interface BoqDoorAllocationItem {
+  key: string;
+  name: string;
+  unit: string;
+  qty: number;
+  value: number;
+  category: string;
+}
+
+export interface BoqDoorAllocation {
+  doorId: string;
+  doorNumber: string;
+  widthCm: number;
+  heightCm: number;
+  sqFt: number;
+  allocatedValue: number;
+  items: BoqDoorAllocationItem[];
 }
 
 export interface BoqIssueVoucherRecord {
@@ -32,6 +60,7 @@ export interface BoqIssueVoucherRecord {
   doorNumbers: string[];
   doorsCount: number;
   items: BoqIssueVoucherItem[];
+  doorAllocations?: BoqDoorAllocation[];
   totalIssuedValue: number;
   bufferPercent: number;
   notes?: string;
@@ -44,6 +73,7 @@ export interface CreateBoqIssueVoucherInput {
   customerName?: string;
   doorIds: string[];
   doorNumbers?: string[];
+  doorsMeta?: BoqDoorInputMeta[];
   items: BoqIssueVoucherItem[];
   shift?: BoqIssueShift;
   gangName?: string;
@@ -62,6 +92,7 @@ export interface ConsolidatedBatchPartyEntryInput {
   customerName?: string;
   doorIds: string[];
   doorNumbers?: string[];
+  doorsMeta?: BoqDoorInputMeta[];
   selectedSqFt?: number;
 }
 
@@ -101,6 +132,94 @@ export interface ConsolidatedBoqBatchSummary {
     doorNumbers: string[];
     value: number;
   }>;
+}
+
+export interface BoqMaterialTotals {
+  resinKg: number;
+  gelKg: number;
+  catalystGrams: number;
+  acceleratorGrams: number;
+  csm300Kg: number;
+  pigmentGrams: number;
+  woodCuFt: number;
+  foamSheets: number;
+  otherValue: number;
+}
+
+export interface BoqDoorReportRow extends BoqMaterialTotals {
+  key: string;
+  prodOrderId: string;
+  orderNumber: string;
+  jobCardNumber: string;
+  customerName: string;
+  doorId: string;
+  doorNumber: string;
+  widthCm: number;
+  heightCm: number;
+  sqFt: number;
+  voucherId: string;
+  voucherNumber: string;
+  batchNumber: string | null;
+  issueType: 'CONSOLIDATED_BATCH' | 'SINGLE_ORDER';
+  issueDate: string;
+  issuedAt: string;
+  shift: BoqIssueShift;
+  gangName: string;
+  totalValue: number;
+}
+
+export interface BoqOrderReportRow extends BoqMaterialTotals {
+  prodOrderId: string;
+  orderNumber: string;
+  jobCardNumber: string;
+  customerName: string;
+  totalDoors: number;
+  issuedDoors: number;
+  balanceDoors: number;
+  status: 'FULLY_ISSUED' | 'PARTIAL' | 'PENDING';
+  vouchersCount: number;
+  batchNumbers: string[];
+  lastIssuedDate: string;
+  totalValue: number;
+  avgCostPerDoor: number;
+}
+
+export interface BoqBatchReportRow extends BoqMaterialTotals {
+  batchKey: string;
+  referenceNumber: string;
+  issueType: 'CONSOLIDATED_BATCH' | 'SINGLE_ORDER';
+  issueDate: string;
+  issuedAt: string;
+  shift: BoqIssueShift;
+  gangName: string;
+  issuedBy: string;
+  partiesCount: number;
+  partySummary: string;
+  doorsCount: number;
+  totalValue: number;
+  avgCostPerDoor: number;
+  voucherIds: string[];
+}
+
+export interface BoqIssuedReportResult {
+  summary: BoqMaterialTotals & {
+    totalDoorsIssued: number;
+    totalOrdersWithIssues: number;
+    totalBatchesCount: number;
+    totalIssuedValue: number;
+    avgCostPerDoor: number;
+  };
+  doorWise: BoqDoorReportRow[];
+  orderWise: BoqOrderReportRow[];
+  batchWise: BoqBatchReportRow[];
+}
+
+export interface BoqIssuedReportFilters {
+  fromDate?: string;
+  toDate?: string;
+  shift?: string;
+  prodOrderId?: string;
+  search?: string;
 }
 
 const BOQ_ISSUE_LOG_FILE = 'boq-issue-log.json';
@@ -166,6 +285,104 @@ function getNextVoucherSeq(all: BoqIssueVoucherRecord[], year: number): number {
   return maxSeq + 1;
 }
 
+export function allocateItemsToDoors(
+  doorsMeta: BoqDoorInputMeta[],
+  items: BoqIssueVoucherItem[]
+): BoqDoorAllocation[] {
+  if (!doorsMeta || doorsMeta.length === 0) return [];
+  const normalized = doorsMeta.map((d, idx) => {
+    const widthCm = Number(d.widthCm) > 0 ? Number(d.widthCm) : 80;
+    const heightCm = Number(d.heightCm) > 0 ? Number(d.heightCm) : 210;
+    const sqFt =
+      Number(d.sqFt) > 0 ? Number(d.sqFt) : Number(((widthCm * heightCm) / 929.0304).toFixed(2));
+    return {
+      doorId: d.doorId || d.doorNumber || `door-${idx + 1}`,
+      doorNumber: d.doorNumber || d.doorId || `D-${idx + 1}`,
+      widthCm,
+      heightCm,
+      sqFt,
+    };
+  });
+
+  const totalSqFt = normalized.reduce((s, d) => s + d.sqFt, 0) || normalized.length;
+  const perDoorItems: BoqDoorAllocationItem[][] = normalized.map(() => []);
+
+  for (const item of items) {
+    let usedVal = 0;
+    let usedQty = 0;
+
+    normalized.forEach((door, idx) => {
+      const isLast = idx === normalized.length - 1;
+      const share = door.sqFt / totalSqFt;
+      const val = isLast ? Math.max(0, item.value - usedVal) : Math.round(item.value * share);
+      const qty = isLast
+        ? Math.max(0, Number((item.issuedQty - usedQty).toFixed(4)))
+        : Number((item.issuedQty * share).toFixed(4));
+      usedVal += val;
+      usedQty = Number((usedQty + qty).toFixed(4));
+
+      perDoorItems[idx].push({
+        key: item.key,
+        name: item.name,
+        unit: item.unit,
+        qty,
+        value: val,
+        category: item.category,
+      });
+    });
+  }
+
+  return normalized.map((door, idx) => {
+    const allocatedItems = perDoorItems[idx];
+    const allocatedValue = Math.round(
+      allocatedItems.reduce((sum, it) => sum + (Number(it.value) || 0), 0)
+    );
+    return {
+      ...door,
+      allocatedValue,
+      items: allocatedItems,
+    };
+  });
+}
+
+export function findAlreadyIssuedDoorsInVouchers(
+  prodOrderId: string,
+  doorIds: string[]
+): Array<{
+  doorId: string;
+  doorNumber: string;
+  voucherNumber: string;
+  consolidatedBatchNumber?: string;
+  issuedAt: string;
+}> {
+  if (!prodOrderId || !doorIds || doorIds.length === 0) return [];
+  const requestedSet = new Set(doorIds.filter(Boolean));
+  const vouchers = listBoqIssueVouchers(prodOrderId);
+  const conflicts: Array<{
+    doorId: string;
+    doorNumber: string;
+    voucherNumber: string;
+    consolidatedBatchNumber?: string;
+    issuedAt: string;
+  }> = [];
+
+  for (const v of vouchers) {
+    v.doorIds.forEach((did, idx) => {
+      const dNum = v.doorNumbers[idx] || did;
+      if (requestedSet.has(did) || requestedSet.has(dNum)) {
+        conflicts.push({
+          doorId: did,
+          doorNumber: dNum,
+          voucherNumber: v.voucherNumber,
+          consolidatedBatchNumber: v.consolidatedBatchNumber,
+          issuedAt: v.issuedAt,
+        });
+      }
+    });
+  }
+  return conflicts;
+}
+
 export function generateConsolidatedBatchNumber(existing?: BoqIssueVoucherRecord[]): string {
   const all = existing || readStore();
   const year = new Date().getFullYear();
@@ -207,7 +424,6 @@ export function listConsolidatedBatchSummaries(): ConsolidatedBoqBatchSummary[] 
   const summaries: ConsolidatedBoqBatchSummary[] = [];
   for (const [batchNumber, vouchers] of map.entries()) {
     const first = vouchers[0];
-    // Re-aggregate combined items across linked party vouchers
     const itemMap = new Map<string, BoqIssueVoucherItem>();
     for (const v of vouchers) {
       for (const it of v.items || []) {
@@ -289,6 +505,16 @@ export function createBoqIssueVoucher(input: CreateBoqIssueVoucherInput): BoqIss
     new Set((Array.isArray(input.doorIds) ? input.doorIds : []).filter(Boolean))
   );
   const doorNumbers = Array.isArray(input.doorNumbers) ? input.doorNumbers.filter(Boolean) : [];
+  const doorsMeta: BoqDoorInputMeta[] =
+    Array.isArray(input.doorsMeta) && input.doorsMeta.length > 0
+      ? input.doorsMeta
+      : doorIds.map((did, idx) => ({
+          doorId: did,
+          doorNumber: doorNumbers[idx] || did,
+          widthCm: 80,
+          heightCm: 210,
+        }));
+  const doorAllocations = allocateItemsToDoors(doorsMeta, cleanItems);
 
   const record: BoqIssueVoucherRecord = {
     id: `BOQISS-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
@@ -308,6 +534,7 @@ export function createBoqIssueVoucher(input: CreateBoqIssueVoucherInput): BoqIss
     doorNumbers: doorNumbers.length > 0 ? doorNumbers : doorIds,
     doorsCount: doorIds.length,
     items: cleanItems,
+    doorAllocations,
     totalIssuedValue,
     bufferPercent: Math.max(0, Number(input.bufferPercent) || 0),
     notes: input.notes?.trim() || undefined,
@@ -343,13 +570,11 @@ export function createConsolidatedBoqBatchVouchers(
     cleanItems.reduce((sum, it) => sum + (Number(it.value) || 0), 0)
   );
 
-  // Weight each party by selected Sq.Ft (fallback to doorsCount) so pro-rated party values match exact batch total
   const weights = validEntries.map((e) =>
     Number(e.selectedSqFt) > 0 ? Number(e.selectedSqFt) : e.doorIds.length
   );
   const totalWeight = weights.reduce((s, w) => s + w, 0) || 1;
 
-  // Allocate exact integer ₹ values per item across entries with last-entry remainder balance
   const perEntryItems: BoqIssueVoucherItem[][] = validEntries.map(() => []);
   for (const item of cleanItems) {
     let allocatedValue = 0;
@@ -393,6 +618,16 @@ export function createConsolidatedBoqBatchVouchers(
       Array.isArray(entry.doorNumbers) && entry.doorNumbers.length > 0
         ? entry.doorNumbers.filter(Boolean)
         : doorIds;
+    const doorsMeta: BoqDoorInputMeta[] =
+      Array.isArray(entry.doorsMeta) && entry.doorsMeta.length > 0
+        ? entry.doorsMeta
+        : doorIds.map((did, dIdx) => ({
+            doorId: did,
+            doorNumber: doorNumbers[dIdx] || did,
+            widthCm: 80,
+            heightCm: 210,
+          }));
+    const doorAllocations = allocateItemsToDoors(doorsMeta, entryItems);
 
     const record: BoqIssueVoucherRecord = {
       id: `BOQISS-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
@@ -412,6 +647,7 @@ export function createConsolidatedBoqBatchVouchers(
       doorNumbers,
       doorsCount: doorIds.length,
       items: entryItems,
+      doorAllocations,
       totalIssuedValue: entryValue,
       bufferPercent: Math.max(0, Number(input.bufferPercent) || 0),
       notes: input.notes?.trim() || undefined,
@@ -445,4 +681,320 @@ export function deleteConsolidatedBatchVouchers(batchNumber: string): BoqIssueVo
   const remaining = all.filter((v) => v.consolidatedBatchNumber !== batchNumber);
   writeStore(remaining);
   return removed;
+}
+
+// ── DOOR-WISE / ORDER-WISE / BATCH-WISE REPORT ENGINE ─────────────────────────
+
+function emptyMaterials(): BoqMaterialTotals {
+  return {
+    resinKg: 0,
+    gelKg: 0,
+    catalystGrams: 0,
+    acceleratorGrams: 0,
+    csm300Kg: 0,
+    pigmentGrams: 0,
+    woodCuFt: 0,
+    foamSheets: 0,
+    otherValue: 0,
+  };
+}
+
+function addItemToMaterialTotals(
+  target: BoqMaterialTotals,
+  item: { key: string; qty: number; value: number }
+): void {
+  const k = (item.key || '').toLowerCase();
+  if (k === 'resin') {
+    target.resinKg = Number((target.resinKg + item.qty).toFixed(3));
+  } else if (k === 'gel') {
+    target.gelKg = Number((target.gelKg + item.qty).toFixed(3));
+  } else if (k === 'catalystgrams') {
+    target.catalystGrams = Number((target.catalystGrams + item.qty).toFixed(1));
+  } else if (k === 'acceleratorgrams') {
+    target.acceleratorGrams = Number((target.acceleratorGrams + item.qty).toFixed(1));
+  } else if (k === 'csm300') {
+    target.csm300Kg = Number((target.csm300Kg + item.qty).toFixed(3));
+  } else if (k.startsWith('pigment_')) {
+    target.pigmentGrams = Number((target.pigmentGrams + item.qty).toFixed(1));
+  } else if (k === 'timber') {
+    target.woodCuFt = Number((target.woodCuFt + item.qty).toFixed(4));
+  } else if (k === 'foam') {
+    target.foamSheets = Number((target.foamSheets + item.qty).toFixed(3));
+  } else {
+    target.otherValue = Math.round(target.otherValue + item.value);
+  }
+}
+
+function mergeMaterialTotals(target: BoqMaterialTotals, src: BoqMaterialTotals): void {
+  target.resinKg = Number((target.resinKg + src.resinKg).toFixed(3));
+  target.gelKg = Number((target.gelKg + src.gelKg).toFixed(3));
+  target.catalystGrams = Number((target.catalystGrams + src.catalystGrams).toFixed(1));
+  target.acceleratorGrams = Number((target.acceleratorGrams + src.acceleratorGrams).toFixed(1));
+  target.csm300Kg = Number((target.csm300Kg + src.csm300Kg).toFixed(3));
+  target.pigmentGrams = Number((target.pigmentGrams + src.pigmentGrams).toFixed(1));
+  target.woodCuFt = Number((target.woodCuFt + src.woodCuFt).toFixed(4));
+  target.foamSheets = Number((target.foamSheets + src.foamSheets).toFixed(3));
+  target.otherValue = Math.round(target.otherValue + src.otherValue);
+}
+
+export function buildBoqIssuedReport(
+  orders: ProductionOrder[],
+  filters: BoqIssuedReportFilters = {}
+): BoqIssuedReportResult {
+  const allVouchers = listBoqIssueVouchers();
+  const orderById = new Map<string, ProductionOrder>();
+  for (const o of orders) {
+    orderById.set(o.id, o);
+    if (o.jobCardNumber) orderById.set(o.jobCardNumber, o);
+    if (o.prodOrderNumber) orderById.set(o.prodOrderNumber, o);
+    if (o.salesOrderId) orderById.set(o.salesOrderId, o);
+  }
+
+  const fromDate = (filters.fromDate || '').trim();
+  const toDate = (filters.toDate || '').trim();
+  const shiftFilter = (filters.shift || 'ALL').toUpperCase();
+  const orderFilter = (filters.prodOrderId || '').trim();
+  const search = (filters.search || '').trim().toLowerCase();
+
+  const filteredVouchers = allVouchers.filter((v) => {
+    if (fromDate && v.issueDate < fromDate) return false;
+    if (toDate && v.issueDate > toDate) return false;
+    if (shiftFilter && shiftFilter !== 'ALL' && v.shift !== shiftFilter) return false;
+    if (
+      orderFilter &&
+      v.prodOrderId !== orderFilter &&
+      v.orderNumber !== orderFilter &&
+      v.jobCardNumber !== orderFilter
+    ) {
+      return false;
+    }
+    if (search) {
+      const hay = [
+        v.voucherNumber,
+        v.consolidatedBatchNumber || '',
+        v.jobCardNumber,
+        v.orderNumber,
+        v.customerName,
+        v.gangName,
+        ...v.doorNumbers,
+        ...v.doorIds,
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // 1. DOOR-WISE ROWS
+  const doorWise: BoqDoorReportRow[] = [];
+  for (const v of filteredVouchers) {
+    const prodOrder = orderById.get(v.prodOrderId) || orderById.get(v.jobCardNumber);
+    let allocations = v.doorAllocations;
+    if (!allocations || allocations.length === 0) {
+      const doorsMeta: BoqDoorInputMeta[] = v.doorIds.map((did, idx) => {
+        const dNum = v.doorNumbers[idx] || did;
+        const matched = prodOrder?.doors?.find(
+          (d) => d.id === did || d.doorId === did || d.doorNumber === dNum
+        );
+        const widthCm =
+          matched?.rawWidthTopCm && matched.rawWidthTopCm > 0
+            ? matched.rawWidthTopCm
+            : matched?.finishedWidthMm && matched.finishedWidthMm > 0
+            ? matched.finishedWidthMm / 10
+            : 80;
+        const heightCm =
+          matched?.rawHeightCm && matched.rawHeightCm > 0
+            ? matched.rawHeightCm
+            : matched?.finishedHeightMm && matched.finishedHeightMm > 0
+            ? matched.finishedHeightMm / 10
+            : 210;
+        return {
+          doorId: did,
+          doorNumber: matched?.doorNumber || dNum,
+          widthCm,
+          heightCm,
+        };
+      });
+      allocations = allocateItemsToDoors(doorsMeta, v.items || []);
+    }
+
+    for (const alloc of allocations) {
+      const mats = emptyMaterials();
+      for (const it of alloc.items || []) {
+        addItemToMaterialTotals(mats, { key: it.key, qty: it.qty, value: it.value });
+      }
+      doorWise.push({
+        key: `${v.id}::${alloc.doorId}`,
+        prodOrderId: v.prodOrderId,
+        orderNumber: v.orderNumber,
+        jobCardNumber: v.jobCardNumber,
+        customerName: v.customerName,
+        doorId: alloc.doorId,
+        doorNumber: alloc.doorNumber,
+        widthCm: alloc.widthCm,
+        heightCm: alloc.heightCm,
+        sqFt: alloc.sqFt,
+        voucherId: v.id,
+        voucherNumber: v.voucherNumber,
+        batchNumber: v.consolidatedBatchNumber || null,
+        issueType: v.consolidatedBatchNumber ? 'CONSOLIDATED_BATCH' : 'SINGLE_ORDER',
+        issueDate: v.issueDate,
+        issuedAt: v.issuedAt,
+        shift: v.shift,
+        gangName: v.gangName,
+        totalValue: alloc.allocatedValue,
+        ...mats,
+      });
+    }
+  }
+
+  // 2. ORDER-WISE ROWS
+  const orderMap = new Map<
+    string,
+    {
+      row: BoqOrderReportRow;
+      issuedDoorKeys: Set<string>;
+      batchSet: Set<string>;
+    }
+  >();
+
+  for (const dRow of doorWise) {
+    let entry = orderMap.get(dRow.prodOrderId);
+    if (!entry) {
+      const prodOrder = orderById.get(dRow.prodOrderId) || orderById.get(dRow.jobCardNumber);
+      const totalDoors = prodOrder?.doors?.length || 0;
+      entry = {
+        row: {
+          prodOrderId: dRow.prodOrderId,
+          orderNumber: dRow.orderNumber,
+          jobCardNumber: dRow.jobCardNumber,
+          customerName: dRow.customerName,
+          totalDoors,
+          issuedDoors: 0,
+          balanceDoors: totalDoors,
+          status: 'PARTIAL',
+          vouchersCount: 0,
+          batchNumbers: [],
+          lastIssuedDate: dRow.issueDate,
+          totalValue: 0,
+          avgCostPerDoor: 0,
+          ...emptyMaterials(),
+        },
+        issuedDoorKeys: new Set<string>(),
+        batchSet: new Set<string>(),
+      };
+      orderMap.set(dRow.prodOrderId, entry);
+    }
+
+    entry.issuedDoorKeys.add(dRow.doorId);
+    entry.batchSet.add(dRow.batchNumber || dRow.voucherNumber);
+    if (dRow.issueDate > entry.row.lastIssuedDate) {
+      entry.row.lastIssuedDate = dRow.issueDate;
+    }
+    entry.row.totalValue = Math.round(entry.row.totalValue + dRow.totalValue);
+    mergeMaterialTotals(entry.row, dRow);
+  }
+
+  const orderWise: BoqOrderReportRow[] = Array.from(orderMap.values())
+    .map(({ row, issuedDoorKeys, batchSet }) => {
+      const issuedDoors = issuedDoorKeys.size;
+      const totalDoors = Math.max(row.totalDoors, issuedDoors);
+      const balanceDoors = Math.max(0, totalDoors - issuedDoors);
+      const status: BoqOrderReportRow['status'] =
+        balanceDoors === 0 ? 'FULLY_ISSUED' : issuedDoors > 0 ? 'PARTIAL' : 'PENDING';
+      return {
+        ...row,
+        totalDoors,
+        issuedDoors,
+        balanceDoors,
+        status,
+        vouchersCount: batchSet.size,
+        batchNumbers: Array.from(batchSet),
+        avgCostPerDoor: issuedDoors > 0 ? Math.round(row.totalValue / issuedDoors) : 0,
+      };
+    })
+    .sort((a, b) => (b.lastIssuedDate || '').localeCompare(a.lastIssuedDate || ''));
+
+  // 3. BATCH-WISE ROWS (Consolidated Batches grouped by batchNumber, Single Orders by voucherNumber)
+  const batchMap = new Map<
+    string,
+    {
+      row: BoqBatchReportRow;
+      partyCounts: Map<string, number>;
+      voucherSet: Set<string>;
+    }
+  >();
+
+  for (const v of filteredVouchers) {
+    const batchKey = v.consolidatedBatchNumber || v.voucherNumber;
+    let entry = batchMap.get(batchKey);
+    if (!entry) {
+      entry = {
+        row: {
+          batchKey,
+          referenceNumber: batchKey,
+          issueType: v.consolidatedBatchNumber ? 'CONSOLIDATED_BATCH' : 'SINGLE_ORDER',
+          issueDate: v.issueDate,
+          issuedAt: v.issuedAt,
+          shift: v.shift,
+          gangName: v.gangName,
+          issuedBy: v.issuedBy,
+          partiesCount: 0,
+          partySummary: '',
+          doorsCount: 0,
+          totalValue: 0,
+          avgCostPerDoor: 0,
+          voucherIds: [],
+          ...emptyMaterials(),
+        },
+        partyCounts: new Map<string, number>(),
+        voucherSet: new Set<string>(),
+      };
+      batchMap.set(batchKey, entry);
+    }
+
+    entry.voucherSet.add(v.id);
+    const shortParty = (v.customerName || 'Party').split('(')[0].trim();
+    entry.partyCounts.set(shortParty, (entry.partyCounts.get(shortParty) || 0) + (v.doorsCount || 0));
+    entry.row.doorsCount += v.doorsCount || 0;
+    entry.row.totalValue = Math.round(entry.row.totalValue + (Number(v.totalIssuedValue) || 0));
+    for (const it of v.items || []) {
+      addItemToMaterialTotals(entry.row, { key: it.key, qty: it.issuedQty, value: it.value });
+    }
+  }
+
+  const batchWise: BoqBatchReportRow[] = Array.from(batchMap.values())
+    .map(({ row, partyCounts, voucherSet }) => ({
+      ...row,
+      partiesCount: partyCounts.size,
+      partySummary: Array.from(partyCounts.entries())
+        .map(([name, cnt]) => `${name} (${cnt})`)
+        .join(' • '),
+      avgCostPerDoor: row.doorsCount > 0 ? Math.round(row.totalValue / row.doorsCount) : 0,
+      voucherIds: Array.from(voucherSet),
+    }))
+    .sort((a, b) => (b.issuedAt || '').localeCompare(a.issuedAt || ''));
+
+  // 4. OVERALL SUMMARY
+  const summaryMats = emptyMaterials();
+  for (const d of doorWise) {
+    mergeMaterialTotals(summaryMats, d);
+  }
+  const totalIssuedValue = Math.round(doorWise.reduce((s, d) => s + d.totalValue, 0));
+  const totalDoorsIssued = doorWise.length;
+
+  return {
+    summary: {
+      ...summaryMats,
+      totalDoorsIssued,
+      totalOrdersWithIssues: orderWise.length,
+      totalBatchesCount: batchWise.length,
+      totalIssuedValue,
+      avgCostPerDoor: totalDoorsIssued > 0 ? Math.round(totalIssuedValue / totalDoorsIssued) : 0,
+    },
+    doorWise,
+    orderWise,
+    batchWise,
+  };
 }
