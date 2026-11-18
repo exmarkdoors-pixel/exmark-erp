@@ -44,6 +44,7 @@ import {
   UserPlus,
   ArrowUpCircle,
   Calendar,
+  BookOpen,
 } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/services/whatsappService';
 import { DoorMeasurementModal } from './DoorMeasurementModal';
@@ -88,6 +89,8 @@ import { OrderProfitPanel } from './finance/OrderProfitPanel';
 import { BreakEvenPanel } from './finance/BreakEvenPanel';
 import BusinessHealthForecastingPanel from './finance/BusinessHealthForecastingPanel';
 import DailyEveningClosingModal from './finance/DailyEveningClosingModal';
+import { AccountingMasterHub } from './accounting/AccountingMasterHub';
+import { AccountingReportsSection } from './accounting/AccountingReportsSection';
 import { StageBoqModal } from './production/StageBoqModal';
 import { CustomFrameManagerModal } from './production/CustomFrameManagerModal';
 import { DeliveryChallanModal } from './production/DeliveryChallanModal';
@@ -1446,7 +1449,7 @@ export function AccountsGstView() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [targets, setTargets] = useState<FinancialTarget[]>([]);
-  const [activeFinanceTab, setActiveFinanceTab] = useState<'CLIENT_INVOICES' | 'DAILY_HEALTH_FORECAST' | 'CONTRACTOR_PAYABLES' | 'ORDER_PROFIT' | 'BREAK_EVEN' | 'FINANCIAL_FORECAST'>('CLIENT_INVOICES');
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'ACCOUNTING_SUITE' | 'CLIENT_INVOICES' | 'DAILY_HEALTH_FORECAST' | 'CONTRACTOR_PAYABLES' | 'ORDER_PROFIT' | 'BREAK_EVEN' | 'FINANCIAL_FORECAST'>('ACCOUNTING_SUITE');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
   const [isStrategistOpen, setIsStrategistOpen] = useState<boolean>(false);
@@ -1546,8 +1549,21 @@ export function AccountsGstView() {
         </div>
       </div>
 
-      {/* Accounts Navigation: Customer Invoices vs Live BEP vs AI Forecast vs Order Profit vs Contractor Payables */}
+      {/* Accounts Navigation: Complete Accounting Suite + Daily Closing + Customer Invoices + BEP + AI Forecast + Order Profit + Contractor Payables */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setActiveFinanceTab('ACCOUNTING_SUITE')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeFinanceTab === 'ACCOUNTING_SUITE'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>📒 Complete Accounting Suite</span>
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveFinanceTab('DAILY_HEALTH_FORECAST')}
@@ -1627,7 +1643,9 @@ export function AccountsGstView() {
         </button>
       </div>
 
-      {activeFinanceTab === 'DAILY_HEALTH_FORECAST' ? (
+      {activeFinanceTab === 'ACCOUNTING_SUITE' ? (
+        <AccountingMasterHub />
+      ) : activeFinanceTab === 'DAILY_HEALTH_FORECAST' ? (
         <BusinessHealthForecastingPanel />
       ) : activeFinanceTab === 'BREAK_EVEN' ? (
         <BreakEvenPanel />
@@ -2950,6 +2968,7 @@ export function MarketingView() {
  * 13. REPORTS VIEW
  * ------------------------------------------------------------- */
 export function ReportsView() {
+  const [reportCategory, setReportCategory] = useState<'OPERATIONS' | 'ACCOUNTS'>('ACCOUNTS');
   const [selectedReportCode, setSelectedReportCode] = useState<string>('SALES_BY_DISTRICT');
   const [reportResult, setReportResult] = useState<ReportExecutionResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -2975,7 +2994,7 @@ export function ReportsView() {
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/reports?code=${selectedReportCode}`)
+    apiFetch(`/api/reports?code=${selectedReportCode}`)
       .then((res) => res.json())
       .then((json) => {
         if (active && json.success && json.data) {
@@ -3073,41 +3092,75 @@ export function ReportsView() {
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-red-500" />
-            Executive Business Reports &amp; Analytics
+            Executive Business &amp; Accounts Reports
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            FRP door sales, production capacity, receivables aging &amp; dealer performance across Kerala
+            All Accounts Reports (P&amp;L, Balance Sheet, Trial Balance, GST, Day Book) &amp; Factory Operations Analytics
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsWhatsAppOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
-          >
-            <Share2 className="w-3.5 h-3.5" /> Share via WhatsApp
-          </button>
-          <button
-            onClick={handleExportCsv}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-700"
-          >
-            <Download className="w-3.5 h-3.5 text-emerald-500" /> Export Excel / CSV
-          </button>
-          <button
-            onClick={handleDownloadReportPdf}
-            disabled={!reportResult}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-md shadow-indigo-900/30"
-          >
-            <Download className="w-3.5 h-3.5" /> Download PDF (.pdf)
-          </button>
-          <button
-            onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-md shadow-red-900/30"
-          >
-            <Printer className="w-3.5 h-3.5" /> Print Preview (A4)
-          </button>
-        </div>
+        {reportCategory === 'OPERATIONS' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setIsWhatsAppOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
+            >
+              <Share2 className="w-3.5 h-3.5" /> Share via WhatsApp
+            </button>
+            <button
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-700"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-500" /> Export Excel / CSV
+            </button>
+            <button
+              onClick={handleDownloadReportPdf}
+              disabled={!reportResult}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-md shadow-indigo-900/30"
+            >
+              <Download className="w-3.5 h-3.5" /> Download PDF (.pdf)
+            </button>
+            <button
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-md shadow-red-900/30"
+            >
+              <Printer className="w-3.5 h-3.5" /> Print Preview (A4)
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* Category Switcher: All Accounts Reports vs Operations & Factory Reports */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap print:hidden">
+        <button
+          type="button"
+          onClick={() => setReportCategory('ACCOUNTS')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            reportCategory === 'ACCOUNTS'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>📒 All Accounts Reports (P&amp;L, Balance Sheet, Trial Balance, GST)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setReportCategory('OPERATIONS')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            reportCategory === 'OPERATIONS'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>📊 Operations, Sales &amp; Plant Reports</span>
+        </button>
+      </div>
+
+      {reportCategory === 'ACCOUNTS' ? (
+        <AccountingReportsSection />
+      ) : (
+        <>
       {/* Report Selector Tabs */}
       <div className="flex flex-wrap gap-2 print:hidden">
         {REPORT_OPTIONS.map((opt) => (
@@ -3347,6 +3400,8 @@ export function ReportsView() {
           setTimeout(() => setToastMessage(null), 3000);
         }}
       />
+        </>
+      )}
     </div>
   );
 }

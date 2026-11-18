@@ -69,7 +69,7 @@ const SIMPLE_LABELS: Partial<Record<NavigationTab, string>> = {
   production: 'Production Floor',
   dispatch: 'Packing & Dispatch',
   'mobile-field': 'Mobile Field Ops',
-  accounts: 'Accounts & Finance',
+  accounts: 'Accounts & Accounting',
   settings: 'Settings & Staff',
 };
 
@@ -102,9 +102,9 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'purchases', label: 'Purchase Orders (PO)', icon: Layers, badge: 'Create PO', badgeColor: 'bg-purple-500/20 text-purple-300', category: 'Operations' },
   { id: 'mobile-field', label: 'Mobile Field Ops', icon: Smartphone, badge: 'Floor/GPS', badgeColor: 'bg-rose-500/20 text-rose-300', category: 'Operations' },
 
-  // Accounts & Governance (Billing Deferred to Future Phase)
-  { id: 'accounts', label: 'Accounts & Gang Payouts', icon: ReceiptIndianRupee, badge: 'Weekly Stmt', badgeColor: 'bg-indigo-500/20 text-indigo-300', category: 'Admin' },
-  { id: 'sales', label: 'Sales & Invoicing', icon: ReceiptText, badge: 'Future Phase', badgeColor: 'bg-slate-800 text-slate-400 border border-slate-700', category: 'Admin' },
+  // Accounts & Complete Double-Entry Accounting Suite
+  { id: 'accounts', label: 'Accounts & Accounting', icon: ReceiptIndianRupee, badge: 'Full Ledger', badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30', category: 'Admin' },
+  { id: 'sales', label: 'Sales & Invoicing', icon: ReceiptText, badge: 'Sales & Notes', badgeColor: 'bg-blue-500/20 text-blue-300 border border-blue-500/30', category: 'Admin' },
   { id: 'employees', label: 'Employees & Roster', icon: UserCheck, category: 'Admin' },
   { id: 'marketing', label: 'Marketing & Sales Hub', icon: Megaphone, badge: 'Targets + Comm', badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30', category: 'Admin' },
   { id: 'reports', label: 'Reports & Analytics', icon: BarChart3, category: 'Admin' },
