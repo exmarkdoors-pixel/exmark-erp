@@ -17,27 +17,56 @@ import type {
   BoqIssueShift,
   BoqIssueVoucherItem,
   BoqIssueVoucherRecord,
+  ConsolidatedBoqBatchSummary,
 } from '@/lib/services/boqIssueService';
+
+export interface UpdatedOrderDoorPayload {
+  id?: string;
+  doorId?: string;
+  doorNumber?: string;
+  materialIssued?: boolean;
+  materialIssuedAt?: string;
+  materialIssueBatchId?: string;
+  materialIssuedToGang?: string;
+  materialIssuedValue?: number;
+}
+
+export interface UpdatedOrderPayload {
+  id: string;
+  boqIssuedAt?: string | null;
+  doors: UpdatedOrderDoorPayload[];
+}
 
 export interface DailyStoreIssueResult {
   voucher: BoqIssueVoucherRecord;
-  updatedOrder: {
-    id: string;
-    boqIssuedAt?: string | null;
-    doors: Array<{
-      id?: string;
-      doorId?: string;
-      doorNumber?: string;
-      materialIssued?: boolean;
-      materialIssuedAt?: string;
-      materialIssueBatchId?: string;
-      materialIssuedToGang?: string;
-      materialIssuedValue?: number;
-    }>;
-  };
+  updatedOrder: UpdatedOrderPayload;
   allDoorsIssued: boolean;
   remainingPendingDoors: number;
   totalOrderIssuedValue: number;
+}
+
+export interface ConsolidatedBatchIssueResult {
+  consolidatedBatchNumber: string;
+  vouchers: BoqIssueVoucherRecord[];
+  updatedOrders: UpdatedOrderPayload[];
+  totalBatchValue: number;
+  totalDoorsIssued: number;
+  partiesClearedCount: number;
+  partiesWithBalanceCount: number;
+  totalBalanceDoorsLeft: number;
+  consolidatedBatches: ConsolidatedBoqBatchSummary[];
+}
+
+export interface ConsolidatedPartySlipEntry {
+  prodOrderId: string;
+  orderNumber: string;
+  jobCardNumber: string;
+  customerName: string;
+  totalOrderDoors: number;
+  doorIds: string[];
+  doorNumbers: string[];
+  selectedSqFt: number;
+  balanceDoorsAfter: number;
 }
 
 interface DailyStoreIssueSlipModalProps {
@@ -61,7 +90,11 @@ interface DailyStoreIssueSlipModalProps {
   initialShift?: BoqIssueShift;
   notes?: string;
   previewVoucher?: BoqIssueVoucherRecord | null;
+  // Consolidated multi-party batch support
+  consolidatedEntries?: ConsolidatedPartySlipEntry[];
+  previewConsolidatedBatch?: ConsolidatedBoqBatchSummary | null;
   onIssued?: (result: DailyStoreIssueResult) => void;
+  onConsolidatedIssued?: (result: ConsolidatedBatchIssueResult, message: string) => void;
 }
 
 export function DailyStoreIssueSlipModal({
@@ -77,7 +110,10 @@ export function DailyStoreIssueSlipModal({
   initialShift = 'MORNING',
   notes = '',
   previewVoucher = null,
+  consolidatedEntries,
+  previewConsolidatedBatch = null,
   onIssued,
+  onConsolidatedIssued,
 }: DailyStoreIssueSlipModalProps) {
   const [shift, setShift] = useState<BoqIssueShift>(initialShift);
   const [gangName, setGangName] = useState<string>(initialGangName || 'ASHIK (Floor Gang)');
@@ -87,18 +123,37 @@ export function DailyStoreIssueSlipModal({
   const [issueError, setIssueError] = useState<string | null>(null);
   const [savedVoucherNumber, setSavedVoucherNumber] = useState<string | null>(null);
 
+  const isConsolidatedMode =
+    Boolean(previewConsolidatedBatch) ||
+    (Array.isArray(consolidatedEntries) && consolidatedEntries.length > 0);
+  const isHistoricalPreview = Boolean(previewVoucher || previewConsolidatedBatch);
+
   useEffect(() => {
     if (isOpen) {
-      setShift(previewVoucher?.shift || initialShift || 'MORNING');
-      setGangName(previewVoucher?.gangName || initialGangName || 'ASHIK (Floor Gang)');
-      setStorekeeperName(previewVoucher?.issuedBy || 'Storekeeper In-Charge');
+      setShift(
+        previewConsolidatedBatch?.shift || previewVoucher?.shift || initialShift || 'MORNING'
+      );
+      setGangName(
+        previewConsolidatedBatch?.gangName ||
+          previewVoucher?.gangName ||
+          initialGangName ||
+          'ASHIK (Floor Gang)'
+      );
+      setStorekeeperName(
+        previewConsolidatedBatch?.issuedBy || previewVoucher?.issuedBy || 'Storekeeper In-Charge'
+      );
       setIssueNotice(null);
       setIssueError(null);
-      setSavedVoucherNumber(previewVoucher?.voucherNumber || null);
+      setSavedVoucherNumber(
+        previewConsolidatedBatch?.batchNumber || previewVoucher?.voucherNumber || null
+      );
     }
-  }, [isOpen, initialGangName, initialShift, previewVoucher]);
+  }, [isOpen, initialGangName, initialShift, previewVoucher, previewConsolidatedBatch]);
 
   const effectiveItems = useMemo<BoqIssueVoucherItem[]>(() => {
+    if (previewConsolidatedBatch && previewConsolidatedBatch.items.length > 0) {
+      return previewConsolidatedBatch.items;
+    }
     if (previewVoucher && previewVoucher.items.length > 0) {
       return previewVoucher.items;
     }
@@ -177,20 +232,45 @@ export function DailyStoreIssueSlipModal({
         category: 'Rigid Foam',
       },
     ];
-  }, [previewVoucher, customItems, boq, ratesConfig]);
+  }, [previewConsolidatedBatch, previewVoucher, customItems, boq, ratesConfig]);
 
-  if (!isOpen || (!order && !previewVoucher)) return null;
+  if (!isOpen || (!order && !previewVoucher && !isConsolidatedMode)) return null;
 
-  const isHistoricalPreview = Boolean(previewVoucher);
-  const displayJobCard = previewVoucher?.jobCardNumber || order?.jobCardNumber || '';
-  const displayCustomer = previewVoucher?.customerName || order?.customerName || '';
-  const totalDoorsInOrder = order?.doorsCount || previewVoucher?.doorsCount || selectedDoors.length;
-  const selectedCount = previewVoucher ? previewVoucher.doorsCount : selectedDoors.length;
+  const displayJobCard = previewConsolidatedBatch
+    ? `${previewConsolidatedBatch.partiesCount} Parties Batch`
+    : isConsolidatedMode
+    ? `${consolidatedEntries?.length || 0} Parties Batch`
+    : previewVoucher?.jobCardNumber || order?.jobCardNumber || '';
+
+  const displayCustomer = previewConsolidatedBatch
+    ? previewConsolidatedBatch.partyBreakdowns.map((p) => p.customerName.split('(')[0].trim()).join(' + ')
+    : isConsolidatedMode
+    ? (consolidatedEntries || []).map((p) => p.customerName.split('(')[0].trim()).join(' + ')
+    : previewVoucher?.customerName || order?.customerName || '';
+
+  const selectedCount = previewConsolidatedBatch
+    ? previewConsolidatedBatch.totalDoors
+    : isConsolidatedMode
+    ? (consolidatedEntries || []).reduce((s, e) => s + e.doorIds.length, 0)
+    : previewVoucher
+    ? previewVoucher.doorsCount
+    : selectedDoors.length;
+
+  const totalDoorsInOrder = previewConsolidatedBatch
+    ? previewConsolidatedBatch.totalDoors
+    : isConsolidatedMode
+    ? (consolidatedEntries || []).reduce((s, e) => s + e.totalOrderDoors, 0)
+    : order?.doorsCount || previewVoucher?.doorsCount || selectedDoors.length;
+
   const pct = totalDoorsInOrder > 0 ? Math.round((selectedCount / totalDoorsInOrder) * 100) : 100;
   const voucherNumber =
     savedVoucherNumber ||
-    `VCH-${displayJobCard.replace(/[^0-9]/g, '')}-${Date.now().toString().slice(-4)}`;
-  const todayStr = previewVoucher?.issueDate
+    (isConsolidatedMode
+      ? `BATCH-${Date.now().toString().slice(-6)}`
+      : `VCH-${displayJobCard.replace(/[^0-9]/g, '')}-${Date.now().toString().slice(-4)}`);
+  const todayStr = previewConsolidatedBatch?.issueDate
+    ? previewConsolidatedBatch.issueDate
+    : previewVoucher?.issueDate
     ? previewVoucher.issueDate
     : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   const totalSlipValue = Math.round(
@@ -206,28 +286,21 @@ export function DailyStoreIssueSlipModal({
     setIsSubmitting(true);
     setIssueError(null);
     try {
-      const doorIds = selectedDoors
-        .map((d) => d.id || d.doorId || d.doorNumber)
-        .filter(Boolean) as string[];
-      const doorNumbers = selectedDoors.map((d, idx) => d.doorNumber || `D-${idx + 1}`);
-
-      if (doorIds.length === 0) {
-        setIssueError('Select at least one door before confirming material issue.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (order?.prodOrderId) {
+      if (isConsolidatedMode && consolidatedEntries && consolidatedEntries.length > 0) {
         const res = await apiFetch('/api/boq/issue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prodOrderId: order.prodOrderId,
-            orderNumber: order.orderNumber || order.id,
-            jobCardNumber: order.jobCardNumber,
-            customerName: order.customerName,
-            doorIds,
-            doorNumbers,
+            mode: 'CONSOLIDATED_BATCH',
+            entries: consolidatedEntries.map((e) => ({
+              prodOrderId: e.prodOrderId,
+              orderNumber: e.orderNumber,
+              jobCardNumber: e.jobCardNumber,
+              customerName: e.customerName,
+              doorIds: e.doorIds,
+              doorNumbers: e.doorNumbers,
+              selectedSqFt: e.selectedSqFt,
+            })),
             items: effectiveItems,
             shift,
             gangName: gangName.trim() || 'Production Floor Team',
@@ -238,17 +311,63 @@ export function DailyStoreIssueSlipModal({
         });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json.error || `HTTP ${res.status} while saving BOQ issue voucher`);
+          throw new Error(json.error || `HTTP ${res.status} while saving consolidated BOQ batch`);
         }
 
-        const result = json.data as DailyStoreIssueResult;
-        setSavedVoucherNumber(result.voucher.voucherNumber);
-        setIssueNotice(
+        const result = json.data as ConsolidatedBatchIssueResult;
+        setSavedVoucherNumber(result.consolidatedBatchNumber);
+        const msg =
           json.message ||
-            `Issued ${result.voucher.voucherNumber} for ${selectedCount} doors (₹${result.voucher.totalIssuedValue.toLocaleString('en-IN')}). Printing voucher...`
-        );
-        if (onIssued) {
-          onIssued(result);
+          `Issued Consolidated Batch ${result.consolidatedBatchNumber} (${result.totalDoorsIssued} doors, ₹${result.totalBatchValue.toLocaleString('en-IN')}).`;
+        setIssueNotice(`${msg} Printing voucher...`);
+        if (onConsolidatedIssued) {
+          onConsolidatedIssued(result, msg);
+        }
+      } else {
+        const doorIds = selectedDoors
+          .map((d) => d.id || d.doorId || d.doorNumber)
+          .filter(Boolean) as string[];
+        const doorNumbers = selectedDoors.map((d, idx) => d.doorNumber || `D-${idx + 1}`);
+
+        if (doorIds.length === 0) {
+          setIssueError('Select at least one door before confirming material issue.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (order?.prodOrderId) {
+          const res = await apiFetch('/api/boq/issue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prodOrderId: order.prodOrderId,
+              orderNumber: order.orderNumber || order.id,
+              jobCardNumber: order.jobCardNumber,
+              customerName: order.customerName,
+              doorIds,
+              doorNumbers,
+              items: effectiveItems,
+              shift,
+              gangName: gangName.trim() || 'Production Floor Team',
+              issuedBy: storekeeperName.trim() || 'Storekeeper In-Charge',
+              bufferPercent,
+              notes: notes.trim() || undefined,
+            }),
+          });
+          const json = await res.json();
+          if (!res.ok || !json.success) {
+            throw new Error(json.error || `HTTP ${res.status} while saving BOQ issue voucher`);
+          }
+
+          const result = json.data as DailyStoreIssueResult;
+          setSavedVoucherNumber(result.voucher.voucherNumber);
+          setIssueNotice(
+            json.message ||
+              `Issued ${result.voucher.voucherNumber} for ${selectedCount} doors (₹${result.voucher.totalIssuedValue.toLocaleString('en-IN')}). Printing voucher...`
+          );
+          if (onIssued) {
+            onIssued(result);
+          }
         }
       }
 
@@ -290,7 +409,13 @@ export function DailyStoreIssueSlipModal({
             <div>
               <h2 className="text-base font-black text-white flex items-center gap-2 flex-wrap">
                 <span>
-                  {isHistoricalPreview ? 'Saved BOQ Material Issue Voucher' : 'Daily Store Material Issue Slip'}
+                  {isConsolidatedMode
+                    ? isHistoricalPreview
+                      ? 'Saved Consolidated Multi-Party Issue Voucher'
+                      : 'Consolidated Multi-Party Store Issue Slip'
+                    : isHistoricalPreview
+                    ? 'Saved BOQ Material Issue Voucher'
+                    : 'Daily Store Material Issue Slip'}
                 </span>
                 <span className="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/40 font-mono text-xs text-amber-300">
                   {displayJobCard}
@@ -300,7 +425,7 @@ export function DailyStoreIssueSlipModal({
                 </span>
               </h2>
               <p className="text-[11px] text-slate-400">
-                {selectedCount} Doors &bull; {effectiveItems.length} Marked Material Items &bull; Customer:{' '}
+                {selectedCount} Doors &bull; {effectiveItems.length} Marked Material Items &bull;{' '}
                 <span className="text-slate-200">{displayCustomer}</span>
               </p>
             </div>
@@ -392,7 +517,10 @@ export function DailyStoreIssueSlipModal({
                 EXMARK FRP DOORS &amp; FRAMES
               </h1>
               <p className="text-[10px] text-slate-600 font-bold uppercase tracking-wider">
-                Industrial Manufacturing Unit &bull; Store BOQ Raw Material Issue Voucher
+                Industrial Manufacturing Unit &bull;{' '}
+                {isConsolidatedMode
+                  ? 'Consolidated Multi-Party Store Material Issue Voucher'
+                  : 'Store BOQ Raw Material Issue Voucher'}
               </p>
             </div>
             <div className="text-right">
@@ -408,11 +536,15 @@ export function DailyStoreIssueSlipModal({
           {/* Job Card & Party Details Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-3 border-b border-slate-300 text-xs">
             <div>
-              <span className="block text-[9px] uppercase font-bold text-slate-500">Job Card Number</span>
+              <span className="block text-[9px] uppercase font-bold text-slate-500">
+                {isConsolidatedMode ? 'Batch Scope' : 'Job Card Number'}
+              </span>
               <strong className="font-mono text-sm text-slate-950">{displayJobCard}</strong>
             </div>
             <div>
-              <span className="block text-[9px] uppercase font-bold text-slate-500">Customer / Project</span>
+              <span className="block text-[9px] uppercase font-bold text-slate-500">
+                {isConsolidatedMode ? 'Combined Parties' : 'Customer / Project'}
+              </span>
               <strong className="text-xs text-slate-900 truncate block">{displayCustomer}</strong>
             </div>
             <div>
@@ -420,37 +552,101 @@ export function DailyStoreIssueSlipModal({
               <strong className="text-xs text-amber-900 block">{gangName}</strong>
             </div>
             <div>
-              <span className="block text-[9px] uppercase font-bold text-slate-500">Batch Progress</span>
+              <span className="block text-[9px] uppercase font-bold text-slate-500">Doors Issued</span>
               <strong className="text-xs text-emerald-800 block">
                 {selectedCount} of {totalDoorsInOrder} Doors ({pct}%)
               </strong>
             </div>
           </div>
 
-          {/* Doors Included Strip */}
+          {/* Doors Included Strip (Per-Party Breakdown for Consolidated Batch OR Single Order Chips) */}
           <div className="py-2.5 border-b border-slate-300 text-xs">
-            <span className="text-[9.5px] uppercase font-bold text-slate-500 block mb-1">
-              Doors Covered in this Material Issue ({selectedCount} Units):
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {previewVoucher
-                ? previewVoucher.doorNumbers.map((dn, i) => (
-                    <span
-                      key={i}
-                      className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10.5px] font-bold text-slate-800"
-                    >
-                      {dn}
-                    </span>
-                  ))
-                : selectedDoors.map((d, i) => (
-                    <span
-                      key={i}
-                      className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10.5px] font-bold text-slate-800"
-                    >
-                      {d.doorNumber || `D-${i + 1}`} ({d.widthCm}&times;{d.heightCm}cm)
-                    </span>
-                  ))}
-            </div>
+            {isConsolidatedMode ? (
+              <div className="space-y-1.5">
+                <span className="text-[9.5px] uppercase font-bold text-slate-500 block">
+                  Party-Wise Partial Doors Covered in this Consolidated Batch ({selectedCount} Doors Total):
+                </span>
+                <table className="w-full text-left text-[11px] border border-slate-300 border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 text-[9.5px] uppercase text-slate-700 font-black">
+                      <th className="p-1.5 border-r border-slate-300">Job Card</th>
+                      <th className="p-1.5 border-r border-slate-300">Party / Customer</th>
+                      <th className="p-1.5 border-r border-slate-300">Doors Issued Today</th>
+                      <th className="p-1.5 text-right">
+                        {previewConsolidatedBatch ? 'Pro-Rated Value (₹)' : 'Balance Next Day'}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {previewConsolidatedBatch
+                      ? previewConsolidatedBatch.partyBreakdowns.map((pb) => (
+                          <tr key={pb.voucherId}>
+                            <td className="p-1.5 border-r border-slate-200 font-mono font-bold">
+                              {pb.jobCardNumber}
+                            </td>
+                            <td className="p-1.5 border-r border-slate-200 font-bold">
+                              {pb.customerName}
+                            </td>
+                            <td className="p-1.5 border-r border-slate-200 font-mono">
+                              <strong>{pb.doorsCount}</strong> ({pb.doorNumbers.join(', ')})
+                            </td>
+                            <td className="p-1.5 text-right font-mono font-bold text-emerald-900">
+                              ₹{Math.round(pb.value).toLocaleString('en-IN')}
+                            </td>
+                          </tr>
+                        ))
+                      : (consolidatedEntries || []).map((ce) => (
+                          <tr key={ce.prodOrderId}>
+                            <td className="p-1.5 border-r border-slate-200 font-mono font-bold">
+                              {ce.jobCardNumber}
+                            </td>
+                            <td className="p-1.5 border-r border-slate-200 font-bold">
+                              {ce.customerName}
+                            </td>
+                            <td className="p-1.5 border-r border-slate-200 font-mono">
+                              <strong>
+                                {ce.doorIds.length}/{ce.totalOrderDoors}
+                              </strong>{' '}
+                              ({ce.doorNumbers.join(', ')})
+                            </td>
+                            <td className="p-1.5 text-right font-mono font-bold">
+                              {ce.balanceDoorsAfter > 0 ? (
+                                <span className="text-amber-800">{ce.balanceDoorsAfter} Left</span>
+                              ) : (
+                                <span className="text-emerald-800">0 (Cleared)</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <>
+                <span className="text-[9.5px] uppercase font-bold text-slate-500 block mb-1">
+                  Doors Covered in this Material Issue ({selectedCount} Units):
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {previewVoucher
+                    ? previewVoucher.doorNumbers.map((dn, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10.5px] font-bold text-slate-800"
+                        >
+                          {dn}
+                        </span>
+                      ))
+                    : selectedDoors.map((d, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10.5px] font-bold text-slate-800"
+                        >
+                          {d.doorNumber || `D-${i + 1}`} ({d.widthCm}&times;{d.heightCm}cm)
+                        </span>
+                      ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Material Requisition Table */}
@@ -504,9 +700,9 @@ export function DailyStoreIssueSlipModal({
                 </tr>
               </tfoot>
             </table>
-            {(previewVoucher?.notes || notes) && (
+            {(previewConsolidatedBatch?.notes || previewVoucher?.notes || notes) && (
               <p className="mt-2 text-[10.5px] text-slate-600">
-                <strong>Note:</strong> {previewVoucher?.notes || notes}
+                <strong>Note:</strong> {previewConsolidatedBatch?.notes || previewVoucher?.notes || notes}
               </p>
             )}
           </div>

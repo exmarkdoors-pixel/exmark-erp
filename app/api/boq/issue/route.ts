@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeRequest } from '@/lib/auth/authorization';
 import {
+  ConsolidatedBatchPartyEntryInput,
   createBoqIssueVoucher,
+  createConsolidatedBoqBatchVouchers,
   deleteBoqIssueVoucher,
+  deleteConsolidatedBatchVouchers,
   getOrderIssuedValueSummary,
   listBoqIssueVouchers,
+  listConsolidatedBatchSummaries,
 } from '@/lib/services/boqIssueService';
 import {
   getProductionOrder,
+  ProductionOrder,
   recordDoorMaterialIssue,
   unmarkDoorMaterialIssue,
 } from '@/lib/services/productionService';
@@ -18,7 +23,20 @@ export async function GET(req: NextRequest) {
     if (auth.errorResponse) return auth.errorResponse;
 
     const { searchParams } = new URL(req.url);
+    const mode = searchParams.get('mode') || '';
     const prodOrderId = searchParams.get('prodOrderId') || undefined;
+
+    if (mode === 'consolidated') {
+      const batches = listConsolidatedBatchSummaries();
+      const totalIssuedValue = Math.round(
+        batches.reduce((sum, b) => sum + (Number(b.totalValue) || 0), 0)
+      );
+      return NextResponse.json({
+        success: true,
+        data: batches,
+        totalIssuedValue,
+      });
+    }
 
     const vouchers = listBoqIssueVouchers(prodOrderId);
     const totalIssuedValue = Math.round(
@@ -29,6 +47,7 @@ export async function GET(req: NextRequest) {
       success: true,
       data: vouchers,
       totalIssuedValue,
+      ...(prodOrderId ? {} : { consolidatedBatches: listConsolidatedBatchSummaries() }),
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to fetch BOQ issue vouchers';
@@ -48,6 +67,113 @@ export async function POST(req: NextRequest) {
     if (auth.errorResponse) return auth.errorResponse;
 
     const body = await req.json();
+
+    // ── CONSOLIDATED MULTI-PARTY BATCH ISSUE ──────────────────────────────────
+    if (body.mode === 'CONSOLIDATED_BATCH' || Array.isArray(body.entries)) {
+      const rawEntries: ConsolidatedBatchPartyEntryInput[] = Array.isArray(body.entries)
+        ? body.entries
+        : [];
+      const resolvedEntries: ConsolidatedBatchPartyEntryInput[] = [];
+
+      for (const raw of rawEntries) {
+        const pid = String(raw.prodOrderId || '').trim();
+        const doorIds = Array.isArray(raw.doorIds)
+          ? raw.doorIds.map((d: unknown) => String(d || '').trim()).filter(Boolean)
+          : [];
+        if (!pid || doorIds.length === 0) continue;
+
+        const existingOrder = await getProductionOrder(pid);
+        const resolvedId = existingOrder?.id || pid;
+        const doorNumbers =
+          Array.isArray(raw.doorNumbers) && raw.doorNumbers.length > 0
+            ? raw.doorNumbers
+            : existingOrder
+            ? existingOrder.doors
+                .filter(
+                  (d) =>
+                    doorIds.includes(d.id) ||
+                    doorIds.includes(d.doorId) ||
+                    doorIds.includes(d.doorNumber)
+                )
+                .map((d) => d.doorNumber)
+            : doorIds;
+
+        resolvedEntries.push({
+          prodOrderId: resolvedId,
+          orderNumber:
+            raw.orderNumber || existingOrder?.salesOrderId || existingOrder?.prodOrderNumber || resolvedId,
+          jobCardNumber: raw.jobCardNumber || existingOrder?.jobCardNumber || resolvedId,
+          customerName: raw.customerName || existingOrder?.customerName || 'Party Order',
+          doorIds,
+          doorNumbers,
+          selectedSqFt: Number(raw.selectedSqFt) > 0 ? Number(raw.selectedSqFt) : doorIds.length,
+        });
+      }
+
+      if (resolvedEntries.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Select at least one party with pending doors before issuing.' },
+          { status: 400 }
+        );
+      }
+
+      const batchResult = createConsolidatedBoqBatchVouchers({
+        entries: resolvedEntries,
+        items: Array.isArray(body.items) ? body.items : [],
+        shift: body.shift,
+        gangName: body.gangName,
+        issuedBy: body.issuedBy || auth.user?.name || 'Storekeeper',
+        issueDate: body.issueDate,
+        bufferPercent: body.bufferPercent,
+        notes: body.notes,
+      });
+
+      const updatedOrders: ProductionOrder[] = [];
+      let partiesClearedCount = 0;
+      let partiesWithBalanceCount = 0;
+      let totalBalanceDoorsLeft = 0;
+
+      for (const voucher of batchResult.vouchers) {
+        const updatedOrder = await recordDoorMaterialIssue(voucher.prodOrderId, {
+          doorIds: voucher.doorIds,
+          batchId: batchResult.consolidatedBatchNumber,
+          gangName: voucher.gangName,
+          totalIssuedValue: voucher.totalIssuedValue,
+          notes: voucher.notes,
+        });
+        updatedOrders.push(updatedOrder);
+        const pendingLeft = updatedOrder.doors.filter((d) => !d.materialIssued).length;
+        if (pendingLeft === 0) {
+          partiesClearedCount++;
+        } else {
+          partiesWithBalanceCount++;
+          totalBalanceDoorsLeft += pendingLeft;
+        }
+      }
+
+      const totalDoorsIssued = batchResult.vouchers.reduce((s, v) => s + v.doorsCount, 0);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          consolidatedBatchNumber: batchResult.consolidatedBatchNumber,
+          vouchers: batchResult.vouchers,
+          updatedOrders,
+          totalBatchValue: batchResult.totalBatchValue,
+          totalDoorsIssued,
+          partiesClearedCount,
+          partiesWithBalanceCount,
+          totalBalanceDoorsLeft,
+          consolidatedBatches: listConsolidatedBatchSummaries(),
+        },
+        message:
+          totalBalanceDoorsLeft > 0
+            ? `Issued Consolidated Batch ${batchResult.consolidatedBatchNumber}: ${totalDoorsIssued} doors across ${batchResult.vouchers.length} parties (₹${batchResult.totalBatchValue.toLocaleString('en-IN')}) — ${partiesClearedCount} cleared, ${totalBalanceDoorsLeft} balance door(s) kept for next day!`
+            : `Issued Consolidated Batch ${batchResult.consolidatedBatchNumber}: All ${totalDoorsIssued} doors across ${batchResult.vouchers.length} parties (₹${batchResult.totalBatchValue.toLocaleString('en-IN')}) cleared from Pending!`,
+      });
+    }
+
+    // ── SINGLE ORDER PARTIAL / FULL ISSUE ─────────────────────────────────────
     const prodOrderId = String(body.prodOrderId || '').trim();
     const doorIds: string[] = Array.isArray(body.doorIds)
       ? body.doorIds.map((d: unknown) => String(d || '').trim()).filter(Boolean)
@@ -142,9 +268,48 @@ export async function DELETE(req: NextRequest) {
     if (auth.errorResponse) return auth.errorResponse;
 
     const { searchParams } = new URL(req.url);
+    const batchNumber = searchParams.get('batchNumber') || '';
     const id = searchParams.get('id') || '';
+
+    // ── REVERSE ENTIRE CONSOLIDATED MULTI-PARTY BATCH ─────────────────────────
+    if (batchNumber) {
+      const removedList = deleteConsolidatedBatchVouchers(batchNumber);
+      if (removedList.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Consolidated BOQ batch not found.' },
+          { status: 404 }
+        );
+      }
+
+      const updatedOrders: ProductionOrder[] = [];
+      for (const removed of removedList) {
+        try {
+          const uo = await unmarkDoorMaterialIssue(
+            removed.prodOrderId,
+            removed.doorIds,
+            batchNumber
+          );
+          updatedOrders.push(uo);
+        } catch {
+          // ignore if order deleted
+        }
+      }
+
+      const restoredDoors = removedList.reduce((s, r) => s + r.doorsCount, 0);
+      return NextResponse.json({
+        success: true,
+        data: {
+          batchNumber,
+          removedVouchers: removedList,
+          updatedOrders,
+          consolidatedBatches: listConsolidatedBatchSummaries(),
+        },
+        message: `Reversed Consolidated Batch ${batchNumber} — restored ${restoredDoors} door(s) across ${removedList.length} parties back to Pending.`,
+      });
+    }
+
     if (!id) {
-      return NextResponse.json({ success: false, error: 'Voucher id is required.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Voucher id or batchNumber is required.' }, { status: 400 });
     }
 
     const removed = deleteBoqIssueVoucher(id);
@@ -157,7 +322,7 @@ export async function DELETE(req: NextRequest) {
       updatedOrder = await unmarkDoorMaterialIssue(
         removed.prodOrderId,
         removed.doorIds,
-        removed.voucherNumber
+        removed.consolidatedBatchNumber || removed.voucherNumber
       );
     } catch {
       // Production order may have been archived/deleted; voucher removal still succeeded

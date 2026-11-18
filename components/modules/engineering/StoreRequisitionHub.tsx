@@ -41,9 +41,15 @@ import type {
   BoqIssueShift,
   BoqIssueVoucherItem,
   BoqIssueVoucherRecord,
+  ConsolidatedBoqBatchSummary,
 } from '@/lib/services/boqIssueService';
 import { apiFetch } from '@/lib/api/apiClient';
-import { DailyStoreIssueResult, DailyStoreIssueSlipModal } from './DailyStoreIssueSlipModal';
+import {
+  ConsolidatedBatchIssueResult,
+  ConsolidatedPartySlipEntry,
+  DailyStoreIssueResult,
+  DailyStoreIssueSlipModal,
+} from './DailyStoreIssueSlipModal';
 
 interface StoreRequisitionHubProps {
   initialOrderId?: string;
@@ -217,6 +223,15 @@ export default function StoreRequisitionHub({
   const [reversingVoucherId, setReversingVoucherId] = useState<string | null>(null);
   const [previewIssueVoucher, setPreviewIssueVoucher] = useState<BoqIssueVoucherRecord | null>(null);
 
+  // Consolidated Multi-Party BOQ — Per-Party Partial Door & Balance Carry-Forward state
+  const [batchDoorIdsByOrder, setBatchDoorIdsByOrder] = useState<Record<string, string[]>>({});
+  const [expandedBatchOrderIds, setExpandedBatchOrderIds] = useState<Record<string, boolean>>({});
+  const [batchPartyFilter, setBatchPartyFilter] = useState<'PENDING' | 'ALL'>('PENDING');
+  const [consolidatedBatches, setConsolidatedBatches] = useState<ConsolidatedBoqBatchSummary[]>([]);
+  const [reversingBatchNumber, setReversingBatchNumber] = useState<string | null>(null);
+  const [previewConsolidatedBatch, setPreviewConsolidatedBatch] =
+    useState<ConsolidatedBoqBatchSummary | null>(null);
+
   const getDoorKey = (d: BoqDoorInput, fallbackIdx = 0): string =>
     d.id || d.doorId || d.doorNumber || `door-${fallbackIdx}`;
 
@@ -363,6 +378,15 @@ export default function StoreRequisitionHub({
         }
       })
       .catch((err) => console.error('Failed to load lock readiness states:', err));
+
+    apiFetch('/api/boq/issue?mode=consolidated')
+      .then((res) => res.json())
+      .then((json) => {
+        if (active && json.success && Array.isArray(json.data)) {
+          setConsolidatedBatches(json.data);
+        }
+      })
+      .catch(() => {});
 
     return () => {
       active = false;
@@ -722,13 +746,65 @@ export default function StoreRequisitionHub({
     }
   };
 
+  const getPendingDoorsForOrder = (ord: ProductionRequisitionOrder): BoqDoorInput[] =>
+    ord.doors.filter((d) => !d.materialIssued);
+
+  const getSelectedDoorsForBatchOrder = (ord: ProductionRequisitionOrder): BoqDoorInput[] => {
+    const explicitKeys = batchDoorIdsByOrder[ord.id];
+    if (Array.isArray(explicitKeys)) {
+      const keySet = new Set(explicitKeys);
+      return ord.doors.filter((d, idx) => keySet.has(getDoorKey(d, idx)));
+    }
+    // Default for any checked party in Consolidated BOQ: ONLY its remaining Pending/Balance doors!
+    const pending = getPendingDoorsForOrder(ord);
+    return pending.length > 0 ? pending : ord.doors;
+  };
+
+  const setBatchOrderDoorCount = (ord: ProductionRequisitionOrder, count: number) => {
+    const pendingPool = getPendingDoorsForOrder(ord);
+    const pool = pendingPool.length > 0 ? pendingPool : ord.doors;
+    const clamped = Math.max(0, Math.min(pool.length, count));
+    const chosenKeys = pool.slice(0, clamped).map((d, idx) => getDoorKey(d, idx));
+
+    setBatchDoorIdsByOrder((prev) => ({ ...prev, [ord.id]: chosenKeys }));
+    if (clamped > 0 && !selectedBatchOrderIds.includes(ord.id)) {
+      setSelectedBatchOrderIds((prev) => [...prev, ord.id]);
+    } else if (clamped === 0) {
+      setSelectedBatchOrderIds((prev) => prev.filter((id) => id !== ord.id));
+    }
+  };
+
+  const toggleBatchOrderSpecificDoor = (ord: ProductionRequisitionOrder, doorKey: string) => {
+    const currentSelected = getSelectedDoorsForBatchOrder(ord).map((d, idx) => getDoorKey(d, idx));
+    const exists = currentSelected.includes(doorKey);
+    const nextKeys = exists
+      ? currentSelected.filter((k) => k !== doorKey)
+      : [...currentSelected, doorKey];
+
+    setBatchDoorIdsByOrder((prev) => ({ ...prev, [ord.id]: nextKeys }));
+    if (nextKeys.length > 0 && !selectedBatchOrderIds.includes(ord.id)) {
+      setSelectedBatchOrderIds((prev) => [...prev, ord.id]);
+    } else if (nextKeys.length === 0) {
+      setSelectedBatchOrderIds((prev) => prev.filter((id) => id !== ord.id));
+    }
+  };
+
   const handleSelectAllInProductionOrders = () => {
-    const activeFloorIds = orders
-      .filter((o) => (o.orderStatus || '').toUpperCase() !== 'COMPLETED')
-      .map((o) => o.id);
+    const activePending = orders.filter(
+      (o) => !getOrderIssueStats(o).isFullyIssued && (o.orderStatus || '').toUpperCase() !== 'COMPLETED'
+    );
+    const targetList = activePending.length > 0 ? activePending : pendingBoqOrders;
+    const nextMap: Record<string, string[]> = {};
+    targetList.forEach((o) => {
+      const pending = getPendingDoorsForOrder(o);
+      nextMap[o.id] = (pending.length > 0 ? pending : o.doors).map((d, i) => getDoorKey(d, i));
+    });
     setIsCustomCalcMode(false);
+    setIsConsumablesMode(false);
     setIsBatchBoqMode(true);
-    setSelectedBatchOrderIds(activeFloorIds.length > 0 ? activeFloorIds : orders.map((o) => o.id));
+    setBatchPartyFilter('PENDING');
+    setBatchDoorIdsByOrder(nextMap);
+    setSelectedBatchOrderIds(targetList.map((o) => o.id));
   };
 
   const activeDoors = useMemo<BoqDoorInput[]>(() => {
@@ -748,7 +824,10 @@ export default function StoreRequisitionHub({
         };
       });
     }
-    if (!isBatchBoqMode && selectedOrder && selectedDoorIds.length > 0) {
+    if (isBatchBoqMode) {
+      return batchOrders.flatMap((ord) => getSelectedDoorsForBatchOrder(ord));
+    }
+    if (selectedOrder && selectedDoorIds.length > 0) {
       const filtered = selectedOrder.doors.filter(
         (d) =>
           selectedDoorIds.includes(d.id || '') ||
@@ -758,7 +837,17 @@ export default function StoreRequisitionHub({
       if (filtered.length > 0) return filtered;
     }
     return activeOrders.flatMap((o) => o.doors);
-  }, [isCustomCalcMode, customRows, framesCatalog, activeOrders, isBatchBoqMode, selectedOrder, selectedDoorIds]);
+  }, [
+    isCustomCalcMode,
+    customRows,
+    framesCatalog,
+    activeOrders,
+    isBatchBoqMode,
+    batchOrders,
+    batchDoorIdsByOrder,
+    selectedOrder,
+    selectedDoorIds,
+  ]);
 
   const activeBatchKey = useMemo(() => {
     if (isCustomCalcMode) return 'CUSTOM_SIMULATOR';
@@ -1360,11 +1449,248 @@ export default function StoreRequisitionHub({
   const effectiveCostPerDoor = totalDoors > 0 ? grandTotalCost / totalDoors : 0;
   const effectiveCostPerSqFt = boq.totalSqFt > 0 ? (grandTotalCost - totalLockBoxCost) / boq.totalSqFt : 0;
 
+  const consolidatedBatchEntries = useMemo<ConsolidatedPartySlipEntry[]>(() => {
+    if (!isBatchBoqMode) return [];
+    return batchOrders
+      .map((ord) => {
+        const chosen = getSelectedDoorsForBatchOrder(ord);
+        const doorIds = chosen.map((d, idx) => getDoorKey(d, idx)).filter(Boolean);
+        const doorNumbers = chosen.map((d, idx) => d.doorNumber || `D-${idx + 1}`);
+        const selectedSqFt = chosen.reduce(
+          (s, d) => s + ((d.widthCm || 80) * (d.heightCm || 210)) / 929.0304,
+          0
+        );
+        const chosenSet = new Set(doorIds);
+        const balanceDoorsAfter = ord.doors.filter(
+          (d, idx) => !d.materialIssued && !chosenSet.has(getDoorKey(d, idx))
+        ).length;
+
+        return {
+          prodOrderId: ord.prodOrderId || ord.id,
+          orderNumber: ord.orderNumber,
+          jobCardNumber: ord.jobCardNumber,
+          customerName: ord.customerName,
+          totalOrderDoors: ord.doors.length,
+          doorIds,
+          doorNumbers,
+          selectedSqFt: Number(selectedSqFt.toFixed(2)),
+          balanceDoorsAfter,
+        };
+      })
+      .filter((e) => e.doorIds.length > 0);
+  }, [isBatchBoqMode, batchOrders, batchDoorIdsByOrder]);
+
+  const applyBatchUpdateAfterIssue = (result: ConsolidatedBatchIssueResult, message?: string) => {
+    const updatedById = new Map(
+      (result.updatedOrders || []).map((uo) => [uo.id, uo])
+    );
+
+    const nextOrders: ProductionRequisitionOrder[] = orders.map((ord) => {
+      const uo = ord.prodOrderId ? updatedById.get(ord.prodOrderId) : undefined;
+      if (!uo) return ord;
+      const doorById = new Map<string, typeof uo.doors[number]>();
+      (uo.doors || []).forEach((d) => {
+        if (d.id) doorById.set(d.id, d);
+        if (d.doorId) doorById.set(d.doorId, d);
+        if (d.doorNumber) doorById.set(d.doorNumber, d);
+      });
+      return {
+        ...ord,
+        boqIssuedAt: uo.boqIssuedAt ?? null,
+        doors: ord.doors.map((d) => {
+          const match =
+            (d.id && doorById.get(d.id)) ||
+            (d.doorId && doorById.get(d.doorId)) ||
+            (d.doorNumber && doorById.get(d.doorNumber));
+          if (!match) return d;
+          return {
+            ...d,
+            materialIssued: Boolean(match.materialIssued),
+            materialIssuedAt: match.materialIssuedAt,
+            materialIssueBatchId: match.materialIssueBatchId,
+            materialIssuedToGang: match.materialIssuedToGang,
+            materialIssuedValue: match.materialIssuedValue,
+          };
+        }),
+      };
+    });
+
+    setOrders(nextOrders);
+    if (Array.isArray(result.consolidatedBatches)) {
+      setConsolidatedBatches(result.consolidatedBatches);
+    }
+
+    // Remove fully-cleared parties from active batch selection, and auto-select ONLY remaining balance doors for partial parties!
+    const nextBatchDoorMap: Record<string, string[]> = { ...batchDoorIdsByOrder };
+    const nextSelectedIds: string[] = [];
+
+    for (const id of selectedBatchOrderIds) {
+      const ord = nextOrders.find((o) => o.id === id);
+      if (!ord) continue;
+      const pending = ord.doors.filter((d) => !d.materialIssued);
+      if (pending.length === 0) {
+        delete nextBatchDoorMap[ord.id];
+      } else {
+        nextSelectedIds.push(ord.id);
+        nextBatchDoorMap[ord.id] = pending.map((d, i) => getDoorKey(d, i));
+      }
+    }
+
+    setBatchDoorIdsByOrder(nextBatchDoorMap);
+    setSelectedBatchOrderIds(nextSelectedIds);
+
+    if (message) {
+      setBoqIssueNotice({ type: 'success', text: message });
+    }
+  };
+
+  const handleDirectIssueConsolidatedBatch = async () => {
+    if (consolidatedBatchEntries.length === 0) {
+      setBoqIssueNotice({
+        type: 'error',
+        text: 'Select at least 1 party with pending doors in Consolidated BOQ before issuing.',
+      });
+      return;
+    }
+    if (markedIssueItems.length === 0) {
+      setBoqIssueNotice({
+        type: 'error',
+        text: 'Mark/check at least 1 material item in Custom Usage before issuing.',
+      });
+      return;
+    }
+
+    setIsIssuingBoq(true);
+    setBoqIssueNotice(null);
+    try {
+      if (hasCustomUsageOverrides || isCustomUsageEditMode) {
+        await apiFetch('/api/boq/custom-usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            batchKey: activeBatchKey,
+            bufferPercent: customUsageBufferPercent,
+            overrides: customUsageOverrides,
+            supervisorNotes: customUsageNotes,
+          }),
+        });
+      }
+
+      const res = await apiFetch('/api/boq/issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'CONSOLIDATED_BATCH',
+          entries: consolidatedBatchEntries.map((e) => ({
+            prodOrderId: e.prodOrderId,
+            orderNumber: e.orderNumber,
+            jobCardNumber: e.jobCardNumber,
+            customerName: e.customerName,
+            doorIds: e.doorIds,
+            doorNumbers: e.doorNumbers,
+            selectedSqFt: e.selectedSqFt,
+          })),
+          items: markedIssueItems,
+          shift: issueShift,
+          gangName: issueGangName.trim() || 'Production Floor Team',
+          bufferPercent: customUsageBufferPercent,
+          notes: customUsageNotes.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.data) {
+        throw new Error(json.error || `Failed to issue Consolidated Batch (HTTP ${res.status})`);
+      }
+
+      applyBatchUpdateAfterIssue(json.data as ConsolidatedBatchIssueResult, json.message);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to issue Consolidated BOQ batch';
+      console.error('Failed to direct issue consolidated BOQ:', err);
+      setBoqIssueNotice({ type: 'error', text: msg });
+    } finally {
+      setIsIssuingBoq(false);
+    }
+  };
+
+  const handleReverseConsolidatedBatch = async (batchNumber: string) => {
+    setReversingBatchNumber(batchNumber);
+    setBoqIssueNotice(null);
+    try {
+      const res = await apiFetch(`/api/boq/issue?batchNumber=${encodeURIComponent(batchNumber)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Could not reverse Consolidated Batch');
+      }
+      if (Array.isArray(json.data?.consolidatedBatches)) {
+        setConsolidatedBatches(json.data.consolidatedBatches);
+      } else {
+        setConsolidatedBatches((prev) => prev.filter((b) => b.batchNumber !== batchNumber));
+      }
+      if (Array.isArray(json.data?.updatedOrders)) {
+        const updatedById = new Map<string, any>(
+          json.data.updatedOrders.map((uo: any) => [uo.id, uo])
+        );
+        setOrders((prev) =>
+          prev.map((ord) => {
+            const uo = ord.prodOrderId ? updatedById.get(ord.prodOrderId) : undefined;
+            if (!uo) return ord;
+            const doorById = new Map<string, any>();
+            (uo.doors || []).forEach((d: any) => {
+              if (d.id) doorById.set(d.id, d);
+              if (d.doorId) doorById.set(d.doorId, d);
+              if (d.doorNumber) doorById.set(d.doorNumber, d);
+            });
+            return {
+              ...ord,
+              boqIssuedAt: uo.boqIssuedAt ?? null,
+              doors: ord.doors.map((d) => {
+                const match =
+                  (d.id && doorById.get(d.id)) ||
+                  (d.doorId && doorById.get(d.doorId)) ||
+                  (d.doorNumber && doorById.get(d.doorNumber));
+                if (!match) return d;
+                return {
+                  ...d,
+                  materialIssued: Boolean(match.materialIssued),
+                  materialIssuedAt: match.materialIssuedAt,
+                  materialIssueBatchId: match.materialIssueBatchId,
+                  materialIssuedToGang: match.materialIssuedToGang,
+                  materialIssuedValue: match.materialIssuedValue,
+                };
+              }),
+            };
+          })
+        );
+      }
+      setBoqIssueNotice({
+        type: 'success',
+        text: json.message || `Reversed Consolidated Batch ${batchNumber} back to Pending.`,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to reverse consolidated batch';
+      setBoqIssueNotice({ type: 'error', text: msg });
+    } finally {
+      setReversingBatchNumber(null);
+    }
+  };
+
   const toggleBatchOrder = (id: string) => {
+    const ord = orders.find((o) => o.id === id);
     setSelectedBatchOrderIds((prev) => {
       if (prev.includes(id)) {
-        if (prev.length === 1) return prev;
         return prev.filter((item) => item !== id);
+      }
+      if (ord) {
+        const pending = getPendingDoorsForOrder(ord);
+        const defaultKeys = (pending.length > 0 ? pending : ord.doors).map((d, i) =>
+          getDoorKey(d, i)
+        );
+        setBatchDoorIdsByOrder((m) => ({
+          ...m,
+          [ord.id]: m[ord.id]?.length ? m[ord.id] : defaultKeys,
+        }));
       }
       return [...prev, id];
     });
@@ -2319,54 +2645,385 @@ export default function StoreRequisitionHub({
         </div>
       )}
 
-      {/* MULTI-ORDER SELECTION PANEL */}
-      {isBatchBoqMode && !isCustomCalcMode && (
-        <div className="bg-[#0B132B] border border-emerald-800/60 rounded-xl p-4 space-y-2.5">
-          <div className="flex justify-between items-center text-xs flex-wrap gap-2">
-            <span className="font-bold text-emerald-400">
-              Select Orders to Combine into Hand-Craft Production Batch (Chemicals, Timber &amp; Lock Rush):
-            </span>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleSelectAllInProductionOrders}
-                className="px-2.5 py-1 rounded-lg bg-rose-950/70 hover:bg-rose-900 text-rose-200 border border-rose-500/40 font-bold text-[11px] cursor-pointer"
-              >
-                🔒 Select All Active Floor Orders
-              </button>
-              <span className="text-slate-400 font-semibold">
-                {batchOrders.length} Parties Combined • {totalDoors} Doors ({totalSqft} Sq.Ft • {boq.totalLockBoxes} Lock Boxes)
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3 text-xs">
-            {orders.map((ord) => {
-              const isChecked = selectedBatchOrderIds.includes(ord.id);
-              return (
-                <label
-                  key={ord.id}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition ${
-                    isChecked
-                      ? 'bg-emerald-950/50 border-emerald-500 text-emerald-200'
-                      : 'bg-slate-900 border-slate-800 text-slate-400'
+      {/* MULTI-ORDER CONSOLIDATED SELECTION PANEL (PER-PARTY PARTIAL DOORS + NEXT-DAY BALANCE) */}
+      {isBatchBoqMode && !isCustomCalcMode && (() => {
+        const visibleBatchParties =
+          batchPartyFilter === 'PENDING' ? pendingBoqOrders : orders;
+        const totalBalanceLeftAfterBatch = consolidatedBatchEntries.reduce(
+          (sum, e) => sum + e.balanceDoorsAfter,
+          0
+        );
+
+        return (
+          <div className="bg-[#0B132B] border border-emerald-700/60 rounded-xl p-4 space-y-3.5">
+            {/* Top Header + Filter + Quick Consolidated Issue Bar */}
+            <div className="flex flex-wrap justify-between items-center gap-2.5 pb-2.5 border-b border-slate-800 text-xs">
+              <div>
+                <h4 className="font-black text-emerald-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Consolidated Multi-Party BOQ — Daily Partial Doors &amp; Balance Control</span>
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Select 4–5 parties in production today, pick exact doors per party (e.g. 3 of 5 doors), and leave balance doors pending for tomorrow&apos;s batch.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setBatchPartyFilter('PENDING')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition ${
+                    batchPartyFilter === 'PENDING'
+                      ? 'bg-amber-500 text-slate-950 font-black'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                   }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleBatchOrder(ord.id)}
-                    className="w-4 h-4 rounded text-emerald-500 bg-slate-950 border-slate-700 focus:ring-0 cursor-pointer"
-                  />
-                  <span>
-                    <strong>{ord.orderNumber}</strong>: {ord.customerName.split('(')[0]} (
-                    {ord.doorsCount} Doors)
+                  ⏳ Pending / Balance Only ({pendingBoqOrders.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBatchPartyFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition ${
+                    batchPartyFilter === 'ALL'
+                      ? 'bg-emerald-600 text-white font-black'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  All Parties ({orders.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSelectAllInProductionOrders}
+                  className="px-2.5 py-1 rounded-lg bg-rose-950/70 hover:bg-rose-900 text-rose-200 border border-rose-500/40 font-bold text-[11px] cursor-pointer"
+                >
+                  ✓ Select All Pending
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedBatchOrderIds([]);
+                    setBatchDoorIdsByOrder({});
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold text-[11px] cursor-pointer"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            {/* Consolidated Summary + Direct Batch Issue Bar */}
+            <div className="p-2.5 rounded-xl bg-[#070D1E] border border-emerald-800/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-black">
+                  {consolidatedBatchEntries.length} Part{consolidatedBatchEntries.length === 1 ? 'y' : 'ies'} • {activeDoors.length} Doors Selected
+                </span>
+                <span className="px-2 py-0.5 rounded bg-cyan-950/70 border border-cyan-600/40 text-cyan-300 font-mono font-bold">
+                  {totalSqft} Sq.Ft • {boq.totalLockBoxes} Locks
+                </span>
+                {totalBalanceLeftAfterBatch > 0 && (
+                  <span className="px-2 py-0.5 rounded bg-amber-950/70 border border-amber-500/40 text-amber-300 font-bold">
+                    ⏳ {totalBalanceLeftAfterBatch} Balance Door{totalBalanceLeftAfterBatch === 1 ? '' : 's'} Carried to Tomorrow
                   </span>
-                </label>
-              );
-            })}
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <input
+                  type="text"
+                  value={issueGangName}
+                  onChange={(e) => setIssueGangName(e.target.value)}
+                  placeholder="Floor Team / Gang"
+                  className="w-36 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-semibold"
+                />
+                <select
+                  value={issueShift}
+                  onChange={(e) => setIssueShift(e.target.value as BoqIssueShift)}
+                  className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-cyan-200 font-bold cursor-pointer"
+                >
+                  <option value="MORNING">Morning</option>
+                  <option value="AFTERNOON">Afternoon</option>
+                  <option value="EVENING">Evening</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={handleDirectIssueConsolidatedBatch}
+                  disabled={
+                    isIssuingBoq ||
+                    consolidatedBatchEntries.length === 0 ||
+                    markedIssueItems.length === 0
+                  }
+                  className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-lg shadow-emerald-950/50 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>
+                    {isIssuingBoq
+                      ? 'Issuing Batch...'
+                      : `✓ Issue Consolidated Batch (${activeDoors.length} Doors • ₹${markedIssueTotalValue.toLocaleString('en-IN')})`}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={consolidatedBatchEntries.length === 0}
+                  onClick={() => {
+                    setPreviewIssueVoucher(null);
+                    setPreviewConsolidatedBatch(null);
+                    setIsDailyIssueSlipOpen(true);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-black flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Batch Slip</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Per-Party Partial Door Cards */}
+            {visibleBatchParties.length === 0 ? (
+              <div className="p-6 text-center rounded-xl border border-dashed border-slate-800 text-xs text-emerald-300 font-bold">
+                🎉 All production parties have been fully issued! Switch to &ldquo;All Parties&rdquo; to inspect issued history.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 text-xs">
+                {visibleBatchParties.map((ord) => {
+                  const isChecked = selectedBatchOrderIds.includes(ord.id);
+                  const stats = getOrderIssueStats(ord);
+                  const pendingDoors = getPendingDoorsForOrder(ord);
+                  const maxSelectable = pendingDoors.length > 0 ? pendingDoors.length : ord.doors.length;
+                  const chosenDoors = isChecked ? getSelectedDoorsForBatchOrder(ord) : [];
+                  const chosenKeys = new Set(chosenDoors.map((d, i) => getDoorKey(d, i)));
+                  const selectedCountForOrd = chosenDoors.length;
+                  const balanceAfterToday = Math.max(0, stats.pending - selectedCountForOrd);
+                  const isExpanded = Boolean(expandedBatchOrderIds[ord.id]);
+
+                  return (
+                    <div
+                      key={ord.id}
+                      className={`rounded-xl border p-3 space-y-2 transition ${
+                        isChecked
+                          ? 'bg-emerald-950/35 border-emerald-500/70 text-white shadow-md'
+                          : stats.isFullyIssued
+                          ? 'bg-slate-900/40 border-slate-800/80 text-slate-400 opacity-70'
+                          : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-600'
+                      }`}
+                    >
+                      {/* Party Header Row */}
+                      <div className="flex items-start justify-between gap-2">
+                        <label className="flex items-start gap-2 cursor-pointer min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleBatchOrder(ord.id)}
+                            className="mt-0.5 w-4 h-4 rounded text-emerald-500 bg-slate-950 border-slate-600 cursor-pointer shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <div className="font-black text-white text-xs truncate">
+                              {ord.customerName.split('(')[0].trim()}
+                            </div>
+                            <div className="text-[10px] font-mono text-slate-400">
+                              {ord.jobCardNumber} • {ord.doorsCount} Total Doors
+                            </div>
+                          </div>
+                        </label>
+
+                        {/* Status Badge */}
+                        {stats.isFullyIssued ? (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-700/60 text-[9.5px] font-black shrink-0">
+                            ✓ All Issued
+                          </span>
+                        ) : stats.isPartial ? (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/50 text-[9.5px] font-black shrink-0">
+                            {stats.pending} Balance Left ({stats.issued}/{stats.total} Done)
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-600/50 text-[9.5px] font-bold shrink-0">
+                            ⏳ {stats.pending} Pending
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Inline Partial Door Stepper & Balance Indicator */}
+                      {!stats.isFullyIssued && (
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-slate-800/80">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-slate-400 font-semibold">Today:</span>
+                            <button
+                              type="button"
+                              onClick={() => setBatchOrderDoorCount(ord, selectedCountForOrd - 1)}
+                              disabled={selectedCountForOrd <= 0}
+                              className="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer disabled:opacity-40"
+                              title="Decrease today's doors for this party"
+                            >
+                              −
+                            </button>
+                            <span className="px-2 py-0.5 rounded bg-[#070D1E] border border-emerald-500/40 font-mono font-black text-emerald-300 text-xs min-w-[44px] text-center">
+                              {selectedCountForOrd} / {maxSelectable}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setBatchOrderDoorCount(ord, selectedCountForOrd + 1)}
+                              disabled={selectedCountForOrd >= maxSelectable}
+                              className="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-white font-black flex items-center justify-center cursor-pointer disabled:opacity-40"
+                              title="Increase today's doors for this party"
+                            >
+                              +
+                            </button>
+                            {selectedCountForOrd < maxSelectable && (
+                              <button
+                                type="button"
+                                onClick={() => setBatchOrderDoorCount(ord, maxSelectable)}
+                                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-700 text-emerald-300 hover:text-white text-[9.5px] font-bold cursor-pointer"
+                              >
+                                All {maxSelectable}
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {isChecked && balanceAfterToday > 0 && (
+                              <span className="text-[9.5px] font-bold text-amber-300">
+                                Bal: {balanceAfterToday}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedBatchOrderIds((prev) => ({
+                                  ...prev,
+                                  [ord.id]: !prev[ord.id],
+                                }))
+                              }
+                              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-[9.5px] font-bold cursor-pointer"
+                            >
+                              {isExpanded ? 'Hide Doors ▲' : 'Pick Doors ▼'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Expandable Individual Door Checkboxes for Exact Door Picking */}
+                      {isExpanded && (
+                        <div className="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-1.5">
+                          {ord.doors.map((door, dIdx) => {
+                            const dKey = getDoorKey(door, dIdx);
+                            const doorSelected = isChecked && chosenKeys.has(dKey);
+                            return (
+                              <label
+                                key={dKey}
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] cursor-pointer ${
+                                  door.materialIssued
+                                    ? 'bg-emerald-950/20 border-emerald-800/40 text-slate-400'
+                                    : doorSelected
+                                    ? 'bg-amber-950/50 border-amber-500/60 text-white font-bold'
+                                    : 'bg-slate-950/60 border-slate-800 text-slate-400'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={doorSelected}
+                                  onChange={() => toggleBatchOrderSpecificDoor(ord, dKey)}
+                                  className="rounded text-amber-500 bg-slate-950 border-slate-700 cursor-pointer"
+                                />
+                                <span className="truncate flex-1">
+                                  {door.doorNumber || `D-${dIdx + 1}`}{' '}
+                                  <span className="text-[9px] text-slate-400 font-mono">
+                                    ({door.widthCm}×{door.heightCm})
+                                  </span>
+                                </span>
+                                {door.materialIssued ? (
+                                  <span className="text-[8.5px] font-black text-emerald-400">✓</span>
+                                ) : (
+                                  <span className="text-[8.5px] font-bold text-rose-300">⏳</span>
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* CONSOLIDATED MULTI-PARTY BATCH ISSUE HISTORY */}
+            {consolidatedBatches.length > 0 && (
+              <div className="pt-3 border-t border-slate-800 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] font-black text-emerald-300 uppercase tracking-wide">
+                    Issued Consolidated Multi-Party Batches ({consolidatedBatches.length})
+                  </span>
+                  <span className="text-xs font-mono font-black text-emerald-400">
+                    Total Consolidated Issued: ₹
+                    {Math.round(
+                      consolidatedBatches.reduce((s, b) => s + (b.totalValue || 0), 0)
+                    ).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[11px] border border-slate-800 rounded-lg overflow-hidden">
+                    <thead className="bg-[#070D1E] text-[10px] uppercase text-slate-400">
+                      <tr>
+                        <th className="px-2.5 py-1.5">Batch #</th>
+                        <th className="px-2.5 py-1.5">Date / Shift</th>
+                        <th className="px-2.5 py-1.5">Team / Gang</th>
+                        <th className="px-2.5 py-1.5">Parties &amp; Doors Issued</th>
+                        <th className="px-2.5 py-1.5 text-right">Batch Value (₹)</th>
+                        <th className="px-2.5 py-1.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/70 bg-slate-950/40">
+                      {consolidatedBatches.slice(0, 10).map((b) => (
+                        <tr key={b.batchNumber} className="hover:bg-slate-800/30">
+                          <td className="px-2.5 py-1.5 font-mono font-bold text-amber-300">
+                            {b.batchNumber}
+                          </td>
+                          <td className="px-2.5 py-1.5 text-slate-300">
+                            {b.issueDate} <span className="text-[9.5px] text-cyan-300">({b.shift})</span>
+                          </td>
+                          <td className="px-2.5 py-1.5 font-semibold text-white">{b.gangName}</td>
+                          <td className="px-2.5 py-1.5 text-emerald-300">
+                            <strong>{b.totalDoors} Doors</strong> across {b.partiesCount} parties:{' '}
+                            <span className="text-slate-300">
+                              {b.partyBreakdowns
+                                .map((pb) => `${pb.customerName.split('(')[0].trim()} (${pb.doorsCount})`)
+                                .join(' • ')}
+                            </span>
+                          </td>
+                          <td className="px-2.5 py-1.5 text-right font-mono font-black text-emerald-400">
+                            ₹{Math.round(b.totalValue).toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-2.5 py-1.5 text-right space-x-1 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPreviewIssueVoucher(null);
+                                setPreviewConsolidatedBatch(b);
+                                setIsDailyIssueSlipOpen(true);
+                              }}
+                              className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-[10px] font-bold cursor-pointer"
+                            >
+                              Print Slip
+                            </button>
+                            <button
+                              type="button"
+                              disabled={reversingBatchNumber === b.batchNumber}
+                              onClick={() => handleReverseConsolidatedBatch(b.batchNumber)}
+                              className="px-2 py-0.5 rounded bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-700/50 text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                              title="Undo this entire consolidated batch and restore all doors back to Pending"
+                            >
+                              {reversingBatchNumber === b.batchNumber ? 'Undoing...' : 'Undo Batch'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {!isConsumablesMode && (
         <>
@@ -2584,7 +3241,7 @@ export default function StoreRequisitionHub({
                 </span>
               </div>
 
-              {!isBatchBoqMode && !isCustomCalcMode && selectedOrder && (
+              {!isCustomCalcMode && (isBatchBoqMode || selectedOrder) && (
                 <div className="flex flex-wrap items-center gap-1.5 text-xs">
                   <input
                     type="text"
@@ -2605,14 +3262,25 @@ export default function StoreRequisitionHub({
                   </select>
                   <button
                     type="button"
-                    onClick={handleDirectIssueSelectedDoors}
-                    disabled={isIssuingBoq || activeDoors.length === 0 || markedIssueItems.length === 0}
+                    onClick={
+                      isBatchBoqMode
+                        ? handleDirectIssueConsolidatedBatch
+                        : handleDirectIssueSelectedDoors
+                    }
+                    disabled={
+                      isIssuingBoq ||
+                      activeDoors.length === 0 ||
+                      markedIssueItems.length === 0 ||
+                      (isBatchBoqMode && consolidatedBatchEntries.length === 0)
+                    }
                     className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-xs shadow-lg shadow-emerald-950/50 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>
                       {isIssuingBoq
                         ? 'Issuing...'
+                        : isBatchBoqMode
+                        ? `✓ Save & Issue Batch (${consolidatedBatchEntries.length} Parties • ${activeDoors.length} Doors • ₹${markedIssueTotalValue.toLocaleString('en-IN')})`
                         : `✓ Save & Issue ${activeDoors.length} Door${activeDoors.length === 1 ? '' : 's'} (₹${markedIssueTotalValue.toLocaleString('en-IN')})`}
                     </span>
                   </button>
@@ -4887,9 +5555,10 @@ export default function StoreRequisitionHub({
         onClose={() => {
           setIsDailyIssueSlipOpen(false);
           setPreviewIssueVoucher(null);
+          setPreviewConsolidatedBatch(null);
         }}
         order={
-          selectedOrder
+          !isBatchBoqMode && selectedOrder
             ? {
                 id: selectedOrder.id,
                 prodOrderId: selectedOrder.prodOrderId,
@@ -4910,6 +5579,8 @@ export default function StoreRequisitionHub({
         initialShift={issueShift}
         notes={customUsageNotes}
         previewVoucher={previewIssueVoucher}
+        consolidatedEntries={isBatchBoqMode ? consolidatedBatchEntries : undefined}
+        previewConsolidatedBatch={previewConsolidatedBatch}
         onIssued={(result) => {
           applyOrderUpdateAfterIssue(result);
           setBoqIssueNotice({
@@ -4918,6 +5589,9 @@ export default function StoreRequisitionHub({
               ? `Issued ${result.voucher.voucherNumber} (₹${result.voucher.totalIssuedValue.toLocaleString('en-IN')}) — All doors issued & cleared from Pending!`
               : `Issued ${result.voucher.voucherNumber} for ${result.voucher.doorsCount} door(s) (₹${result.voucher.totalIssuedValue.toLocaleString('en-IN')}) — ${result.remainingPendingDoors} door(s) still Pending.`,
           });
+        }}
+        onConsolidatedIssued={(result, msg) => {
+          applyBatchUpdateAfterIssue(result, msg);
         }}
       />
     </div>
