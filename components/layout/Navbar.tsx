@@ -31,12 +31,15 @@ import {
   Users,
   Target,
   FileSpreadsheet,
+  Building2,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/erp';
 import { ERP_ROLES, UserRole } from '@/lib/auth/roles';
 import { WhatsAppLoginModal } from '@/components/modules/crm/WhatsAppLoginModal';
 import { WhatsAppSession, DEFAULT_WHATSAPP_SESSION } from '@/lib/services/whatsappService';
 import { CloudServerAccessModal } from '@/components/modules/cloud/CloudServerAccessModal';
+import { CreateCompanyModal } from '@/components/company/CreateCompanyModal';
+import type { CompanySummary } from '@/types/companyRegistry';
 
 interface NavbarProps {
   onOpenMobileSidebar: () => void;
@@ -120,6 +123,68 @@ export default function Navbar({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [notificationsRead, setNotificationsRead] = useState(false);
+
+  // Multi-Company Switcher state
+  const [companies, setCompanies] = useState<CompanySummary[]>([]);
+  const [activeCompany, setActiveCompany] = useState<CompanySummary | null>(null);
+  const [showCompanyMenu, setShowCompanyMenu] = useState(false);
+  const [isCreateCompanyOpen, setIsCreateCompanyOpen] = useState(false);
+  const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null);
+  const companyMenuRef = useRef<HTMLDivElement>(null);
+
+  const loadCompanies = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/companies');
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json?.success && json.data) {
+        setCompanies(Array.isArray(json.data.companies) ? json.data.companies : []);
+        setActiveCompany(json.data.activeCompany || null);
+      }
+    } catch {
+      // Non-fatal
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCompanies();
+  }, [loadCompanies]);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (companyMenuRef.current && !companyMenuRef.current.contains(e.target as Node)) {
+        setShowCompanyMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  const handleSwitchCompany = async (companyId: string) => {
+    if (companyId === activeCompany?.id) {
+      setShowCompanyMenu(false);
+      return;
+    }
+    setSwitchingCompanyId(companyId);
+    try {
+      const res = await apiFetch('/api/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'SWITCH', companyId }),
+      });
+      const json = await res.json();
+      if (res.ok && json?.success) {
+        setShowCompanyMenu(false);
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSwitchingCompanyId(null);
+    }
+  };
 
   // Live Quick Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -524,6 +589,89 @@ export default function Navbar({
           <h1 className="text-base sm:text-lg font-bold text-white capitalize tracking-tight flex items-center gap-2 whitespace-nowrap">
             {currentTabName}
           </h1>
+
+          {/* Multi-Company Switcher + Create New Company Dropdown */}
+          <div ref={companyMenuRef} className="relative ml-1">
+            <button
+              type="button"
+              onClick={() => setShowCompanyMenu((v) => !v)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-xs font-bold text-emerald-300 transition cursor-pointer max-w-[190px]"
+              title="Switch Company or Create New Company"
+            >
+              <Building2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+              <span className="truncate">{activeCompany?.brandName || 'EXMARK Doors'}</span>
+              <ChevronDown className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            </button>
+
+            {showCompanyMenu && (
+              <div className="absolute left-0 mt-2 w-72 rounded-2xl bg-[#0B132B] border border-slate-700 shadow-2xl overflow-hidden z-50">
+                <div className="px-3.5 py-2.5 bg-[#070D1E] border-b border-slate-800 flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                    Companies ({companies.length || 1})
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-semibold">Isolated Books</span>
+                </div>
+                <div className="max-h-60 overflow-y-auto divide-y divide-slate-800/70">
+                  {companies.map((comp) => {
+                    const isActive = comp.id === activeCompany?.id;
+                    return (
+                      <button
+                        key={comp.id}
+                        type="button"
+                        disabled={switchingCompanyId !== null}
+                        onClick={() => handleSwitchCompany(comp.id)}
+                        className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-2 transition cursor-pointer ${
+                          isActive ? 'bg-emerald-500/10' : 'hover:bg-slate-800/70'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                            <span>{comp.brandName}</span>
+                            {comp.isDefault && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">Primary</span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">
+                            {comp.businessType} • {comp.gstEnabled ? 'GST ON' : 'Non-GST'}
+                          </div>
+                        </div>
+                        {switchingCompanyId === comp.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400 shrink-0" />
+                        ) : isActive ? (
+                          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="p-2 bg-[#070D1E] border-t border-slate-800 space-y-1.5">
+                  {(isRealSuperAdmin || userRole === 'Super Admin' || userRole === 'Management') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCompanyMenu(false);
+                        setIsCreateCompanyOpen(true);
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>+ Create New Company</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCompanyMenu(false);
+                      onNavigateTab('settings');
+                    }}
+                    className="w-full py-1.5 px-3 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold cursor-pointer"
+                  >
+                    Manage Companies in Settings
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           {!isSimpleMode && (
             <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
               Live Ops
@@ -1191,6 +1339,15 @@ export default function Navbar({
       <CloudServerAccessModal
         isOpen={isCloudModalOpen}
         onClose={() => setIsCloudModalOpen(false)}
+      />
+
+      {/* Create New Company Modal */}
+      <CreateCompanyModal
+        isOpen={isCreateCompanyOpen}
+        onClose={() => setIsCreateCompanyOpen(false)}
+        onCreated={() => {
+          loadCompanies();
+        }}
       />
     </header>
   );

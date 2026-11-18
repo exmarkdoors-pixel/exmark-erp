@@ -29,6 +29,9 @@ import {
   CompanyBankDetails,
   DEFAULT_COMPANY_BANK_DETAILS,
 } from '@/types/companyProfile';
+import { apiFetch } from '@/lib/api/apiClient';
+import { CreateCompanyModal } from '@/components/company/CreateCompanyModal';
+import type { CompanySummary } from '@/types/companyRegistry';
 
 const KERALA_DISTRICTS = [
   'Alappuzha',
@@ -68,19 +71,73 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
   const [publishChangelog, setPublishChangelog] = useState<string>('');
   const [revisions, setRevisions] = useState<RevisionItem[]>([]);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [companies, setCompanies] = useState<CompanySummary[]>([]);
+  const [activeCompanyId, setActiveCompanyId] = useState<string>('comp-default');
+  const [isCreateCompanyOpen, setIsCreateCompanyOpen] = useState(false);
+  const [companyBusyId, setCompanyBusyId] = useState<string | null>(null);
 
   const showToast = (type: 'success' | 'error', text: string) => {
     setToastMessage({ type, text });
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const fetchCompaniesList = async () => {
+    try {
+      const res = await apiFetch('/api/companies');
+      const json = await res.json();
+      if (res.ok && json?.success && json.data) {
+        setCompanies(Array.isArray(json.data.companies) ? json.data.companies : []);
+        setActiveCompanyId(json.data.activeCompanyId || 'comp-default');
+      }
+    } catch {
+      // Non-fatal
+    }
+  };
+
+  const handleSwitchCompany = async (id: string) => {
+    if (id === activeCompanyId) return;
+    setCompanyBusyId(id);
+    try {
+      const res = await apiFetch('/api/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'SWITCH', companyId: id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not switch company');
+      if (typeof window !== 'undefined') window.location.reload();
+    } catch (err: unknown) {
+      showToast('error', err instanceof Error ? err.message : 'Switch failed');
+    } finally {
+      setCompanyBusyId(null);
+    }
+  };
+
+  const handleDeleteCompany = async (comp: CompanySummary) => {
+    const typed = prompt(`Type "${comp.brandName}" to permanently delete this company and all its isolated data:`);
+    if (typed !== comp.brandName) return;
+    setCompanyBusyId(comp.id);
+    try {
+      const res = await apiFetch(`/api/companies?id=${encodeURIComponent(comp.id)}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Delete failed');
+      showToast('success', json.message || 'Company deleted.');
+      await fetchCompaniesList();
+    } catch (err: unknown) {
+      showToast('error', err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setCompanyBusyId(null);
+    }
+  };
+
   const fetchProfile = async () => {
     setIsLoading(true);
     try {
       const [resProfile, resHistory] = await Promise.all([
-        fetch('/api/settings/company-profile?view=active').then((r) => r.json()),
-        fetch('/api/settings/company-profile?view=history').then((r) => r.json()),
+        apiFetch('/api/settings/company-profile?view=active').then((r) => r.json()),
+        apiFetch('/api/settings/company-profile?view=history').then((r) => r.json()),
       ]);
+      await fetchCompaniesList();
 
       if (resProfile.success && resProfile.data) {
         setProfile(resProfile.data);
@@ -102,7 +159,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
   const handleSaveDraft = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch('/api/settings/company-profile', {
+      const res = await apiFetch('/api/settings/company-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'SAVE_DRAFT', profile }),
@@ -121,7 +178,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
   const handlePublish = async () => {
     setIsPublishing(true);
     try {
-      const res = await fetch('/api/settings/company-profile', {
+      const res = await apiFetch('/api/settings/company-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -280,6 +337,95 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
           </button>
         </div>
       )}
+
+      {/* Multi-Company Workspace Manager (Create / Switch / Delete) */}
+      <div className="p-4 rounded-2xl bg-[#0B132B] border border-emerald-500/30 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-black text-white flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-emerald-400" />
+              My Companies ({companies.length || 1}) — Multi-Company Manager
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Create unlimited companies with isolated accounting books, customers, inventory &amp; production vaults.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsCreateCompanyOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-950/40"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create New Company</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {companies.map((comp) => {
+            const isActive = comp.id === activeCompanyId;
+            return (
+              <div
+                key={comp.id}
+                className={`p-3 rounded-xl border flex flex-col justify-between gap-2 ${
+                  isActive
+                    ? 'bg-emerald-500/10 border-emerald-500/40'
+                    : 'bg-[#070D1E] border-slate-800'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold text-xs text-white truncate">{comp.brandName}</div>
+                    <span
+                      className={`text-[9px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                        isActive
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {isActive ? 'ACTIVE' : comp.isDefault ? 'PRIMARY' : 'ISOLATED'}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 truncate mt-0.5">{comp.legalName}</div>
+                  <div className="text-[10px] text-slate-500 mt-1">
+                    {comp.businessType} • FY {comp.financialYearStart} • {comp.gstEnabled ? 'GST ON' : 'Non-GST'}
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-800/70">
+                  {!isActive && (
+                    <button
+                      type="button"
+                      disabled={companyBusyId !== null}
+                      onClick={() => handleSwitchCompany(comp.id)}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold cursor-pointer"
+                    >
+                      {companyBusyId === comp.id ? 'Switching...' : 'Switch Active'}
+                    </button>
+                  )}
+                  {!comp.isDefault && !isActive && (
+                    <button
+                      type="button"
+                      disabled={companyBusyId !== null}
+                      onClick={() => handleDeleteCompany(comp)}
+                      className="p-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 cursor-pointer"
+                      title="Delete secondary company"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <CreateCompanyModal
+        isOpen={isCreateCompanyOpen}
+        onClose={() => setIsCreateCompanyOpen(false)}
+        onCreated={() => {
+          fetchCompaniesList();
+        }}
+      />
 
       {/* Header and Action Ribbon */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">

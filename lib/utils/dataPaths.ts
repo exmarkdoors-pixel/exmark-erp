@@ -22,12 +22,40 @@ function loadEnvLocalIfUnset(): void {
   }
 }
 
+export const DEFAULT_COMPANY_ID = 'comp-default';
+export const COMPANIES_REGISTRY_FILENAME = 'companies-registry.json';
+
 /**
- * Resolves the authoritative data directory for all ERP JSON stores.
- * Uses process.env.EXMARK_DATA_DIR when set (physically separated from app code
- * so software updates never touch live factory data), falling back to ./data.
+ * Files shared globally across all companies in the ERP installation so staff logins,
+ * role permissions, session signing secrets, company registry, and cloud sync config
+ * remain intact when switching between companies.
  */
-export function getDataDir(): string {
+const GLOBAL_SHARED_FILES = new Set([
+  '.exmark-auth-secret',
+  'users-store.json',
+  'rbac-roles.json',
+  'auth-security-config.json',
+  COMPANIES_REGISTRY_FILENAME,
+  'cloud-sync-config.json',
+  'cloud-sync-state.json',
+  'local-postgres-config.json',
+  'db-outbox-sync.json',
+  'schema-version.json',
+]);
+
+let cachedActiveCompany: { rootDir: string; mtimeMs: number; companyId: string } | null = null;
+
+/**
+ * Clears the cached active company ID (called immediately on company switch/create/delete).
+ */
+export function invalidateActiveCompanyCache(): void {
+  cachedActiveCompany = null;
+}
+
+/**
+ * Resolves the root data directory (shared vault root, independent of active company).
+ */
+export function getRootDataDir(): string {
   loadEnvLocalIfUnset();
   const configured = process.env.EXMARK_DATA_DIR?.trim();
   const dir = configured ? path.resolve(configured) : path.join(process.cwd(), 'data');
@@ -39,6 +67,66 @@ export function getDataDir(): string {
     // Let caller handle filesystem read/write errors cleanly
   }
   return dir;
+}
+
+/**
+ * Reads the currently active company ID from `<rootDataDir>/companies-registry.json`.
+ * Defaults to `comp-default` so existing single-company vaults stay 100% untouched.
+ */
+export function getActiveCompanyId(): string {
+  const rootDir = getRootDataDir();
+  const regPath = path.join(rootDir, COMPANIES_REGISTRY_FILENAME);
+  try {
+    if (!fs.existsSync(regPath)) {
+      return DEFAULT_COMPANY_ID;
+    }
+    const stat = fs.statSync(regPath);
+    if (
+      cachedActiveCompany &&
+      cachedActiveCompany.rootDir === rootDir &&
+      cachedActiveCompany.mtimeMs === stat.mtimeMs
+    ) {
+      return cachedActiveCompany.companyId;
+    }
+    const parsed = JSON.parse(fs.readFileSync(regPath, 'utf8')) as { activeCompanyId?: string };
+    const id = parsed?.activeCompanyId && typeof parsed.activeCompanyId === 'string'
+      ? parsed.activeCompanyId.trim() || DEFAULT_COMPANY_ID
+      : DEFAULT_COMPANY_ID;
+    cachedActiveCompany = { rootDir, mtimeMs: stat.mtimeMs, companyId: id };
+    return id;
+  } catch {
+    return DEFAULT_COMPANY_ID;
+  }
+}
+
+/**
+ * Resolves the isolated data directory for a specific company ID.
+ * `comp-default` maps directly to `getRootDataDir()` for zero-risk backward compatibility.
+ */
+export function getCompanyDataDir(companyId: string): string {
+  const rootDir = getRootDataDir();
+  if (!companyId || companyId === DEFAULT_COMPANY_ID) {
+    return rootDir;
+  }
+  const safeId = companyId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const companyDir = path.join(rootDir, 'companies', safeId);
+  try {
+    if (!fs.existsSync(companyDir)) {
+      fs.mkdirSync(companyDir, { recursive: true });
+    }
+  } catch {
+    // Let caller handle filesystem read/write errors cleanly
+  }
+  return companyDir;
+}
+
+/**
+ * Resolves the authoritative data directory for the currently active company's ERP JSON stores.
+ * Uses process.env.EXMARK_DATA_DIR when set (physically separated from app code
+ * so software updates never touch live factory data), falling back to ./data.
+ */
+export function getDataDir(): string {
+  return getCompanyDataDir(getActiveCompanyId());
 }
 
 /**
@@ -82,15 +170,42 @@ export function getBundledDataDir(): string {
 
 /**
  * Resolves the full file path for a specific ERP JSON store file.
- * If EXMARK_DATA_DIR points outside the bundled seed dir and the file is missing there,
- * safely copies the initial seed/template once without overwriting existing data.
+ * Global auth/config/registry files always live in the shared root vault;
+ * business stores resolve to the currently active company's isolated directory.
+ * For newly created secondary companies, bundled demo seeds are never auto-copied
+ * so each new company begins with a clean zero-data vault.
  */
 export function getDataFilePath(filename: string): string {
-  const dataDir = getDataDir();
+  if (GLOBAL_SHARED_FILES.has(filename)) {
+    const rootDir = getRootDataDir();
+    const targetPath = path.join(rootDir, filename);
+    const bundledDir = getBundledDataDir();
+    if (
+      process.env.EXMARK_AUTO_BOOTSTRAP !== 'false' &&
+      path.resolve(rootDir) !== path.resolve(bundledDir) &&
+      !fs.existsSync(targetPath)
+    ) {
+      const bundledPath = path.join(bundledDir, filename);
+      if (fs.existsSync(bundledPath)) {
+        try {
+          fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+          fs.copyFileSync(bundledPath, targetPath);
+        } catch {
+          // Ignore copy failure
+        }
+      }
+    }
+    return targetPath;
+  }
+
+  const activeCompanyId = getActiveCompanyId();
+  const dataDir = getCompanyDataDir(activeCompanyId);
   const targetPath = path.join(dataDir, filename);
   const bundledDir = getBundledDataDir();
 
+  // Only bootstrap bundled seed files for the default company; new secondary companies start spotless
   if (
+    activeCompanyId === DEFAULT_COMPANY_ID &&
     process.env.EXMARK_AUTO_BOOTSTRAP !== 'false' &&
     path.resolve(dataDir) !== path.resolve(bundledDir) &&
     !fs.existsSync(targetPath)
