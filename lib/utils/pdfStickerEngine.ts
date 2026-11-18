@@ -52,6 +52,13 @@ export interface Printable12LStickerItem {
   qrUrl?: string;
   modelCode?: string;
   floorZone?: string;
+  // After-Packing Site Verification Pass fields
+  doorTag?: string;
+  rebateLabel?: string;
+  doorThicknessLabel?: string;
+  hDedMm?: number;
+  wDedMm?: number;
+  roomLabel?: string;
 }
 
 export interface StickerSheetConfig {
@@ -625,6 +632,302 @@ export async function generateThermal4x2Pdf(
       doc.setTextColor(15, 23, 42);
       doc.text(item.remark!.trim().slice(0, 48), 18, 44.8);
     }
+  }
+
+  return doc;
+}
+
+/**
+ * Generates exact 12L A4 (99mm x 44mm, 2x6 Grid) "AFTER-PACKING SITE VERIFICATION PASS" stickers.
+ * Matches the factory packing sticker layout:
+ * - Dark header bar: AFTER-PACKING SITE VERIFICATION PASS | DOOR #N [Tag]
+ * - Party + Model (Thickness) + [LOCK] + [COLOUR]
+ * - 3-Column Grid: GIVEN OPENING (FRAME) | CONFIRM FINISH DOOR (QC: PASSED & PACKED) | SCAN QR (FIND & VERIFY)
+ * - Footer: [ ] SITE VERIFIED: Confirmed matches opening & model | Sign/Date: ______
+ */
+export async function generate12LPackingPassPdf(
+  stickers: Printable12LStickerItem[],
+  settings: StickerSheetConfig = {}
+): Promise<PureVectorPdf> {
+  const doc = new PureVectorPdf();
+  const cols = 2;
+  const rows = 6;
+  const perPage = cols * rows;
+
+  const topMargin = Math.max(0, settings.topMarginMm ?? 9.0);
+  const leftMargin = Math.max(0, settings.leftMarginMm ?? 4.4);
+  const rowGap = Math.max(0, settings.rowGapMm ?? 3.0);
+  const colGap = Math.max(0, settings.colGapMm ?? 3.2);
+
+  const labelWidth = 99.0;
+  const labelHeight = 44.0;
+
+  const nudgeX = settings.nudgeXmm ?? 0;
+  const nudgeY = settings.nudgeYmm ?? 0;
+
+  const totalPages = Math.max(1, Math.ceil(stickers.length / perPage));
+  const uniqueParties = Array.from(
+    new Set(stickers.map((s) => (s.customerName || 'CLIENT').trim().toUpperCase()).filter(Boolean))
+  );
+  const partySummaryText =
+    uniqueParties.length > 1
+      ? `MULTI-PARTY 12L LABELS: ${uniqueParties.length} Parties (${uniqueParties.slice(0, 4).join(', ')}${uniqueParties.length > 4 ? '...' : ''})`
+      : `PARTY: ${uniqueParties[0] || 'EXMARK CLIENT'}`;
+
+  const cleanNum = (val?: string | number): number => {
+    if (typeof val === 'number') return Math.abs(val);
+    if (!val) return 0;
+    const cleaned = String(val).replace(/[^\d.]/g, '');
+    return parseFloat(cleaned) || 0;
+  };
+
+  const fmtCm = (n: number, decimals = 2): string => {
+    if (!Number.isFinite(n) || n <= 0) return '-';
+    return Number(n.toFixed(decimals)).toString();
+  };
+
+  const drawPageHeader = (pageNumber: number) => {
+    const headerY = Math.max(4.5, topMargin - 3.2) + nudgeY;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.2);
+    doc.setTextColor(120, 130, 145);
+    doc.text(
+      `12L A4 AFTER-PACKING SITE VERIFICATION LABELS (2x6 GRID) | ${partySummaryText} | PAGE ${pageNumber} OF ${totalPages}`,
+      105,
+      headerY,
+      { align: 'center' }
+    );
+  };
+
+  drawPageHeader(1);
+
+  for (let i = 0; i < stickers.length; i++) {
+    const item = stickers[i];
+    const indexOnPage = i % perPage;
+    if (i > 0 && indexOnPage === 0) {
+      doc.addPage();
+      drawPageHeader(Math.floor(i / perPage) + 1);
+    }
+
+    const col = indexOnPage % cols;
+    const row = Math.floor(indexOnPage / cols);
+    const x = leftMargin + col * (labelWidth + colGap) + nudgeX;
+    const y = topMargin + row * (labelHeight + rowGap) + nudgeY;
+
+    // Resolve measurements
+    const finHNum =
+      cleanNum(item.finH) || cleanNum(item.finHText) || (item.heightMm ? item.heightMm / 10 : 201.2);
+    const finTopWNum =
+      cleanNum(item.finTopW) || cleanNum(item.finTopWText) || (item.widthMm ? item.widthMm / 10 : 72.4);
+    const finBtmWNum = cleanNum(item.finBtmW) || cleanNum(item.finBtmWText) || finTopWNum;
+
+    const hDedMm =
+      item.hDedMm !== undefined
+        ? Math.round(item.hDedMm)
+        : item.rawHeightCm && finHNum > 0
+        ? Math.max(0, Math.round((item.rawHeightCm - finHNum) * 10))
+        : 45;
+    const wDedMm =
+      item.wDedMm !== undefined
+        ? Math.round(item.wDedMm)
+        : item.rawWidthTopCm && finTopWNum > 0
+        ? Math.max(0, Math.round((item.rawWidthTopCm - finTopWNum) * 10))
+        : 76;
+
+    const rawH = item.rawHeightCm && item.rawHeightCm > 0 ? item.rawHeightCm : finHNum + hDedMm / 10;
+    const rawTopW =
+      item.rawWidthTopCm && item.rawWidthTopCm > 0 ? item.rawWidthTopCm : finTopWNum + wDedMm / 10;
+    const rawBtmW =
+      item.rawWidthBtmCm && item.rawWidthBtmCm > 0
+        ? item.rawWidthBtmCm
+        : finBtmWNum + wDedMm / 10;
+
+    const doorTag = (item.doorTag || item.roomLabel || item.floorZone || `Door #${item.doorNumber}`).trim();
+    const thicknessTag = item.doorThicknessLabel ? ` (${item.doorThicknessLabel})` : ' (28mm)';
+    const modelBase = (item.modelCode || item.profile || 'EXM-A-101').trim();
+    const modelLine = modelBase.includes('mm') ? modelBase : `${modelBase}${thicknessTag}`;
+    const lockText = (item.lock || 'BABY LATCH').toUpperCase().slice(0, 16);
+    const colourText = (item.finish || 'NATURAL TEAK').toUpperCase().slice(0, 18);
+    const rebateText = (item.rebateLabel || 'Mini 40x25').slice(0, 22);
+    const roomText = (item.roomLabel || doorTag).slice(0, 22);
+    const tapeInchH = item.tapeInchH || `${Math.round(rawH / 2.54)}"`;
+    const qrPayload = item.qrUrl || item.barcode || `${item.jobCardNumber || item.orderNumber}-D${item.doorNumber}`;
+
+    // Outer card border (99 x 44 mm)
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(30, 41, 59);
+    doc.setLineWidth(0.35);
+    doc.roundedRect(x + 0.4, y + 0.4, labelWidth - 0.8, labelHeight - 0.8, 1.5, 1.5, 'FD');
+
+    // ROW 1: Solid dark header bar (5.2mm tall)
+    doc.setFillColor(17, 24, 39);
+    doc.rect(x + 0.4, y + 0.4, labelWidth - 0.8, 5.2, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(255, 255, 255);
+    doc.text('AFTER-PACKING SITE VERIFICATION PASS', x + 2.4, y + 4.0);
+
+    doc.setFontSize(6.6);
+    doc.text(`DOOR #${item.doorNumber} [${doorTag.slice(0, 14)}]`, x + labelWidth - 2.4, y + 4.0, {
+      align: 'right',
+    });
+
+    // ROW 2: Party & Model/Lock/Colour specs band (y+5.6 .. y+13.8)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.6);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`PARTY: ${(item.customerName || 'CLIENT').toUpperCase().slice(0, 38)}`, x + 2.4, y + 9.1);
+
+    // Line 2b: MODEL left | [ LOCK ] [ COLOUR ] right
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`MODEL: ${modelLine.slice(0, 24)}`, x + 2.4, y + 12.6);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.9);
+    doc.setTextColor(30, 41, 59);
+    const specsRight = `[ LOCK: ${lockText} ] [ COLOUR: ${colourText} ]`;
+    doc.text(specsRight, x + labelWidth - 2.2, y + 12.6, { align: 'right' });
+
+    // ROW 3: 3-Column Bordered Spec & QR Grid (y+13.9 .. y+36.8 => height 22.9mm)
+    const gridX = x + 1.6;
+    const gridY = y + 13.9;
+    const gridW = labelWidth - 3.2; // 95.8mm
+    const gridH = 22.9;
+    const subHeaderH = 3.6;
+    const col1W = 35.5;
+    const col2W = 38.0;
+    const col3W = gridW - col1W - col2W; // 22.3mm
+
+    // Column fills
+    // Col 1 header fill (soft slate gray)
+    doc.setFillColor(226, 232, 240);
+    doc.rect(gridX, gridY, col1W, subHeaderH, 'F');
+    // Col 2 header fill (soft blue) + body fill (very pale blue)
+    doc.setFillColor(219, 234, 254);
+    doc.rect(gridX + col1W, gridY, col2W, subHeaderH, 'F');
+    doc.setFillColor(239, 246, 255);
+    doc.rect(gridX + col1W, gridY + subHeaderH, col2W, gridH - subHeaderH, 'F');
+    // Col 3 header fill (soft amber)
+    doc.setFillColor(254, 243, 199);
+    doc.rect(gridX + col1W + col2W, gridY, col3W, subHeaderH, 'F');
+
+    // Outer grid border & vertical/horizontal dividers
+    doc.setDrawColor(100, 116, 139);
+    doc.setLineWidth(0.28);
+    doc.rect(gridX, gridY, gridW, gridH, 'S');
+    doc.line(gridX + col1W, gridY, gridX + col1W, gridY + gridH);
+    doc.line(gridX + col1W + col2W, gridY, gridX + col1W + col2W, gridY + gridH);
+    doc.line(gridX, gridY + subHeaderH, gridX + gridW, gridY + subHeaderH);
+
+    // Subheader titles
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.4);
+    doc.setTextColor(30, 41, 59);
+    doc.text('GIVEN OPENING (FRAME)', gridX + col1W / 2, gridY + 2.6, { align: 'center' });
+
+    doc.setTextColor(29, 78, 216);
+    doc.text('CONFIRM FINISH DOOR', gridX + col1W + col2W / 2, gridY + 2.6, { align: 'center' });
+
+    doc.setTextColor(180, 83, 9);
+    doc.text('SCAN QR', gridX + col1W + col2W + col3W / 2, gridY + 2.6, { align: 'center' });
+
+    // Col 1 body: GIVEN OPENING (FRAME)
+    const c1Left = gridX + 1.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.9);
+    doc.setTextColor(51, 65, 85);
+    doc.text('Opening H:', c1Left, gridY + 7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text(fmtCm(rawH, 2), c1Left + 11.8, gridY + 7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.2);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`(${tapeInchH})`, gridX + col1W - 1.2, gridY + 7.5, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.7);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Opening W: T:${fmtCm(rawTopW, 2)} / B:${fmtCm(rawBtmW, 2)}`, c1Left, gridY + 12.1);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.7);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Rebate: ${rebateText}`, c1Left, gridY + 16.6);
+
+    doc.setFontSize(5.4);
+    doc.setTextColor(100, 116, 139);
+    const roomOrRemark = item.remark && item.remark.trim().length > 0
+      ? `Note: ${item.remark.trim().slice(0, 22)}`
+      : `Room: ${roomText}`;
+    doc.text(roomOrRemark, c1Left, gridY + 20.8);
+
+    // Col 2 body: CONFIRM FINISH DOOR
+    const c2Left = gridX + col1W + 1.8;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.4);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`HEIGHT: -${fmtCm(finHNum, 1)}`, c2Left, gridY + 7.7);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`WIDTH: T:-${fmtCm(finTopWNum, 1)}  B:-${fmtCm(finBtmWNum, 1)}`, c2Left, gridY + 12.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.7);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Clearance: H-${hDedMm} / W-${wDedMm}mm`, c2Left, gridY + 16.8);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.0);
+    doc.setTextColor(4, 120, 87);
+    doc.text('QC: PASSED & PACKED', c2Left, gridY + 21.0);
+
+    // Col 3 body: SCAN QR + FIND & VERIFY
+    const qrSize = 14.4;
+    const qrX = gridX + col1W + col2W + (col3W - qrSize) / 2;
+    const qrY = gridY + subHeaderH + 0.9;
+    doc.drawQrCode(qrPayload, qrX, qrY, qrSize);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.0);
+    doc.setTextColor(15, 23, 42);
+    doc.text('FIND & VERIFY', gridX + col1W + col2W + col3W / 2, gridY + gridH - 1.0, {
+      align: 'center',
+    });
+
+    // ROW 4: Bottom Site Verification Footer (y+36.8 .. y+43.6)
+    const footerLineY = y + 37.6;
+    const checkboxY = y + 39.1;
+    doc.setDrawColor(148, 163, 184);
+    doc.setLineWidth(0.2);
+    doc.line(x + 1.6, footerLineY, x + labelWidth - 1.6, footerLineY);
+
+    // Empty checkbox
+    doc.setDrawColor(51, 65, 85);
+    doc.setLineWidth(0.3);
+    doc.rect(x + 2.4, checkboxY, 2.7, 2.7, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.6);
+    doc.setTextColor(15, 23, 42);
+    doc.text('SITE VERIFIED:', x + 6.2, y + 41.2);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 65, 85);
+    doc.text('Confirmed matches opening & model', x + 21.6, y + 41.2);
+
+    // Sign/Date right side
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Sign/Date:', x + 70.5, y + 41.2);
+    doc.setDrawColor(148, 163, 184);
+    doc.setLineWidth(0.22);
+    doc.line(x + 80.5, y + 41.5, x + labelWidth - 2.2, y + 41.5);
   }
 
   return doc;

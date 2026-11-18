@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { PrintDocumentHub, PrintTheme, DocumentType } from './PrintDocumentHub';
+import { PrintDocumentHub, PrintTheme, DocumentType, resolveItemColourName } from './PrintDocumentHub';
 import { apiFetch } from '@/lib/api/apiClient';
 import {
   FileSpreadsheet,
@@ -1629,15 +1629,15 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     }
 
     // Auto-sync hardware lock price & name
-    if (updates.lockId !== undefined && updates.lockId !== currentRow.lockId) {
+    if (updates.lockId !== undefined) {
       const activeLocks = frpSettings.locks && frpSettings.locks.length > 0 ? frpSettings.locks : DEFAULT_LOCK_OPTIONS;
       const foundLock = activeLocks.find((l) => l.id === updates.lockId);
       updates.lockPrice = foundLock ? foundLock.price : 0;
       updates.lockName = foundLock ? foundLock.name : 'BABY LATCH';
     }
 
-    // Auto-sync colour extra surcharge & name
-    if (updates.colourId !== undefined && updates.colourId !== currentRow.colourId) {
+    // Auto-sync colour extra surcharge & name (always sync live colour name even if colourId matches default)
+    if (updates.colourId !== undefined) {
       const activeColours = frpSettings.colours && frpSettings.colours.length > 0 ? frpSettings.colours : DEFAULT_COLOUR_OPTIONS;
       const foundCol = activeColours.find((c) => c.id === updates.colourId);
       updates.colourExtraRate = foundCol ? (foundCol.extraRate || 0) : 0;
@@ -1645,14 +1645,14 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     }
 
     // Auto-sync frame profile name & extra surcharge
-    if (updates.frameTypeId !== undefined && updates.frameTypeId !== currentRow.frameTypeId) {
+    if (updates.frameTypeId !== undefined) {
       const foundFrame = framesList.find((f) => f.id === updates.frameTypeId);
       updates.frameTypeName = foundFrame ? formatFrameSectionLabel(foundFrame) : '';
       updates.framePrice = foundFrame ? (foundFrame.quotationExtraRate || 0) : 0;
     }
 
     // Auto-sync door thickness label & extra surcharge
-    if (updates.thicknessId !== undefined && updates.thicknessId !== currentRow.thicknessId) {
+    if (updates.thicknessId !== undefined) {
       const activeThicknesses =
         frpSettings.doorThicknesses && frpSettings.doorThicknesses.length > 0
           ? frpSettings.doorThicknesses
@@ -1768,23 +1768,48 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
 
     const defaultFrame = getDefaultFrameProfile(framesList);
     const defaultThickness = getDefaultThicknessOption(frpSettings.doorThicknesses);
+    const activeColours =
+      frpSettings.colours && frpSettings.colours.length > 0
+        ? frpSettings.colours
+        : DEFAULT_COLOUR_OPTIONS;
+    const activeLocks =
+      frpSettings.locks && frpSettings.locks.length > 0
+        ? frpSettings.locks
+        : DEFAULT_LOCK_OPTIONS;
+    const defaultColour = activeColours[0];
+    const defaultLock = getDefaultLockOption(frpSettings.locks);
+
     if (q.itemRows && q.itemRows.length > 0) {
       setQuoteItemRows(
-        q.itemRows.map((row) => ({
-          ...row,
-          widthLinked: row.widthLinked !== undefined ? row.widthLinked : (row.widthBottom === undefined || row.widthBottom === row.widthTop),
-          supplyMode: row.supplyMode || (row.withoutAccessories ? 'NO_ACCESSORIES' : 'FULL_SET'),
-          frameTypeId: row.frameTypeId || defaultFrame.id,
-          frameTypeName: row.frameTypeName || formatFrameSectionLabel(defaultFrame),
-          framePrice: row.framePrice ?? (defaultFrame.quotationExtraRate || 0),
-          thicknessId: row.thicknessId || defaultThickness.id,
-          thicknessLabel: row.thicknessLabel || defaultThickness.name,
-          thicknessExtraRate: row.thicknessExtraRate ?? (defaultThickness.extraRate || 0),
-        }))
+        q.itemRows.map((row) => {
+          const matchedCol =
+            activeColours.find((c) => c.id === row.colourId) ||
+            (row.colourName
+              ? activeColours.find(
+                  (c) => c.name.trim().toLowerCase() === row.colourName!.trim().toLowerCase()
+                )
+              : undefined);
+          const matchedLock = activeLocks.find((l) => l.id === row.lockId);
+          return {
+            ...row,
+            widthLinked: row.widthLinked !== undefined ? row.widthLinked : (row.widthBottom === undefined || row.widthBottom === row.widthTop),
+            supplyMode: row.supplyMode || (row.withoutAccessories ? 'NO_ACCESSORIES' : 'FULL_SET'),
+            colourId: matchedCol?.id || row.colourId || defaultColour?.id || 'col-teak-matte',
+            colourName: matchedCol?.name || row.colourName || defaultColour?.name || 'Natural Teak',
+            colourExtraRate: row.colourExtraRate ?? (matchedCol?.extraRate || 0),
+            lockId: matchedLock?.id || row.lockId || defaultLock?.id || 'lock-none',
+            lockName: matchedLock?.name || row.lockName || defaultLock?.name || 'BABY LATCH',
+            lockPrice: row.lockPrice ?? (matchedLock?.price || 0),
+            frameTypeId: row.frameTypeId || defaultFrame.id,
+            frameTypeName: row.frameTypeName || formatFrameSectionLabel(defaultFrame),
+            framePrice: row.framePrice ?? (defaultFrame.quotationExtraRate || 0),
+            thicknessId: row.thicknessId || defaultThickness.id,
+            thicknessLabel: row.thicknessLabel || defaultThickness.name,
+            thicknessExtraRate: row.thicknessExtraRate ?? (defaultThickness.extraRate || 0),
+          };
+        })
       );
     } else {
-      const defaultLock = (frpSettings.locks && frpSettings.locks[0]) || DEFAULT_LOCK_OPTIONS[0];
-      const defaultColour = (frpSettings.colours && frpSettings.colours[0]) || DEFAULT_COLOUR_OPTIONS[0];
       setQuoteItemRows([
         {
           id: 1,
@@ -1803,8 +1828,10 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           frpCategory: 'A',
           autoPriceBreakdown: `Imported from ${q.id}`,
           lockId: defaultLock?.id,
+          lockName: defaultLock?.name || 'BABY LATCH',
           lockPrice: defaultLock?.price || 0,
           colourId: defaultColour?.id,
+          colourName: defaultColour?.name || 'Natural Teak',
           colourExtraRate: defaultColour?.extraRate || 0,
           frameTypeId: defaultFrame.id,
           frameTypeName: formatFrameSectionLabel(defaultFrame),
@@ -2008,10 +2035,55 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
         }
       : {};
 
-    const apiItems = quoteItemRows
+    const activeColoursForSave =
+      frpSettings.colours && frpSettings.colours.length > 0
+        ? frpSettings.colours
+        : DEFAULT_COLOUR_OPTIONS;
+    const activeLocksForSave =
+      frpSettings.locks && frpSettings.locks.length > 0
+        ? frpSettings.locks
+        : DEFAULT_LOCK_OPTIONS;
+    const activeThicknessesForSave =
+      frpSettings.doorThicknesses && frpSettings.doorThicknesses.length > 0
+        ? frpSettings.doorThicknesses
+        : DEFAULT_THICKNESS_OPTIONS;
+    const defaultFrameForSave = getDefaultFrameProfile(framesList);
+
+    const normalizedQuoteRows: QuoteItemRow[] = quoteItemRows.map((r) => {
+      const colObj =
+        activeColoursForSave.find((c) => c.id === r.colourId) ||
+        (r.colourName
+          ? activeColoursForSave.find(
+              (c) => c.name.trim().toLowerCase() === r.colourName!.trim().toLowerCase()
+            )
+          : undefined) ||
+        activeColoursForSave[0];
+      const lockObj = activeLocksForSave.find((l) => l.id === r.lockId);
+      const thkObj = activeThicknessesForSave.find((t) => t.id === r.thicknessId);
+      const frmObj = framesList.find((f) => f.id === r.frameTypeId) || defaultFrameForSave;
+      const modelObj = doorModels.find((m) => m.id === r.modelId);
+      return {
+        ...r,
+        modelCode: r.modelCode || modelObj?.code,
+        modelTitle: r.modelTitle || modelObj?.title,
+        colourId: colObj?.id || r.colourId || 'col-teak-matte',
+        colourName: colObj?.name || r.colourName || 'Natural Teak',
+        colourExtraRate: r.colourExtraRate ?? (colObj?.extraRate || 0),
+        lockId: lockObj?.id || r.lockId || 'lock-none',
+        lockName: lockObj?.name || r.lockName || 'BABY LATCH',
+        lockPrice: r.lockPrice ?? (lockObj?.price || 0),
+        thicknessId: thkObj?.id || r.thicknessId || activeThicknessesForSave[0]?.id,
+        thicknessLabel: thkObj?.name || r.thicknessLabel || activeThicknessesForSave[0]?.name || '28mm Standard',
+        frameTypeId: frmObj?.id || r.frameTypeId,
+        frameTypeName: frmObj ? formatFrameSectionLabel(frmObj) : (r.frameTypeName || ''),
+      };
+    });
+
+    const apiItems = normalizedQuoteRows
       .filter((r) => Number(r.qty) > 0)
       .map((r) => {
         const modelObj = doorModels.find((m) => m.id === r.modelId);
+        const thkObj = activeThicknessesForSave.find((t) => t.id === r.thicknessId);
         const unitExtras =
           (Number(r.lockPrice) || 0) +
           (Number(r.colourExtraRate) || 0) +
@@ -2026,8 +2098,8 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           heightMm: Math.round((Number(r.height) || 210) * factor),
           widthMm: Math.round((Number(r.widthTop ?? r.width) || 80) * factor),
           widthBottomMm: Math.round((Number(r.widthBottom ?? r.widthTop ?? r.width) || 80) * factor),
-          thicknessMm: 32,
-          finishColor: modelObj?.finish || undefined,
+          thicknessMm: thkObj?.thicknessMm || 28,
+          finishColor: r.colourName || 'Natural Teak',
           quantity: qtyNum,
           unitPrice: effUnitRate,
           gstRate: 0,
@@ -2059,7 +2131,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
         date: quoteDate,
         targetDeliveryDate,
         deliveryDistrict,
-        itemRows: [...quoteItemRows],
+        itemRows: [...normalizedQuoteRows],
         ...installPayload,
         ...salespersonPayload,
       };
@@ -2074,7 +2146,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             location: cust.location,
             itemsSummary: itemsLabel,
             items: apiItems,
-            itemRows: quoteItemRows,
+            itemRows: normalizedQuoteRows,
             targetDeliveryDate,
             deliveryDistrict,
             overrideSubtotal: Math.round(itemsSubtotal),
@@ -2129,7 +2201,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           targetDeliveryDate,
           deliveryDistrict,
           items: apiItems,
-          itemRows: quoteItemRows,
+          itemRows: normalizedQuoteRows,
           overrideSubtotal: Math.round(itemsSubtotal),
           discount: Math.round(additionalDiscount),
           roundOff: Math.round(roundOffAmount),
@@ -2173,7 +2245,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       date: quoteDate,
       targetDeliveryDate,
       deliveryDistrict,
-      itemRows: [...quoteItemRows],
+      itemRows: [...normalizedQuoteRows],
       quotationCategory: activeDraftSiteRef ? 'SITE_MEASUREMENT' : 'SHOWROOM_DIRECT',
       siteMeasurementRef: activeDraftSiteRef || undefined,
       siteMeasurementId: activeDraftSiteId || undefined,
@@ -3566,7 +3638,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                               <div className="flex items-center justify-between mb-0.5 text-[9px] text-emerald-300 font-semibold uppercase">
                                 <span>Colour / Finish:</span>
                                 {row.colourExtraRate && row.colourExtraRate > 0 ? (
-                                  <span className="font-mono text-emerald-400">+₹${row.colourExtraRate}</span>
+                                  <span className="font-mono text-emerald-400">+₹{row.colourExtraRate}</span>
                                 ) : null}
                               </div>
                               <select
@@ -4792,7 +4864,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                                             </div>
                                             <div className="text-[10px] text-slate-400 space-y-0.5 border-t border-slate-900 pt-1">
                                               <div><span className="text-slate-500">Lock:</span> {row.lockName || 'BABY LATCH'}</div>
-                                              <div><span className="text-slate-500">Colour:</span> {row.colourName || 'Natural Teak'}</div>
+                                              <div><span className="text-slate-500">Colour:</span> {resolveItemColourName(row, undefined, frpSettings.colours)}</div>
                                               <div><span className="text-slate-500">Thickness:</span> {row.thicknessLabel || '30 mm'}</div>
                                               <div><span className="text-slate-500">Frame:</span> {row.frameTypeName || 'Regular 72×50mm'}</div>
                                             </div>
@@ -5321,6 +5393,10 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                       documentType={printDocType}
                       quotation={previewQuote}
                       doorModels={doorModels}
+                      colourOptions={frpSettings.colours}
+                      lockOptions={frpSettings.locks}
+                      thicknessOptions={frpSettings.doorThicknesses}
+                      frameProfiles={framesList}
                       hideSqFt={hideSqFtOnPrint}
                       hideBankDetails={hideBankDetailsOnPrint}
                       bankDetails={companyBankDetails}

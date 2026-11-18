@@ -32,6 +32,7 @@ import {
   STANDARD_DOOR_MODELS,
   detectCategoryFromModelCode,
 } from '@/lib/types/doorModelCatalog';
+import * as QRCode from 'qrcode';
 
 interface StickerPrintModalProps {
   isOpen: boolean;
@@ -105,17 +106,19 @@ const FRACTION_STEPS = [
 ];
 
 export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: StickerPrintModalProps) {
-  const [printFormat, setPrintFormat] = useState<'A4_12L' | 'THERMAL' | 'TEST_PAGE'>('A4_12L');
+  const [printFormat, setPrintFormat] = useState<'A4_12L' | 'A4_12L_PACKING_PASS' | 'THERMAL' | 'TEST_PAGE'>('A4_12L');
   const [gridLayout, setGridLayout] = useState<'2x6' | '3x4'>('2x6');
   const [useYellowPaper, setUseYellowPaper] = useState<boolean>(false);
   const [includeQrCode, setIncludeQrCode] = useState<boolean>(true);
   const [showMarginControls, setShowMarginControls] = useState<boolean>(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
+  const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
 
   // Editable Floor Door Rows
   const [rows, setRows] = useState<FloorDoorRow[]>([]);
   const [framesList, setFramesList] = useState<CustomFrameProfile[]>(DEFAULT_FRAME_PROFILES);
   const [lockChoices, setLockChoices] = useState<string[]>(DEFAULT_LOCK_OPTIONS);
+  const [colourChoices, setColourChoices] = useState<string[]>(DEFAULT_COLOUR_OPTIONS);
 
   // Sub-modals
   const [isFrameManagerOpen, setIsFrameManagerOpen] = useState<boolean>(false);
@@ -167,6 +170,13 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
               .filter(Boolean);
             setLockChoices(Array.from(new Set([...dynamicNames, ...DEFAULT_LOCK_OPTIONS])));
           }
+          const coloursPayload = json.settings?.colours || json.data?.colours;
+          if (json.success && Array.isArray(coloursPayload)) {
+            const dynamicColours = (coloursPayload as Array<{ name?: string }>)
+              .map((c) => (c.name || '').trim())
+              .filter(Boolean);
+            setColourChoices(Array.from(new Set([...dynamicColours, ...DEFAULT_COLOUR_OPTIONS])));
+          }
         })
         .catch(() => {});
 
@@ -211,6 +221,34 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
     });
     setRows(mapped);
   }, [order]);
+
+  // Generate QR data URLs for HTML print when After-Packing Site Verification Pass is selected
+  useEffect(() => {
+    if (!isOpen || !order || printFormat !== 'A4_12L_PACKING_PASS') return;
+    let cancelled = false;
+    (async () => {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const next: Record<string, string> = {};
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const doorCode = r.doorId || `${order.jobCardNumber || order.prodOrderNumber}-D${String(i + 1).padStart(2, '0')}`;
+        const payload = r.qrPayload || (origin ? `${origin}/track/${encodeURIComponent(doorCode)}` : `/track/${encodeURIComponent(doorCode)}`);
+        try {
+          next[r.id] = await QRCode.toDataURL(payload, {
+            width: 140,
+            margin: 0,
+            errorCorrectionLevel: 'M',
+          });
+        } catch {
+          // ignore
+        }
+      }
+      if (!cancelled) setQrDataUrls(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, order, printFormat, rows]);
 
   if (!isOpen || !order) return null;
 
@@ -305,6 +343,8 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
             rawWidthBtmCm: wBtmCm,
             widthLinked: isLinked,
             frameTypeId: matchedRow.frameTypeId || r.frameTypeId,
+            finishColor: matchedRow.colourName || matchedItem.finishColor || r.finishColor,
+            lockType: matchedRow.lockName || matchedItem.lockType || r.lockType,
           };
         })
       );
@@ -488,11 +528,11 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
     window.print();
   };
 
-  const handleDownloadVectorPdf = async (mode: 'A4_12L' | 'THERMAL') => {
+  const handleDownloadVectorPdf = async (mode: 'A4_12L' | 'A4_12L_PACKING_PASS' | 'THERMAL') => {
     if (rows.length === 0) return;
     setIsDownloadingPdf(true);
     try {
-      const { generate12LStickerPdf, generateThermal4x2Pdf } = await import('@/lib/utils/pdfStickerEngine');
+      const { generate12LStickerPdf, generate12LPackingPassPdf, generateThermal4x2Pdf } = await import('@/lib/utils/pdfStickerEngine');
       const items = rows.map((row, idx) => {
         const frame = getFrameProfile(row.frameTypeId);
         const calc = computeStickerSizes({
@@ -507,7 +547,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
         const isOnlyDoor =
           frame.material === 'NONE' || frame.name.toLowerCase().includes('only door');
         const isTapered = !row.widthLinked && Math.abs(row.rawWidthTopCm - row.rawWidthBtmCm) > 0.05;
-        const doorCode = `${order.jobCardNumber || order.prodOrderNumber}-D${String(idx + 1).padStart(2, '0')}`;
+        const doorCode = row.doorId || `${order.jobCardNumber || order.prodOrderNumber}-D${String(idx + 1).padStart(2, '0')}`;
         const hostUrl = typeof window !== 'undefined' ? window.location.origin : 'http://192.168.8.101:4000';
         const qrUrl = row.qrPayload || `${hostUrl}/track/${encodeURIComponent(doorCode)}`;
 
@@ -518,6 +558,12 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
           customerName: order.customerName,
           siteName: order.siteName,
           floorZone: row.roomTag,
+          doorTag: row.roomTag || `Door #${idx + 1}`,
+          roomLabel: row.roomTag || `Door #${idx + 1}`,
+          rebateLabel: frame.name || 'Mini 40x25',
+          doorThicknessLabel: '28mm',
+          hDedMm: Math.max(0, Math.round((frame.hDeductionCm ?? 4.5) * 10)),
+          wDedMm: Math.max(0, Math.round((frame.wDeductionCm ?? 7.6) * 10)),
           doorNumber: idx + 1,
           totalDoorsInOrder: rows.length,
           rawHeightCm: row.rawHeightCm,
@@ -556,6 +602,17 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
         const pdf = await generateThermal4x2Pdf(items, { companyName: 'EXMARK DOORS' });
         pdf.save(`EXMARK_Thermal_4x2_${order.jobCardNumber}.pdf`);
         setSaveToast(`Downloaded 4"x2" Thermal PDF (${items.length} labels) for ${order.jobCardNumber}.`);
+      } else if (mode === 'A4_12L_PACKING_PASS') {
+        const pdf = await generate12LPackingPassPdf(items, {
+          companyName: 'EXMARK DOORS',
+          layout: gridLayout,
+          topMarginMm,
+          leftMarginMm,
+          rowGapMm: verticalGapMm,
+          colGapMm: horizontalGapMm,
+        });
+        pdf.save(`EXMARK_12L_AfterPacking_Pass_${order.jobCardNumber}.pdf`);
+        setSaveToast(`Downloaded 12L After-Packing Site Verification Pass PDF (${items.length} labels).`);
       } else {
         const pdf = await generate12LStickerPdf(items, {
           companyName: 'EXMARK DOORS',
@@ -678,7 +735,15 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
 
               <button
                 type="button"
-                onClick={() => handleDownloadVectorPdf(printFormat === 'THERMAL' ? 'THERMAL' : 'A4_12L')}
+                onClick={() =>
+                  handleDownloadVectorPdf(
+                    printFormat === 'THERMAL'
+                      ? 'THERMAL'
+                      : printFormat === 'A4_12L_PACKING_PASS'
+                      ? 'A4_12L_PACKING_PASS'
+                      : 'A4_12L'
+                  )
+                }
                 disabled={isDownloadingPdf || rows.length === 0}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-black transition cursor-pointer shadow-lg disabled:opacity-50"
                 title="Download exact top-left aligned vector PDF"
@@ -689,6 +754,8 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                     ? 'Generating PDF...'
                     : printFormat === 'THERMAL'
                     ? 'Download 4"×2" Thermal PDF'
+                    : printFormat === 'A4_12L_PACKING_PASS'
+                    ? 'Download 12L Packing Pass PDF'
                     : 'Download 12L Vector PDF'}
                 </span>
               </button>
@@ -699,7 +766,13 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-black transition cursor-pointer shadow-lg"
               >
                 <Printer className="w-4 h-4" />
-                <span>{printFormat === 'THERMAL' ? 'Print 4"×2" Labels' : 'Print 12L Stickers'}</span>
+                <span>
+                  {printFormat === 'THERMAL'
+                    ? 'Print 4"×2" Labels'
+                    : printFormat === 'A4_12L_PACKING_PASS'
+                    ? 'Print 12L Packing Pass'
+                    : 'Print 12L Stickers'}
+                </span>
               </button>
 
               <button
@@ -718,7 +791,8 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Print Output:</span>
               <div className="flex flex-wrap items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5 font-bold">
                 {[
-                  { id: 'A4_12L', label: '12L Sticker Sheet (A4)' },
+                  { id: 'A4_12L', label: '12L Cutting Sticker (A4)' },
+                  { id: 'A4_12L_PACKING_PASS', label: '📦 After-Packing Site Pass (12L)' },
                   { id: 'THERMAL', label: 'Thermal Roll 4"×2"' },
                   { id: 'TEST_PAGE', label: 'Alignment Grid' },
                 ].map((m) => (
@@ -727,7 +801,11 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                     type="button"
                     onClick={() => setPrintFormat(m.id as typeof printFormat)}
                     className={`px-3 py-1 rounded-md transition cursor-pointer ${
-                      printFormat === m.id ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      printFormat === m.id
+                        ? m.id === 'A4_12L_PACKING_PASS'
+                          ? 'bg-emerald-600 text-white shadow'
+                          : 'bg-red-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
                     }`}
                   >
                     {m.label}
@@ -735,7 +813,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                 ))}
               </div>
 
-              {printFormat === 'A4_12L' && (
+              {(printFormat === 'A4_12L' || printFormat === 'A4_12L_PACKING_PASS') && (
                 <div className="flex items-center bg-slate-900 border border-emerald-500/40 rounded-lg px-2.5 py-1 text-[11px] font-bold text-emerald-300">
                   <span>Standard 12L (99×44mm)</span>
                 </div>
@@ -1142,14 +1220,14 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                         {/* 8. COLOUR & FINISH */}
                         <td className="p-2 space-y-1">
                           <select
-                            value={DEFAULT_COLOUR_OPTIONS.includes(row.finishColor) ? row.finishColor : row.finishColor}
+                            value={row.finishColor}
                             onChange={(e) => updateRow(row.id, { finishColor: e.target.value })}
                             className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs font-bold text-white cursor-pointer"
                           >
-                            {!DEFAULT_COLOUR_OPTIONS.includes(row.finishColor) && (
+                            {!colourChoices.includes(row.finishColor) && row.finishColor && (
                               <option value={row.finishColor}>{row.finishColor}</option>
                             )}
-                            {DEFAULT_COLOUR_OPTIONS.map((c) => (
+                            {colourChoices.map((c) => (
                               <option key={c} value={c}>
                                 {c}
                               </option>
@@ -1329,6 +1407,212 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                           <span className="truncate">{row.remark.trim()}</span>
                         </div>
                       )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : printFormat === 'A4_12L_PACKING_PASS' ? (
+              /* A4 12-LABEL AFTER-PACKING SITE VERIFICATION PASS (EXACT 99x44mm 2x6 DIE-CUT SHEET) */
+              <div className="print:space-y-0">
+                {Array.from({ length: totalPages }).map((_, pageIdx) => {
+                  const sheetRows = rows.slice(pageIdx * 12, (pageIdx + 1) * 12);
+                  const cellHeightMm = '44mm';
+
+                  return (
+                    <div
+                      key={pageIdx}
+                      style={{
+                        width: '210mm',
+                        minHeight: '297mm',
+                        paddingTop: `${topMarginMm}mm`,
+                        paddingBottom: `${topMarginMm}mm`,
+                        paddingLeft: `${leftMarginMm}mm`,
+                        paddingRight: `${leftMarginMm}mm`,
+                        boxSizing: 'border-box',
+                        pageBreakAfter: pageIdx < totalPages - 1 ? 'always' : 'auto',
+                        breakAfter: pageIdx < totalPages - 1 ? 'page' : 'auto',
+                        position: 'relative',
+                      }}
+                      className="bg-white text-slate-950"
+                    >
+                      <div
+                        className="absolute left-0 right-0 text-center text-[7.5px] font-semibold tracking-wide text-slate-400 uppercase"
+                        style={{ top: `${Math.max(2.5, topMarginMm - 5.2)}mm` }}
+                      >
+                        12L A4 AFTER-PACKING SITE VERIFICATION LABELS (2x6 GRID) | PARTY: {(order.customerName || 'CLIENT').toUpperCase()} | PAGE {pageIdx + 1} OF {totalPages}
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, 99mm)',
+                          gridAutoRows: cellHeightMm,
+                          alignContent: 'start',
+                          justifyItems: 'stretch',
+                          rowGap: `${verticalGapMm}mm`,
+                          columnGap: `${horizontalGapMm}mm`,
+                        }}
+                      >
+                        {sheetRows.map((row, localIdx) => {
+                          const doorIndex = pageIdx * 12 + localIdx + 1;
+                          const frame = getFrameProfile(row.frameTypeId);
+                          const calc = computeStickerSizes({
+                            rawHeightCm: row.rawHeightCm,
+                            rawWidthTopCm: row.rawWidthTopCm,
+                            rawWidthBtmCm: row.rawWidthBtmCm,
+                            widthLinked: row.widthLinked,
+                            hDeductionCm: frame.hDeductionCm ?? 4.5,
+                            wDeductionCm: frame.wDeductionCm ?? 7.6,
+                            hingeSide: row.hingeSide,
+                          });
+                          const hDedMm = Math.max(0, Math.round((frame.hDeductionCm ?? 4.5) * 10));
+                          const wDedMm = Math.max(0, Math.round((frame.wDeductionCm ?? 7.6) * 10));
+                          const rawBtm = row.widthLinked ? row.rawWidthTopCm : row.rawWidthBtmCm;
+                          const doorTag = row.roomTag || `Door #${doorIndex}`;
+                          const modelDisplay = row.modelName.includes('mm') ? row.modelName : `${row.modelName} (28mm)`;
+                          const qrSrc = qrDataUrls[row.id];
+
+                          return (
+                            <div
+                              key={row.id}
+                              style={{
+                                width: '99mm',
+                                height: cellHeightMm,
+                                maxHeight: cellHeightMm,
+                                boxSizing: 'border-box',
+                                breakInside: 'avoid',
+                                pageBreakInside: 'avoid',
+                              }}
+                              className={`border-[1.2px] border-slate-900 font-sans rounded-[5px] flex flex-col justify-between overflow-hidden ${
+                                useYellowPaper ? 'bg-[#fef9c3]' : 'bg-white'
+                              }`}
+                            >
+                              {/* Row 1: Solid Dark Header Bar */}
+                              <div className="bg-slate-950 text-white px-2 py-[2.5px] flex items-center justify-between text-[7.5px] font-black tracking-wide uppercase">
+                                <span>AFTER-PACKING SITE VERIFICATION PASS</span>
+                                <span className="shrink-0">
+                                  DOOR #{doorIndex} [{doorTag}]
+                                </span>
+                              </div>
+
+                              {/* Row 2: Party & Model/Lock/Colour Band */}
+                              <div className="px-2 pt-[2px] pb-[1.5px] leading-tight">
+                                <div className="text-[8.5px] font-black text-slate-950 uppercase truncate">
+                                  <span className="font-bold text-slate-600">PARTY: </span>
+                                  {order.customerName}
+                                </div>
+                                <div className="flex items-center justify-between gap-1 text-[7px] mt-[1px]">
+                                  <div className="font-black text-slate-900 uppercase truncate">
+                                    <span className="font-bold text-slate-600">MODEL: </span>
+                                    {modelDisplay}
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0 text-[6.5px] font-black text-slate-900 uppercase">
+                                    <span className="px-1 py-[0.5px] rounded bg-slate-100 border border-slate-300">
+                                      [ LOCK: {(row.lockType || 'BABY LATCH').slice(0, 14)} ]
+                                    </span>
+                                    <span className="px-1 py-[0.5px] rounded bg-slate-100 border border-slate-300">
+                                      [ COLOUR: {(row.finishColor || 'TEAK').slice(0, 14)} ]
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Row 3: 3-Column Spec & QR Grid */}
+                              <div
+                                className="mx-1.5 border border-slate-500 rounded-[3px] grid overflow-hidden flex-1"
+                                style={{ gridTemplateColumns: '37% 40% 23%' }}
+                              >
+                                {/* Col 1: GIVEN OPENING (FRAME) */}
+                                <div className="border-r border-slate-500 flex flex-col min-w-0">
+                                  <div className="bg-slate-200 border-b border-slate-400 px-1 py-[1.5px] text-center text-[6.2px] font-black text-slate-800 uppercase tracking-tight">
+                                    GIVEN OPENING (FRAME)
+                                  </div>
+                                  <div className="px-1.5 py-[2px] flex-1 flex flex-col justify-between text-[6.8px] text-slate-900 leading-[1.15]">
+                                    <div className="flex items-baseline justify-between gap-1">
+                                      <span>
+                                        Opening H: <strong className="font-black">{Number(row.rawHeightCm.toFixed(2))}</strong>
+                                      </span>
+                                      <span className="text-[6px] text-slate-500 font-semibold">({cmToTapeInch(row.rawHeightCm)})</span>
+                                    </div>
+                                    <div className="truncate">
+                                      Opening W:{' '}
+                                      <strong className="font-bold">
+                                        T:{Number(row.rawWidthTopCm.toFixed(2))} / B:{Number(rawBtm.toFixed(2))}
+                                      </strong>
+                                    </div>
+                                    <div className="truncate">
+                                      Rebate: <strong className="font-semibold">{frame.name || 'Mini 40x25'}</strong>
+                                    </div>
+                                    <div className="text-[6.2px] text-slate-500 truncate">
+                                      {row.remark.trim() ? `Note: ${row.remark.trim()}` : `Room: ${doorTag}`}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Col 2: CONFIRM FINISH DOOR */}
+                                <div className="border-r border-slate-500 flex flex-col bg-blue-50/75 min-w-0">
+                                  <div className="bg-blue-100 border-b border-blue-300 px-1 py-[1.5px] text-center text-[6.2px] font-black text-blue-800 uppercase tracking-tight">
+                                    CONFIRM FINISH DOOR
+                                  </div>
+                                  <div className="px-1.5 py-[2px] flex-1 flex flex-col justify-between leading-[1.15]">
+                                    <div className="text-[8.2px] font-black text-slate-950">
+                                      HEIGHT: <span className="font-mono">{calc.finHText}</span>
+                                    </div>
+                                    <div className="text-[7.5px] font-black text-slate-950 truncate">
+                                      WIDTH:{' '}
+                                      <span className="font-mono">
+                                        T:{calc.finTopWText} B:{calc.finBtmWText}
+                                      </span>
+                                    </div>
+                                    <div className="text-[6.3px] text-slate-600 font-semibold">
+                                      Clearance: H-{hDedMm} / W-{wDedMm}mm
+                                    </div>
+                                    <div className="text-[6.8px] font-black text-emerald-700 uppercase">
+                                      QC: PASSED &amp; PACKED
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Col 3: SCAN QR */}
+                                <div className="flex flex-col bg-white min-w-0">
+                                  <div className="bg-amber-100 border-b border-amber-300 px-0.5 py-[1.5px] text-center text-[6px] font-black text-amber-800 uppercase">
+                                    SCAN QR
+                                  </div>
+                                  <div className="flex-1 flex flex-col items-center justify-center p-[2px]">
+                                    {qrSrc ? (
+                                      <img
+                                        src={qrSrc}
+                                        alt="Door Verification QR"
+                                        className="w-[13.5mm] h-[13.5mm] object-contain"
+                                      />
+                                    ) : (
+                                      <div className="w-[13.5mm] h-[13.5mm] border border-dashed border-slate-300 flex items-center justify-center text-[5.5px] text-slate-400">
+                                        QR
+                                      </div>
+                                    )}
+                                    <span className="text-[5.2px] font-black text-slate-900 tracking-tight leading-none mt-[1px]">
+                                      FIND &amp; VERIFY
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Row 4: Bottom Site Verification Footer */}
+                              <div className="px-2 py-[2.5px] border-t border-slate-300 mt-[2px] flex items-center justify-between text-[6.3px] text-slate-800">
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <span className="inline-block w-[2.7mm] h-[2.7mm] border border-slate-700 rounded-[1px] shrink-0" />
+                                  <span className="truncate">
+                                    <strong className="font-black text-slate-950">SITE VERIFIED:</strong> Confirmed matches opening &amp; model
+                                  </span>
+                                </div>
+                                <div className="shrink-0 text-slate-500 pl-1">
+                                  Sign/Date: <span className="inline-block w-[14mm] border-b border-slate-400" />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}

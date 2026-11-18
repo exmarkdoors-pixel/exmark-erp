@@ -7,15 +7,30 @@ import {
   DEFAULT_LOCK_OPTIONS,
   DEFAULT_COLOUR_OPTIONS,
   DEFAULT_THICKNESS_OPTIONS,
+  ColourOption,
+  LockOption,
+  DoorThicknessOption,
 } from '@/lib/services/frpPricingEngine';
 import {
   DEFAULT_FRAME_PROFILES,
+  CustomFrameProfile,
   formatFrameSectionLabel,
 } from '@/lib/utils/frameDefaults';
 import { Building2, Calendar, FileText, CheckCircle2, QrCode, ShieldCheck, Printer } from 'lucide-react';
 
-export function resolveItemLockName(row: any): string {
+export interface PrintSpecOptions {
+  colourOptions?: ColourOption[];
+  lockOptions?: LockOption[];
+  thicknessOptions?: DoorThicknessOption[];
+  frameProfiles?: CustomFrameProfile[];
+}
+
+export function resolveItemLockName(row: any, lockOptions?: LockOption[]): string {
   if (row.withoutAccessories) return 'Without Lock';
+  if (row.lockId && lockOptions && lockOptions.length > 0) {
+    const liveMatch = lockOptions.find((l) => l.id === row.lockId);
+    if (liveMatch?.name) return liveMatch.name;
+  }
   if (row.lockName && typeof row.lockName === 'string' && row.lockName.trim()) {
     return row.lockName.trim();
   }
@@ -26,21 +41,43 @@ export function resolveItemLockName(row: any): string {
   return 'BABY LATCH';
 }
 
-export function resolveItemColourName(row: any, model?: { finish?: string } | HubDoorModel): string {
+export function resolveItemColourName(
+  row: any,
+  model?: { finish?: string } | HubDoorModel,
+  colourOptions?: ColourOption[]
+): string {
+  // 1. Live factory rate-card colour by ID ALWAYS wins (handles renamed/custom colours like PU WHITE & 2 SIDE)
+  if (row.colourId && colourOptions && colourOptions.length > 0) {
+    const liveMatch = colourOptions.find((c) => c.id === row.colourId);
+    if (liveMatch?.name && liveMatch.name.trim()) {
+      return liveMatch.name.trim();
+    }
+  }
+  // 2. Explicit saved colourName on the row
   if (row.colourName && typeof row.colourName === 'string' && row.colourName.trim()) {
     return row.colourName.trim();
   }
+  // 3. Fallback to default colour catalog by ID
   if (row.colourId) {
     const found = DEFAULT_COLOUR_OPTIONS.find((c) => c.id === row.colourId);
     if (found) return found.name;
   }
+  // 4. Fallback to finishColor saved on quotation item
+  if (row.finishColor && typeof row.finishColor === 'string' && row.finishColor.trim()) {
+    return row.finishColor.trim();
+  }
+  // 5. Last resort fallback to model finish or Natural Teak
   if (model?.finish && model.finish !== 'Std' && model.finish !== 'Standard Factory Finish') {
     return model.finish;
   }
   return 'Natural Teak';
 }
 
-export function resolveItemThickness(row: any): string {
+export function resolveItemThickness(row: any, thicknessOptions?: DoorThicknessOption[]): string {
+  if (row.thicknessId && thicknessOptions && thicknessOptions.length > 0) {
+    const liveMatch = thicknessOptions.find((t) => t.id === row.thicknessId);
+    if (liveMatch?.name) return liveMatch.name;
+  }
   if (row.thicknessLabel && typeof row.thicknessLabel === 'string' && row.thicknessLabel.trim()) {
     return row.thicknessLabel.trim();
   }
@@ -51,7 +88,11 @@ export function resolveItemThickness(row: any): string {
   return '30 mm';
 }
 
-export function resolveItemFrameName(row: any): string {
+export function resolveItemFrameName(row: any, frameProfiles?: CustomFrameProfile[]): string {
+  if (row.frameTypeId && frameProfiles && frameProfiles.length > 0) {
+    const liveMatch = frameProfiles.find((f) => f.id === row.frameTypeId);
+    if (liveMatch) return formatFrameSectionLabel(liveMatch);
+  }
   if (row.frameTypeName && typeof row.frameTypeName === 'string' && row.frameTypeName.trim()) {
     return row.frameTypeName.trim();
   }
@@ -85,6 +126,10 @@ export interface PrintDocumentHubProps {
   statementEntries?: StatementEntry[];
   hideSqFt?: boolean;
   hideBankDetails?: boolean;
+  colourOptions?: ColourOption[];
+  lockOptions?: LockOption[];
+  thicknessOptions?: DoorThicknessOption[];
+  frameProfiles?: CustomFrameProfile[];
   bankDetails?: {
     bankName?: string;
     branch?: string;
@@ -175,10 +220,20 @@ export function PrintDocumentHub({
   statementEntries,
   hideSqFt = true,
   hideBankDetails = false,
+  colourOptions,
+  lockOptions,
+  thicknessOptions,
+  frameProfiles,
   bankDetails,
 }: PrintDocumentHubProps) {
   const titles = DOCUMENT_TITLES[documentType];
   const entries = statementEntries || getSampleStatementEntries(quotation);
+  const specOptions: PrintSpecOptions = {
+    colourOptions,
+    lockOptions,
+    thicknessOptions,
+    frameProfiles,
+  };
 
   const resolvedBank = {
     bankName: bankDetails?.bankName || COMPANY_PROFILE.bank.bankName,
@@ -240,7 +295,7 @@ export function PrintDocumentHub({
         {documentType === 'statement' ? (
           renderTallyStatementTable(entries)
         ) : (
-          renderTallyItemTable(quotation, doorModels, false, hideSqFt)
+          renderTallyItemTable(quotation, doorModels, false, hideSqFt, specOptions)
         )}
 
         {/* Tally Financial Summary */}
@@ -350,7 +405,7 @@ export function PrintDocumentHub({
         {documentType === 'statement' ? (
           renderTallyStatementTable(entries, true)
         ) : (
-          renderTallyItemTable(quotation, doorModels, true, hideSqFt)
+          renderTallyItemTable(quotation, doorModels, true, hideSqFt, specOptions)
         )}
 
         {/* Bottom Financial Grid */}
@@ -460,7 +515,7 @@ export function PrintDocumentHub({
         {documentType === 'statement' ? (
           renderTallyStatementTable(entries)
         ) : (
-          renderTallyItemTable(quotation, doorModels, false, hideSqFt)
+          renderTallyItemTable(quotation, doorModels, false, hideSqFt, specOptions)
         )}
 
         {/* Grand Total Summary */}
@@ -557,7 +612,7 @@ export function PrintDocumentHub({
         {documentType === 'statement' ? (
           renderVyaparStatementTable(entries)
         ) : (
-          renderVyaparItemTable(quotation, doorModels, hideSqFt)
+          renderVyaparItemTable(quotation, doorModels, hideSqFt, specOptions)
         )}
 
         {/* Vyapar Summary & Bank Cards */}
@@ -646,7 +701,7 @@ export function PrintDocumentHub({
       {documentType === 'statement' ? (
         renderVyaparStatementTable(entries)
       ) : (
-        renderVyaparItemTable(quotation, doorModels, hideSqFt)
+        renderVyaparItemTable(quotation, doorModels, hideSqFt, specOptions)
       )}
 
       {/* Prominent Net Payable Box */}
@@ -698,7 +753,8 @@ function renderTallyItemTable(
   quotation: HubQuotation,
   doorModels: HubDoorModel[],
   isModern = false,
-  hideSqFt = true
+  hideSqFt = true,
+  specOptions?: PrintSpecOptions
 ) {
   const rows: any[] = (quotation.itemRows && quotation.itemRows.length > 0)
     ? quotation.itemRows
@@ -753,10 +809,10 @@ function renderTallyItemTable(
           const dim = formatDimensionDisplay(row.height, wTop, wBottom, row.unit, row.heightFraction, wTopFrac, wBtmFrac);
           const lineTotal = (Number(row.qty) || 0) * row.rate;
 
-          const lockLabel = resolveItemLockName(row);
-          const colourLabel = resolveItemColourName(row, model);
-          const thicknessLabel = resolveItemThickness(row);
-          const frameLabel = resolveItemFrameName(row);
+          const lockLabel = resolveItemLockName(row, specOptions?.lockOptions);
+          const colourLabel = resolveItemColourName(row, model, specOptions?.colourOptions);
+          const thicknessLabel = resolveItemThickness(row, specOptions?.thicknessOptions);
+          const frameLabel = resolveItemFrameName(row, specOptions?.frameProfiles);
 
           return (
             <React.Fragment key={i}>
@@ -827,7 +883,8 @@ function renderTallyItemTable(
 function renderVyaparItemTable(
   quotation: HubQuotation,
   doorModels: HubDoorModel[],
-  hideSqFt = true
+  hideSqFt = true,
+  specOptions?: PrintSpecOptions
 ) {
   const rows: any[] = (quotation.itemRows && quotation.itemRows.length > 0)
     ? quotation.itemRows
@@ -864,6 +921,11 @@ function renderVyaparItemTable(
       </thead>
       <tbody className="divide-y divide-slate-100">
         {rows.map((row: any, i: number) => {
+          const prevRow = i > 0 ? rows[i - 1] : null;
+          const isNewSection = row.sectionName && (!prevRow || prevRow.sectionName !== row.sectionName);
+          const secRows = row.sectionName ? rows.filter((r: any) => r.sectionName === row.sectionName) : [];
+          const secTotal = secRows.reduce((sum: number, r: any) => sum + (Number(r.qty) || 0) * (r.rate || 0), 0);
+
           const model = doorModels.find((m) => m.id === row.modelId || m.code === (row as any).modelCode) || {
             code: (row as any).modelCode || 'EXM',
             title: (row as any).modelTitle || 'FRP Door',
@@ -877,36 +939,48 @@ function renderVyaparItemTable(
           const dim = formatDimensionDisplay(row.height, wTop, wBottom, row.unit, row.heightFraction, wTopFrac, wBtmFrac);
           const lineTotal = (Number(row.qty) || 0) * row.rate;
 
-          const lockLabel = resolveItemLockName(row);
-          const colourLabel = resolveItemColourName(row, model);
-          const thicknessLabel = resolveItemThickness(row);
-          const frameLabel = resolveItemFrameName(row);
+          const lockLabel = resolveItemLockName(row, specOptions?.lockOptions);
+          const colourLabel = resolveItemColourName(row, model, specOptions?.colourOptions);
+          const thicknessLabel = resolveItemThickness(row, specOptions?.thicknessOptions);
+          const frameLabel = resolveItemFrameName(row, specOptions?.frameProfiles);
 
           return (
-            <tr key={i} className={i % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
-              <td className="p-2 text-center font-mono text-slate-400">{i + 1}</td>
-              <td className="p-2 break-words whitespace-normal leading-snug">
-                <span className="font-bold text-slate-900 text-xs">{model.code}{model.title && model.title !== model.code ? ` - ${model.title}` : ''}</span>
-                <div className="text-[10px] text-slate-700 mt-1 space-y-0.5 leading-tight">
-                  <div><span className="font-bold text-slate-900">Door Size:</span> <span className="font-mono">{dim}</span></div>
-                  <div><span className="font-bold text-slate-900">Frame Size:</span> {frameLabel}</div>
-                  <div><span className="font-bold text-slate-900">Thickness:</span> {thicknessLabel}</div>
-                  <div><span className="font-bold text-slate-900">Colour:</span> {colourLabel}</div>
-                  <div><span className="font-bold text-slate-900">Lock:</span> {lockLabel}</div>
-                </div>
-              </td>
-              <td className="p-2 font-mono text-slate-700">
-                <div>{dim}</div>
-                {!hideSqFt && (
-                  <span className="text-[10px] text-slate-500 font-normal block mt-0.5">
-                    ({sqft} sq.ft)
-                  </span>
-                )}
-              </td>
-              <td className="p-2 text-center font-bold text-slate-800">{row.qty} Pcs</td>
-              <td className="p-2 text-right font-mono text-slate-700">₹{row.rate.toLocaleString('en-IN')}</td>
-              <td className="p-2 text-right font-mono font-bold text-slate-900">₹{lineTotal.toLocaleString('en-IN')}</td>
-            </tr>
+            <React.Fragment key={i}>
+              {isNewSection && (
+                <tr className="bg-rose-50/70 font-bold text-[10px] text-rose-900 border-y border-rose-200">
+                  <td colSpan={6} className="px-2.5 py-1.5">
+                    <div className="flex items-center justify-between">
+                      <span>📁 {row.sectionName}</span>
+                      <span className="font-mono">Subtotal: ₹{secTotal.toLocaleString('en-IN')}</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              <tr className={i % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
+                <td className="p-2 text-center font-mono text-slate-400">{i + 1}</td>
+                <td className="p-2 break-words whitespace-normal leading-snug">
+                  <span className="font-bold text-slate-900 text-xs">{model.code}{model.title && model.title !== model.code ? ` - ${model.title}` : ''}</span>
+                  <div className="text-[10px] text-slate-700 mt-1 space-y-0.5 leading-tight">
+                    <div><span className="font-bold text-slate-900">Door Size:</span> <span className="font-mono">{dim}</span></div>
+                    <div><span className="font-bold text-slate-900">Frame Size:</span> {frameLabel}</div>
+                    <div><span className="font-bold text-slate-900">Thickness:</span> {thicknessLabel}</div>
+                    <div><span className="font-bold text-slate-900">Colour:</span> {colourLabel}</div>
+                    <div><span className="font-bold text-slate-900">Lock:</span> {lockLabel}</div>
+                  </div>
+                </td>
+                <td className="p-2 font-mono text-slate-700">
+                  <div>{dim}</div>
+                  {!hideSqFt && (
+                    <span className="text-[10px] text-slate-500 font-normal block mt-0.5">
+                      ({sqft} sq.ft)
+                    </span>
+                  )}
+                </td>
+                <td className="p-2 text-center font-bold text-slate-800">{row.qty} Pcs</td>
+                <td className="p-2 text-right font-mono text-slate-700">₹{row.rate.toLocaleString('en-IN')}</td>
+                <td className="p-2 text-right font-mono font-bold text-slate-900">₹{lineTotal.toLocaleString('en-IN')}</td>
+              </tr>
+            </React.Fragment>
           );
         })}
         {quotation.includeInstallation && (quotation.installationAmount || 0) > 0 && (
