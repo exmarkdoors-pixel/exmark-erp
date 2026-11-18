@@ -81,7 +81,11 @@ export function AccountingMasterHub({ initialPillar = 'SALES' }: { initialPillar
           <div className={`text-lg font-black font-mono mt-0.5 ${(kpis?.netProfit || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {fmt(kpis?.netProfit || 0)}
           </div>
-          <div className="text-[10px] text-slate-400">Net GST: {fmt(kpis?.netGstPayable || 0)}</div>
+          <div className="text-[10px] text-slate-400">
+            {overview?.gstEnabled
+              ? `Net GST: ${fmt(kpis?.netGstPayable || 0)}`
+              : `Direct Sales (Non-GST) • ${overview?.counts.journals || 0} Entries`}
+          </div>
         </div>
       </div>
 
@@ -89,7 +93,7 @@ export function AccountingMasterHub({ initialPillar = 'SALES' }: { initialPillar
       <div className="flex flex-wrap items-center justify-between gap-2 bg-[#0B132B] p-2 rounded-xl border border-slate-800 print:hidden">
         <div className="flex flex-wrap items-center gap-1.5">
           {[
-            { id: 'SALES' as PillarTab, label: '1. Sales', sub: 'Invoice • Pay In • Credit Note • Other Inc', Icon: ReceiptText },
+            { id: 'SALES' as PillarTab, label: '1. Sales', sub: overview?.gstEnabled ? 'Invoice • Pay In • Credit Note • Other Inc' : 'Sales Entry • Pay In • Returns • Other Inc', Icon: ReceiptText },
             { id: 'PURCHASES_EXPENSES' as PillarTab, label: '2. Purchases & Expenses', sub: 'Bills • Pay Out • Categories', Icon: ShoppingBag },
             { id: 'CASH_BANK' as PillarTab, label: '3. Cash & Bank', sub: 'Accounts • Contra • Passbook', Icon: Landmark },
             { id: 'ACCOUNTING' as PillarTab, label: '4. Accounting', sub: 'COA • Journal • Statement', Icon: BookOpenCheck },
@@ -133,19 +137,21 @@ export function AccountingMasterHub({ initialPillar = 'SALES' }: { initialPillar
           accounts={overview?.accounts || []}
           cashBankAccounts={overview?.cashBankAccounts || []}
           onDataChanged={loadOverview}
+          gstEnabled={Boolean(overview?.gstEnabled)}
         />
       )}
       {activePillar === 'PURCHASES_EXPENSES' && (
         <AccountingPurchasesExpensesSection
           cashBankAccounts={overview?.cashBankAccounts || []}
           onDataChanged={loadOverview}
+          gstEnabled={Boolean(overview?.gstEnabled)}
         />
       )}
       {activePillar === 'CASH_BANK' && <AccountingCashBankSection onDataChanged={loadOverview} />}
       {activePillar === 'ACCOUNTING' && (
         <AccountingLedgerSection accounts={overview?.accounts || []} onDataChanged={loadOverview} />
       )}
-      {activePillar === 'REPORTS' && <AccountingReportsSection />}
+      {activePillar === 'REPORTS' && <AccountingReportsSection gstEnabled={Boolean(overview?.gstEnabled)} />}
     </div>
   );
 }

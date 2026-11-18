@@ -301,6 +301,9 @@ export interface JournalEntryRecord {
 
 export interface AccountingLedgerStore {
   version: number;
+  settings?: {
+    gstEnabled: boolean;
+  };
   accounts: ChartOfAccount[];
   expenseCategories: ExpenseCategory[];
   cashBankAccounts: CashBankAccount[];
@@ -354,6 +357,7 @@ export type AccountingReportType =
   | 'GST_SUMMARY';
 
 export interface AccountingOverviewPayload {
+  gstEnabled: boolean;
   kpis: {
     totalSales: number;
     totalSalesReturns: number;

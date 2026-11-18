@@ -686,7 +686,204 @@ export function QuotationsView({ userRole }: { userRole?: UserRole }) {
 }
 
 /* Module 4 (Door Measurements) removed by user specification */
-export function DoorMeasurementsView() { return null; }
+export function DoorMeasurementsView() {
+  const [records, setRecords] = useState<SiteMeasurementRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<SiteMeasurementRecord | null>(null);
+  const [quoteRecord, setQuoteRecord] = useState<SiteMeasurementRecord | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const loadMeasurements = () => {
+    setLoading(true);
+    apiFetch('/api/measurements')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data)) {
+          setRecords(json.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadMeasurements();
+  }, []);
+
+  const filtered = records.filter((r) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (r.customerName || '').toLowerCase().includes(q) ||
+      (r.siteName || '').toLowerCase().includes(q) ||
+      (r.district || '').toLowerCase().includes(q) ||
+      (r.refNumber || '').toLowerCase().includes(q)
+    );
+  });
+
+  const totalOpenings = records.reduce((s, r) => s + (Array.isArray(r.doors) ? r.doors.length : r.totalOpenings || 0), 0);
+
+  return (
+    <div className="space-y-5">
+      {toast && (
+        <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toast}</span>
+        </div>
+      )}
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Ruler className="w-6 h-6 text-cyan-400" />
+            Site Measurements &amp; 4-Point Opening Verification
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Field door opening schedules, rebate tolerance deductions &amp; 1-click Auto-Quotation
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={loadMeasurements}
+            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingRecord(null);
+              setModalOpen(true);
+            }}
+            className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Record Site Measurement
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="p-3.5 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Total Site Sheets</div>
+          <div className="text-xl font-black text-white mt-0.5">{records.length}</div>
+        </div>
+        <div className="p-3.5 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Measured Openings</div>
+          <div className="text-xl font-black text-cyan-400 mt-0.5">{totalOpenings}</div>
+        </div>
+        <div className="p-3.5 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Verified / Approved</div>
+          <div className="text-xl font-black text-emerald-400 mt-0.5">
+            {records.filter((r) => r.status === 'VERIFIED' || r.status === 'APPROVED' || r.status === 'SENT_TO_PRODUCTION').length}
+          </div>
+        </div>
+        <div className="p-3.5 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Draft / Pending</div>
+          <div className="text-xl font-black text-amber-400 mt-0.5">
+            {records.filter((r) => r.status === 'DRAFT').length}
+          </div>
+        </div>
+      </div>
+
+      <div className="relative">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search customer, site name, district, or sheet code..."
+          className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#0B132B] border border-slate-800 text-xs text-white"
+        />
+      </div>
+
+      <div className="bg-[#0B132B] border border-slate-800 rounded-xl overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="bg-[#070D1E] text-slate-400 uppercase text-[10px] border-b border-slate-800">
+              <th className="p-3">Sheet Code</th>
+              <th className="p-3">Customer / Site</th>
+              <th className="p-3">District</th>
+              <th className="p-3 text-center">Openings</th>
+              <th className="p-3 text-center">Status</th>
+              <th className="p-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/70">
+            {loading ? (
+              <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading site measurements...</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={6} className="p-8 text-center text-slate-500">No site measurements recorded yet. Click &quot;+ Record Site Measurement&quot; above.</td></tr>
+            ) : (
+              filtered.map((rec) => (
+                <tr key={rec.id} className="hover:bg-slate-900/50">
+                  <td className="p-3 font-mono font-bold text-cyan-400">{rec.refNumber || rec.id}</td>
+                  <td className="p-3">
+                    <div className="font-bold text-white">{rec.customerName || 'Walk-in Client'}</div>
+                    <div className="text-[10px] text-slate-400">{rec.siteName || 'Primary Site'}</div>
+                  </td>
+                  <td className="p-3 text-slate-300">{rec.district || 'Kerala'}</td>
+                  <td className="p-3 text-center font-mono font-bold text-white">{rec.doors?.length || rec.totalOpenings || 0}</td>
+                  <td className="p-3 text-center">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                      {rec.status}
+                    </span>
+                  </td>
+                  <td className="p-3 text-right space-x-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingRecord(rec);
+                        setModalOpen(true);
+                      }}
+                      className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold cursor-pointer"
+                    >
+                      Edit / View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuoteRecord(rec)}
+                      className="px-2.5 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 border border-emerald-500/30 font-bold cursor-pointer"
+                    >
+                      Auto-Quote
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <DoorMeasurementModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        initialRecord={editingRecord}
+        onSaved={(saved) => {
+          setModalOpen(false);
+          setToast(`Measurement sheet ${saved.refNumber || saved.id} saved.`);
+          setTimeout(() => setToast(null), 4000);
+          loadMeasurements();
+        }}
+      />
+
+      {quoteRecord && (
+        <AutoQuotationModal
+          isOpen={Boolean(quoteRecord)}
+          onClose={() => setQuoteRecord(null)}
+          measurement={quoteRecord}
+          onQuotationGenerated={(qNum) => {
+            setQuoteRecord(null);
+            setToast(`Quotation ${qNum} generated from site measurements.`);
+            setTimeout(() => setToast(null), 4500);
+            loadMeasurements();
+          }}
+        />
+      )}
+    </div>
+  );
+}
 
 /* -------------------------------------------------------------
  * 5. SALES ORDERS VIEW
@@ -717,7 +914,7 @@ export function SalesOrdersView() {
   } | null>(null);
 
   const fetchOrders = () => {
-    fetch('/api/orders')
+    apiFetch('/api/orders')
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {
@@ -734,7 +931,7 @@ export function SalesOrdersView() {
   const handleAction = async (orderId: string, action: 'VERIFY_ADVANCE' | 'RELEASE_TO_PRODUCTION') => {
     setIsProcessing(orderId);
     try {
-      const res = await fetch('/api/orders', {
+      const res = await apiFetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId, action }),
@@ -973,10 +1170,10 @@ export function SalesOrdersView() {
 }
 
 /* -------------------------------------------------------------
- * 5B. SALES & SALES RETURN VIEW
+ * 5B. SALES & SALES RETURN VIEW (Direct Non-GST Sales Only)
  * ------------------------------------------------------------- */
 export function SalesAndReturnView() {
-  return <SalesAndReturnHub />;
+  return <AccountingMasterHub initialPillar="SALES" />;
 }
 
 /* -------------------------------------------------------------
@@ -3095,7 +3292,7 @@ export function ReportsView() {
             Executive Business &amp; Accounts Reports
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            All Accounts Reports (P&amp;L, Balance Sheet, Trial Balance, GST, Day Book) &amp; Factory Operations Analytics
+            All Accounts Reports (P&amp;L, Balance Sheet, Trial Balance, Day Book, Aging) &amp; Factory Operations Analytics
           </p>
         </div>
         {reportCategory === 'OPERATIONS' && (
@@ -3141,7 +3338,7 @@ export function ReportsView() {
           }`}
         >
           <BookOpen className="w-4 h-4" />
-          <span>📒 All Accounts Reports (P&amp;L, Balance Sheet, Trial Balance, GST)</span>
+          <span>📒 All Accounts Reports (P&amp;L, Balance Sheet, Trial Balance, Day Book)</span>
         </button>
         <button
           type="button"

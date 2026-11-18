@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import {
   Ticket,
   Truck,
@@ -116,7 +117,17 @@ export default function GatePassHub() {
   const [newEWayBill, setNewEWayBill] = useState('');
 
   useEffect(() => {
-    fetch('/api/logistics/fleet')
+    apiFetch('/api/gate-pass')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.success && Array.isArray(res.data)) {
+          setGatePasses(res.data);
+          if (res.data.length > 0) setSelectedPass(res.data[0]);
+        }
+      })
+      .catch(() => {});
+
+    apiFetch('/api/logistics/fleet')
       .then((r) => r.json())
       .then((res) => {
         if (res.success && res.data) {
@@ -143,36 +154,36 @@ export default function GatePassHub() {
   const pendingRgpCount = gatePasses.filter((gp) => gp.passType === 'RGP_OUTWARD' && gp.status === 'PENDING_RETURN').length;
   const inwardReceipts = gatePasses.filter((gp) => gp.passType === 'INWARD_MATERIAL').length;
 
-  const handleCreateGatePass = (e: React.FormEvent) => {
+  const handleCreateGatePass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVehicleNo.trim() || !newParty.trim()) return;
 
-    const newGp: GatePassRecord = {
-      id: `GP-2026-${Date.now().toString().slice(-3)}`,
-      passType: newPassType,
-      passTypeLabel:
-        newPassType === 'NRGP_OUTWARD'
-          ? 'Non-Returnable (Commercial Dispatch)'
-          : newPassType === 'RGP_OUTWARD'
-          ? 'Returnable Gate Pass (Tools / Pallets)'
-          : 'Inward Raw Material Receipt',
-      vehicleNo: newVehicleNo,
-      driverName: newDriverName || 'Plant Fleet Driver',
-      driverPhone: newDriverPhone,
-      destinationOrParty: newParty,
-      materialManifest: newManifest || 'Custom polymer door consignment',
-      unitsCount: Number(newUnits),
-      invoiceOrRef: newInvoiceRef,
-      eWayBillNo: newEWayBill || (newPassType === 'NRGP_OUTWARD' ? `3218944${Date.now().toString().slice(-5)}` : undefined),
-      securityGuardName: 'Gopinathan (Main Gate A)',
-      issuedTimestamp: 'Just now',
-      returnDueTimestamp: newPassType === 'RGP_OUTWARD' ? 'In 7 days' : undefined,
-      status: 'GATE_CLEARED',
-      notes: 'Cleared by Security Officer with physical cargo count inspection.',
-    };
-
-    setGatePasses([newGp, ...gatePasses]);
-    setSelectedPass(newGp);
+    try {
+      const res = await apiFetch('/api/gate-pass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passType: newPassType,
+          vehicleNo: newVehicleNo,
+          driverName: newDriverName || 'Plant Fleet Driver',
+          driverPhone: newDriverPhone,
+          destinationOrParty: newParty,
+          materialManifest: newManifest || 'Custom polymer door consignment',
+          unitsCount: Number(newUnits),
+          invoiceOrRef: newInvoiceRef,
+          eWayBillNo: newEWayBill || undefined,
+          status: 'GATE_CLEARED',
+          notes: 'Cleared by Security Officer with physical cargo count inspection.',
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json?.success && json.data) {
+        setGatePasses((prev) => [json.data, ...prev]);
+        setSelectedPass(json.data);
+      }
+    } catch {
+      // Non-fatal
+    }
     setIsNewPassModalOpen(false);
     setNewParty('');
     setNewManifest('');

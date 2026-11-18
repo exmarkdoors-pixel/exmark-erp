@@ -200,6 +200,7 @@ function createInitialStore(): AccountingLedgerStore {
     expenses: [],
     contraTransfers: [],
     journals: [],
+    settings: { gstEnabled: false },
     updatedAt: now,
   };
 }
@@ -216,6 +217,9 @@ export function readAccountingStore(): AccountingLedgerStore {
     const seed = createInitialStore();
     return {
       version: parsed.version || 1,
+      settings: {
+        gstEnabled: Boolean(parsed.settings?.gstEnabled ?? false),
+      },
       accounts: Array.isArray(parsed.accounts) && parsed.accounts.length > 0 ? parsed.accounts : seed.accounts,
       expenseCategories:
         Array.isArray(parsed.expenseCategories) && parsed.expenseCategories.length > 0
@@ -916,18 +920,22 @@ export function createSalesInvoice(input: {
   const subtotal = round2(items.reduce((s, i) => s + i.amount, 0));
   if (subtotal <= 0) throw new Error('Invoice subtotal must be greater than zero.');
 
-  const gstMode = input.gstMode || 'INTRA_STATE';
-  const gstRate = gstMode === 'EXEMPT' ? 0 : Number(input.gstRate ?? 18);
+  const gstEnabled = Boolean(store.settings?.gstEnabled);
+  const gstMode = gstEnabled ? input.gstMode || 'INTRA_STATE' : 'EXEMPT';
+  const gstRate = !gstEnabled || gstMode === 'EXEMPT' ? 0 : Number(input.gstRate ?? 18);
   const tax = computeGst(subtotal, gstRate, gstMode);
   const date = input.date || todayIso();
   const dueDate = input.dueDate || date;
   const id = genId('sinv');
-  const invoiceNumber = nextVoucherNumber('SINV', store.salesInvoices.map((i) => i.invoiceNumber));
+  const invoiceNumber = nextVoucherNumber(
+    gstEnabled ? 'SINV' : 'SALE',
+    store.salesInvoices.map((i) => i.invoiceNumber)
+  );
   const now = new Date().toISOString();
 
   const journalLines: Array<{ accountId: string; debit: number; credit: number; lineNote?: string }> = [
     { accountId: SYSTEM_ACCOUNT_IDS.ACCOUNTS_RECEIVABLE, debit: tax.totalAmount, credit: 0, lineNote: `Receivable: ${customerName}` },
-    { accountId: SYSTEM_ACCOUNT_IDS.DOOR_SALES, debit: 0, credit: subtotal, lineNote: `Sales Invoice ${invoiceNumber}` },
+    { accountId: SYSTEM_ACCOUNT_IDS.DOOR_SALES, debit: 0, credit: subtotal, lineNote: `${gstEnabled ? 'Sales Invoice' : 'Sales Entry'} ${invoiceNumber}` },
   ];
   if (tax.taxAmount > 0) {
     journalLines.push({
@@ -945,7 +953,7 @@ export function createSalesInvoice(input: {
     reference: invoiceNumber,
     partyName: customerName,
     partyType: 'CUSTOMER',
-    narration: `Sales Invoice ${invoiceNumber} to ${customerName}${input.orderRef ? ` (${input.orderRef})` : ''}`,
+    narration: `${gstEnabled ? 'Sales Invoice' : 'Sales Entry'} ${invoiceNumber} to ${customerName}${input.orderRef ? ` (${input.orderRef})` : ''}`,
     lines: journalLines,
     createdBy: input.createdBy,
   });
@@ -1089,9 +1097,10 @@ export function createCreditNote(input: {
   if (!customerName) throw new Error('Customer name is required.');
   if (subtotal <= 0) throw new Error('Credit note taxable amount must be greater than zero.');
 
+  const gstEnabled = Boolean(store.settings?.gstEnabled);
   const linkedInv = input.invoiceId ? store.salesInvoices.find((i) => i.id === input.invoiceId) : undefined;
-  const gstMode = input.gstMode || linkedInv?.gstMode || 'INTRA_STATE';
-  const gstRate = gstMode === 'EXEMPT' ? 0 : Number(input.gstRate ?? linkedInv?.gstRate ?? 18);
+  const gstMode = gstEnabled ? input.gstMode || linkedInv?.gstMode || 'INTRA_STATE' : 'EXEMPT';
+  const gstRate = !gstEnabled || gstMode === 'EXEMPT' ? 0 : Number(input.gstRate ?? linkedInv?.gstRate ?? 18);
   const tax = computeGst(subtotal, gstRate, gstMode);
 
   const date = input.date || todayIso();
@@ -1267,8 +1276,9 @@ export function createPurchaseBill(input: {
   const subtotal = round2(items.reduce((s, i) => s + i.amount, 0));
   if (subtotal <= 0) throw new Error('Purchase bill subtotal must be greater than zero.');
 
-  const gstMode = input.gstMode || 'INTRA_STATE';
-  const gstRate = gstMode === 'EXEMPT' ? 0 : Number(input.gstRate ?? 18);
+  const gstEnabled = Boolean(store.settings?.gstEnabled);
+  const gstMode = gstEnabled ? input.gstMode || 'INTRA_STATE' : 'EXEMPT';
+  const gstRate = !gstEnabled || gstMode === 'EXEMPT' ? 0 : Number(input.gstRate ?? 18);
   const tax = computeGst(subtotal, gstRate, gstMode);
   const date = input.date || todayIso();
   const dueDate = input.dueDate || date;
@@ -1439,7 +1449,8 @@ export function createExpense(input: {
   const cb = store.cashBankAccounts.find((c) => c.id === input.cashBankAccountId) || store.cashBankAccounts[0];
   if (!cb) throw new Error('Select a Cash or Bank account.');
 
-  const gstRate = Math.max(0, Number(input.gstRate) || 0);
+  const gstEnabled = Boolean(store.settings?.gstEnabled);
+  const gstRate = gstEnabled ? Math.max(0, Number(input.gstRate) || 0) : 0;
   const taxAmount = round2((subtotal * gstRate) / 100);
   const totalAmount = round2(subtotal + taxAmount);
 
@@ -2082,10 +2093,20 @@ export function generateAccountingReport(
 
 // ── 9. OVERVIEW SNAPSHOT ──────────────────────────────────────────────────────
 
+export function updateAccountingSettings(input: { gstEnabled?: boolean }): { gstEnabled: boolean } {
+  const store = readAccountingStore();
+  store.settings = {
+    gstEnabled: input.gstEnabled !== undefined ? Boolean(input.gstEnabled) : Boolean(store.settings?.gstEnabled ?? false),
+  };
+  saveAccountingStore(store);
+  return store.settings;
+}
+
 export function getAccountingOverview(): AccountingOverviewPayload {
   const store = readAccountingStore();
   const accounts = computeAccountsWithBalances(store);
   const cashBankAccounts = computeCashBankWithBalances(store);
+  const gstEnabled = Boolean(store.settings?.gstEnabled ?? false);
 
   const totalSales = round2(store.salesInvoices.reduce((s, i) => s + i.totalAmount, 0));
   const totalSalesReturns = round2(store.creditNotes.reduce((s, c) => s + c.totalAmount, 0));
@@ -2112,6 +2133,7 @@ export function getAccountingOverview(): AccountingOverviewPayload {
   };
 
   return {
+    gstEnabled,
     kpis: {
       totalSales,
       totalSalesReturns,

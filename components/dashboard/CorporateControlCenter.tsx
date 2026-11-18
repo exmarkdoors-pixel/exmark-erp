@@ -84,6 +84,7 @@ const CONTROL_FOLDERS: ControlFolder[] = [
     bgGradient: 'from-emerald-600/15 via-emerald-900/5 to-transparent',
     icon: FileSpreadsheet,
     cards: [
+      { id: 'c2-5', name: 'Site Measurements (4-Point)', description: 'Field door opening verification, tolerances & auto-quotation', targetTab: 'measurements', status: 'Operational', badge: 'Live Grid' },
       { id: 'c2-6', name: 'BOQ Management', description: 'Itemized door schedule, square foot area & rate builder', targetTab: 'quotations', status: 'Operational', badge: 'Live BOQ', isQuickAction: true },
       { id: 'c2-7', name: 'BOQ Import', description: 'Import architect door schedules from Excel/CSV', targetTab: 'quotations', status: 'Operational' },
       { id: 'c2-8', name: 'BOQ Comparison', description: 'Tender vs measured opening variance analysis', targetTab: 'quotations', status: 'Operational' },
@@ -134,6 +135,9 @@ const CONTROL_FOLDERS: ControlFolder[] = [
       { id: 'c4-7', name: 'In-House Floor Gangs', description: 'Manage floor teams & per-stage piece-rate credits inside the plant', targetTab: 'production', status: 'Operational' },
       { id: 'c4-8', name: 'Rework', description: 'Defect logging & surface refinish tracking (<0.8%)', targetTab: 'production', status: 'Operational' },
       { id: 'c4-9', name: 'Packing', description: 'Corner foam protection & waterproof stretch wrapping', targetTab: 'production', status: 'Operational' },
+      { id: 'c4-10', name: 'Quality Control (IQC / FQC)', description: 'Inward material, floor press & final pre-dispatch QA inspections', targetTab: 'quality', status: 'Operational', badge: 'Live QA' },
+      { id: 'c4-11', name: 'Plant Maintenance & OEE', description: 'FRP master molds, spray guns, saws & breakdown work orders', targetTab: 'maintenance', status: 'Operational', badge: 'OEE Live' },
+      { id: 'c4-12', name: 'Job Work Challans', description: 'Subcontracting glass inserts, brass inlays & vendor return tracking', targetTab: 'job-work', status: 'Operational', badge: 'Outwork' },
     ],
   },
 
@@ -173,7 +177,8 @@ const CONTROL_FOLDERS: ControlFolder[] = [
       { id: 'c6-1', name: 'Accounts Dashboard', description: 'Executive revenue, billing & collection overview', targetTab: 'accounts', status: 'Operational' },
       { id: 'c6-2', name: 'Receipts', description: 'Advance & balance receipts tracked live in ledger', targetTab: 'accounts', status: 'Operational', badge: 'Receipts' },
       { id: 'c6-3', name: 'Customer Advances', description: 'Advance deposit validation for sales order release', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c6-4', name: 'Sales Bills', description: 'Commercial sales bills & receivables tracking (Billing: Future Phase)', targetTab: 'accounts', status: 'Operational', badge: 'Future Phase' },
+      { id: 'c6-4', name: 'Direct Sales & Returns (Non-GST)', description: 'Direct factory sales entries, receipts & return credit notes (No GST billing)', targetTab: 'sales', status: 'Operational', badge: 'Direct Sales' },
+      { id: 'c6-coa', name: 'Chart of Accounts & Journals', description: 'Double-entry COA (Create/Edit/Delete), Journal Entries & Account Statements', targetTab: 'accounts', status: 'Operational', badge: 'Double Entry' },
       { id: 'c6-5', name: 'Payments', description: 'Cheque, NEFT & cash payment registry with UTR', targetTab: 'accounts', status: 'Operational' },
       { id: 'c6-6', name: 'Expenses', description: 'Factory diesel, freight & plant operational expenses', targetTab: 'accounts', status: 'Operational' },
       { id: 'c6-7', name: 'Bank/Cash', description: 'Current account bank reconciliation & cash voucher log', targetTab: 'accounts', status: 'Operational' },
@@ -242,6 +247,7 @@ const CONTROL_FOLDERS: ControlFolder[] = [
     icon: Truck,
     cards: [
       { id: 'c9-1', name: 'Packing List', description: 'Batch delivery manifests itemized by door opening number', targetTab: 'dispatch', status: 'Operational' },
+      { id: 'c9-gp', name: 'Security Gate Pass (NRGP / RGP)', description: 'Outward dispatch passes, returnable racks & inward lorry verification', targetTab: 'gate-pass', status: 'Operational', badge: 'Gate Pass' },
       { id: 'c9-2', name: 'Dispatch Register', description: 'Kerala delivery fleet (KL-09 trucks) & driver logbook', targetTab: 'dispatch', status: 'Operational', badge: 'KL-09 Fleet' },
       { id: 'c9-3', name: 'Door QR Tracking', description: 'Removable door label QR scanning for delivery check', targetTab: 'dispatch', status: 'Operational' },
       { id: 'c9-4', name: 'Delivery Confirmation', description: 'Client physical delivery acknowledgement on site', targetTab: 'dispatch', status: 'Operational' },

@@ -26,6 +26,7 @@ import type {
 interface AccountingPurchasesExpensesSectionProps {
   cashBankAccounts: CashBankAccountWithBalance[];
   onDataChanged: () => void;
+  gstEnabled?: boolean;
 }
 
 const fmt = (n: number) =>
@@ -34,6 +35,7 @@ const fmt = (n: number) =>
 export function AccountingPurchasesExpensesSection({
   cashBankAccounts,
   onDataChanged,
+  gstEnabled = false,
 }: AccountingPurchasesExpensesSectionProps) {
   const [subTab, setSubTab] = useState<'PURCHASE_BILL' | 'PAYMENT_OUT' | 'EXPENSES'>('PURCHASE_BILL');
   const [bills, setBills] = useState<PurchaseBillRecord[]>([]);
@@ -55,8 +57,8 @@ export function AccountingPurchasesExpensesSection({
   const [billGstin, setBillGstin] = useState('');
   const [billDate, setBillDate] = useState(today);
   const [billDueDate, setBillDueDate] = useState(today);
-  const [billGstRate, setBillGstRate] = useState(18);
-  const [billGstMode, setBillGstMode] = useState<'INTRA_STATE' | 'INTER_STATE' | 'EXEMPT'>('INTRA_STATE');
+  const [billGstRate, setBillGstRate] = useState(gstEnabled ? 18 : 0);
+  const [billGstMode, setBillGstMode] = useState<'INTRA_STATE' | 'INTER_STATE' | 'EXEMPT'>(gstEnabled ? 'INTRA_STATE' : 'EXEMPT');
   const [billItems, setBillItems] = useState<Array<{ description: string; qty: number; rate: number }>>([
     { description: 'FRP Resin / Fiber Mat / WPC Profiles', qty: 1, rate: 10000 },
   ]);
@@ -301,7 +303,7 @@ export function AccountingPurchasesExpensesSection({
     selectedCatFilter === 'ALL' ? expenses : expenses.filter((e) => e.categoryId === selectedCatFilter);
 
   const billSub = billItems.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.rate) || 0), 0);
-  const billTax = billGstMode === 'EXEMPT' ? 0 : (billSub * (Number(billGstRate) || 0)) / 100;
+  const billTax = !gstEnabled || billGstMode === 'EXEMPT' ? 0 : (billSub * (Number(billGstRate) || 0)) / 100;
 
   return (
     <div className="space-y-4">
@@ -433,7 +435,9 @@ export function AccountingPurchasesExpensesSection({
       {showForm && subTab === 'PURCHASE_BILL' && (
         <form onSubmit={handleSaveBill} className="bg-[#0B132B] border border-purple-500/40 rounded-xl p-4 space-y-3 text-xs">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-            <h4 className="font-bold text-white text-sm">Record Purchase Bill (Auto-Posts Payable &amp; Input GST ITC)</h4>
+            <h4 className="font-bold text-white text-sm">
+              {gstEnabled ? 'Record Purchase Bill (Auto-Posts Payable & Input GST ITC)' : 'Record Purchase Bill (Direct Non-GST • Auto-Posts Payable Ledger)'}
+            </h4>
             <button type="button" onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white cursor-pointer"><X className="w-4 h-4" /></button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -471,21 +475,29 @@ export function AccountingPurchasesExpensesSection({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2 border-t border-slate-800 items-end">
-            <div>
-              <label className="text-slate-400 block mb-1">GST Mode</label>
-              <select value={billGstMode} onChange={(e) => setBillGstMode(e.target.value as typeof billGstMode)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
-                <option value="INTRA_STATE">Intra-State (CGST+SGST)</option>
-                <option value="INTER_STATE">Inter-State (IGST)</option>
-                <option value="EXEMPT">No GST (0%)</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-slate-400 block mb-1">GST Rate %</label>
-              <input type="number" value={billGstRate} onChange={(e) => setBillGstRate(Number(e.target.value))} disabled={billGstMode === 'EXEMPT'} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
-            </div>
+            {gstEnabled ? (
+              <>
+                <div>
+                  <label className="text-slate-400 block mb-1">GST Mode</label>
+                  <select value={billGstMode} onChange={(e) => setBillGstMode(e.target.value as typeof billGstMode)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
+                    <option value="INTRA_STATE">Intra-State (CGST+SGST)</option>
+                    <option value="INTER_STATE">Inter-State (IGST)</option>
+                    <option value="EXEMPT">No GST (0%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">GST Rate %</label>
+                  <input type="number" value={billGstRate} onChange={(e) => setBillGstRate(Number(e.target.value))} disabled={billGstMode === 'EXEMPT'} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+                </div>
+              </>
+            ) : (
+              <div className="md:col-span-2 text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2">
+                <strong className="text-purple-300">Non-GST Purchase Mode:</strong> Recorded at pure net vendor amount (0% GST).
+              </div>
+            )}
             <div className="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-1.5 text-right">
-              <div className="text-[10px] text-slate-400">Sub: {fmt(billSub)} • ITC: {fmt(billTax)}</div>
-              <div className="text-sm font-black text-purple-300">Total: {fmt(billSub + billTax)}</div>
+              {gstEnabled && <div className="text-[10px] text-slate-400">Sub: {fmt(billSub)} • ITC: {fmt(billTax)}</div>}
+              <div className="text-sm font-black text-purple-300">Net Total: {fmt(billSub + billTax)}</div>
             </div>
             <button type="submit" disabled={busy} className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold cursor-pointer">
               {busy ? 'Saving...' : 'Save Purchase Bill'}
@@ -587,15 +599,17 @@ export function AccountingPurchasesExpensesSection({
                 {cashBankAccounts.map((cb) => <option key={cb.id} value={cb.id}>{cb.name}</option>)}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className={gstEnabled ? 'grid grid-cols-2 gap-2' : ''}>
               <div>
                 <label className="text-slate-400 block mb-1">Amount (₹) *</label>
                 <input type="number" step="0.01" min={1} required value={expSubtotal} onChange={(e) => setExpSubtotal(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-bold" />
               </div>
-              <div>
-                <label className="text-slate-400 block mb-1">GST %</label>
-                <input type="number" min={0} value={expGstRate} onChange={(e) => setExpGstRate(Number(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
-              </div>
+              {gstEnabled && (
+                <div>
+                  <label className="text-slate-400 block mb-1">GST %</label>
+                  <input type="number" min={0} value={expGstRate} onChange={(e) => setExpGstRate(Number(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+                </div>
+              )}
             </div>
             <div>
               <label className="text-slate-400 block mb-1">Mode &amp; Ref</label>
@@ -654,9 +668,9 @@ export function AccountingPurchasesExpensesSection({
                 <th className="p-3">Bill #</th>
                 <th className="p-3">Date / Due</th>
                 <th className="p-3">Supplier</th>
-                <th className="p-3 text-right">Taxable</th>
-                <th className="p-3 text-right">GST ITC</th>
-                <th className="p-3 text-right">Total</th>
+                {gstEnabled && <th className="p-3 text-right">Taxable</th>}
+                {gstEnabled && <th className="p-3 text-right">GST ITC</th>}
+                <th className="p-3 text-right">Net Total</th>
                 <th className="p-3 text-right">Balance</th>
                 <th className="p-3 text-center">Status</th>
                 <th className="p-3 text-right">Actions</th>
@@ -664,15 +678,15 @@ export function AccountingPurchasesExpensesSection({
             </thead>
             <tbody className="divide-y divide-slate-800/70">
               {bills.length === 0 ? (
-                <tr><td colSpan={9} className="p-8 text-center text-slate-500">No purchase bills recorded yet.</td></tr>
+                <tr><td colSpan={gstEnabled ? 9 : 7} className="p-8 text-center text-slate-500">No purchase bills recorded yet.</td></tr>
               ) : (
                 bills.map((b) => (
                   <tr key={b.id} className="hover:bg-slate-900/50">
                     <td className="p-3 font-mono font-bold text-purple-400">{b.billNumber}{b.vendorBillNo && <div className="text-[10px] text-slate-500">{b.vendorBillNo}</div>}</td>
                     <td className="p-3 text-slate-300">{b.date}<div className="text-[10px] text-slate-500">Due: {b.dueDate}</div></td>
                     <td className="p-3 font-semibold text-white">{b.supplierName}</td>
-                    <td className="p-3 text-right font-mono">{fmt(b.subtotal)}</td>
-                    <td className="p-3 text-right font-mono text-slate-400">{fmt(b.taxAmount)}</td>
+                    {gstEnabled && <td className="p-3 text-right font-mono">{fmt(b.subtotal)}</td>}
+                    {gstEnabled && <td className="p-3 text-right font-mono text-slate-400">{fmt(b.taxAmount)}</td>}
                     <td className="p-3 text-right font-mono font-bold text-white">{fmt(b.totalAmount)}</td>
                     <td className="p-3 text-right font-mono font-bold text-rose-300">{fmt(b.balanceAmount)}</td>
                     <td className="p-3 text-center">

@@ -19,13 +19,18 @@ import {
   CustomersView,
   CrmLeadsView,
   QuotationsView,
+  DoorMeasurementsView,
   SalesOrdersView,
   SalesAndReturnView,
   ProductionView,
   BomAndRecipeView,
+  QualityControlView,
+  PlantMaintenanceView,
+  SubcontractingView,
   BatchPrintView,
   InventoryView,
   PurchasesView,
+  GatePassView,
   DispatchInstallationView,
   SiteInstallationView,
   AccountsGstView,
@@ -296,22 +301,38 @@ export default function Home() {
         return 'CRM & Leads Pipeline';
       case 'quotations':
         return 'Quotations & Estimates';
+      case 'measurements':
+        return 'Site Measurements & 4-Point Verification';
       case 'sales-orders':
         return 'Sales & Work Orders';
+      case 'sales':
+        return 'Direct Sales & Returns (Non-GST)';
       case 'batch-print':
         return '12L Stickers & Batch Print Hub';
       case 'production':
         return 'Plant Floor & Production';
+      case 'bom':
+        return 'Auto-BOQ & Consumables';
+      case 'quality':
+        return 'Quality Control (IQC / IPQC / FQC)';
+      case 'maintenance':
+        return 'Plant Maintenance & OEE';
+      case 'job-work':
+        return 'Subcontracting & Job Work Challans';
       case 'inventory':
         return 'Raw Materials & Hardware';
       case 'purchases':
         return 'Purchases & Procurement';
+      case 'gate-pass':
+        return 'Security Gate Pass (NRGP / RGP)';
       case 'accounts':
-        return 'Accounts & Billing';
+        return 'Accounts & Accounting';
       case 'employees':
         return 'Factory Staff & Field Techs';
       case 'dispatch':
-        return 'Dispatch & Installation Fleet';
+        return 'Dispatch & Delivery Fleet';
+      case 'installation':
+        return 'Site Installation & Punch List';
       case 'marketing':
         return 'Showroom Racks & Marketing';
       case 'reports':
@@ -743,17 +764,18 @@ export default function Home() {
             {currentTab === 'customers' && effectiveAllowedModules.includes('customers') && <CustomersView />}
             {currentTab === 'crm' && effectiveAllowedModules.includes('crm') && <CrmLeadsView />}
             {currentTab === 'quotations' && effectiveAllowedModules.includes('quotations') && <QuotationsView userRole={actualUser?.role} />}
+            {currentTab === 'measurements' && effectiveAllowedModules.includes('measurements') && <DoorMeasurementsView />}
             {currentTab === 'sales-orders' && effectiveAllowedModules.includes('sales-orders') && <SalesOrdersView />}
             {currentTab === 'sales' && effectiveAllowedModules.includes('sales') && <SalesAndReturnView />}
             {currentTab === 'production' && effectiveAllowedModules.includes('production') && <ProductionView />}
             {currentTab === 'bom' && effectiveAllowedModules.includes('bom') && <BomAndRecipeView />}
-            {currentTab === 'quality' && effectiveAllowedModules.includes('quality') && <ProductionView />}
-            {currentTab === 'maintenance' && effectiveAllowedModules.includes('maintenance') && <ProductionView />}
-            {currentTab === 'job-work' && effectiveAllowedModules.includes('job-work') && <AccountsGstView />}
+            {currentTab === 'quality' && effectiveAllowedModules.includes('quality') && <QualityControlView />}
+            {currentTab === 'maintenance' && effectiveAllowedModules.includes('maintenance') && <PlantMaintenanceView />}
+            {currentTab === 'job-work' && effectiveAllowedModules.includes('job-work') && <SubcontractingView />}
             {currentTab === 'batch-print' && effectiveAllowedModules.includes('batch-print') && <BatchPrintView />}
             {currentTab === 'inventory' && effectiveAllowedModules.includes('inventory') && <InventoryView />}
             {currentTab === 'purchases' && effectiveAllowedModules.includes('purchases') && <PurchasesView />}
-            {currentTab === 'gate-pass' && effectiveAllowedModules.includes('gate-pass') && <DispatchInstallationView />}
+            {currentTab === 'gate-pass' && effectiveAllowedModules.includes('gate-pass') && <GatePassView />}
             {currentTab === 'dispatch' && effectiveAllowedModules.includes('dispatch') && <DispatchInstallationView />}
             {currentTab === 'installation' && effectiveAllowedModules.includes('installation') && <SiteInstallationView />}
             {currentTab === 'mobile-field' && (

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import {
   Wrench,
   Cpu,
@@ -162,6 +163,20 @@ export default function PlantMaintenanceHub() {
   const [machines, setMachines] = useState<PlantMachine[]>([]);
   const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
   const [selectedMachine, setSelectedMachine] = useState<PlantMachine | null>(null);
+
+  useEffect(() => {
+    apiFetch('/api/maintenance')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && json.data) {
+          const list = Array.isArray(json.data.machines) ? json.data.machines : [];
+          setMachines(list);
+          setTickets(Array.isArray(json.data.tickets) ? json.data.tickets : []);
+          if (list.length > 0) setSelectedMachine(list[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [activeTab, setActiveTab] = useState<'MACHINES' | 'TICKETS' | 'OEE_ANALYTICS'>('MACHINES');
   const [searchTerm, setSearchTerm] = useState('');
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
@@ -186,27 +201,33 @@ export default function PlantMaintenanceHub() {
       ? (avgAvailability / 100) * (avgPerformance / 100) * (avgQuality / 100) * 100
       : 0;
 
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticketTitle.trim()) return;
 
     const mach = machines.find((m) => m.id === ticketMachineId) || machines[0];
-
-    const newTkt: MaintenanceTicket = {
-      id: `TKT-2026-${Date.now().toString().slice(-3)}`,
-      machineId: mach?.id || ticketMachineId || 'TOOL-GEN',
-      machineName: mach?.name || 'Workshop Equipment',
-      type: ticketType,
-      priority: ticketPriority,
-      title: ticketTitle,
-      description: ticketDescription,
-      assignedEngineer: ticketEngineer,
-      status: 'OPEN',
-      reportedDate: 'Just now',
-      downtimeMinutes: ticketType === 'BREAKDOWN' ? 30 : 0,
-    };
-
-    setTickets([newTkt, ...tickets]);
+    try {
+      const res = await apiFetch('/api/maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          machineId: mach?.id || ticketMachineId || 'TOOL-GEN',
+          machineName: mach?.name || 'Workshop Equipment',
+          type: ticketType,
+          priority: ticketPriority,
+          title: ticketTitle,
+          description: ticketDescription,
+          assignedEngineer: ticketEngineer || 'Plant Maintenance Tech',
+          downtimeMinutes: ticketType === 'BREAKDOWN' ? 30 : 0,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json?.success && json.data) {
+        setTickets((prev) => [json.data, ...prev]);
+      }
+    } catch {
+      // Non-fatal
+    }
     setIsTicketModalOpen(false);
     setTicketTitle('');
     setTicketDescription('');

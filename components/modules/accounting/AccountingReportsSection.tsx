@@ -31,10 +31,11 @@ const REPORT_CARDS: Array<{ id: AccountingReportType; label: string; desc: strin
   { id: 'GST_SUMMARY', label: 'GST Summary (GSTR)', desc: 'Output Sales GST vs. Input Tax Credit (ITC)', Icon: ReceiptIndianRupee },
 ];
 
-export function AccountingReportsSection() {
+export function AccountingReportsSection({ gstEnabled = false }: { gstEnabled?: boolean }) {
   const today = new Date().toISOString().slice(0, 10);
   const yearStart = `${new Date().getFullYear()}-01-01`;
 
+  const visibleReports = gstEnabled ? REPORT_CARDS : REPORT_CARDS.filter((r) => r.id !== 'GST_SUMMARY');
   const [reportType, setReportType] = useState<AccountingReportType>('PNL');
   const [fromDate, setFromDate] = useState(yearStart);
   const [toDate, setToDate] = useState(today);
@@ -96,7 +97,7 @@ export function AccountingReportsSection() {
     <div className="space-y-4">
       {/* Report Picker Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 print:hidden">
-        {REPORT_CARDS.map(({ id, label, desc, Icon }) => {
+        {visibleReports.map(({ id, label, desc, Icon }) => {
           const active = reportType === id;
           return (
             <button

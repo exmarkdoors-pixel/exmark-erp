@@ -39,11 +39,11 @@ export function DeliveryChallanModal({ isOpen, onClose, order }: DeliveryChallan
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 Factory Delivery Challan &amp; Dispatch Slip
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-mono">
-                  Production-First Mode
+                  Direct Non-GST Dispatch
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Official delivery document for site transport &amp; gate-pass clearance. Billing is deferred to future phase.
+                Official delivery document for site transport &amp; gate-pass clearance (Direct Non-GST Sales Mode — no GST tax billing).
               </p>
             </div>
           </div>

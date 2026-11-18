@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import {
   Repeat,
   Split,
@@ -100,6 +101,18 @@ const SEED_JOB_WORKS: JobWorkChallan[] = [
 export default function SubcontractingHub() {
   const [challans, setChallans] = useState<JobWorkChallan[]>([]);
   const [selectedChallan, setSelectedChallan] = useState<JobWorkChallan | null>(null);
+
+  useEffect(() => {
+    apiFetch('/api/job-work')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data)) {
+          setChallans(json.data);
+          if (json.data.length > 0) setSelectedChallan(json.data[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [isChallanModalOpen, setIsChallanModalOpen] = useState(false);
@@ -132,38 +145,33 @@ export default function SubcontractingHub() {
     .filter((c) => c.status !== 'RETURNED_RECEIVED')
     .reduce((sum, c) => sum + c.taxableMaterialValue, 0);
 
-  const handleCreateChallan = (e: React.FormEvent) => {
+  const handleCreateChallan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSummary.trim()) return;
 
-    const newChallan: JobWorkChallan = {
-      id: `JW-2026-${Date.now().toString().slice(-3)}`,
-      challanDate: 'Just now',
-      vendorName: newVendor,
-      vendorGstin: '',
-      vendorDistrict: newVendorDistrict,
-      processType: newProcess,
-      processLabel:
-        newProcess === 'GLASS_INSERT'
-          ? 'Toughened Decorative Glass Insert'
-          : newProcess === 'BRASS_INLAY'
-          ? 'Antique Brass CNC Inlay'
-          : newProcess === 'PU_LACQUER'
-          ? 'Automotive PU High Gloss Finish'
-          : 'Aluminum Profile Powder Coating',
-      itemsSummary: newSummary,
-      quantityDoors: Number(newQty),
-      taxableMaterialValue: Number(newMaterialVal),
-      expectedReturnDate: 'In 7 days',
-      daysRemainingSection143: 365,
-      status: 'SENT_TO_VENDOR',
-      jobCharges: Number(newJobCharges),
-      eWayBillNo: `WB-2026-${Date.now().toString().slice(-4)}`,
-      notes: 'Outward Delivery Challan for outsourced finishing / assembly return tracking.',
-    };
-
-    setChallans([newChallan, ...challans]);
-    setSelectedChallan(newChallan);
+    try {
+      const res = await apiFetch('/api/job-work', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendorName: newVendor,
+          vendorDistrict: newVendorDistrict,
+          processType: newProcess,
+          itemsSummary: newSummary,
+          quantityDoors: Number(newQty),
+          taxableMaterialValue: Number(newMaterialVal),
+          jobCharges: Number(newJobCharges),
+          notes: 'Outward Delivery Challan for outsourced finishing / assembly return tracking (Non-GST).',
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json?.success && json.data) {
+        setChallans((prev) => [json.data, ...prev]);
+        setSelectedChallan(json.data);
+      }
+    } catch {
+      // Non-fatal
+    }
     setIsChallanModalOpen(false);
     setNewSummary('');
   };

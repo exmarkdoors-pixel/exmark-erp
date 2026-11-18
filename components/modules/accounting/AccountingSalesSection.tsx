@@ -28,6 +28,7 @@ interface AccountingSalesSectionProps {
   accounts: ChartOfAccountWithBalance[];
   cashBankAccounts: CashBankAccountWithBalance[];
   onDataChanged: () => void;
+  gstEnabled?: boolean;
 }
 
 const fmt = (n: number) =>
@@ -37,6 +38,7 @@ export function AccountingSalesSection({
   accounts,
   cashBankAccounts,
   onDataChanged,
+  gstEnabled = false,
 }: AccountingSalesSectionProps) {
   const [subTab, setSubTab] = useState<'INVOICES' | 'PAYMENT_IN' | 'CREDIT_NOTE' | 'OTHER_INCOME'>('INVOICES');
   const [invoices, setInvoices] = useState<SalesInvoiceRecord[]>([]);
@@ -59,11 +61,11 @@ export function AccountingSalesSection({
   const [invDate, setInvDate] = useState(today);
   const [invDueDate, setInvDueDate] = useState(today);
   const [invOrderRef, setInvOrderRef] = useState('');
-  const [invGstRate, setInvGstRate] = useState(18);
-  const [invGstMode, setInvGstMode] = useState<'INTRA_STATE' | 'INTER_STATE' | 'EXEMPT'>('INTRA_STATE');
+  const [invGstRate, setInvGstRate] = useState(gstEnabled ? 18 : 0);
+  const [invGstMode, setInvGstMode] = useState<'INTRA_STATE' | 'INTER_STATE' | 'EXEMPT'>(gstEnabled ? 'INTRA_STATE' : 'EXEMPT');
   const [invNotes, setInvNotes] = useState('');
   const [invItems, setInvItems] = useState<Array<{ description: string; hsnCode: string; qty: number; rate: number }>>([
-    { description: 'FRP Molded Door with Chowkhat Frame', hsnCode: '39252000', qty: 1, rate: 8500 },
+    { description: 'FRP Molded Door with Chowkhat Frame', hsnCode: '', qty: 1, rate: 8500 },
   ]);
 
   // Payment In form
@@ -82,8 +84,8 @@ export function AccountingSalesSection({
   const [cnDate, setCnDate] = useState(today);
   const [cnReason, setCnReason] = useState('Door Size / Transit Return');
   const [cnSubtotal, setCnSubtotal] = useState('');
-  const [cnGstRate, setCnGstRate] = useState(18);
-  const [cnGstMode, setCnGstMode] = useState<'INTRA_STATE' | 'INTER_STATE' | 'EXEMPT'>('INTRA_STATE');
+  const [cnGstRate, setCnGstRate] = useState(gstEnabled ? 18 : 0);
+  const [cnGstMode, setCnGstMode] = useState<'INTRA_STATE' | 'INTER_STATE' | 'EXEMPT'>(gstEnabled ? 'INTRA_STATE' : 'EXEMPT');
   const [cnNotes, setCnNotes] = useState('');
 
   // Other Income form
@@ -299,7 +301,7 @@ export function AccountingSalesSection({
   };
 
   const invSubtotalPreview = invItems.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.rate) || 0), 0);
-  const invTaxPreview = invGstMode === 'EXEMPT' ? 0 : (invSubtotalPreview * (Number(invGstRate) || 0)) / 100;
+  const invTaxPreview = !gstEnabled || invGstMode === 'EXEMPT' ? 0 : (invSubtotalPreview * (Number(invGstRate) || 0)) / 100;
 
   return (
     <div className="space-y-4">
@@ -320,7 +322,7 @@ export function AccountingSalesSection({
       <div className="flex flex-wrap items-center justify-between gap-2 bg-[#070D1E] p-2.5 rounded-xl border border-slate-800">
         <div className="flex flex-wrap items-center gap-1.5">
           {[
-            { id: 'INVOICES', label: `Sales Invoice (${invoices.length})`, Icon: ReceiptText },
+            { id: 'INVOICES', label: `${gstEnabled ? 'Sales Invoice' : 'Sales Entry'} (${invoices.length})`, Icon: ReceiptText },
             { id: 'PAYMENT_IN', label: `Payment In (${paymentsIn.length})`, Icon: ArrowDownCircle },
             { id: 'CREDIT_NOTE', label: `Sales Return / Credit Note (${creditNotes.length})`, Icon: RotateCcw },
             { id: 'OTHER_INCOME', label: `Other Income (${otherIncomes.length})`, Icon: Coins },
@@ -352,7 +354,7 @@ export function AccountingSalesSection({
           <Plus className="w-3.5 h-3.5" />
           <span>
             {subTab === 'INVOICES'
-              ? 'New Sales Invoice'
+              ? gstEnabled ? 'New Sales Invoice' : 'New Sales Entry'
               : subTab === 'PAYMENT_IN'
               ? 'Record Payment In'
               : subTab === 'CREDIT_NOTE'
@@ -366,7 +368,9 @@ export function AccountingSalesSection({
       {showForm && subTab === 'INVOICES' && (
         <form onSubmit={handleSaveInvoice} className="bg-[#0B132B] border border-emerald-500/40 rounded-xl p-4 space-y-3 text-xs">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-            <h4 className="font-bold text-white text-sm">Create Sales Invoice (Auto-Posts Receivable &amp; GST Journal)</h4>
+            <h4 className="font-bold text-white text-sm">
+              {gstEnabled ? 'Create Sales Invoice (Auto-Posts Receivable & GST Journal)' : 'Record Direct Sales Entry (Non-GST • Auto-Posts Ledger Journal)'}
+            </h4>
             <button type="button" onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white cursor-pointer">
               <X className="w-4 h-4" />
             </button>
@@ -412,10 +416,10 @@ export function AccountingSalesSection({
 
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <span className="font-bold text-slate-300">Invoice Line Items</span>
+              <span className="font-bold text-slate-300">{gstEnabled ? 'Invoice Line Items' : 'Sales Line Items'}</span>
               <button
                 type="button"
-                onClick={() => setInvItems((prev) => [...prev, { description: '', hsnCode: '39252000', qty: 1, rate: 0 }])}
+                onClick={() => setInvItems((prev) => [...prev, { description: '', hsnCode: '', qty: 1, rate: 0 }])}
                 className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold cursor-pointer"
               >
                 + Add Line
@@ -428,14 +432,16 @@ export function AccountingSalesSection({
                   value={item.description}
                   onChange={(e) => setInvItems((prev) => prev.map((r, i) => (i === idx ? { ...r, description: e.target.value } : r)))}
                   placeholder="Door model / item description"
-                  className="col-span-5 px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-white"
+                  className={`${gstEnabled ? 'col-span-5' : 'col-span-7'} px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-white`}
                 />
-                <input
-                  value={item.hsnCode}
-                  onChange={(e) => setInvItems((prev) => prev.map((r, i) => (i === idx ? { ...r, hsnCode: e.target.value } : r)))}
-                  placeholder="HSN"
-                  className="col-span-2 px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-white font-mono"
-                />
+                {gstEnabled && (
+                  <input
+                    value={item.hsnCode}
+                    onChange={(e) => setInvItems((prev) => prev.map((r, i) => (i === idx ? { ...r, hsnCode: e.target.value } : r)))}
+                    placeholder="HSN"
+                    className="col-span-2 px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-white font-mono"
+                  />
+                )}
                 <input
                   type="number"
                   min={1}
@@ -464,30 +470,38 @@ export function AccountingSalesSection({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2 border-t border-slate-800 items-end">
-            <div>
-              <label className="text-slate-400 block mb-1">GST Mode</label>
-              <select value={invGstMode} onChange={(e) => setInvGstMode(e.target.value as typeof invGstMode)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
-                <option value="INTRA_STATE">Intra-State (CGST + SGST)</option>
-                <option value="INTER_STATE">Inter-State (IGST)</option>
-                <option value="EXEMPT">No GST / Exempt (0%)</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-slate-400 block mb-1">GST Rate %</label>
-              <select value={invGstRate} onChange={(e) => setInvGstRate(Number(e.target.value))} disabled={invGstMode === 'EXEMPT'} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
-                <option value={0}>0%</option>
-                <option value={5}>5%</option>
-                <option value={12}>12%</option>
-                <option value={18}>18% (FRP/WPC Doors)</option>
-                <option value={28}>28%</option>
-              </select>
-            </div>
+            {gstEnabled ? (
+              <>
+                <div>
+                  <label className="text-slate-400 block mb-1">GST Mode</label>
+                  <select value={invGstMode} onChange={(e) => setInvGstMode(e.target.value as typeof invGstMode)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
+                    <option value="INTRA_STATE">Intra-State (CGST + SGST)</option>
+                    <option value="INTER_STATE">Inter-State (IGST)</option>
+                    <option value="EXEMPT">No GST / Exempt (0%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">GST Rate %</label>
+                  <select value={invGstRate} onChange={(e) => setInvGstRate(Number(e.target.value))} disabled={invGstMode === 'EXEMPT'} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
+                    <option value={0}>0%</option>
+                    <option value={5}>5%</option>
+                    <option value={12}>12%</option>
+                    <option value={18}>18% (FRP/WPC Doors)</option>
+                    <option value={28}>28%</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <div className="md:col-span-2 text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2">
+                <strong className="text-emerald-400">Direct Non-GST Sales Mode:</strong> Pure net amount recorded directly to Sales &amp; Receivables (no GST tax billing).
+              </div>
+            )}
             <div className="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-1.5 text-right">
-              <div className="text-[10px] text-slate-400">Subtotal: {fmt(invSubtotalPreview)} • Tax: {fmt(invTaxPreview)}</div>
-              <div className="text-sm font-black text-emerald-400">Total: {fmt(invSubtotalPreview + invTaxPreview)}</div>
+              {gstEnabled && <div className="text-[10px] text-slate-400">Subtotal: {fmt(invSubtotalPreview)} • Tax: {fmt(invTaxPreview)}</div>}
+              <div className="text-sm font-black text-emerald-400">Net Total: {fmt(invSubtotalPreview + invTaxPreview)}</div>
             </div>
             <button type="submit" disabled={busy} className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer disabled:opacity-50">
-              {busy ? 'Saving...' : 'Save & Post Sales Invoice'}
+              {busy ? 'Saving...' : gstEnabled ? 'Save & Post Sales Invoice' : 'Save Sales Entry'}
             </button>
           </div>
         </form>
@@ -608,23 +622,25 @@ export function AccountingSalesSection({
               <input required value={cnReason} onChange={(e) => setCnReason(e.target.value)} className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
             </div>
             <div>
-              <label className="text-slate-400 block mb-1">Taxable Credit Amount (₹) *</label>
+              <label className="text-slate-400 block mb-1">{gstEnabled ? 'Taxable Credit Amount (₹) *' : 'Return / Credit Amount (₹) *'}</label>
               <input type="number" step="0.01" min={1} required value={cnSubtotal} onChange={(e) => setCnSubtotal(e.target.value)} className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-bold" />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-slate-400 block mb-1">GST Mode</label>
-                <select value={cnGstMode} onChange={(e) => setCnGstMode(e.target.value as typeof cnGstMode)} className="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
-                  <option value="INTRA_STATE">CGST+SGST</option>
-                  <option value="INTER_STATE">IGST</option>
-                  <option value="EXEMPT">0%</option>
-                </select>
+            {gstEnabled && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-slate-400 block mb-1">GST Mode</label>
+                  <select value={cnGstMode} onChange={(e) => setCnGstMode(e.target.value as typeof cnGstMode)} className="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
+                    <option value="INTRA_STATE">CGST+SGST</option>
+                    <option value="INTER_STATE">IGST</option>
+                    <option value="EXEMPT">0%</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">GST %</label>
+                  <input type="number" value={cnGstRate} onChange={(e) => setCnGstRate(Number(e.target.value))} disabled={cnGstMode === 'EXEMPT'} className="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+                </div>
               </div>
-              <div>
-                <label className="text-slate-400 block mb-1">GST %</label>
-                <input type="number" value={cnGstRate} onChange={(e) => setCnGstRate(Number(e.target.value))} disabled={cnGstMode === 'EXEMPT'} className="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
-              </div>
-            </div>
+            )}
             <div className="md:col-span-3 flex items-end gap-2">
               <input value={cnNotes} onChange={(e) => setCnNotes(e.target.value)} placeholder="Notes / inspection remarks..." className="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
               <button type="submit" disabled={busy} className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold cursor-pointer">
@@ -697,12 +713,12 @@ export function AccountingSalesSection({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-[#070D1E] text-slate-400 uppercase text-[10px] border-b border-slate-800">
-                <th className="p-3">Invoice #</th>
+                <th className="p-3">{gstEnabled ? 'Invoice #' : 'Sales Ref #'}</th>
                 <th className="p-3">Date / Due</th>
                 <th className="p-3">Customer</th>
-                <th className="p-3 text-right">Taxable</th>
-                <th className="p-3 text-right">GST</th>
-                <th className="p-3 text-right">Total</th>
+                {gstEnabled && <th className="p-3 text-right">Taxable</th>}
+                {gstEnabled && <th className="p-3 text-right">GST</th>}
+                <th className="p-3 text-right">Net Total</th>
                 <th className="p-3 text-right">Balance</th>
                 <th className="p-3 text-center">Status</th>
                 <th className="p-3 text-right">Actions</th>
@@ -710,15 +726,15 @@ export function AccountingSalesSection({
             </thead>
             <tbody className="divide-y divide-slate-800/70">
               {invoices.length === 0 ? (
-                <tr><td colSpan={9} className="p-8 text-center text-slate-500">No sales invoices yet. Click &quot;+ New Sales Invoice&quot; to create one.</td></tr>
+                <tr><td colSpan={gstEnabled ? 9 : 7} className="p-8 text-center text-slate-500">No sales entries yet. Click &quot;+ {gstEnabled ? 'New Sales Invoice' : 'New Sales Entry'}&quot; to record one.</td></tr>
               ) : (
                 invoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-900/50">
                     <td className="p-3 font-mono font-bold text-emerald-400">{inv.invoiceNumber}</td>
                     <td className="p-3 text-slate-300">{inv.date}<div className="text-[10px] text-slate-500">Due: {inv.dueDate}</div></td>
                     <td className="p-3 font-semibold text-white">{inv.customerName}{inv.orderRef && <div className="text-[10px] text-slate-400">Ref: {inv.orderRef}</div>}</td>
-                    <td className="p-3 text-right font-mono">{fmt(inv.subtotal)}</td>
-                    <td className="p-3 text-right font-mono text-slate-400">{fmt(inv.taxAmount)}</td>
+                    {gstEnabled && <td className="p-3 text-right font-mono">{fmt(inv.subtotal)}</td>}
+                    {gstEnabled && <td className="p-3 text-right font-mono text-slate-400">{fmt(inv.taxAmount)}</td>}
                     <td className="p-3 text-right font-mono font-bold text-white">{fmt(inv.totalAmount)}</td>
                     <td className="p-3 text-right font-mono font-bold text-amber-300">{fmt(inv.balanceAmount)}</td>
                     <td className="p-3 text-center">
@@ -731,14 +747,18 @@ export function AccountingSalesSection({
                         type="button"
                         onClick={() =>
                           setPrintVoucher({
-                            title: 'TAX INVOICE',
+                            title: gstEnabled ? 'TAX INVOICE' : 'DIRECT SALES SLIP (NON-GST)',
                             number: inv.invoiceNumber,
                             date: inv.date,
                             party: inv.customerName,
                             rows: [
                               ...inv.items.map((it): [string, string] => [`${it.description} (${it.qty} × ${fmt(it.rate)})`, fmt(it.amount)]),
-                              ['Taxable Subtotal', fmt(inv.subtotal)],
-                              [`GST (${inv.gstRate}%)`, fmt(inv.taxAmount)],
+                              ...(gstEnabled
+                                ? ([
+                                    ['Taxable Subtotal', fmt(inv.subtotal)],
+                                    [`GST (${inv.gstRate}%)`, fmt(inv.taxAmount)],
+                                  ] as Array<[string, string]>)
+                                : []),
                               ['Paid / Credited', fmt(inv.paidAmount + inv.creditNoteAmount)],
                               ['Balance Due', fmt(inv.balanceAmount)],
                             ],
@@ -747,7 +767,7 @@ export function AccountingSalesSection({
                           })
                         }
                         className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
-                        title="Print Invoice"
+                        title={gstEnabled ? 'Print Invoice' : 'Print Sales Slip'}
                       >
                         <Printer className="w-3.5 h-3.5" />
                       </button>
@@ -826,17 +846,17 @@ export function AccountingSalesSection({
                 <th className="p-3">Credit Note #</th>
                 <th className="p-3">Date</th>
                 <th className="p-3">Customer</th>
-                <th className="p-3">Invoice</th>
+                <th className="p-3">{gstEnabled ? 'Invoice' : 'Sales Ref'}</th>
                 <th className="p-3">Reason</th>
-                <th className="p-3 text-right">Taxable</th>
-                <th className="p-3 text-right">GST Rev.</th>
+                {gstEnabled && <th className="p-3 text-right">Taxable</th>}
+                {gstEnabled && <th className="p-3 text-right">GST Rev.</th>}
                 <th className="p-3 text-right">Total Credit</th>
                 <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/70">
               {creditNotes.length === 0 ? (
-                <tr><td colSpan={9} className="p-8 text-center text-slate-500">No Sales Returns / Credit Notes issued yet.</td></tr>
+                <tr><td colSpan={gstEnabled ? 9 : 7} className="p-8 text-center text-slate-500">No Sales Returns / Credit Notes issued yet.</td></tr>
               ) : (
                 creditNotes.map((cn) => (
                   <tr key={cn.id} className="hover:bg-slate-900/50">
@@ -845,8 +865,8 @@ export function AccountingSalesSection({
                     <td className="p-3 font-semibold text-white">{cn.customerName}</td>
                     <td className="p-3 font-mono text-slate-400">{cn.invoiceNumber || 'Standalone'}</td>
                     <td className="p-3 text-slate-300">{cn.reason}</td>
-                    <td className="p-3 text-right font-mono">{fmt(cn.subtotal)}</td>
-                    <td className="p-3 text-right font-mono text-slate-400">{fmt(cn.taxAmount)}</td>
+                    {gstEnabled && <td className="p-3 text-right font-mono">{fmt(cn.subtotal)}</td>}
+                    {gstEnabled && <td className="p-3 text-right font-mono text-slate-400">{fmt(cn.taxAmount)}</td>}
                     <td className="p-3 text-right font-mono font-bold text-amber-300">{fmt(cn.totalAmount)}</td>
                     <td className="p-3 text-right space-x-1">
                       <button
@@ -858,10 +878,14 @@ export function AccountingSalesSection({
                             date: cn.date,
                             party: cn.customerName,
                             rows: [
-                              ['Linked Invoice', cn.invoiceNumber || 'Standalone'],
+                              ['Linked Sales Ref', cn.invoiceNumber || 'Standalone'],
                               ['Reason', cn.reason],
-                              ['Taxable Return Value', fmt(cn.subtotal)],
-                              [`GST Reversal (${cn.gstRate}%)`, fmt(cn.taxAmount)],
+                              ...(gstEnabled
+                                ? ([
+                                    ['Taxable Return Value', fmt(cn.subtotal)],
+                                    [`GST Reversal (${cn.gstRate}%)`, fmt(cn.taxAmount)],
+                                  ] as Array<[string, string]>)
+                                : ([['Net Credit Value', fmt(cn.totalAmount)]] as Array<[string, string]>)),
                             ],
                             total: cn.totalAmount,
                             notes: cn.notes,

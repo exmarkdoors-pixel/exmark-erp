@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import {
   ShieldCheck,
   CheckCircle2,
@@ -148,6 +149,18 @@ const SEED_FLOOR_QC_ITEMS: InteractiveQcDoorItem[] = [
 export default function QualityControlHub() {
   const [inspections, setInspections] = useState<QcInspectionItem[]>([]);
   const [selectedInspection, setSelectedInspection] = useState<QcInspectionItem | null>(null);
+
+  useEffect(() => {
+    apiFetch('/api/quality')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data)) {
+          setInspections(json.data);
+          if (json.data.length > 0) setSelectedInspection(json.data[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [stageFilter, setStageFilter] = useState<'ALL' | QcStage>('ALL');
   const [verdictFilter, setVerdictFilter] = useState<'ALL' | 'PASSED' | 'REJECTED'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -189,18 +202,16 @@ export default function QualityControlHub() {
   const passRatePct = totalInspected > 0 ? (passedCount / totalInspected) * 100 : 100;
   const ncrCount = inspections.filter((i) => i.verdict === 'REJECTED').length;
 
-  const handleCreateInspection = (e: React.FormEvent) => {
+  const handleCreateInspection = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemRef.trim() || !newDescription.trim()) return;
 
-    const newInsp: QcInspectionItem = {
-      id: `QC-2026-${Date.now().toString().slice(-3)}`,
+    const payload = {
       stage: newStage,
       stageLabel: newStage === 'IQC' ? 'Inward Chemical Lot QC' : newStage === 'IPQC' ? 'In-Process Press QA' : 'Final Pre-Dispatch QA',
       itemRef: newItemRef,
       description: newDescription,
       inspectorName: newInspectorName,
-      inspectionDate: 'Just now',
       parameters: [
         { name: 'Diagonal Tolerance Check', targetSpec: 'Δ ≤ 1.0 mm', actualObserved: newParamDiagonal, passed: newVerdict === 'PASSED' },
         { name: 'Core Thickness Profile', targetSpec: '32.0 ± 0.5 mm', actualObserved: newParamThickness, passed: true },
@@ -209,11 +220,22 @@ export default function QualityControlHub() {
       verdict: newVerdict,
       defectType: newDefectType,
       actionTaken: newActionTaken || (newVerdict === 'PASSED' ? 'Passed and stamped with Hologram barcode.' : 'Sent to rework station.'),
-      qcStampBarcode: `EX-QC-${newVerdict === 'PASSED' ? 'PASS' : 'REJECT'}-${Date.now().toString().slice(-5)}`,
     };
 
-    setInspections([newInsp, ...inspections]);
-    setSelectedInspection(newInsp);
+    try {
+      const res = await apiFetch('/api/quality', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (res.ok && json?.success && json.data) {
+        setInspections((prev) => [json.data, ...prev]);
+        setSelectedInspection(json.data);
+      }
+    } catch {
+      // Fallback silent
+    }
     setIsNewInspectionModalOpen(false);
     setNewItemRef('');
     setNewDescription('');

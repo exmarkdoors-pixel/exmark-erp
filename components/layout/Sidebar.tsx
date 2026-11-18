@@ -86,6 +86,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   // Core Operational Pipeline
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, category: 'Core' },
   { id: 'quotations', label: 'Quotations', icon: FileSpreadsheet, badge: 'Estimates', badgeColor: 'bg-blue-500/20 text-blue-300', category: 'Core' },
+  { id: 'measurements', label: 'Site Measurements', icon: Ruler, badge: '4-Pt Grid', badgeColor: 'bg-cyan-500/20 text-cyan-300', category: 'Core' },
   { id: 'sales-orders', label: 'Order Lock & Adv', icon: ShoppingBag, badge: 'Advance Lock', badgeColor: 'bg-rose-500/20 text-rose-300', category: 'Core' },
   { id: 'customers', label: 'Customers', icon: Users, badge: '128', category: 'Core' },
   { id: 'crm', label: 'CRM & Leads', icon: Target, badge: '9 New', badgeColor: 'bg-amber-500/20 text-amber-300', category: 'Core' },
@@ -94,17 +95,21 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'production', label: 'Production Floor', icon: Factory, badge: 'Kanban + Gangs', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
   { id: 'batch-print', label: '12L & 4"×2" Stickers', icon: Printer, badge: '12L / Thermal', badgeColor: 'bg-rose-500/20 text-rose-300', category: 'Operations' },
   { id: 'bom', label: 'Auto-BOQ & Consumables', icon: FlaskConical, badge: 'BOQ + Shift', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
+  { id: 'quality', label: 'Quality Control (QC)', icon: ShieldCheck, badge: 'IQC/FQC', badgeColor: 'bg-teal-500/20 text-teal-300', category: 'Operations' },
+  { id: 'maintenance', label: 'Plant Maintenance', icon: Wrench, badge: 'OEE / Molds', badgeColor: 'bg-amber-500/20 text-amber-300', category: 'Operations' },
+  { id: 'job-work', label: 'Job Work Challans', icon: Repeat, badge: 'Outwork', badgeColor: 'bg-indigo-500/20 text-indigo-300', category: 'Operations' },
 
   // Fulfillment & Site Delivery
   { id: 'dispatch', label: 'Packing & Dispatch', icon: Truck, badge: 'Challan', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
+  { id: 'gate-pass', label: 'Security Gate Pass', icon: Ticket, badge: 'NRGP / RGP', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
   { id: 'installation', label: 'Site Installation', icon: ClipboardCheck, badge: 'Conditional', badgeColor: 'bg-cyan-500/20 text-cyan-300', category: 'Operations' },
   { id: 'inventory', label: 'Raw Inventory Stock', icon: Boxes, badge: 'Live Stock', badgeColor: 'bg-orange-500/20 text-orange-300', category: 'Operations' },
   { id: 'purchases', label: 'Purchase Orders (PO)', icon: Layers, badge: 'Create PO', badgeColor: 'bg-purple-500/20 text-purple-300', category: 'Operations' },
   { id: 'mobile-field', label: 'Mobile Field Ops', icon: Smartphone, badge: 'Floor/GPS', badgeColor: 'bg-rose-500/20 text-rose-300', category: 'Operations' },
 
-  // Accounts & Complete Double-Entry Accounting Suite
+  // Accounts & Complete Double-Entry Accounting Suite (Non-GST Direct Sales)
   { id: 'accounts', label: 'Accounts & Accounting', icon: ReceiptIndianRupee, badge: 'Full Ledger', badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30', category: 'Admin' },
-  { id: 'sales', label: 'Sales & Invoicing', icon: ReceiptText, badge: 'Sales & Notes', badgeColor: 'bg-blue-500/20 text-blue-300 border border-blue-500/30', category: 'Admin' },
+  { id: 'sales', label: 'Sales & Returns', icon: ReceiptText, badge: 'Direct Sales', badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30', category: 'Admin' },
   { id: 'employees', label: 'Employees & Roster', icon: UserCheck, category: 'Admin' },
   { id: 'marketing', label: 'Marketing & Sales Hub', icon: Megaphone, badge: 'Targets + Comm', badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30', category: 'Admin' },
   { id: 'reports', label: 'Reports & Analytics', icon: BarChart3, category: 'Admin' },
