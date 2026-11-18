@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import { X, Target, Phone, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Lead, LeadStage } from '@/lib/services/crmService';
 
@@ -59,7 +60,7 @@ export function LeadFormModal({ isOpen, onClose, onSaved }: LeadFormModalProps) 
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/crm/leads', {
+      const res = await apiFetch('/api/crm/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

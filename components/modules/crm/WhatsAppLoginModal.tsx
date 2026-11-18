@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/apiClient';
 import {
   X,
   QrCode,
@@ -57,7 +58,7 @@ export function WhatsAppLoginModal({
   const handleSimulateQrScan = async () => {
     setIsRefreshing(true);
     try {
-      const res = await fetch('/api/crm/whatsapp/session', {
+      const res = await apiFetch('/api/crm/whatsapp/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -102,7 +103,7 @@ export function WhatsAppLoginModal({
 
   const handleDisconnect = async () => {
     try {
-      const res = await fetch('/api/crm/whatsapp/session', { method: 'DELETE' });
+      const res = await apiFetch('/api/crm/whatsapp/session', { method: 'DELETE' });
       const data = await res.json();
       if (data.success && data.session) {
         onSessionUpdated(data.session);

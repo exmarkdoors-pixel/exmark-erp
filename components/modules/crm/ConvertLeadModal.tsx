@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { LeadItem } from './LeadsPipeline';
 import { CustomerType } from '@/lib/services/customerService';
+import { apiFetch } from '@/lib/api/apiClient';
 
 interface ConvertLeadModalProps {
   isOpen: boolean;
@@ -86,7 +87,7 @@ export function ConvertLeadModal({
     setIsSubmitting(true);
     setError(null);
     try {
-      const res = await fetch('/api/customers', {
+      const res = await apiFetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -105,7 +106,7 @@ export function ConvertLeadModal({
       const customerId = data.data.id;
       // Link customer to lead on server
       if (lead.id.startsWith('lead-api-')) {
-        await fetch(`/api/crm/leads/${lead.id}`, {
+        await apiFetch(`/api/crm/leads/${lead.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ customerId }),
@@ -126,7 +127,7 @@ export function ConvertLeadModal({
     setIsSubmitting(true);
     setError(null);
     try {
-      const res = await fetch('/api/measurements', {
+      const res = await apiFetch('/api/measurements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -146,7 +147,7 @@ export function ConvertLeadModal({
 
       // Advance lead stage to 'measurement'
       if (lead.id.startsWith('lead-api-')) {
-        await fetch(`/api/crm/leads/${lead.id}`, {
+        await apiFetch(`/api/crm/leads/${lead.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ stage: 'MEASUREMENT_SCHEDULED' }),
@@ -189,7 +190,7 @@ export function ConvertLeadModal({
         status: 'SENT',
       };
 
-      const res = await fetch('/api/quotations', {
+      const res = await apiFetch('/api/quotations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(quotePayload),
@@ -203,7 +204,7 @@ export function ConvertLeadModal({
 
       // Advance lead stage to 'quotation'
       if (lead.id.startsWith('lead-api-')) {
-        await fetch(`/api/crm/leads/${lead.id}`, {
+        await apiFetch(`/api/crm/leads/${lead.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ stage: 'QUOTE_SENT', estimatedValue: grandTotal }),

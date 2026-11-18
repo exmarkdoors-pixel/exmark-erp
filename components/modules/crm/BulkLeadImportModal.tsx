@@ -53,6 +53,24 @@ export function BulkLeadImportModal({
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'READY' | 'WARNINGS' | 'DUPLICATES' | 'ERRORS'>('ALL');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const safeExistingLeads = Array.isArray(existingLeads) ? existingLeads : [];
+
+  // ALL hooks MUST stay above any conditional return (fixes React Error #310 crash!)
+  const filteredItems = useMemo(() => {
+    if (activeFilter === 'READY') {
+      return parsedItems.filter((i) => i.isValid && (!skipDuplicates || !i.isDuplicate));
+    }
+    if (activeFilter === 'WARNINGS') {
+      return parsedItems.filter((i) => i.isValid && !i.isDuplicate && i.warning);
+    }
+    if (activeFilter === 'DUPLICATES') {
+      return parsedItems.filter((i) => i.isDuplicate);
+    }
+    if (activeFilter === 'ERRORS') {
+      return parsedItems.filter((i) => !i.isValid);
+    }
+    return parsedItems;
+  }, [parsedItems, activeFilter, skipDuplicates]);
 
   if (!isOpen) return null;
 
@@ -124,7 +142,7 @@ export function BulkLeadImportModal({
         return;
       }
 
-      const { items } = parseLeadsCsv(rows, existingLeads);
+      const { items } = parseLeadsCsv(rows, safeExistingLeads);
       setParsedItems(items);
     } catch (err: any) {
       setErrorMsg(`Failed to parse file: ${err.message || 'Corrupt or unsupported format'}`);
@@ -150,7 +168,7 @@ export function BulkLeadImportModal({
         setParsedItems([]);
         return;
       }
-      const { items } = parseLeadsCsv(rows, existingLeads);
+      const { items } = parseLeadsCsv(rows, safeExistingLeads);
       setParsedItems(items);
     } catch (err: any) {
       setErrorMsg(`Error parsing pasted data: ${err.message}`);
@@ -195,22 +213,6 @@ export function BulkLeadImportModal({
   const warningCount = parsedItems.filter((i) => i.isValid && !i.isDuplicate && i.warning).length;
   const readyCount = parsedItems.filter((i) => i.isValid && (!skipDuplicates || !i.isDuplicate)).length;
 
-  const filteredItems = useMemo(() => {
-    if (activeFilter === 'READY') {
-      return parsedItems.filter((i) => i.isValid && (!skipDuplicates || !i.isDuplicate));
-    }
-    if (activeFilter === 'WARNINGS') {
-      return parsedItems.filter((i) => i.isValid && !i.isDuplicate && i.warning);
-    }
-    if (activeFilter === 'DUPLICATES') {
-      return parsedItems.filter((i) => i.isDuplicate);
-    }
-    if (activeFilter === 'ERRORS') {
-      return parsedItems.filter((i) => !i.isValid);
-    }
-    return parsedItems;
-  }, [parsedItems, activeFilter, skipDuplicates]);
-
   // Execute bulk import using authenticated apiFetch
   const handleImport = async () => {
     const leadsToImport = parsedItems.filter((i) => i.isValid && (!skipDuplicates || !i.isDuplicate));
@@ -235,6 +237,7 @@ export function BulkLeadImportModal({
       }
 
       onImportSuccess(data.count || leadsToImport.length);
+      handleClear();
       onClose();
     } catch (err: any) {
       setErrorMsg(err.message || 'Server error during bulk lead import');

@@ -30,6 +30,7 @@ import {
   buildWhatsAppUrl,
   WhatsAppTemplateContext,
 } from '@/lib/services/whatsappService';
+import { apiFetch } from '@/lib/api/apiClient';
 
 export interface WhatsAppLeadData {
   id: string;
@@ -126,7 +127,7 @@ export function WhatsAppLeadModal({
 
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`/api/crm/leads/${lead.id}/whatsapp`);
+        const res = await apiFetch(`/api/crm/leads/${lead.id}/whatsapp`);
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.history)) {
@@ -181,7 +182,7 @@ export function WhatsAppLeadModal({
     try {
       // 1. Post to ERP API to log the follow-up record
       if (autoLogToCrm) {
-        const res = await fetch(`/api/crm/leads/${lead.id}/whatsapp`, {
+        const res = await apiFetch(`/api/crm/leads/${lead.id}/whatsapp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

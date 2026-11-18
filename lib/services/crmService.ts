@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getDataFilePath } from '../utils/dataPaths';
+import { getDataFilePath, writeJsonSafe } from '../utils/dataPaths';
 import { assertWriteAllowed } from './dbSyncEngine';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -75,21 +75,33 @@ function readStore(): Lead[] {
 function writeStore(leads: Lead[]): void {
   try {
     const storePath = getStorePath();
-    const dir = path.dirname(storePath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(storePath, JSON.stringify(leads, null, 2), 'utf8');
+    writeJsonSafe(storePath, leads);
   } catch (err) {
     console.error('[crmService] Failed to write store:', err);
   }
 }
 
-function generateLeadCode(count: number): string {
-  const num = String(count + 1).padStart(3, '0');
-  return `LEAD-2026-${num}`;
+function getNextLeadSeq(all: Lead[]): number {
+  const year = new Date().getFullYear();
+  const prefix = `LEAD-${year}-`;
+  let maxSeq = all.length;
+  for (const row of all) {
+    if (row.leadCode && row.leadCode.startsWith(prefix)) {
+      const parsed = parseInt(row.leadCode.slice(prefix.length), 10);
+      if (Number.isFinite(parsed) && parsed > maxSeq) maxSeq = parsed;
+    }
+  }
+  return maxSeq + 1;
 }
 
-function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+function generateLeadCode(seq: number): string {
+  const year = new Date().getFullYear();
+  return `LEAD-${year}-${String(seq).padStart(3, '0')}`;
+}
+
+function generateId(prefix: string, index = 0): string {
+  const rand = Math.random().toString(36).slice(2, 7);
+  return `${prefix}-${Date.now()}-${index}-${rand}`;
 }
 
 // ── Service functions ──────────────────────────────────────────────────────────
@@ -112,10 +124,11 @@ export async function getLead(id: string): Promise<Lead | null> {
 export async function createLead(data: LeadCreateInput): Promise<Lead> {
   await assertWriteAllowed('Lead Creation');
   const all = readStore();
+  const nextSeq = getNextLeadSeq(all);
   const newLead: Lead = {
     ...data,
-    id: generateId('lead-api'),
-    leadCode: generateLeadCode(all.length),
+    id: generateId('lead-api', 0),
+    leadCode: generateLeadCode(nextSeq),
     followUps: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -130,13 +143,13 @@ export async function createLeadsBulk(leadsData: LeadCreateInput[]): Promise<Lea
   const all = readStore();
   const createdLeads: Lead[] = [];
   const now = new Date().toISOString();
-  const baseCount = all.length;
+  let nextSeq = getNextLeadSeq(all);
 
   leadsData.forEach((data, index) => {
     const newLead: Lead = {
       ...data,
-      id: generateId('lead-api'),
-      leadCode: generateLeadCode(baseCount + index),
+      id: generateId('lead-api', index),
+      leadCode: generateLeadCode(nextSeq++),
       followUps: [],
       createdAt: now,
       updatedAt: now,
