@@ -243,6 +243,9 @@ export interface BoqDoorInput {
   stage?: string;
   materialIssued?: boolean;
   materialIssuedAt?: string;
+  materialIssueBatchId?: string;
+  materialIssuedToGang?: string;
+  materialIssuedValue?: number;
 }
 
 export interface LockBoxBreakdown {

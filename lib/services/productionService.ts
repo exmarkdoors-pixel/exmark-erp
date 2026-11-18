@@ -77,6 +77,8 @@ export interface ProductionDoorItem {
   materialIssued?: boolean;
   materialIssuedAt?: string;
   materialIssueBatchId?: string;
+  materialIssuedToGang?: string;
+  materialIssuedValue?: number;
   rawHeightMm: number;
   rawWidthMm: number;
   rawWidthBottomMm?: number;
@@ -623,10 +625,24 @@ export async function markProductionBoqIssued(id: string): Promise<ProductionOrd
   const idx = all.findIndex((o) => o.id === id || o.jobCardNumber === id || o.prodOrderNumber === id || o.salesOrderId === id);
   if (idx === -1) throw new Error(`Production order ${id} not found`);
 
+  const nowIso = new Date().toISOString();
+  const batchId = `BOQ-FULL-${Date.now()}`;
+  const updatedDoors = (all[idx].doors || []).map((door) =>
+    door.materialIssued
+      ? door
+      : {
+          ...door,
+          materialIssued: true,
+          materialIssuedAt: door.materialIssuedAt || nowIso,
+          materialIssueBatchId: door.materialIssueBatchId || batchId,
+        }
+  );
+
   const updated: ProductionOrder = {
     ...all[idx],
-    boqIssuedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    doors: updatedDoors,
+    boqIssuedAt: nowIso,
+    updatedAt: nowIso,
   };
   all[idx] = updated;
   writeStore(all);
@@ -833,6 +849,8 @@ export async function updateDoorStages(
 export interface RecordDoorMaterialIssueInput {
   doorIds: string[];
   batchId?: string;
+  gangName?: string;
+  totalIssuedValue?: number;
   notes?: string;
 }
 
@@ -842,29 +860,110 @@ export async function recordDoorMaterialIssue(
 ): Promise<ProductionOrder> {
   await assertWriteAllowed('record door material issue');
   const all = readStore();
-  const idx = all.findIndex((o) => o.id === orderId || o.jobCardNumber === orderId || o.prodOrderNumber === orderId);
+  const idx = all.findIndex(
+    (o) =>
+      o.id === orderId ||
+      o.jobCardNumber === orderId ||
+      o.prodOrderNumber === orderId ||
+      o.salesOrderId === orderId
+  );
   if (idx === -1) throw new Error(`Production order ${orderId} not found`);
 
   const order = all[idx];
   const nowIso = new Date().toISOString();
   const batchId = input.batchId || `ISSUE-${Date.now()}`;
-  const doorIdSet = new Set(input.doorIds);
+  const doorIdSet = new Set((input.doorIds || []).filter(Boolean));
+  const gangName = input.gangName?.trim() || undefined;
+
+  const matchedCount = order.doors.filter(
+    (door) =>
+      doorIdSet.has(door.id) ||
+      doorIdSet.has(door.doorId) ||
+      doorIdSet.has(door.doorNumber)
+  ).length;
+  const perDoorValue =
+    matchedCount > 0 && Number.isFinite(Number(input.totalIssuedValue)) && Number(input.totalIssuedValue) > 0
+      ? Math.round(Number(input.totalIssuedValue) / matchedCount)
+      : undefined;
 
   const updatedDoors = order.doors.map((door) => {
-    if (doorIdSet.has(door.id) || doorIdSet.has(door.doorId)) {
+    if (
+      doorIdSet.has(door.id) ||
+      doorIdSet.has(door.doorId) ||
+      doorIdSet.has(door.doorNumber)
+    ) {
       return {
         ...door,
         materialIssued: true,
         materialIssuedAt: nowIso,
         materialIssueBatchId: batchId,
+        ...(gangName ? { materialIssuedToGang: gangName } : {}),
+        ...(perDoorValue !== undefined ? { materialIssuedValue: perDoorValue } : {}),
       };
     }
     return door;
   });
 
+  const allDoorsIssued =
+    updatedDoors.length > 0 && updatedDoors.every((d) => Boolean(d.materialIssued));
+
   const updatedOrder: ProductionOrder = {
     ...order,
-    boqIssuedAt: nowIso,
+    boqIssuedAt: allDoorsIssued ? nowIso : null,
+    doors: updatedDoors,
+    updatedAt: nowIso,
+  };
+
+  all[idx] = updatedOrder;
+  writeStore(all);
+  return updatedOrder;
+}
+
+export async function unmarkDoorMaterialIssue(
+  orderId: string,
+  doorIds: string[],
+  batchId?: string
+): Promise<ProductionOrder> {
+  await assertWriteAllowed('reverse door material issue');
+  const all = readStore();
+  const idx = all.findIndex(
+    (o) =>
+      o.id === orderId ||
+      o.jobCardNumber === orderId ||
+      o.prodOrderNumber === orderId ||
+      o.salesOrderId === orderId
+  );
+  if (idx === -1) throw new Error(`Production order ${orderId} not found`);
+
+  const order = all[idx];
+  const nowIso = new Date().toISOString();
+  const doorIdSet = new Set((doorIds || []).filter(Boolean));
+
+  const updatedDoors = order.doors.map((door) => {
+    const matchesBatch = Boolean(batchId && door.materialIssueBatchId === batchId);
+    const matchesId =
+      doorIdSet.has(door.id) ||
+      doorIdSet.has(door.doorId) ||
+      doorIdSet.has(door.doorNumber);
+    if (matchesBatch || matchesId) {
+      return {
+        ...door,
+        materialIssued: false,
+        materialIssuedAt: undefined,
+        materialIssueBatchId: undefined,
+        materialIssuedToGang: undefined,
+        materialIssuedValue: undefined,
+      };
+    }
+    return door;
+  });
+
+  const allDoorsIssued =
+    updatedDoors.length > 0 && updatedDoors.every((d) => Boolean(d.materialIssued));
+
+  const updatedOrder: ProductionOrder = {
+    ...order,
+    boqIssuedAt: allDoorsIssued ? order.boqIssuedAt || nowIso : null,
     doors: updatedDoors,
     updatedAt: nowIso,
   };

@@ -6,6 +6,7 @@ export interface BoqCustomItemOverride {
   customQty?: number;
   customRate?: number;
   note?: string;
+  excluded?: boolean;
 }
 
 export interface BoqCustomUsageRecord {

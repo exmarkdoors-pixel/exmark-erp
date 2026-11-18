@@ -37,7 +37,13 @@ import {
 } from '@/lib/utils/boqFormulaEngine';
 import type { BoqExtraItem, ExtraBoqItemCategory } from '@/lib/services/boqExtraItemsService';
 import type { LockReadinessRecord, LockReadinessStatus } from '@/lib/services/boqLockReadinessService';
-import { DailyStoreIssueSlipModal } from './DailyStoreIssueSlipModal';
+import type {
+  BoqIssueShift,
+  BoqIssueVoucherItem,
+  BoqIssueVoucherRecord,
+} from '@/lib/services/boqIssueService';
+import { apiFetch } from '@/lib/api/apiClient';
+import { DailyStoreIssueResult, DailyStoreIssueSlipModal } from './DailyStoreIssueSlipModal';
 
 interface StoreRequisitionHubProps {
   initialOrderId?: string;
@@ -94,6 +100,9 @@ interface ApiProductionDoor {
   stage?: string;
   materialIssued?: boolean;
   materialIssuedAt?: string;
+  materialIssueBatchId?: string;
+  materialIssuedToGang?: string;
+  materialIssuedValue?: number;
 }
 
 interface ApiProductionOrder {
@@ -189,16 +198,42 @@ export default function StoreRequisitionHub({
   const [isCustomUsageEditMode, setIsCustomUsageEditMode] = useState<boolean>(false);
   const [customUsageBufferPercent, setCustomUsageBufferPercent] = useState<number>(0);
   const [customUsageOverrides, setCustomUsageOverrides] = useState<
-    Record<string, { customQty?: number; customRate?: number; note?: string }>
+    Record<string, { customQty?: number; customRate?: number; note?: string; excluded?: boolean }>
   >({});
   const [customUsageNotes, setCustomUsageNotes] = useState<string>('');
   const [isSavingCustomUsage, setIsSavingCustomUsage] = useState<boolean>(false);
   const [customUsageSaveSuccess, setCustomUsageSaveSuccess] = useState<boolean>(false);
 
+  // Direct BOQ Issue & Issued Value Ledger state
+  const [issueGangName, setIssueGangName] = useState<string>('Molding Team A');
+  const [issueShift, setIssueShift] = useState<BoqIssueShift>('MORNING');
+  const [isIssuingBoq, setIsIssuingBoq] = useState<boolean>(false);
+  const [boqIssueNotice, setBoqIssueNotice] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const [orderIssueVouchers, setOrderIssueVouchers] = useState<BoqIssueVoucherRecord[]>([]);
+  const [orderTotalIssuedValue, setOrderTotalIssuedValue] = useState<number>(0);
+  const [reversingVoucherId, setReversingVoucherId] = useState<string | null>(null);
+  const [previewIssueVoucher, setPreviewIssueVoucher] = useState<BoqIssueVoucherRecord | null>(null);
+
+  const getDoorKey = (d: BoqDoorInput, fallbackIdx = 0): string =>
+    d.id || d.doorId || d.doorNumber || `door-${fallbackIdx}`;
+
+  const getOrderIssueStats = (ord: ProductionRequisitionOrder) => {
+    const total = ord.doors.length;
+    const issued = ord.doors.filter((d) => Boolean(d.materialIssued)).length;
+    const pending = Math.max(0, total - issued);
+    const isPartial = issued > 0 && pending > 0;
+    const isFullyIssued =
+      (total > 0 && pending === 0) || (Boolean(ord.boqIssuedAt) && issued === 0);
+    return { total, issued, pending, isPartial, isFullyIssued };
+  };
+
   useEffect(() => {
     let active = true;
 
-    fetch('/api/production')
+    apiFetch('/api/production')
       .then((res) => res.json())
       .then((json) => {
         if (!active || !json.success || !Array.isArray(json.data) || json.data.length === 0) return;
@@ -234,6 +269,9 @@ export default function StoreRequisitionHub({
                 stage: d.stage || p.status || 'QUEUED',
                 materialIssued: Boolean(d.materialIssued),
                 materialIssuedAt: d.materialIssuedAt,
+                materialIssueBatchId: d.materialIssueBatchId,
+                materialIssuedToGang: d.materialIssuedToGang,
+                materialIssuedValue: d.materialIssuedValue,
               };
             });
 
@@ -263,7 +301,8 @@ export default function StoreRequisitionHub({
 
         setOrders(liveOrders);
 
-        const firstPending = liveOrders.find((o) => !o.boqIssuedAt) || liveOrders[0];
+        const firstPending =
+          liveOrders.find((o) => !getOrderIssueStats(o).isFullyIssued) || liveOrders[0];
         let initialSelected = firstPending?.id || '';
         if (initialOrderId) {
           const match = liveOrders.find(
@@ -275,11 +314,16 @@ export default function StoreRequisitionHub({
           if (match) initialSelected = match.id;
         }
         setSelectedOrderId(initialSelected);
-        setSelectedBatchOrderIds(liveOrders.filter((o) => !o.boqIssuedAt).slice(0, 5).map((o) => o.id));
+        setSelectedBatchOrderIds(
+          liveOrders
+            .filter((o) => !getOrderIssueStats(o).isFullyIssued)
+            .slice(0, 5)
+            .map((o) => o.id)
+        );
       })
       .catch((err) => console.error('Failed to sync live requisition orders:', err));
 
-    fetch('/api/settings/frames')
+    apiFetch('/api/settings/frames')
       .then((res) => res.json())
       .then((json) => {
         if (active && json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -288,7 +332,7 @@ export default function StoreRequisitionHub({
       })
       .catch((err) => console.error('Failed to load custom frames for BOQ:', err));
 
-    fetch('/api/boq/material-rates')
+    apiFetch('/api/boq/material-rates')
       .then((res) => res.json())
       .then((json) => {
         if (active && json.success && json.data) {
@@ -302,7 +346,7 @@ export default function StoreRequisitionHub({
       })
       .catch((err) => console.error('Failed to load BOQ material rates:', err));
 
-    fetch('/api/boq/extra-items')
+    apiFetch('/api/boq/extra-items')
       .then((res) => res.json())
       .then((json) => {
         if (active && json.success && Array.isArray(json.data)) {
@@ -311,7 +355,7 @@ export default function StoreRequisitionHub({
       })
       .catch((err) => console.error('Failed to load extra BOQ items:', err));
 
-    fetch('/api/boq/lock-readiness')
+    apiFetch('/api/boq/lock-readiness')
       .then((res) => res.json())
       .then((json) => {
         if (active && json.success && json.data && typeof json.data === 'object') {
@@ -326,15 +370,62 @@ export default function StoreRequisitionHub({
   }, [initialOrderId]);
 
   const pendingBoqOrders = useMemo(
-    () => orders.filter((o) => !o.boqIssuedAt),
+    () => orders.filter((o) => !getOrderIssueStats(o).isFullyIssued),
     [orders]
   );
   const issuedBoqOrders = useMemo(
-    () => orders.filter((o) => Boolean(o.boqIssuedAt)),
+    () => orders.filter((o) => getOrderIssueStats(o).isFullyIssued),
     [orders]
   );
 
   const selectedOrder = orders.find((o) => o.id === selectedOrderId) || orders[0];
+
+  // Auto-select ONLY remaining Pending doors when opening a partially issued order
+  useEffect(() => {
+    if (!selectedOrder) {
+      setSelectedDoorIds([]);
+      return;
+    }
+    const pendingDoors = selectedOrder.doors.filter((d) => !d.materialIssued);
+    const issuedCount = selectedOrder.doors.length - pendingDoors.length;
+    if (issuedCount > 0 && pendingDoors.length > 0) {
+      setSelectedDoorIds(pendingDoors.map((d, i) => getDoorKey(d, i)));
+    } else {
+      setSelectedDoorIds([]);
+    }
+  }, [selectedOrder?.id]);
+
+  // Fetch saved BOQ Issue Vouchers & Total Issued Value (₹) for selected order
+  useEffect(() => {
+    let active = true;
+    const pid = selectedOrder?.prodOrderId;
+    if (!pid) {
+      setOrderIssueVouchers([]);
+      setOrderTotalIssuedValue(0);
+      return;
+    }
+    apiFetch(`/api/boq/issue?prodOrderId=${encodeURIComponent(pid)}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (!active) return;
+        if (json.success && Array.isArray(json.data)) {
+          setOrderIssueVouchers(json.data);
+          setOrderTotalIssuedValue(Number(json.totalIssuedValue) || 0);
+        } else {
+          setOrderIssueVouchers([]);
+          setOrderTotalIssuedValue(0);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setOrderIssueVouchers([]);
+          setOrderTotalIssuedValue(0);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedOrder?.prodOrderId]);
   const batchOrders = orders.filter((o) => selectedBatchOrderIds.includes(o.id));
   const activeOrders = isBatchBoqMode
     ? batchOrders
@@ -374,24 +465,45 @@ export default function StoreRequisitionHub({
   const handleMarkBoqIssued = async () => {
     if (!selectedOrder?.prodOrderId) return;
     setMarkingBoqIssued(true);
+    setBoqIssueNotice(null);
     try {
-      const res = await fetch(`/api/production/${selectedOrder.prodOrderId}`, {
+      const res = await apiFetch(`/api/production/${encodeURIComponent(selectedOrder.prodOrderId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'MARK_BOQ_ISSUED' }),
       });
       const json = await res.json();
       if (json.success && json.data) {
+        const nowIso = json.data.boqIssuedAt || new Date().toISOString();
         setOrders((prev) =>
           prev.map((o) =>
             o.prodOrderId === selectedOrder.prodOrderId
-              ? { ...o, boqIssuedAt: json.data.boqIssuedAt || new Date().toISOString() }
+              ? {
+                  ...o,
+                  boqIssuedAt: nowIso,
+                  doors: o.doors.map((d) => ({
+                    ...d,
+                    materialIssued: true,
+                    materialIssuedAt: d.materialIssuedAt || nowIso,
+                  })),
+                }
               : o
           )
         );
+        setSelectedDoorIds([]);
+        setBoqIssueNotice({
+          type: 'success',
+          text: `Entire BOQ for ${selectedOrder.jobCardNumber} marked Issued & cleared from Pending!`,
+        });
+      } else {
+        setBoqIssueNotice({
+          type: 'error',
+          text: json.error || 'Could not mark BOQ issued.',
+        });
       }
     } catch (err) {
       console.error('Failed to mark BOQ issued:', err);
+      setBoqIssueNotice({ type: 'error', text: 'Network error marking BOQ issued.' });
     } finally {
       setMarkingBoqIssued(false);
     }
@@ -464,7 +576,7 @@ export default function StoreRequisitionHub({
         isFloorConsumable: primaryExtraOrderKey === 'FLOOR-CONSUMABLES',
       };
 
-      const res = await fetch('/api/boq/extra-items', {
+      const res = await apiFetch('/api/boq/extra-items', {
         method: editingExtraItemId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -489,7 +601,7 @@ export default function StoreRequisitionHub({
 
   const handleDeleteExtraItem = async (id: string) => {
     try {
-      const res = await fetch(`/api/boq/extra-items?id=${encodeURIComponent(id)}`, {
+      const res = await apiFetch(`/api/boq/extra-items?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
       const json = await res.json();
@@ -514,7 +626,7 @@ export default function StoreRequisitionHub({
 
   const handleLockReadinessChange = async (lockBoxId: string, status: LockReadinessStatus) => {
     try {
-      const res = await fetch('/api/boq/lock-readiness', {
+      const res = await apiFetch('/api/boq/lock-readiness', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderKey: readinessOrderKey, lockBoxId, status }),
@@ -534,7 +646,7 @@ export default function StoreRequisitionHub({
   const persistLockBoxProfiles = async (nextProfiles: LockBoxProfile[]) => {
     setIsSavingLockBox(true);
     try {
-      const res = await fetch('/api/boq/material-rates', {
+      const res = await apiFetch('/api/boq/material-rates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lockBoxProfiles: nextProfiles }),
@@ -655,7 +767,7 @@ export default function StoreRequisitionHub({
   }, [isCustomCalcMode, isBatchBoqMode, selectedOrderId]);
 
   useEffect(() => {
-    fetch(`/api/boq/custom-usage?batchKey=${encodeURIComponent(activeBatchKey)}`)
+    apiFetch(`/api/boq/custom-usage?batchKey=${encodeURIComponent(activeBatchKey)}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
@@ -675,7 +787,7 @@ export default function StoreRequisitionHub({
     setIsSavingCustomUsage(true);
     setCustomUsageSaveSuccess(false);
     try {
-      const res = await fetch('/api/boq/custom-usage', {
+      const res = await apiFetch('/api/boq/custom-usage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -702,7 +814,7 @@ export default function StoreRequisitionHub({
     setCustomUsageOverrides({});
     setCustomUsageNotes('');
     try {
-      await fetch(`/api/boq/custom-usage?batchKey=${encodeURIComponent(activeBatchKey)}`, {
+      await apiFetch(`/api/boq/custom-usage?batchKey=${encodeURIComponent(activeBatchKey)}`, {
         method: 'DELETE',
       });
     } catch (e) {
@@ -710,15 +822,34 @@ export default function StoreRequisitionHub({
     }
   };
 
+  const isItemIncluded = (key: string): boolean => !customUsageOverrides[key]?.excluded;
+
+  const toggleItemIncluded = (key: string) => {
+    setCustomUsageOverrides((prev) => {
+      const existing = prev[key] || {};
+      const nextExcluded = !existing.excluded;
+      if (!nextExcluded && existing.customQty === undefined && existing.customRate === undefined && !existing.note) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: { ...existing, excluded: nextExcluded } };
+    });
+  };
+
   const updateItemCustomQty = (key: string, qty: number | undefined) => {
     setCustomUsageOverrides((prev) => {
       const existing = prev[key] || {};
       if (qty === undefined || Number.isNaN(qty)) {
         const next = { ...prev };
-        delete next[key];
+        if (!existing.excluded && existing.customRate === undefined && !existing.note) {
+          delete next[key];
+        } else {
+          next[key] = { ...existing, customQty: undefined };
+        }
         return next;
       }
-      return { ...prev, [key]: { ...existing, customQty: qty } };
+      return { ...prev, [key]: { ...existing, customQty: qty, excluded: false } };
     });
   };
 
@@ -727,7 +858,7 @@ export default function StoreRequisitionHub({
       const existing = prev[key] || {};
       if (rate === undefined || Number.isNaN(rate)) {
         const next = { ...prev };
-        if (existing.customQty === undefined) {
+        if (existing.customQty === undefined && !existing.excluded && !existing.note) {
           delete next[key];
         } else {
           next[key] = { ...existing, customRate: undefined };
@@ -746,19 +877,68 @@ export default function StoreRequisitionHub({
     return calculateDoorBatchBoq(activeDoors, framesCatalog, ratesConfig);
   }, [activeDoors, framesCatalog, ratesConfig]);
 
+  const applyItemGroupPreset = (preset: 'ALL' | 'CHEMICALS' | 'WOOD_FOAM' | 'HARDWARE') => {
+    const chemicalKeys = [
+      'resin',
+      'gel',
+      'catalystGrams',
+      'acceleratorGrams',
+      'csm300',
+      ...(boq.pigmentByColour || []).map((p) => `pigment_${p.matchedRateKey || p.colourLabel}`),
+    ];
+    const woodFoamKeys = ['timber', 'foam'];
+    const extraKeys = activeExtraItems.map((ext) => `extra_${ext.id}`);
+    const lockKeys = (boq.lockBoxBreakdown || [])
+      .filter((lb) => !lb.isNoHardware)
+      .map((lb) => `lock_${lb.profileId}`);
+    const allKeys = [...chemicalKeys, ...woodFoamKeys, ...extraKeys, ...lockKeys];
+
+    setCustomUsageOverrides((prev) => {
+      const next = { ...prev };
+      for (const key of allKeys) {
+        const include =
+          preset === 'ALL'
+            ? true
+            : preset === 'CHEMICALS'
+            ? chemicalKeys.includes(key)
+            : preset === 'WOOD_FOAM'
+            ? woodFoamKeys.includes(key)
+            : lockKeys.includes(key);
+        const existing = next[key] || {};
+        if (include) {
+          if (existing.customQty === undefined && existing.customRate === undefined && !existing.note) {
+            delete next[key];
+          } else {
+            next[key] = { ...existing, excluded: false };
+          }
+        } else {
+          next[key] = { ...existing, excluded: true };
+        }
+      }
+      return next;
+    });
+  };
+
   const effectiveBoq = useMemo(() => {
     const mult = 1 + (customUsageBufferPercent / 100);
 
     const getField = (key: string, formulaQty: number, standardRate: number) => {
       const ovr = customUsageOverrides[key];
+      const included = !ovr?.excluded;
       const withBuf = customUsageBufferPercent > 0 ? Number((formulaQty * mult).toFixed(2)) : formulaQty;
       const qty = ovr?.customQty !== undefined ? ovr.customQty : withBuf;
       const rate = ovr?.customRate !== undefined ? ovr.customRate : standardRate;
-      const isOverridden = ovr?.customQty !== undefined || ovr?.customRate !== undefined || customUsageBufferPercent > 0;
+      const isOverridden =
+        ovr?.customQty !== undefined ||
+        ovr?.customRate !== undefined ||
+        Boolean(ovr?.excluded) ||
+        customUsageBufferPercent > 0;
       return {
         qty,
         rate,
-        cost: Math.round(qty * rate),
+        included,
+        cost: included ? Math.round(qty * rate) : 0,
+        rawCost: Math.round(qty * rate),
         isOverridden,
         formulaQty,
         standardRate,
@@ -778,7 +958,12 @@ export default function StoreRequisitionHub({
       boq.pigmentByColour.forEach((pig) => {
         const pigKey = `pigment_${pig.matchedRateKey || pig.colourLabel}`;
         const customPig = customUsageOverrides[pigKey];
-        const qty = customPig?.customQty !== undefined ? customPig.customQty : Math.round(pig.pigmentGrams);
+        if (customPig?.excluded) return;
+        const baseGrams =
+          customUsageBufferPercent > 0
+            ? Math.round(pig.pigmentGrams * mult)
+            : Math.round(pig.pigmentGrams);
+        const qty = customPig?.customQty !== undefined ? customPig.customQty : baseGrams;
         const rate = customPig?.customRate !== undefined ? customPig.customRate : pig.ratePerKg;
         totalPigmentCost += (qty / 1000) * rate;
       });
@@ -786,9 +971,26 @@ export default function StoreRequisitionHub({
       totalPigmentCost = boq.pigmentCost;
     }
 
-    const groupACost = resin.cost + gel.cost + catalystGrams.cost + acceleratorGrams.cost + csm300.cost + Math.round(totalPigmentCost);
+    const includedExtraCost = activeExtraItems.reduce((sum, ext) => {
+      if (customUsageOverrides[`extra_${ext.id}`]?.excluded) return sum;
+      return sum + (Number(ext.amount) || 0);
+    }, 0);
+
+    const includedLockBoxCost = (boq.lockBoxBreakdown || []).reduce((sum, lb) => {
+      if (lb.isNoHardware) return sum;
+      if (customUsageOverrides[`lock_${lb.profileId}`]?.excluded) return sum;
+      return sum + Math.round(lb.totalBoxCost || 0);
+    }, 0);
+
+    const groupACost =
+      resin.cost +
+      gel.cost +
+      catalystGrams.cost +
+      acceleratorGrams.cost +
+      csm300.cost +
+      Math.round(totalPigmentCost);
     const groupBCost = timber.cost + foam.cost;
-    const grandTotalCost = groupACost + groupBCost + Math.round(boq.totalLockBoxCost) + extraItemsCost;
+    const grandTotalCost = groupACost + groupBCost + includedLockBoxCost + Math.round(includedExtraCost);
 
     return {
       resin,
@@ -800,9 +1002,355 @@ export default function StoreRequisitionHub({
       foam,
       groupACost,
       groupBCost,
+      includedExtraCost: Math.round(includedExtraCost),
+      includedLockBoxCost,
       grandTotalCost,
     };
-  }, [boq, ratesConfig, customUsageBufferPercent, customUsageOverrides, extraItemsCost]);
+  }, [boq, ratesConfig, customUsageBufferPercent, customUsageOverrides, activeExtraItems]);
+
+  // Build exact checked/marked material rows for Direct Issue & Store Issue Slip
+  const markedIssueItems = useMemo<BoqIssueVoucherItem[]>(() => {
+    const items: BoqIssueVoucherItem[] = [];
+    const mult = 1 + customUsageBufferPercent / 100;
+
+    if (effectiveBoq.resin.included && effectiveBoq.resin.qty > 0) {
+      items.push({
+        key: 'resin',
+        name: 'FRP Polyester Resin',
+        unit: 'Kg',
+        formulaQty: Number(boq.resinKg.toFixed(2)),
+        issuedQty: Number(effectiveBoq.resin.qty.toFixed(2)),
+        rate: effectiveBoq.resin.rate,
+        value: effectiveBoq.resin.cost,
+        category: 'Chemical',
+      });
+    }
+    if (effectiveBoq.gel.included && effectiveBoq.gel.qty > 0) {
+      items.push({
+        key: 'gel',
+        name: 'Gelcoat (GEL Surface Layer)',
+        unit: 'Kg',
+        formulaQty: Number(boq.gelKg.toFixed(2)),
+        issuedQty: Number(effectiveBoq.gel.qty.toFixed(2)),
+        rate: effectiveBoq.gel.rate,
+        value: effectiveBoq.gel.cost,
+        category: 'Chemical',
+      });
+    }
+    if (effectiveBoq.catalystGrams.included && effectiveBoq.catalystGrams.qty > 0) {
+      items.push({
+        key: 'catalystGrams',
+        name: 'Catalyst (MEKP Hardener)',
+        unit: 'gm',
+        formulaQty: Math.round(boq.catalystGrams),
+        issuedQty: Math.round(effectiveBoq.catalystGrams.qty),
+        rate: effectiveBoq.catalystGrams.rate,
+        value: effectiveBoq.catalystGrams.cost,
+        category: 'Catalyst',
+      });
+    }
+    if (effectiveBoq.acceleratorGrams.included && effectiveBoq.acceleratorGrams.qty > 0) {
+      items.push({
+        key: 'acceleratorGrams',
+        name: 'Accelerator (Cobalt Solution)',
+        unit: 'gm',
+        formulaQty: Math.round(boq.acceleratorGrams),
+        issuedQty: Math.round(effectiveBoq.acceleratorGrams.qty),
+        rate: effectiveBoq.acceleratorGrams.rate,
+        value: effectiveBoq.acceleratorGrams.cost,
+        category: 'Accelerator',
+      });
+    }
+    if (effectiveBoq.csm300.included && effectiveBoq.csm300.qty > 0) {
+      items.push({
+        key: 'csm300',
+        name: 'Chopped Strand Mat (300 GSM)',
+        unit: 'Kg',
+        formulaQty: Number(boq.csm300Kg.toFixed(2)),
+        issuedQty: Number(effectiveBoq.csm300.qty.toFixed(2)),
+        rate: effectiveBoq.csm300.rate,
+        value: effectiveBoq.csm300.cost,
+        category: '300 GSM',
+      });
+    }
+
+    (boq.pigmentByColour || []).forEach((pig) => {
+      const pigKey = `pigment_${pig.matchedRateKey || pig.colourLabel}`;
+      const customPig = customUsageOverrides[pigKey];
+      if (customPig?.excluded) return;
+      const baseGrams =
+        customUsageBufferPercent > 0
+          ? Math.round(pig.pigmentGrams * mult)
+          : Math.round(pig.pigmentGrams);
+      const qty = customPig?.customQty !== undefined ? customPig.customQty : baseGrams;
+      const rate = customPig?.customRate !== undefined ? customPig.customRate : pig.ratePerKg;
+      if (qty > 0) {
+        items.push({
+          key: pigKey,
+          name: `Pigment Paste — ${pig.colourLabel}`,
+          unit: 'gm',
+          formulaQty: Math.round(pig.pigmentGrams),
+          issuedQty: Math.round(qty),
+          rate: rate / 1000,
+          value: Math.round((qty / 1000) * rate),
+          category: 'Pigment',
+        });
+      }
+    });
+
+    if (effectiveBoq.timber.included && effectiveBoq.timber.qty > 0) {
+      items.push({
+        key: 'timber',
+        name: 'Timber Reepers (Frame + Shutter Wood)',
+        unit: 'Cu.Ft',
+        formulaQty: Number(boq.totalWoodCuFt.toFixed(4)),
+        issuedQty: Number(effectiveBoq.timber.qty.toFixed(4)),
+        rate: effectiveBoq.timber.rate,
+        value: effectiveBoq.timber.cost,
+        category: 'Timber Wood',
+      });
+    }
+
+    if (effectiveBoq.foam.included && effectiveBoq.foam.qty > 0) {
+      items.push({
+        key: 'foam',
+        name: `Rigid Foam Sheet (${ratesConfig.foamSheet.widthCm}×${ratesConfig.foamSheet.heightCm} cm)`,
+        unit: 'Sheets',
+        formulaQty: Number(boq.foamSheetsExact.toFixed(2)),
+        issuedQty: Number(effectiveBoq.foam.qty.toFixed(2)),
+        rate: effectiveBoq.foam.rate,
+        value: effectiveBoq.foam.cost,
+        category: 'Rigid Foam',
+      });
+    }
+
+    activeExtraItems.forEach((ext) => {
+      const extKey = `extra_${ext.id}`;
+      if (customUsageOverrides[extKey]?.excluded) return;
+      items.push({
+        key: extKey,
+        name: ext.itemName,
+        unit: ext.unit,
+        formulaQty: ext.quantity,
+        issuedQty: ext.quantity,
+        rate: ext.unitRate,
+        value: Math.round(ext.amount || 0),
+        category: ext.category || 'Extra Item',
+      });
+    });
+
+    (boq.lockBoxBreakdown || []).forEach((lb) => {
+      if (lb.isNoHardware) return;
+      const lockKey = `lock_${lb.profileId}`;
+      if (customUsageOverrides[lockKey]?.excluded) return;
+      if (lb.doorsCount > 0) {
+        items.push({
+          key: lockKey,
+          name: `${lb.boxName} (Lock Kit Box)`,
+          unit: 'Boxes',
+          formulaQty: lb.doorsCount,
+          issuedQty: lb.doorsCount,
+          rate: lb.boxCost,
+          value: Math.round(lb.totalBoxCost || 0),
+          category: 'Hardware / Lock',
+        });
+      }
+    });
+
+    return items;
+  }, [effectiveBoq, boq, ratesConfig, customUsageBufferPercent, customUsageOverrides, activeExtraItems]);
+
+  const markedIssueTotalValue = useMemo(
+    () => Math.round(markedIssueItems.reduce((sum, item) => sum + (Number(item.value) || 0), 0)),
+    [markedIssueItems]
+  );
+
+  const applyOrderUpdateAfterIssue = (result: DailyStoreIssueResult) => {
+    const updatedOrder = result.updatedOrder;
+    setOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.prodOrderId !== updatedOrder.id) return ord;
+        const doorById = new Map<string, typeof updatedOrder.doors[number]>();
+        (updatedOrder.doors || []).forEach((d) => {
+          if (d.id) doorById.set(d.id, d);
+          if (d.doorId) doorById.set(d.doorId, d);
+          if (d.doorNumber) doorById.set(d.doorNumber, d);
+        });
+        const mergedDoors = ord.doors.map((d) => {
+          const match =
+            (d.id && doorById.get(d.id)) ||
+            (d.doorId && doorById.get(d.doorId)) ||
+            (d.doorNumber && doorById.get(d.doorNumber));
+          if (!match) return d;
+          return {
+            ...d,
+            materialIssued: Boolean(match.materialIssued),
+            materialIssuedAt: match.materialIssuedAt,
+            materialIssueBatchId: match.materialIssueBatchId,
+            materialIssuedToGang: match.materialIssuedToGang,
+            materialIssuedValue: match.materialIssuedValue,
+          };
+        });
+        return {
+          ...ord,
+          boqIssuedAt: updatedOrder.boqIssuedAt ?? null,
+          doors: mergedDoors,
+        };
+      })
+    );
+
+    if (result.voucher) {
+      setOrderIssueVouchers((prev) => [
+        result.voucher,
+        ...prev.filter((v) => v.id !== result.voucher.id),
+      ]);
+    }
+    setOrderTotalIssuedValue(Number(result.totalOrderIssuedValue) || 0);
+
+    // Auto-select ONLY remaining pending doors (or clear selection once all doors are issued!)
+    const nextPendingKeys = (updatedOrder.doors || [])
+      .filter((d) => !d.materialIssued)
+      .map((d, i) => d.id || d.doorId || d.doorNumber || `door-${i}`);
+    setSelectedDoorIds(nextPendingKeys.length > 0 ? nextPendingKeys : []);
+  };
+
+  const handleDirectIssueSelectedDoors = async () => {
+    if (!selectedOrder?.prodOrderId) return;
+    const targetDoors = activeDoors;
+    const doorIds = targetDoors
+      .map((d) => d.id || d.doorId || d.doorNumber)
+      .filter(Boolean) as string[];
+    const doorNumbers = targetDoors.map((d, idx) => d.doorNumber || `D-${idx + 1}`);
+
+    if (doorIds.length === 0) {
+      setBoqIssueNotice({ type: 'error', text: 'Select at least 1 door before issuing BOQ.' });
+      return;
+    }
+    if (markedIssueItems.length === 0) {
+      setBoqIssueNotice({
+        type: 'error',
+        text: 'Mark/check at least 1 material item in Custom Usage before issuing.',
+      });
+      return;
+    }
+
+    setIsIssuingBoq(true);
+    setBoqIssueNotice(null);
+    try {
+      // 1. Persist custom usage edits first if any exist
+      if (hasCustomUsageOverrides || isCustomUsageEditMode) {
+        await apiFetch('/api/boq/custom-usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            batchKey: activeBatchKey,
+            bufferPercent: customUsageBufferPercent,
+            overrides: customUsageOverrides,
+            supervisorNotes: customUsageNotes,
+          }),
+        });
+      }
+
+      // 2. Record BOQ issue voucher & mark selected doors as issued
+      const res = await apiFetch('/api/boq/issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prodOrderId: selectedOrder.prodOrderId,
+          orderNumber: selectedOrder.orderNumber,
+          jobCardNumber: selectedOrder.jobCardNumber,
+          customerName: selectedOrder.customerName,
+          doorIds,
+          doorNumbers,
+          items: markedIssueItems,
+          shift: issueShift,
+          gangName: issueGangName.trim() || 'Production Floor Team',
+          bufferPercent: customUsageBufferPercent,
+          notes: customUsageNotes.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.data) {
+        throw new Error(json.error || `Failed to issue BOQ (HTTP ${res.status})`);
+      }
+
+      applyOrderUpdateAfterIssue(json.data as DailyStoreIssueResult);
+      setBoqIssueNotice({
+        type: 'success',
+        text:
+          json.message ||
+          `Issued ${json.data.voucher.voucherNumber} (₹${json.data.voucher.totalIssuedValue.toLocaleString('en-IN')})`,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to issue BOQ materials';
+      console.error('Failed to direct issue BOQ:', err);
+      setBoqIssueNotice({ type: 'error', text: msg });
+    } finally {
+      setIsIssuingBoq(false);
+    }
+  };
+
+  const handleReverseIssueVoucher = async (voucher: BoqIssueVoucherRecord) => {
+    setReversingVoucherId(voucher.id);
+    setBoqIssueNotice(null);
+    try {
+      const res = await apiFetch(`/api/boq/issue?id=${encodeURIComponent(voucher.id)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Could not reverse BOQ voucher');
+      }
+      setOrderIssueVouchers((prev) => prev.filter((v) => v.id !== voucher.id));
+      setOrderTotalIssuedValue(Number(json.data?.totalOrderIssuedValue) || 0);
+      if (json.data?.updatedOrder) {
+        const uo = json.data.updatedOrder;
+        setOrders((prev) =>
+          prev.map((ord) => {
+            if (ord.prodOrderId !== uo.id) return ord;
+            const doorById = new Map<string, any>();
+            (uo.doors || []).forEach((d: any) => {
+              if (d.id) doorById.set(d.id, d);
+              if (d.doorId) doorById.set(d.doorId, d);
+              if (d.doorNumber) doorById.set(d.doorNumber, d);
+            });
+            return {
+              ...ord,
+              boqIssuedAt: uo.boqIssuedAt ?? null,
+              doors: ord.doors.map((d) => {
+                const match =
+                  (d.id && doorById.get(d.id)) ||
+                  (d.doorId && doorById.get(d.doorId)) ||
+                  (d.doorNumber && doorById.get(d.doorNumber));
+                if (!match) return d;
+                return {
+                  ...d,
+                  materialIssued: Boolean(match.materialIssued),
+                  materialIssuedAt: match.materialIssuedAt,
+                  materialIssueBatchId: match.materialIssueBatchId,
+                  materialIssuedToGang: match.materialIssuedToGang,
+                  materialIssuedValue: match.materialIssuedValue,
+                };
+              }),
+            };
+          })
+        );
+        const nextPendingKeys = (uo.doors || [])
+          .filter((d: any) => !d.materialIssued)
+          .map((d: any, i: number) => d.id || d.doorId || d.doorNumber || `door-${i}`);
+        setSelectedDoorIds(nextPendingKeys);
+      }
+      setBoqIssueNotice({
+        type: 'success',
+        text: json.message || `Reversed ${voucher.voucherNumber} and restored doors to Pending.`,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to reverse voucher';
+      setBoqIssueNotice({ type: 'error', text: msg });
+    } finally {
+      setReversingVoucherId(null);
+    }
+  };
 
   const totalDoors = boq.totalDoors;
   const totalSqft = Number(boq.totalSqFt.toFixed(2));
@@ -836,7 +1384,7 @@ export default function StoreRequisitionHub({
     setIsSavingRates(true);
     setRatesSaveNotice(null);
     try {
-      const res = await fetch('/api/boq/material-rates', {
+      const res = await apiFetch('/api/boq/material-rates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(resetToDefaults ? { resetToDefaults: true } : draftRates),
@@ -1043,12 +1591,18 @@ export default function StoreRequisitionHub({
                   <>
                     {(orderHistoryFilter === 'ALL' || orderHistoryFilter === 'PENDING') &&
                       pendingBoqOrders.length > 0 && (
-                        <optgroup label="Pending BOQ Issue (പുതിയവ)">
-                          {pendingBoqOrders.map((o) => (
-                            <option key={o.id} value={o.id}>
-                              [PENDING] {o.jobCardNumber} — {o.customerName} ({o.doorsCount} Doors)
-                            </option>
-                          ))}
+                        <optgroup label="Pending / Partial BOQ Issue (പുതിയവ / ബാക്കിയുള്ളവ)">
+                          {pendingBoqOrders.map((o) => {
+                            const stats = getOrderIssueStats(o);
+                            const tag = stats.isPartial
+                              ? `[PARTIAL ${stats.issued}/${stats.total} • ${stats.pending} Left]`
+                              : `[PENDING]`;
+                            return (
+                              <option key={o.id} value={o.id}>
+                                {tag} {o.jobCardNumber} — {o.customerName} ({o.doorsCount} Doors)
+                              </option>
+                            );
+                          })}
                         </optgroup>
                       )}
                     {(orderHistoryFilter === 'ALL' || orderHistoryFilter === 'ISSUED') &&
@@ -1065,172 +1619,347 @@ export default function StoreRequisitionHub({
                 )}
               </select>
 
-              {selectedOrder && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setIsDailyIssueSlipOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black shadow cursor-pointer transition"
-                    title="Print Daily Store Material Issue Voucher for today's selected batch of doors"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Daily Issue Slip ({activeDoors.length} Doors)</span>
-                  </button>
-
-                  {selectedOrder.boqIssuedAt ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>BOQ Issued ({selectedOrder.boqIssuedAt.slice(0, 10)})</span>
-                    </span>
-                  ) : (
+              {selectedOrder && (() => {
+                const selStats = getOrderIssueStats(selectedOrder);
+                return (
+                  <>
                     <button
                       type="button"
-                      disabled={markingBoqIssued}
-                      onClick={handleMarkBoqIssued}
-                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow cursor-pointer disabled:opacity-50"
-                      title="Move this order into Already Issued BOQ History once materials are handed out"
+                      onClick={() => {
+                        setPreviewIssueVoucher(null);
+                        setIsDailyIssueSlipOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black shadow cursor-pointer transition"
+                      title="Print Daily Store Material Issue Voucher for today's selected batch of doors"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{markingBoqIssued ? 'Marking...' : '✓ Mark Entire BOQ Issued'}</span>
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Daily Issue Slip ({activeDoors.length} Doors)</span>
                     </button>
-                  )}
-                </>
-              )}
+
+                    {selStats.isFullyIssued ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>
+                          All {selStats.total} Doors Issued
+                          {selectedOrder.boqIssuedAt ? ` (${selectedOrder.boqIssuedAt.slice(0, 10)})` : ''}
+                        </span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={markingBoqIssued}
+                        onClick={handleMarkBoqIssued}
+                        className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow cursor-pointer disabled:opacity-50"
+                        title="Mark every remaining door in this order as issued and clear from Pending"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>
+                          {markingBoqIssued
+                            ? 'Marking...'
+                            : selStats.isPartial
+                            ? `✓ Mark Remaining ${selStats.pending} Issued`
+                            : '✓ Mark Entire BOQ Issued'}
+                        </span>
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>
       </div>
 
-      {/* DAILY PARTIAL DOOR SLICER (FOR PROGRESSIVE STAGES & DAILY MATERIAL LIMITS) */}
-      {!isBatchBoqMode && !isCustomCalcMode && !isConsumablesMode && selectedOrder && selectedOrder.doors.length > 0 && (
-        <div className="bg-[#0B132B] border border-amber-500/40 rounded-xl p-3.5 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-              <h4 className="text-xs font-black text-white uppercase tracking-wider">
-                Daily Door Slicer &amp; Heat Material Planning (ഇന്നത്തെ ബാച്ച് പ്ലാനിംഗ്)
-              </h4>
-              <span className="text-[10px] text-amber-300 font-bold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-600/40">
-                Selected: {activeDoors.length} of {selectedOrder.doors.length} Doors ({Math.round((activeDoors.length / selectedOrder.doors.length) * 100)}%)
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setSelectedDoorIds([])}
-                className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition ${
-                  selectedDoorIds.length === 0
-                    ? 'bg-amber-500 text-slate-950 font-black'
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                }`}
-              >
-                All Doors ({selectedOrder.doors.length})
-              </button>
-              {selectedOrder.doors.length >= 4 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const four = selectedOrder.doors.slice(0, 4).map((d) => d.id || d.doorId || d.doorNumber || '');
-                    setSelectedDoorIds(four);
-                  }}
-                  className="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 cursor-pointer"
-                >
-                  🔥 Today&apos;s 4 Doors
-                </button>
-              )}
-              {selectedOrder.doors.length >= 6 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const six = selectedOrder.doors.slice(0, 6).map((d) => d.id || d.doorId || d.doorNumber || '');
-                    setSelectedDoorIds(six);
-                  }}
-                  className="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 cursor-pointer"
-                >
-                  🔥 Today&apos;s 6 Doors
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  const pending = selectedOrder.doors
-                    .filter((d) => !d.materialIssued)
-                    .map((d) => d.id || d.doorId || d.doorNumber || '');
-                  setSelectedDoorIds(pending);
-                }}
-                className="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-rose-300 border border-rose-500/30 cursor-pointer"
-              >
-                ⏳ Pending Material Issue Only
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsDailyIssueSlipOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-black shadow cursor-pointer transition"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Daily Store Issue Slip ({activeDoors.length})</span>
-              </button>
-            </div>
+      {/* LIVE BOQ ISSUE NOTIFICATION BANNER */}
+      {boqIssueNotice && (
+        <div
+          className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 ${
+            boqIssueNotice.type === 'success'
+              ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-200'
+              : 'bg-rose-950/70 border-rose-500/50 text-rose-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{boqIssueNotice.text}</span>
           </div>
-
-          {/* Door Chips Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
-            {selectedOrder.doors.map((door, dIdx) => {
-              const dKey = door.id || door.doorId || door.doorNumber || `door-${dIdx}`;
-              const isSelected = selectedDoorIds.length === 0 || selectedDoorIds.includes(dKey);
-              return (
-                <label
-                  key={dKey}
-                  className={`flex items-start gap-2 p-2 rounded-lg border text-xs cursor-pointer transition ${
-                    isSelected
-                      ? 'bg-amber-950/40 border-amber-500/60 text-white'
-                      : 'bg-slate-900/60 border-slate-800 text-slate-400 opacity-60'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => {
-                      if (selectedDoorIds.length === 0) {
-                        const allKeys = selectedOrder.doors.map((d) => d.id || d.doorId || d.doorNumber || '');
-                        setSelectedDoorIds(allKeys.filter((k) => k !== dKey));
-                      } else if (selectedDoorIds.includes(dKey)) {
-                        setSelectedDoorIds(selectedDoorIds.filter((k) => k !== dKey));
-                      } else {
-                        setSelectedDoorIds([...selectedDoorIds, dKey]);
-                      }
-                    }}
-                    className="mt-0.5 rounded text-amber-500 bg-slate-950 border-slate-700 cursor-pointer"
-                  />
-                  <div className="min-w-0">
-                    <strong className="block text-[11px] truncate text-slate-200">
-                      {door.doorNumber || `Door #${dIdx + 1}`}
-                    </strong>
-                    <span className="block text-[10px] text-slate-400 font-mono">
-                      {door.widthCm}&times;{door.heightCm} cm
-                    </span>
-                    <div className="flex items-center gap-1 mt-1">
-                      <span className="px-1 py-0.2 rounded bg-slate-800 text-[9px] font-bold text-slate-300">
-                        {door.stage || 'QUEUED'}
-                      </span>
-                      {door.materialIssued ? (
-                        <span className="px-1 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-700/50 text-[8.5px] font-black">
-                          ✓ Issued
-                        </span>
-                      ) : (
-                        <span className="px-1 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-700/50 text-[8.5px] font-bold">
-                          ⏳ Pending
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </label>
-              );
-            })}
-          </div>
+          <button
+            type="button"
+            onClick={() => setBoqIssueNotice(null)}
+            className="p-1 rounded hover:bg-slate-800/60 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
+
+      {/* DAILY PARTIAL DOOR SLICER (FOR TEAM-WISE 2 / 3 / 4 / 6 DOOR BATCHES & PENDING CLEARING) */}
+      {!isBatchBoqMode && !isCustomCalcMode && !isConsumablesMode && selectedOrder && selectedOrder.doors.length > 0 && (() => {
+        const selStats = getOrderIssueStats(selectedOrder);
+        const pickNextPendingDoors = (count: number) => {
+          const pendingPool = selectedOrder.doors.filter((d) => !d.materialIssued);
+          const sourcePool = pendingPool.length > 0 ? pendingPool : selectedOrder.doors;
+          setSelectedDoorIds(sourcePool.slice(0, count).map((d, i) => getDoorKey(d, i)));
+        };
+
+        return (
+          <div className="bg-[#0B132B] border border-amber-500/40 rounded-xl p-3.5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                  Team-Wise Partial Door Slicer (പാർഷ്യൽ ഡോർ BOQ ബാച്ച്)
+                </h4>
+                <span className="text-[10px] text-amber-300 font-bold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-600/40">
+                  Selected: {activeDoors.length} of {selectedOrder.doors.length} Doors
+                </span>
+                <span className="text-[10px] text-emerald-300 font-bold px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-600/40">
+                  ✓ Issued: {selStats.issued}/{selStats.total}
+                </span>
+                {selStats.pending > 0 && (
+                  <span className="text-[10px] text-rose-300 font-bold px-2 py-0.5 rounded bg-rose-950/60 border border-rose-600/40">
+                    ⏳ Pending: {selStats.pending} Left
+                  </span>
+                )}
+                {orderTotalIssuedValue > 0 && (
+                  <span className="text-[10px] text-cyan-300 font-mono font-bold px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-600/40">
+                    Total Issued Value: ₹{orderTotalIssuedValue.toLocaleString('en-IN')}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                {selectedOrder.doors.length >= 2 && (
+                  <button
+                    type="button"
+                    onClick={() => pickNextPendingDoors(2)}
+                    className="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-amber-600 hover:text-slate-950 text-amber-300 border border-amber-500/40 cursor-pointer transition"
+                    title="Select the next 2 pending doors for a small team"
+                  >
+                    2 Doors
+                  </button>
+                )}
+                {selectedOrder.doors.length >= 3 && (
+                  <button
+                    type="button"
+                    onClick={() => pickNextPendingDoors(3)}
+                    className="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-amber-600 hover:text-slate-950 text-amber-300 border border-amber-500/40 cursor-pointer transition"
+                    title="Select the next 3 pending doors for a team"
+                  >
+                    3 Doors
+                  </button>
+                )}
+                {selectedOrder.doors.length >= 4 && (
+                  <button
+                    type="button"
+                    onClick={() => pickNextPendingDoors(4)}
+                    className="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-amber-600 hover:text-slate-950 text-amber-300 border border-amber-500/40 cursor-pointer transition"
+                  >
+                    4 Doors
+                  </button>
+                )}
+                {selectedOrder.doors.length >= 6 && (
+                  <button
+                    type="button"
+                    onClick={() => pickNextPendingDoors(6)}
+                    className="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-amber-600 hover:text-slate-950 text-amber-300 border border-amber-500/40 cursor-pointer transition"
+                  >
+                    6 Doors
+                  </button>
+                )}
+                {selStats.pending > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const pending = selectedOrder.doors
+                        .filter((d) => !d.materialIssued)
+                        .map((d, i) => getDoorKey(d, i));
+                      setSelectedDoorIds(pending);
+                    }}
+                    className="px-2.5 py-1 rounded text-[11px] font-bold bg-rose-950/70 hover:bg-rose-800 text-rose-200 border border-rose-500/40 cursor-pointer"
+                  >
+                    ⏳ All Pending ({selStats.pending})
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedDoorIds([])}
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition ${
+                    selectedDoorIds.length === 0
+                      ? 'bg-amber-500 text-slate-950 font-black'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  All Doors ({selectedOrder.doors.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDirectIssueSelectedDoors}
+                  disabled={isIssuingBoq || activeDoors.length === 0 || markedIssueItems.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-black shadow cursor-pointer transition disabled:opacity-50"
+                  title="Directly issue marked BOQ items for the selected doors and clear them from Pending"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>
+                    {isIssuingBoq
+                      ? 'Issuing...'
+                      : `✓ Issue ${activeDoors.length} Door${activeDoors.length === 1 ? '' : 's'} (₹${markedIssueTotalValue.toLocaleString('en-IN')})`}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewIssueVoucher(null);
+                    setIsDailyIssueSlipOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-black shadow cursor-pointer transition"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Slip</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Door Chips Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+              {selectedOrder.doors.map((door, dIdx) => {
+                const dKey = getDoorKey(door, dIdx);
+                const isSelected = selectedDoorIds.length === 0 || selectedDoorIds.includes(dKey);
+                return (
+                  <label
+                    key={dKey}
+                    className={`flex items-start gap-2 p-2 rounded-lg border text-xs cursor-pointer transition ${
+                      isSelected
+                        ? 'bg-amber-950/40 border-amber-500/60 text-white'
+                        : door.materialIssued
+                        ? 'bg-emerald-950/20 border-emerald-800/50 text-slate-300 opacity-75'
+                        : 'bg-slate-900/60 border-slate-800 text-slate-400 opacity-60'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        if (selectedDoorIds.length === 0) {
+                          const allKeys = selectedOrder.doors.map((d, i) => getDoorKey(d, i));
+                          setSelectedDoorIds(allKeys.filter((k) => k !== dKey));
+                        } else if (selectedDoorIds.includes(dKey)) {
+                          const next = selectedDoorIds.filter((k) => k !== dKey);
+                          setSelectedDoorIds(next);
+                        } else {
+                          setSelectedDoorIds([...selectedDoorIds, dKey]);
+                        }
+                      }}
+                      className="mt-0.5 rounded text-amber-500 bg-slate-950 border-slate-700 cursor-pointer"
+                    />
+                    <div className="min-w-0">
+                      <strong className="block text-[11px] truncate text-slate-200">
+                        {door.doorNumber || `Door #${dIdx + 1}`}
+                      </strong>
+                      <span className="block text-[10px] text-slate-400 font-mono">
+                        {door.widthCm}&times;{door.heightCm} cm
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        <span className="px-1 py-0.2 rounded bg-slate-800 text-[9px] font-bold text-slate-300">
+                          {door.stage || 'QUEUED'}
+                        </span>
+                        {door.materialIssued ? (
+                          <span className="px-1 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-700/50 text-[8.5px] font-black">
+                            ✓ Issued
+                          </span>
+                        ) : (
+                          <span className="px-1 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-700/50 text-[8.5px] font-bold">
+                            ⏳ Pending
+                          </span>
+                        )}
+                      </div>
+                      {door.materialIssued && (door.materialIssuedToGang || door.materialIssuedValue) && (
+                        <div className="text-[9px] text-emerald-300/90 mt-0.5 truncate">
+                          {door.materialIssuedToGang ? `${door.materialIssuedToGang}` : ''}
+                          {door.materialIssuedValue ? ` • ₹${door.materialIssuedValue.toLocaleString('en-IN')}` : ''}
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            {/* ORDER BOQ ISSUED VALUE & BATCH HISTORY STRIP */}
+            {orderIssueVouchers.length > 0 && (
+              <div className="pt-2.5 border-t border-slate-800/90 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] font-black text-emerald-300 uppercase tracking-wide">
+                    Issued Material Vouchers &amp; Value Ledger ({orderIssueVouchers.length} Batch{orderIssueVouchers.length === 1 ? '' : 'es'})
+                  </span>
+                  <span className="text-xs font-mono font-black text-emerald-400">
+                    Total Issued Value: ₹{orderTotalIssuedValue.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[11px] border border-slate-800 rounded-lg overflow-hidden">
+                    <thead className="bg-[#070D1E] text-[10px] uppercase text-slate-400">
+                      <tr>
+                        <th className="px-2.5 py-1.5">Voucher #</th>
+                        <th className="px-2.5 py-1.5">Date / Shift</th>
+                        <th className="px-2.5 py-1.5">Team / Gang</th>
+                        <th className="px-2.5 py-1.5">Doors Issued</th>
+                        <th className="px-2.5 py-1.5 text-center">Items</th>
+                        <th className="px-2.5 py-1.5 text-right">Issued Value (₹)</th>
+                        <th className="px-2.5 py-1.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/70 bg-slate-950/40">
+                      {orderIssueVouchers.map((v) => (
+                        <tr key={v.id} className="hover:bg-slate-800/30">
+                          <td className="px-2.5 py-1.5 font-mono font-bold text-amber-300">
+                            {v.voucherNumber}
+                          </td>
+                          <td className="px-2.5 py-1.5 text-slate-300">
+                            {v.issueDate} <span className="text-[9.5px] text-cyan-300">({v.shift})</span>
+                          </td>
+                          <td className="px-2.5 py-1.5 font-semibold text-white">{v.gangName}</td>
+                          <td className="px-2.5 py-1.5 text-emerald-300 font-mono">
+                            {v.doorsCount} ({v.doorNumbers.slice(0, 4).join(', ')}
+                            {v.doorNumbers.length > 4 ? ` +${v.doorNumbers.length - 4}` : ''})
+                          </td>
+                          <td className="px-2.5 py-1.5 text-center text-slate-300">
+                            {v.items.length}
+                          </td>
+                          <td className="px-2.5 py-1.5 text-right font-mono font-black text-emerald-400">
+                            ₹{Math.round(v.totalIssuedValue).toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-2.5 py-1.5 text-right space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPreviewIssueVoucher(v);
+                                setIsDailyIssueSlipOpen(true);
+                              }}
+                              className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-[10px] font-bold cursor-pointer"
+                            >
+                              Print Slip
+                            </button>
+                            <button
+                              type="button"
+                              disabled={reversingVoucherId === v.id}
+                              onClick={() => handleReverseIssueVoucher(v)}
+                              className="px-2 py-0.5 rounded bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-700/50 text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                              title="Undo this BOQ issue and restore its doors back to Pending"
+                            >
+                              {reversingVoucherId === v.id ? 'Undoing...' : 'Undo'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* FLOOR & EVENING CONSUMABLES REGISTER (STANDALONE EXTRA MATERIALS) */}
       {isConsumablesMode && (
@@ -1744,7 +2473,7 @@ export default function StoreRequisitionHub({
           </div>
         </div>
 
-        {/* Custom Usage Override Banner & Buffer Panel */}
+        {/* Custom Usage Override Banner & Direct Partial Issue Panel */}
         {(isCustomUsageEditMode || hasCustomUsageOverrides) && (
           <div className="p-3.5 bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/30 border-b border-amber-500/40 space-y-2.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1754,10 +2483,10 @@ export default function StoreRequisitionHub({
                 </div>
                 <div>
                   <h4 className="font-bold text-amber-300 text-xs">
-                    Custom Shop-Floor Usage &amp; Wastage Buffer Mode (കസ്റ്റം യൂസേജ് കൺട്രോൾ)
+                    Custom Shop-Floor Usage, Item Marking &amp; Direct Issue (കസ്റ്റം യൂസേജ് &amp; ഇഷ്യൂ)
                   </h4>
                   <p className="text-[10px] text-slate-300">
-                    Adjust usage buffer % or edit direct raw material quantities &amp; rates inline below for this consolidated run.
+                    Check/uncheck individual items below, edit quantities (അളവ്), and issue directly for the selected {activeDoors.length} door(s).
                   </p>
                 </div>
               </div>
@@ -1767,9 +2496,9 @@ export default function StoreRequisitionHub({
                 <span className="text-[10px] text-slate-400 font-semibold mr-1">Usage Buffer:</span>
                 {[
                   { label: '0% Std', val: 0 },
-                  { label: '+5% Buffer', val: 5 },
-                  { label: '+10% Extra', val: 10 },
-                  { label: '+15% Heavy', val: 15 },
+                  { label: '+5%', val: 5 },
+                  { label: '+10%', val: 10 },
+                  { label: '+15%', val: 15 },
                 ].map((preset) => (
                   <button
                     key={preset.val}
@@ -1801,21 +2530,94 @@ export default function StoreRequisitionHub({
                   type="button"
                   onClick={handleSaveCustomUsage}
                   disabled={isSavingCustomUsage}
-                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] shadow flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-emerald-700 text-emerald-300 hover:text-white border border-emerald-500/40 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{isSavingCustomUsage ? 'Saving...' : customUsageSaveSuccess ? 'Saved! ✓' : 'Save Custom BOQ'}</span>
+                  <span>{isSavingCustomUsage ? 'Saving...' : customUsageSaveSuccess ? 'Saved! ✓' : 'Save Only'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleResetCustomUsage}
                   className="px-2 py-1 bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-300 rounded-lg font-bold text-[10px] border border-slate-700 cursor-pointer"
-                  title="Reset all quantities and rates to standard formula baseline"
+                  title="Reset all quantities, checkboxes, and rates to standard formula baseline"
                 >
                   <RotateCcw className="w-3 h-3" />
                 </button>
               </div>
+            </div>
+
+            {/* Quick Item Marking Presets + Live Marked Value + Direct Issue Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+              <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                <span className="text-slate-400 font-bold">Mark Items:</span>
+                <button
+                  type="button"
+                  onClick={() => applyItemGroupPreset('ALL')}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/40 font-bold cursor-pointer"
+                >
+                  ✓ All Items
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyItemGroupPreset('CHEMICALS')}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/40 font-bold cursor-pointer"
+                >
+                  Chemicals Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyItemGroupPreset('WOOD_FOAM')}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-bold cursor-pointer"
+                >
+                  Wood &amp; Foam Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyItemGroupPreset('HARDWARE')}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-rose-300 border border-rose-500/40 font-bold cursor-pointer"
+                >
+                  Hardware / Locks Only
+                </button>
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 font-mono font-black text-xs">
+                  Marked Value ({markedIssueItems.length} items): ₹{markedIssueTotalValue.toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              {!isBatchBoqMode && !isCustomCalcMode && selectedOrder && (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <input
+                    type="text"
+                    value={issueGangName}
+                    onChange={(e) => setIssueGangName(e.target.value)}
+                    placeholder="Team / Gang Name"
+                    className="w-36 bg-[#070D1E] border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-semibold"
+                    title="Team / Gang receiving these materials"
+                  />
+                  <select
+                    value={issueShift}
+                    onChange={(e) => setIssueShift(e.target.value as BoqIssueShift)}
+                    className="bg-[#070D1E] border border-slate-700 rounded-lg px-2 py-1 text-xs text-cyan-200 font-bold cursor-pointer"
+                  >
+                    <option value="MORNING">Morning</option>
+                    <option value="AFTERNOON">Afternoon</option>
+                    <option value="EVENING">Evening</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleDirectIssueSelectedDoors}
+                    disabled={isIssuingBoq || activeDoors.length === 0 || markedIssueItems.length === 0}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-xs shadow-lg shadow-emerald-950/50 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>
+                      {isIssuingBoq
+                        ? 'Issuing...'
+                        : `✓ Save & Issue ${activeDoors.length} Door${activeDoors.length === 1 ? '' : 's'} (₹${markedIssueTotalValue.toLocaleString('en-IN')})`}
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Optional Supervisor Custom Notes */}
@@ -1825,7 +2627,7 @@ export default function StoreRequisitionHub({
                 type="text"
                 value={customUsageNotes}
                 onChange={(e) => setCustomUsageNotes(e.target.value)}
-                placeholder="e.g. Higher humidity day — 5% additional resin and catalyst approved for thick laminates..."
+                placeholder="e.g. Partial issue for 3 doors to Molding Team A — adjusted resin & gelcoat..."
                 className="flex-1 bg-[#070D1E] border border-slate-700/80 rounded px-2 py-0.5 text-xs text-slate-200 placeholder:text-slate-600 outline-none focus:border-amber-500"
               />
             </div>
@@ -1854,8 +2656,21 @@ export default function StoreRequisitionHub({
               </tr>
 
               {/* A1. RESIN */}
-              <tr className="hover:bg-slate-800/30">
-                <td className="p-3 font-bold text-white">A1</td>
+              <tr className={`hover:bg-slate-800/30 ${!effectiveBoq.resin.included ? 'opacity-45 line-through' : ''}`}>
+                <td className="p-3 font-bold text-white">
+                  <div className="flex items-center gap-1.5">
+                    {(isCustomUsageEditMode || hasCustomUsageOverrides) && (
+                      <input
+                        type="checkbox"
+                        checked={effectiveBoq.resin.included}
+                        onChange={() => toggleItemIncluded('resin')}
+                        className="w-3.5 h-3.5 rounded text-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                        title="Include/exclude Resin in this store issue batch"
+                      />
+                    )}
+                    <span>A1</span>
+                  </div>
+                </td>
                 <td className="p-3">
                   <strong className="text-white">FRP Polyester Resin</strong>
                   <br />
@@ -1920,8 +2735,21 @@ export default function StoreRequisitionHub({
               </tr>
 
               {/* A2. GELCOAT */}
-              <tr className="hover:bg-slate-800/30">
-                <td className="p-3 font-bold text-white">A2</td>
+              <tr className={`hover:bg-slate-800/30 ${!effectiveBoq.gel.included ? 'opacity-45 line-through' : ''}`}>
+                <td className="p-3 font-bold text-white">
+                  <div className="flex items-center gap-1.5">
+                    {(isCustomUsageEditMode || hasCustomUsageOverrides) && (
+                      <input
+                        type="checkbox"
+                        checked={effectiveBoq.gel.included}
+                        onChange={() => toggleItemIncluded('gel')}
+                        className="w-3.5 h-3.5 rounded text-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                        title="Include/exclude Gelcoat in this store issue batch"
+                      />
+                    )}
+                    <span>A2</span>
+                  </div>
+                </td>
                 <td className="p-3">
                   <strong className="text-white">Gelcoat (GEL Surface Layer)</strong>
                   <br />
@@ -1986,8 +2814,21 @@ export default function StoreRequisitionHub({
               </tr>
 
               {/* A3. CATALYST */}
-              <tr className="hover:bg-slate-800/30">
-                <td className="p-3 font-bold text-white">A3</td>
+              <tr className={`hover:bg-slate-800/30 ${!effectiveBoq.catalystGrams.included ? 'opacity-45 line-through' : ''}`}>
+                <td className="p-3 font-bold text-white">
+                  <div className="flex items-center gap-1.5">
+                    {(isCustomUsageEditMode || hasCustomUsageOverrides) && (
+                      <input
+                        type="checkbox"
+                        checked={effectiveBoq.catalystGrams.included}
+                        onChange={() => toggleItemIncluded('catalystGrams')}
+                        className="w-3.5 h-3.5 rounded text-cyan-500 bg-slate-950 border-slate-600 cursor-pointer"
+                        title="Include/exclude Catalyst in this store issue batch"
+                      />
+                    )}
+                    <span>A3</span>
+                  </div>
+                </td>
                 <td className="p-3">
                   <strong className="text-white">Catalyst (MEKP Hardener)</strong>
                   <br />
@@ -2042,8 +2883,21 @@ export default function StoreRequisitionHub({
               </tr>
 
               {/* A4. ACCELERATOR */}
-              <tr className="hover:bg-slate-800/30">
-                <td className="p-3 font-bold text-white">A4</td>
+              <tr className={`hover:bg-slate-800/30 ${!effectiveBoq.acceleratorGrams.included ? 'opacity-45 line-through' : ''}`}>
+                <td className="p-3 font-bold text-white">
+                  <div className="flex items-center gap-1.5">
+                    {(isCustomUsageEditMode || hasCustomUsageOverrides) && (
+                      <input
+                        type="checkbox"
+                        checked={effectiveBoq.acceleratorGrams.included}
+                        onChange={() => toggleItemIncluded('acceleratorGrams')}
+                        className="w-3.5 h-3.5 rounded text-cyan-500 bg-slate-950 border-slate-600 cursor-pointer"
+                        title="Include/exclude Accelerator in this store issue batch"
+                      />
+                    )}
+                    <span>A4</span>
+                  </div>
+                </td>
                 <td className="p-3">
                   <strong className="text-white">Accelerator (Cobalt Solution)</strong>
                   <br />
@@ -2098,8 +2952,21 @@ export default function StoreRequisitionHub({
               </tr>
 
               {/* A5. CSM 300 GSM */}
-              <tr className="hover:bg-slate-800/30">
-                <td className="p-3 font-bold text-white">A5</td>
+              <tr className={`hover:bg-slate-800/30 ${!effectiveBoq.csm300.included ? 'opacity-45 line-through' : ''}`}>
+                <td className="p-3 font-bold text-white">
+                  <div className="flex items-center gap-1.5">
+                    {(isCustomUsageEditMode || hasCustomUsageOverrides) && (
+                      <input
+                        type="checkbox"
+                        checked={effectiveBoq.csm300.included}
+                        onChange={() => toggleItemIncluded('csm300')}
+                        className="w-3.5 h-3.5 rounded text-amber-500 bg-slate-950 border-slate-600 cursor-pointer"
+                        title="Include/exclude CSM 300 GSM in this store issue batch"
+                      />
+                    )}
+                    <span>A5</span>
+                  </div>
+                </td>
                 <td className="p-3">
                   <strong className="text-white">Chopped Strand Mat (300 GSM)</strong>
                   <br />
@@ -2154,13 +3021,30 @@ export default function StoreRequisitionHub({
               {boq.pigmentByColour.map((pig, pIdx) => {
                 const pigKey = `pigment_${pig.matchedRateKey || pig.colourLabel}`;
                 const customPig = customUsageOverrides[pigKey];
+                const pigIncluded = !customPig?.excluded;
                 const displayQty = customPig?.customQty !== undefined ? customPig.customQty : Math.round(pig.pigmentGrams);
                 const displayRate = customPig?.customRate !== undefined ? customPig.customRate : pig.ratePerKg;
-                const displayCost = Math.round((displayQty / 1000) * displayRate);
+                const displayCost = pigIncluded ? Math.round((displayQty / 1000) * displayRate) : 0;
 
                 return (
-                  <tr key={`pig-${pig.matchedRateKey}-${pIdx}`} className="hover:bg-slate-800/30">
-                    <td className="p-3 font-bold text-white">A6.{pIdx + 1}</td>
+                  <tr
+                    key={`pig-${pig.matchedRateKey}-${pIdx}`}
+                    className={`hover:bg-slate-800/30 ${!pigIncluded ? 'opacity-45 line-through' : ''}`}
+                  >
+                    <td className="p-3 font-bold text-white">
+                      <div className="flex items-center gap-1.5">
+                        {(isCustomUsageEditMode || hasCustomUsageOverrides) && (
+                          <input
+                            type="checkbox"
+                            checked={pigIncluded}
+                            onChange={() => toggleItemIncluded(pigKey)}
+                            className="w-3.5 h-3.5 rounded text-purple-500 bg-slate-950 border-slate-600 cursor-pointer"
+                            title="Include/exclude Pigment in this store issue batch"
+                          />
+                        )}
+                        <span>A6.{pIdx + 1}</span>
+                      </div>
+                    </td>
                     <td className="p-3">
                       <strong className="text-white flex items-center gap-1.5">
                         <Palette className="w-3.5 h-3.5 text-purple-400" />
@@ -2343,17 +3227,64 @@ export default function StoreRequisitionHub({
                 </td>
               </tr>
 
-              {/* GROUP B SUBTOTAL */}
-              <tr className="bg-amber-950/15 border-y border-amber-800/40">
+              {/* GROUP B SUBTOTAL (WITH CUSTOM TIMBER CHECKBOX & QTY EDIT) */}
+              <tr className={`bg-amber-950/15 border-y border-amber-800/40 ${!effectiveBoq.timber.included ? 'opacity-45 line-through' : ''}`}>
                 <td colSpan={3} className="p-3 text-right font-bold text-amber-200 text-[11px]">
-                  Total Wood Volume (Frame {boq.frameWoodCuFt.toFixed(4)} + Shutter {boq.shutterWoodCuFt.toFixed(4)} Cu.Ft):
+                  <div className="flex items-center justify-end gap-2">
+                    {(isCustomUsageEditMode || hasCustomUsageOverrides) && (
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-amber-300">
+                        <input
+                          type="checkbox"
+                          checked={effectiveBoq.timber.included}
+                          onChange={() => toggleItemIncluded('timber')}
+                          className="w-3.5 h-3.5 rounded text-amber-500 bg-slate-950 border-slate-600 cursor-pointer"
+                        />
+                        <span>Include Timber</span>
+                      </label>
+                    )}
+                    <span>
+                      Total Wood Volume (Frame {boq.frameWoodCuFt.toFixed(4)} + Shutter {boq.shutterWoodCuFt.toFixed(4)} Cu.Ft):
+                    </span>
+                  </div>
                 </td>
                 <td className="p-3 text-right font-black text-amber-400">
-                  {boq.totalWoodCuFt.toFixed(4)} Cu.Ft
+                  {isCustomUsageEditMode ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        value={Number(effectiveBoq.timber.qty.toFixed(4))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) =>
+                          updateItemCustomQty('timber', e.target.value === '' ? 0 : parseFloat(e.target.value))
+                        }
+                        className="w-20 px-2 py-1 bg-slate-900 border border-amber-500/80 rounded text-right font-mono font-bold text-amber-300 text-xs"
+                      />
+                      <span className="text-[10px] text-slate-400">Cu.Ft</span>
+                    </div>
+                  ) : (
+                    <span>{effectiveBoq.timber.qty.toFixed(4)} Cu.Ft</span>
+                  )}
                 </td>
-                <td className="p-3 text-right text-slate-400">₹{ratesConfig.woodRatePerCuFt}</td>
+                <td className="p-3 text-right text-slate-400">
+                  {isCustomUsageEditMode ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <span className="text-[10px] text-slate-400">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={effectiveBoq.timber.rate}
+                        onChange={(e) => updateItemCustomRate('timber', parseFloat(e.target.value))}
+                        className="w-16 px-1.5 py-1 bg-slate-900 border border-slate-700 rounded text-right font-mono text-white text-xs"
+                      />
+                    </div>
+                  ) : (
+                    <span>₹{effectiveBoq.timber.rate}</span>
+                  )}
+                </td>
                 <td className="p-3 text-right font-black text-amber-300">
-                  ₹{Math.round(boq.totalWoodCost).toLocaleString('en-IN')}
+                  ₹{effectiveBoq.timber.cost.toLocaleString('en-IN')}
                 </td>
                 <td />
               </tr>
@@ -2366,8 +3297,21 @@ export default function StoreRequisitionHub({
               </tr>
 
               {/* C1. RIGID FOAM SHEET */}
-              <tr className="hover:bg-slate-800/30">
-                <td className="p-3 font-bold text-white">C1</td>
+              <tr className={`hover:bg-slate-800/30 ${!effectiveBoq.foam.included ? 'opacity-45 line-through' : ''}`}>
+                <td className="p-3 font-bold text-white">
+                  <div className="flex items-center gap-1.5">
+                    {(isCustomUsageEditMode || hasCustomUsageOverrides) && (
+                      <input
+                        type="checkbox"
+                        checked={effectiveBoq.foam.included}
+                        onChange={() => toggleItemIncluded('foam')}
+                        className="w-3.5 h-3.5 rounded text-sky-500 bg-slate-950 border-slate-600 cursor-pointer"
+                        title="Include/exclude Rigid Foam in this store issue batch"
+                      />
+                    )}
+                    <span>C1</span>
+                  </div>
+                </td>
                 <td className="p-3">
                   <strong className="text-white flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5 text-sky-400" />
@@ -2470,9 +3414,25 @@ export default function StoreRequisitionHub({
                   </td>
                 </tr>
               ) : (
-                activeExtraItems.map((ext, eIdx) => (
-                  <tr key={ext.id} className="hover:bg-slate-800/30">
-                    <td className="p-3 font-bold text-white">D{eIdx + 1}</td>
+                activeExtraItems.map((ext, eIdx) => {
+                  const extKey = `extra_${ext.id}`;
+                  const extIncluded = isItemIncluded(extKey);
+                  return (
+                  <tr key={ext.id} className={`hover:bg-slate-800/30 ${!extIncluded ? 'opacity-45 line-through' : ''}`}>
+                    <td className="p-3 font-bold text-white">
+                      <div className="flex items-center gap-1.5">
+                        {(isCustomUsageEditMode || hasCustomUsageOverrides) && (
+                          <input
+                            type="checkbox"
+                            checked={extIncluded}
+                            onChange={() => toggleItemIncluded(extKey)}
+                            className="w-3.5 h-3.5 rounded text-purple-500 bg-slate-950 border-slate-600 cursor-pointer"
+                            title="Include/exclude Extra Item in this store issue batch"
+                          />
+                        )}
+                        <span>D{eIdx + 1}</span>
+                      </div>
+                    </td>
                     <td className="p-3">
                       <strong className="text-white">{ext.itemName}</strong>
                       {ext.specNote && (
@@ -2490,7 +3450,7 @@ export default function StoreRequisitionHub({
                       ₹{ext.unitRate.toLocaleString('en-IN')} / {ext.unit}
                     </td>
                     <td className="p-3 text-right font-bold text-white">
-                      ₹{Math.round(ext.amount).toLocaleString('en-IN')}
+                      ₹{(extIncluded ? Math.round(ext.amount) : 0).toLocaleString('en-IN')}
                     </td>
                     <td className="p-3 text-center">
                       <div className="inline-flex items-center gap-1.5">
@@ -2513,7 +3473,8 @@ export default function StoreRequisitionHub({
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
 
               {/* GROUP E HEADER — LOCK BOX KITS & PRODUCTION RUSH READINESS */}
@@ -2541,9 +3502,27 @@ export default function StoreRequisitionHub({
                   (p) => p.id === lb.profileId
                 );
                 const readiness = getLockReadinessStatus(lb.profileId);
+                const lockKey = `lock_${lb.profileId}`;
+                const lockIncluded = lb.isNoHardware ? true : isItemIncluded(lockKey);
                 return (
-                  <tr key={`lockbox-${lb.profileId}-${lIdx}`} className="hover:bg-slate-800/30">
-                    <td className="p-3 font-bold text-white">E{lIdx + 1}</td>
+                  <tr
+                    key={`lockbox-${lb.profileId}-${lIdx}`}
+                    className={`hover:bg-slate-800/30 ${!lockIncluded ? 'opacity-45 line-through' : ''}`}
+                  >
+                    <td className="p-3 font-bold text-white">
+                      <div className="flex items-center gap-1.5">
+                        {(isCustomUsageEditMode || hasCustomUsageOverrides) && !lb.isNoHardware && (
+                          <input
+                            type="checkbox"
+                            checked={lockIncluded}
+                            onChange={() => toggleItemIncluded(lockKey)}
+                            className="w-3.5 h-3.5 rounded text-rose-500 bg-slate-950 border-slate-600 cursor-pointer"
+                            title="Include/exclude Lock Kit Box in this store issue batch"
+                          />
+                        )}
+                        <span>E{lIdx + 1}</span>
+                      </div>
+                    </td>
                     <td className="p-3">
                       <strong className="text-white flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5 text-rose-400" />
@@ -3894,7 +4873,7 @@ export default function StoreRequisitionHub({
         initialSourceType="FLOOR_CONSUMABLES"
         initialNotes={`Evening / Floor Consumables Batch (${new Date().toISOString().slice(0, 10)})`}
         onCreated={() => {
-          fetch('/api/boq/extra-items')
+          apiFetch('/api/boq/extra-items')
             .then((r) => r.json())
             .then((json) => {
               if (json.success && Array.isArray(json.data)) setExtraItems(json.data);
@@ -3905,12 +4884,16 @@ export default function StoreRequisitionHub({
 
       <DailyStoreIssueSlipModal
         isOpen={isDailyIssueSlipOpen}
-        onClose={() => setIsDailyIssueSlipOpen(false)}
+        onClose={() => {
+          setIsDailyIssueSlipOpen(false);
+          setPreviewIssueVoucher(null);
+        }}
         order={
           selectedOrder
             ? {
                 id: selectedOrder.id,
                 prodOrderId: selectedOrder.prodOrderId,
+                orderNumber: selectedOrder.orderNumber,
                 jobCardNumber: selectedOrder.jobCardNumber,
                 customerName: selectedOrder.customerName,
                 siteName: selectedOrder.siteName,
@@ -3921,20 +4904,20 @@ export default function StoreRequisitionHub({
         selectedDoors={activeDoors}
         boq={boq}
         ratesConfig={ratesConfig}
-        onIssued={(issuedIds) => {
-          setOrders((prev) =>
-            prev.map((ord) => {
-              if (ord.prodOrderId === selectedOrder?.prodOrderId) {
-                const updatedDoors = ord.doors.map((d) =>
-                  issuedIds.includes(d.id || '') || issuedIds.includes(d.doorId || '')
-                    ? { ...d, materialIssued: true, materialIssuedAt: new Date().toISOString() }
-                    : d
-                );
-                return { ...ord, doors: updatedDoors };
-              }
-              return ord;
-            })
-          );
+        customItems={markedIssueItems}
+        bufferPercent={customUsageBufferPercent}
+        initialGangName={issueGangName}
+        initialShift={issueShift}
+        notes={customUsageNotes}
+        previewVoucher={previewIssueVoucher}
+        onIssued={(result) => {
+          applyOrderUpdateAfterIssue(result);
+          setBoqIssueNotice({
+            type: 'success',
+            text: result.allDoorsIssued
+              ? `Issued ${result.voucher.voucherNumber} (₹${result.voucher.totalIssuedValue.toLocaleString('en-IN')}) — All doors issued & cleared from Pending!`
+              : `Issued ${result.voucher.voucherNumber} for ${result.voucher.doorsCount} door(s) (₹${result.voucher.totalIssuedValue.toLocaleString('en-IN')}) — ${result.remainingPendingDoors} door(s) still Pending.`,
+          });
         }}
       />
     </div>

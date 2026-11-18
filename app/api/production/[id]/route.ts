@@ -171,6 +171,8 @@ export async function PUT(
       const updated = await recordDoorMaterialIssue(id, {
         doorIds: body.doorIds || [],
         batchId: body.batchId,
+        gangName: body.gangName,
+        totalIssuedValue: body.totalIssuedValue,
         notes: body.notes,
       });
       return NextResponse.json({

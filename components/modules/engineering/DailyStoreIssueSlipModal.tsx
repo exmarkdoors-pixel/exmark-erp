@@ -1,8 +1,44 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Printer, CheckCircle2, PackageCheck, AlertCircle, Calendar, User, Clock, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  X,
+  Printer,
+  CheckCircle2,
+  PackageCheck,
+  AlertCircle,
+  User,
+  Clock,
+  ShieldCheck,
+} from 'lucide-react';
 import { BatchBoqCalculation, BoqDoorInput, BoqMaterialRatesConfig } from '@/lib/utils/boqFormulaEngine';
+import { apiFetch } from '@/lib/api/apiClient';
+import type {
+  BoqIssueShift,
+  BoqIssueVoucherItem,
+  BoqIssueVoucherRecord,
+} from '@/lib/services/boqIssueService';
+
+export interface DailyStoreIssueResult {
+  voucher: BoqIssueVoucherRecord;
+  updatedOrder: {
+    id: string;
+    boqIssuedAt?: string | null;
+    doors: Array<{
+      id?: string;
+      doorId?: string;
+      doorNumber?: string;
+      materialIssued?: boolean;
+      materialIssuedAt?: string;
+      materialIssueBatchId?: string;
+      materialIssuedToGang?: string;
+      materialIssuedValue?: number;
+    }>;
+  };
+  allDoorsIssued: boolean;
+  remainingPendingDoors: number;
+  totalOrderIssuedValue: number;
+}
 
 interface DailyStoreIssueSlipModalProps {
   isOpen: boolean;
@@ -10,6 +46,7 @@ interface DailyStoreIssueSlipModalProps {
   order: {
     id: string;
     prodOrderId?: string;
+    orderNumber?: string;
     jobCardNumber: string;
     customerName: string;
     siteName?: string;
@@ -18,7 +55,13 @@ interface DailyStoreIssueSlipModalProps {
   selectedDoors: BoqDoorInput[];
   boq: BatchBoqCalculation;
   ratesConfig: BoqMaterialRatesConfig;
-  onIssued?: (issuedDoorIds: string[]) => void;
+  customItems?: BoqIssueVoucherItem[];
+  bufferPercent?: number;
+  initialGangName?: string;
+  initialShift?: BoqIssueShift;
+  notes?: string;
+  previewVoucher?: BoqIssueVoucherRecord | null;
+  onIssued?: (result: DailyStoreIssueResult) => void;
 }
 
 export function DailyStoreIssueSlipModal({
@@ -28,49 +71,195 @@ export function DailyStoreIssueSlipModal({
   selectedDoors,
   boq,
   ratesConfig,
+  customItems,
+  bufferPercent = 0,
+  initialGangName = 'ASHIK (Floor Gang)',
+  initialShift = 'MORNING',
+  notes = '',
+  previewVoucher = null,
   onIssued,
 }: DailyStoreIssueSlipModalProps) {
-  const [shift, setShift] = useState<'MORNING' | 'AFTERNOON' | 'EVENING'>('MORNING');
-  const [gangName, setGangName] = useState<string>('ASHIK (Floor Gang)');
+  const [shift, setShift] = useState<BoqIssueShift>(initialShift);
+  const [gangName, setGangName] = useState<string>(initialGangName || 'ASHIK (Floor Gang)');
   const [storekeeperName, setStorekeeperName] = useState<string>('Storekeeper In-Charge');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [issueNotice, setIssueNotice] = useState<string | null>(null);
+  const [issueError, setIssueError] = useState<string | null>(null);
+  const [savedVoucherNumber, setSavedVoucherNumber] = useState<string | null>(null);
 
-  if (!isOpen || !order) return null;
+  useEffect(() => {
+    if (isOpen) {
+      setShift(previewVoucher?.shift || initialShift || 'MORNING');
+      setGangName(previewVoucher?.gangName || initialGangName || 'ASHIK (Floor Gang)');
+      setStorekeeperName(previewVoucher?.issuedBy || 'Storekeeper In-Charge');
+      setIssueNotice(null);
+      setIssueError(null);
+      setSavedVoucherNumber(previewVoucher?.voucherNumber || null);
+    }
+  }, [isOpen, initialGangName, initialShift, previewVoucher]);
 
-  const totalDoorsInOrder = order.doorsCount || selectedDoors.length;
-  const selectedCount = selectedDoors.length;
+  const effectiveItems = useMemo<BoqIssueVoucherItem[]>(() => {
+    if (previewVoucher && previewVoucher.items.length > 0) {
+      return previewVoucher.items;
+    }
+    if (customItems && customItems.length > 0) {
+      return customItems;
+    }
+    return [
+      {
+        key: 'resin',
+        name: 'General Purpose FRP Polyester Resin',
+        unit: 'Kg',
+        formulaQty: Number(boq.resinKg.toFixed(2)),
+        issuedQty: Number(boq.resinKg.toFixed(2)),
+        rate: ratesConfig.resinRatePerKg,
+        value: Math.round(boq.resinKg * ratesConfig.resinRatePerKg),
+        category: 'Chemical',
+      },
+      {
+        key: 'gel',
+        name: 'ISO/NPG Gelcoat Surface Coat',
+        unit: 'Kg',
+        formulaQty: Number(boq.gelKg.toFixed(2)),
+        issuedQty: Number(boq.gelKg.toFixed(2)),
+        rate: ratesConfig.gelRatePerKg,
+        value: Math.round(boq.gelKg * ratesConfig.gelRatePerKg),
+        category: 'Chemical',
+      },
+      {
+        key: 'csm300',
+        name: 'Chopped Strand Mat (CSM 300 GSM)',
+        unit: 'Kg',
+        formulaQty: Number(boq.csm300Kg.toFixed(2)),
+        issuedQty: Number(boq.csm300Kg.toFixed(2)),
+        rate: ratesConfig.csm300RatePerKg,
+        value: Math.round(boq.csm300Kg * ratesConfig.csm300RatePerKg),
+        category: '300 GSM',
+      },
+      {
+        key: 'catalystGrams',
+        name: 'MEKP Catalyst (Hardener)',
+        unit: 'gm',
+        formulaQty: Math.round(boq.catalystGrams),
+        issuedQty: Math.round(boq.catalystGrams),
+        rate: ratesConfig.catalystRatePerKg / 1000,
+        value: Math.round((boq.catalystGrams / 1000) * ratesConfig.catalystRatePerKg),
+        category: 'Catalyst',
+      },
+      {
+        key: 'acceleratorGrams',
+        name: 'Cobalt Octoate Accelerator',
+        unit: 'gm',
+        formulaQty: Math.round(boq.acceleratorGrams),
+        issuedQty: Math.round(boq.acceleratorGrams),
+        rate: ratesConfig.acceleratorRatePerKg / 1000,
+        value: Math.round((boq.acceleratorGrams / 1000) * ratesConfig.acceleratorRatePerKg),
+        category: 'Accelerator',
+      },
+      {
+        key: 'timber',
+        name: 'Timber Reepers (Frame + Shutter Wood)',
+        unit: 'Cu.Ft',
+        formulaQty: Number(boq.totalWoodCuFt.toFixed(4)),
+        issuedQty: Number(boq.totalWoodCuFt.toFixed(4)),
+        rate: ratesConfig.woodRatePerCuFt,
+        value: Math.round(boq.totalWoodCuFt * ratesConfig.woodRatePerCuFt),
+        category: 'Timber',
+      },
+      {
+        key: 'foam',
+        name: `Rigid Foam Sheet (${ratesConfig.foamSheet.widthCm}×${ratesConfig.foamSheet.heightCm} cm)`,
+        unit: 'Sheets',
+        formulaQty: Number(boq.foamSheetsExact.toFixed(2)),
+        issuedQty: Number(boq.foamSheetsExact.toFixed(2)),
+        rate: ratesConfig.foamSheet.costPerSheet,
+        value: Math.round(boq.foamSheetsExact * ratesConfig.foamSheet.costPerSheet),
+        category: 'Rigid Foam',
+      },
+    ];
+  }, [previewVoucher, customItems, boq, ratesConfig]);
+
+  if (!isOpen || (!order && !previewVoucher)) return null;
+
+  const isHistoricalPreview = Boolean(previewVoucher);
+  const displayJobCard = previewVoucher?.jobCardNumber || order?.jobCardNumber || '';
+  const displayCustomer = previewVoucher?.customerName || order?.customerName || '';
+  const totalDoorsInOrder = order?.doorsCount || previewVoucher?.doorsCount || selectedDoors.length;
+  const selectedCount = previewVoucher ? previewVoucher.doorsCount : selectedDoors.length;
   const pct = totalDoorsInOrder > 0 ? Math.round((selectedCount / totalDoorsInOrder) * 100) : 100;
-  const voucherNumber = `VCH-${order.jobCardNumber.replace(/[^0-9]/g, '')}-${Date.now().toString().slice(-4)}`;
-  const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const voucherNumber =
+    savedVoucherNumber ||
+    `VCH-${displayJobCard.replace(/[^0-9]/g, '')}-${Date.now().toString().slice(-4)}`;
+  const todayStr = previewVoucher?.issueDate
+    ? previewVoucher.issueDate
+    : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const totalSlipValue = Math.round(
+    effectiveItems.reduce((sum, item) => sum + (Number(item.value) || 0), 0)
+  );
 
   const handleConfirmAndPrint = async () => {
+    if (isHistoricalPreview) {
+      window.print();
+      return;
+    }
+
     setIsSubmitting(true);
+    setIssueError(null);
     try {
-      const doorIds = selectedDoors.map((d) => d.id || d.doorId).filter(Boolean) as string[];
-      if (doorIds.length > 0 && order.prodOrderId) {
-        await fetch(`/api/production/${encodeURIComponent(order.prodOrderId)}`, {
-          method: 'PUT',
+      const doorIds = selectedDoors
+        .map((d) => d.id || d.doorId || d.doorNumber)
+        .filter(Boolean) as string[];
+      const doorNumbers = selectedDoors.map((d, idx) => d.doorNumber || `D-${idx + 1}`);
+
+      if (doorIds.length === 0) {
+        setIssueError('Select at least one door before confirming material issue.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (order?.prodOrderId) {
+        const res = await apiFetch('/api/boq/issue', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'ISSUE_DOOR_MATERIALS',
+            prodOrderId: order.prodOrderId,
+            orderNumber: order.orderNumber || order.id,
+            jobCardNumber: order.jobCardNumber,
+            customerName: order.customerName,
             doorIds,
-            gangName,
+            doorNumbers,
+            items: effectiveItems,
             shift,
+            gangName: gangName.trim() || 'Production Floor Team',
+            issuedBy: storekeeperName.trim() || 'Storekeeper In-Charge',
+            bufferPercent,
+            notes: notes.trim() || undefined,
           }),
         });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || `HTTP ${res.status} while saving BOQ issue voucher`);
+        }
+
+        const result = json.data as DailyStoreIssueResult;
+        setSavedVoucherNumber(result.voucher.voucherNumber);
+        setIssueNotice(
+          json.message ||
+            `Issued ${result.voucher.voucherNumber} for ${selectedCount} doors (₹${result.voucher.totalIssuedValue.toLocaleString('en-IN')}). Printing voucher...`
+        );
         if (onIssued) {
-          onIssued(doorIds);
+          onIssued(result);
         }
       }
-      setIssueNotice(`Issued materials for ${selectedCount} doors in Job Card ${order.jobCardNumber}. Printing voucher...`);
+
       setTimeout(() => {
         window.print();
         setIsSubmitting(false);
-      }, 500);
+      }, 450);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to record material issue';
       console.error('Failed to record material issue:', err);
-      window.print();
+      setIssueError(msg);
       setIsSubmitting(false);
     }
   };
@@ -78,11 +267,17 @@ export function DailyStoreIssueSlipModal({
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-xs printable-modal-root">
       <div className="relative w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-[#070D1E] text-slate-100 rounded-2xl shadow-2xl border border-slate-700 p-4 sm:p-6 space-y-4 print:p-0 print:m-0 print:border-none print:shadow-none print:bg-white print:text-black print:max-w-none print:max-h-none print:overflow-visible">
-        {/* Toast */}
+        {/* Notices */}
         {issueNotice && (
           <div className="p-2.5 bg-emerald-950/80 border border-emerald-500/50 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 print:hidden">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{issueNotice}</span>
+          </div>
+        )}
+        {issueError && (
+          <div className="p-2.5 bg-rose-950/80 border border-rose-500/50 rounded-xl text-rose-300 text-xs font-bold flex items-center gap-2 print:hidden">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>{issueError}</span>
           </div>
         )}
 
@@ -93,14 +288,20 @@ export function DailyStoreIssueSlipModal({
               <PackageCheck className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-base font-black text-white flex items-center gap-2">
-                <span>Daily Store Material Issue Slip</span>
+              <h2 className="text-base font-black text-white flex items-center gap-2 flex-wrap">
+                <span>
+                  {isHistoricalPreview ? 'Saved BOQ Material Issue Voucher' : 'Daily Store Material Issue Slip'}
+                </span>
                 <span className="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/40 font-mono text-xs text-amber-300">
-                  {order.jobCardNumber}
+                  {displayJobCard}
+                </span>
+                <span className="px-2 py-0.5 rounded bg-emerald-600/20 border border-emerald-500/40 font-mono text-xs text-emerald-300">
+                  Value: ₹{totalSlipValue.toLocaleString('en-IN')}
                 </span>
               </h2>
               <p className="text-[11px] text-slate-400">
-                Slicing <strong className="text-white">{selectedCount} Doors</strong> for Today&apos;s Heat &bull; Customer: <span className="text-slate-200">{order.customerName}</span>
+                {selectedCount} Doors &bull; {effectiveItems.length} Marked Material Items &bull; Customer:{' '}
+                <span className="text-slate-200">{displayCustomer}</span>
               </p>
             </div>
           </div>
@@ -109,11 +310,17 @@ export function DailyStoreIssueSlipModal({
             <button
               type="button"
               onClick={handleConfirmAndPrint}
-              disabled={isSubmitting || selectedCount === 0}
+              disabled={isSubmitting || selectedCount === 0 || effectiveItems.length === 0}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-950/50 cursor-pointer transition disabled:opacity-50"
             >
               <Printer className="w-4 h-4" />
-              <span>{isSubmitting ? 'Recording Issue...' : 'Confirm Issue & Print Slip'}</span>
+              <span>
+                {isHistoricalPreview
+                  ? 'Print Voucher'
+                  : isSubmitting
+                  ? 'Recording Issue...'
+                  : `Confirm Issue (₹${totalSlipValue.toLocaleString('en-IN')}) & Print`}
+              </span>
             </button>
             <button
               type="button"
@@ -126,51 +333,53 @@ export function DailyStoreIssueSlipModal({
         </div>
 
         {/* Control Bar (Shift & Contractor Inputs - Hidden in Print) */}
-        <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs print:hidden">
-          <div>
-            <label className="block text-[10.5px] font-bold text-slate-400 mb-1 flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Manufacturing Shift</span>
-            </label>
-            <select
-              value={shift}
-              onChange={(e) => setShift(e.target.value as any)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-slate-200 text-xs font-bold cursor-pointer"
-            >
-              <option value="MORNING">Morning Shift (08:00 AM - 02:00 PM)</option>
-              <option value="AFTERNOON">Afternoon Shift (02:00 PM - 08:00 PM)</option>
-              <option value="EVENING">Night / Evening Shift (08:00 PM - 02:00 AM)</option>
-            </select>
-          </div>
+        {!isHistoricalPreview && (
+          <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs print:hidden">
+            <div>
+              <label className="block text-[10.5px] font-bold text-slate-400 mb-1 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Manufacturing Shift</span>
+              </label>
+              <select
+                value={shift}
+                onChange={(e) => setShift(e.target.value as BoqIssueShift)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-slate-200 text-xs font-bold cursor-pointer"
+              >
+                <option value="MORNING">Morning Shift (08:00 AM - 02:00 PM)</option>
+                <option value="AFTERNOON">Afternoon Shift (02:00 PM - 08:00 PM)</option>
+                <option value="EVENING">Night / Evening Shift (08:00 PM - 02:00 AM)</option>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-[10.5px] font-bold text-slate-400 mb-1 flex items-center gap-1">
-              <User className="w-3.5 h-3.5 text-amber-400" />
-              <span>Floor Contractor / Gang</span>
-            </label>
-            <input
-              type="text"
-              value={gangName}
-              onChange={(e) => setGangName(e.target.value)}
-              placeholder="e.g. ASHIK (Floor Gang)"
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-slate-200 text-xs font-bold"
-            />
-          </div>
+            <div>
+              <label className="block text-[10.5px] font-bold text-slate-400 mb-1 flex items-center gap-1">
+                <User className="w-3.5 h-3.5 text-amber-400" />
+                <span>Floor Team / Gang</span>
+              </label>
+              <input
+                type="text"
+                value={gangName}
+                onChange={(e) => setGangName(e.target.value)}
+                placeholder="e.g. ASHIK (Floor Gang)"
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-slate-200 text-xs font-bold"
+              />
+            </div>
 
-          <div>
-            <label className="block text-[10.5px] font-bold text-slate-400 mb-1 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Storekeeper In-Charge</span>
-            </label>
-            <input
-              type="text"
-              value={storekeeperName}
-              onChange={(e) => setStorekeeperName(e.target.value)}
-              placeholder="e.g. Storekeeper In-Charge"
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-slate-200 text-xs font-bold"
-            />
+            <div>
+              <label className="block text-[10.5px] font-bold text-slate-400 mb-1 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Storekeeper In-Charge</span>
+              </label>
+              <input
+                type="text"
+                value={storekeeperName}
+                onChange={(e) => setStorekeeperName(e.target.value)}
+                placeholder="e.g. Storekeeper In-Charge"
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-slate-200 text-xs font-bold"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ===================================================================== */}
         {/* PRINTABLE SLIP CANVAS (A4 Format)                                     */}
@@ -179,16 +388,20 @@ export function DailyStoreIssueSlipModal({
           {/* Header */}
           <div className="border-b-2 border-slate-900 pb-3 flex justify-between items-start">
             <div>
-              <h1 className="text-xl font-black uppercase tracking-tight text-slate-950">EXMARK FRP DOORS &amp; FRAMES</h1>
+              <h1 className="text-xl font-black uppercase tracking-tight text-slate-950">
+                EXMARK FRP DOORS &amp; FRAMES
+              </h1>
               <p className="text-[10px] text-slate-600 font-bold uppercase tracking-wider">
-                Industrial Manufacturing Unit &bull; Daily Store Raw Material Issue Slip
+                Industrial Manufacturing Unit &bull; Store BOQ Raw Material Issue Voucher
               </p>
             </div>
             <div className="text-right">
               <span className="inline-block px-2 py-0.5 rounded bg-slate-950 text-white font-mono text-xs font-black">
                 {voucherNumber}
               </span>
-              <p className="text-[10px] text-slate-500 font-mono mt-0.5">Date: {todayStr} | {shift} SHIFT</p>
+              <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                Date: {todayStr} | {shift} SHIFT
+              </p>
             </div>
           </div>
 
@@ -196,14 +409,14 @@ export function DailyStoreIssueSlipModal({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-3 border-b border-slate-300 text-xs">
             <div>
               <span className="block text-[9px] uppercase font-bold text-slate-500">Job Card Number</span>
-              <strong className="font-mono text-sm text-slate-950">{order.jobCardNumber}</strong>
+              <strong className="font-mono text-sm text-slate-950">{displayJobCard}</strong>
             </div>
             <div>
               <span className="block text-[9px] uppercase font-bold text-slate-500">Customer / Project</span>
-              <strong className="text-xs text-slate-900 truncate block">{order.customerName}</strong>
+              <strong className="text-xs text-slate-900 truncate block">{displayCustomer}</strong>
             </div>
             <div>
-              <span className="block text-[9px] uppercase font-bold text-slate-500">Issued Gang / Contractor</span>
+              <span className="block text-[9px] uppercase font-bold text-slate-500">Issued Gang / Team</span>
               <strong className="text-xs text-amber-900 block">{gangName}</strong>
             </div>
             <div>
@@ -217,135 +430,85 @@ export function DailyStoreIssueSlipModal({
           {/* Doors Included Strip */}
           <div className="py-2.5 border-b border-slate-300 text-xs">
             <span className="text-[9.5px] uppercase font-bold text-slate-500 block mb-1">
-              Doors Covered in this Material Batch ({selectedCount} Units):
+              Doors Covered in this Material Issue ({selectedCount} Units):
             </span>
             <div className="flex flex-wrap gap-1.5">
-              {selectedDoors.map((d, i) => (
-                <span
-                  key={i}
-                  className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10.5px] font-bold text-slate-800"
-                >
-                  {d.doorNumber || `D-${i + 1}`} ({d.widthCm}&times;{d.heightCm}cm)
-                </span>
-              ))}
+              {previewVoucher
+                ? previewVoucher.doorNumbers.map((dn, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10.5px] font-bold text-slate-800"
+                    >
+                      {dn}
+                    </span>
+                  ))
+                : selectedDoors.map((d, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10.5px] font-bold text-slate-800"
+                    >
+                      {d.doorNumber || `D-${i + 1}`} ({d.widthCm}&times;{d.heightCm}cm)
+                    </span>
+                  ))}
             </div>
           </div>
 
           {/* Material Requisition Table */}
           <div className="py-3">
             <h3 className="text-xs font-black uppercase text-slate-900 tracking-wide mb-1.5">
-              Exact Chemical Recipe &amp; Raw Material Requirements ({selectedCount} Doors)
+              Issued Materials &amp; Valuation ({effectiveItems.length} Checked Items for {selectedCount} Doors)
             </h3>
             <table className="w-full text-left text-xs border border-slate-300 border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 text-[10px] uppercase font-black border-b border-slate-300">
-                  <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
+                  <th className="p-2 border-r border-slate-300 w-8 text-center">#</th>
                   <th className="p-2 border-r border-slate-300">Material Description</th>
-                  <th className="p-2 border-r border-slate-300 w-28 text-center">Standard Ratio / Norm</th>
-                  <th className="p-2 border-r border-slate-300 w-28 text-right">Batch Required</th>
-                  <th className="p-2 w-28 text-center">Store Issue Qty</th>
+                  <th className="p-2 border-r border-slate-300 w-24 text-right">Formula Qty</th>
+                  <th className="p-2 border-r border-slate-300 w-28 text-right">Issued Qty</th>
+                  <th className="p-2 border-r border-slate-300 w-24 text-right">Value (₹)</th>
+                  <th className="p-2 w-24 text-center">Store Verify</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 font-medium">
-                {/* 1. Resin */}
-                <tr>
-                  <td className="p-2 text-center border-r border-slate-200 font-mono text-[11px]">1</td>
-                  <td className="p-2 border-r border-slate-200">
-                    <strong className="text-slate-900">General Purpose FRP Polyester Resin</strong>
-                    <span className="block text-[9.5px] text-slate-500">Virgin grade laminating resin for door skin + frame</span>
-                  </td>
-                  <td className="p-2 text-center border-r border-slate-200 text-slate-600 text-[10px]">6.50 kg / Door</td>
-                  <td className="p-2 text-right border-r border-slate-200 font-mono font-black text-slate-950">
-                    {boq.resinKg.toFixed(2)} Kg
-                  </td>
-                  <td className="p-2 text-center font-mono font-bold text-slate-400">[ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Kg ]</td>
-                </tr>
-
-                {/* 2. Gelcoat */}
-                <tr>
-                  <td className="p-2 text-center border-r border-slate-200 font-mono text-[11px]">2</td>
-                  <td className="p-2 border-r border-slate-200">
-                    <strong className="text-slate-900">ISO/NPG White / Clear Tooling Gelcoat</strong>
-                    <span className="block text-[9.5px] text-slate-500">Surface UV protective coat (0.45mm thickness)</span>
-                  </td>
-                  <td className="p-2 text-center border-r border-slate-200 text-slate-600 text-[10px]">0.90 kg / Door</td>
-                  <td className="p-2 text-right border-r border-slate-200 font-mono font-black text-slate-950">
-                    {boq.gelKg.toFixed(2)} Kg
-                  </td>
-                  <td className="p-2 text-center font-mono font-bold text-slate-400">[ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Kg ]</td>
-                </tr>
-
-                {/* 3. CSM 300 / 450 Mat */}
-                <tr>
-                  <td className="p-2 text-center border-r border-slate-200 font-mono text-[11px]">3</td>
-                  <td className="p-2 border-r border-slate-200">
-                    <strong className="text-slate-900">Chopped Strand Mat (CSM 300/450)</strong>
-                    <span className="block text-[9.5px] text-slate-500">E-Glass reinforcement matrix (450 GSM dual-layer)</span>
-                  </td>
-                  <td className="p-2 text-center border-r border-slate-200 text-slate-600 text-[10px]">2.20 kg / Door</td>
-                  <td className="p-2 text-right border-r border-slate-200 font-mono font-black text-slate-950">
-                    {boq.csm300Kg.toFixed(2)} Kg
-                  </td>
-                  <td className="p-2 text-center font-mono font-bold text-slate-400">[ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Kg ]</td>
-                </tr>
-
-                {/* 4. MEKP Catalyst */}
-                <tr>
-                  <td className="p-2 text-center border-r border-slate-200 font-mono text-[11px]">4</td>
-                  <td className="p-2 border-r border-slate-200">
-                    <strong className="text-slate-900">MEKP Catalyst (Hardener)</strong>
-                    <span className="block text-[9.5px] text-slate-500">1.5% - 2.0% ratio by total resin mass</span>
-                  </td>
-                  <td className="p-2 text-center border-r border-slate-200 text-slate-600 text-[10px]">1.8% of Resin</td>
-                  <td className="p-2 text-right border-r border-slate-200 font-mono font-black text-slate-950">
-                    {Math.round(boq.catalystGrams)} g
-                  </td>
-                  <td className="p-2 text-center font-mono font-bold text-slate-400">[ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; g ]</td>
-                </tr>
-
-                {/* 5. Cobalt Accelerator */}
-                <tr>
-                  <td className="p-2 text-center border-r border-slate-200 font-mono text-[11px]">5</td>
-                  <td className="p-2 border-r border-slate-200">
-                    <strong className="text-slate-900">Cobalt Octoate 6% (Accelerator)</strong>
-                    <span className="block text-[9.5px] text-slate-500">0.5% - 0.8% ratio by total resin mass</span>
-                  </td>
-                  <td className="p-2 text-center border-r border-slate-200 text-slate-600 text-[10px]">0.6% of Resin</td>
-                  <td className="p-2 text-right border-r border-slate-200 font-mono font-black text-slate-950">
-                    {Math.round(boq.acceleratorGrams)} g
-                  </td>
-                  <td className="p-2 text-center font-mono font-bold text-slate-400">[ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; g ]</td>
-                </tr>
-
-                {/* 6. Timber Reepers */}
-                <tr>
-                  <td className="p-2 text-center border-r border-slate-200 font-mono text-[11px]">6</td>
-                  <td className="p-2 border-r border-slate-200">
-                    <strong className="text-slate-900">Core Reinforcement Timber Reepers</strong>
-                    <span className="block text-[9.5px] text-slate-500">Seasoned hardwood internal lock block &amp; perimeter frame</span>
-                  </td>
-                  <td className="p-2 text-center border-r border-slate-200 text-slate-600 text-[10px]">0.40 cu.ft / Door</td>
-                  <td className="p-2 text-right border-r border-slate-200 font-mono font-black text-slate-950">
-                    {boq.totalWoodCuFt.toFixed(2)} Cu.Ft
-                  </td>
-                  <td className="p-2 text-center font-mono font-bold text-slate-400">[ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Pcs ]</td>
-                </tr>
-
-                {/* 7. Chowkhat Frames */}
-                <tr>
-                  <td className="p-2 text-center border-r border-slate-200 font-mono text-[11px]">7</td>
-                  <td className="p-2 border-r border-slate-200">
-                    <strong className="text-slate-900">Chowkhat Section / Frames</strong>
-                    <span className="block text-[9.5px] text-slate-500">Matched door frame profiles for selected doors</span>
-                  </td>
-                  <td className="p-2 text-center border-r border-slate-200 text-slate-600 text-[10px]">1 Set / Door</td>
-                  <td className="p-2 text-right border-r border-slate-200 font-mono font-black text-slate-950">
-                    {selectedCount} Sets
-                  </td>
-                  <td className="p-2 text-center font-mono font-bold text-slate-400">[ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Sets ]</td>
-                </tr>
+                {effectiveItems.map((item, idx) => (
+                  <tr key={`${item.key}-${idx}`}>
+                    <td className="p-2 text-center border-r border-slate-200 font-mono text-[11px]">
+                      {idx + 1}
+                    </td>
+                    <td className="p-2 border-r border-slate-200">
+                      <strong className="text-slate-900">{item.name}</strong>
+                      <span className="block text-[9.5px] text-slate-500">{item.category}</span>
+                    </td>
+                    <td className="p-2 text-right border-r border-slate-200 font-mono text-slate-500">
+                      {item.formulaQty} {item.unit}
+                    </td>
+                    <td className="p-2 text-right border-r border-slate-200 font-mono font-black text-slate-950">
+                      {item.issuedQty} {item.unit}
+                    </td>
+                    <td className="p-2 text-right border-r border-slate-200 font-mono font-bold text-emerald-900">
+                      ₹{Math.round(item.value).toLocaleString('en-IN')}
+                    </td>
+                    <td className="p-2 text-center font-mono text-slate-400">[ &nbsp;✓&nbsp; ]</td>
+                  </tr>
+                ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-slate-900 text-white font-black">
+                  <td colSpan={4} className="p-2.5 text-right uppercase text-[11px]">
+                    Total Issued Material Value ({selectedCount} Doors):
+                  </td>
+                  <td className="p-2.5 text-right font-mono text-sm">
+                    ₹{totalSlipValue.toLocaleString('en-IN')}
+                  </td>
+                  <td className="p-2.5 text-center text-[10px]">APPROVED</td>
+                </tr>
+              </tfoot>
             </table>
+            {(previewVoucher?.notes || notes) && (
+              <p className="mt-2 text-[10.5px] text-slate-600">
+                <strong>Note:</strong> {previewVoucher?.notes || notes}
+              </p>
+            )}
           </div>
 
           {/* Signatures & Approvals */}
