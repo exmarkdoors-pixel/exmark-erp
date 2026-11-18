@@ -62,33 +62,28 @@ export default function FollowUpReminders({ initialReminders }: FollowUpReminder
   };
 
   return (
-    <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+    <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-sm">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-red-600/10 text-red-500">
-            <BellRing className="w-5 h-5" />
+          <div className="p-1.5 rounded-lg bg-red-600/10 text-red-500">
+            <BellRing className="w-4 h-4" />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              Follow-up & Dealer Reminders
-              {pendingCount > 0 && (
-                <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-red-600 text-white">
-                  {pendingCount} Pending
-                </span>
-              )}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Quotes, site measurements & dealer payment schedules
-            </p>
-          </div>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+            Follow-up Reminders
+            {pendingCount > 0 && (
+              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-red-600 text-white">
+                {pendingCount}
+              </span>
+            )}
+          </h2>
         </div>
 
         {/* Filter buttons */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/80 p-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold">
+        <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-900/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px] font-semibold">
           <button
             onClick={() => setFilter('pending')}
-            className={`px-2.5 py-1 rounded transition-colors ${
+            className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
               filter === 'pending'
                 ? 'bg-red-600 text-white'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -98,7 +93,7 @@ export default function FollowUpReminders({ initialReminders }: FollowUpReminder
           </button>
           <button
             onClick={() => setFilter('all')}
-            className={`px-2.5 py-1 rounded transition-colors ${
+            className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
               filter === 'all'
                 ? 'bg-red-600 text-white'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -108,7 +103,7 @@ export default function FollowUpReminders({ initialReminders }: FollowUpReminder
           </button>
           <button
             onClick={() => setFilter('completed')}
-            className={`px-2.5 py-1 rounded transition-colors ${
+            className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
               filter === 'completed'
                 ? 'bg-red-600 text-white'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'

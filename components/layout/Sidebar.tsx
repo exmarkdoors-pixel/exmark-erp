@@ -177,34 +177,34 @@ export default function Sidebar({
       <aside
         className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-[#070D1E] text-slate-300 border-r border-slate-800/80 transition-all duration-300 ease-in-out select-none shadow-2xl print:hidden ${
           /* Desktop Width */
-          isCollapsed ? 'lg:w-20' : 'lg:w-64'
+          isCollapsed ? 'lg:w-16' : 'lg:w-56'
         } ${
           /* Mobile Drawer Position */
-          isMobileOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'
+          isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Brand Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-slate-800/80 bg-[#0B132B]/90">
-          <div className="flex items-center gap-3 overflow-hidden">
+        <div className="flex items-center justify-between h-12 px-3 border-b border-slate-800/80 bg-[#0B132B]/90">
+          <div className="flex items-center gap-2.5 overflow-hidden">
             {/* EXMARK Logo Emblem */}
-            <div className="relative flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center shadow-lg shadow-red-900/30 text-white font-black tracking-tight border border-red-500/40">
-              <span className="text-xl font-extrabold tracking-tighter">EX</span>
-              <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-[#070D1E]" title="Factory Online" />
+            <div className="relative flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center shadow-md shadow-red-900/30 text-white font-black tracking-tight border border-red-500/40">
+              <span className="text-sm font-extrabold tracking-tighter">EX</span>
+              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#070D1E]" title="Factory Online" />
             </div>
 
             {/* Brand Title (hidden when collapsed on desktop) */}
             {(!isCollapsed || isMobileOpen) && (
               <div className="flex flex-col min-w-0 transition-opacity duration-200">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-lg font-black tracking-wider text-white">
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-black tracking-wider text-white leading-none">
                     EXMARK
                   </span>
-                  <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-red-600/90 text-white tracking-widest">
+                  <span className="px-1 py-0.2 text-[8px] font-bold uppercase rounded bg-red-600/90 text-white tracking-wider">
                     ERP
                   </span>
                 </div>
-                <span className="text-[10px] text-slate-400 font-medium tracking-tight truncate">
-                  FRP & WPC DOORS • KERALA
+                <span className="text-[9px] text-slate-400 font-medium tracking-tight truncate leading-tight mt-0.5">
+                  FRP & WPC DOORS
                 </span>
               </div>
             )}
@@ -213,29 +213,29 @@ export default function Sidebar({
           {/* Mobile Close Button */}
           <button
             onClick={onCloseMobile}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 lg:hidden"
+            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 lg:hidden"
             aria-label="Close sidebar"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
 
           {/* Desktop Collapse Toggle */}
           <button
             onClick={onToggleCollapse}
             aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="hidden lg:flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-white hover:bg-slate-800/80 border border-slate-700/60 transition-colors"
+            className="hidden lg:flex items-center justify-center w-6 h-6 rounded-md text-slate-400 hover:text-white hover:bg-slate-800/80 border border-slate-700/60 transition-colors cursor-pointer"
             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
             {isCollapsed ? (
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             ) : (
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             )}
           </button>
         </div>
 
         {/* Navigation Items List */}
-        <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-1 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5 custom-scrollbar">
           {(() => {
             const simpleTabsForRole: NavigationTab[] =
               userRole === 'Super Admin'
@@ -261,19 +261,19 @@ export default function Sidebar({
               return (
                 <React.Fragment key={item.id}>
                   {showCategoryDivider && (
-                    <div className="pt-3 pb-1 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 select-none">
+                    <div className="pt-2 pb-0.5 px-2 text-[9px] font-bold uppercase tracking-wider text-slate-500 select-none">
                       {item.category}
                     </div>
                   )}
                   <button
                     onClick={() => handleItemClick(item.id)}
                     title={isCollapsed && !isMobileOpen ? (isAllowed ? displayLabel : `${displayLabel} (Locked for ${userRole})`) : undefined}
-                    className={`group relative flex items-center w-full rounded-xl transition-all duration-150 cursor-pointer ${
+                    className={`group relative flex items-center w-full rounded-lg transition-all duration-150 cursor-pointer ${
                       isCollapsed && !isMobileOpen
-                        ? 'justify-center h-11 px-0'
+                        ? 'justify-center h-9 px-0'
                         : isSimpleMode
-                        ? 'justify-between px-3.5 py-2.5 text-sm'
-                        : 'justify-between px-3 py-2 text-sm'
+                        ? 'justify-between px-2.5 py-2 text-xs'
+                        : 'justify-between px-2.5 py-1.5 text-xs'
                     } ${
                       !isAllowed
                         ? 'opacity-40 hover:opacity-75 text-slate-400 hover:bg-slate-800/30'
@@ -284,19 +284,19 @@ export default function Sidebar({
                   >
                     {/* Active Indicator Bar on Left */}
                     {isActive && (
-                      <span className="absolute left-0 top-2 bottom-2 w-1 bg-red-500 rounded-r-md" />
+                      <span className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-red-500 rounded-r-md" />
                     )}
 
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <Icon
-                        className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                        className={`w-4 h-4 flex-shrink-0 transition-colors ${
                           isActive
                             ? 'text-red-500'
                             : 'text-slate-400 group-hover:text-red-400'
                         }`}
                       />
                       {(!isCollapsed || isMobileOpen) && (
-                        <span className="truncate text-left flex items-center gap-1.5">
+                        <span className="truncate text-left flex items-center gap-1">
                           {displayLabel}
                           {!isAllowed && <Lock className="w-3 h-3 text-slate-400" />}
                         </span>
@@ -306,7 +306,7 @@ export default function Sidebar({
                     {/* Badge */}
                     {(!isCollapsed || isMobileOpen) && badgeText && (
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border border-current/20 flex-shrink-0 ${
+                        className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full border border-current/20 flex-shrink-0 ${
                           item.badgeColor || 'bg-slate-800 text-slate-300'
                         }`}
                       >

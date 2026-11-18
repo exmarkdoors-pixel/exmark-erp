@@ -21,98 +21,91 @@ export default function SalesChart({ data }: SalesChartProps) {
   const avgMonthly = data.length > 0 ? totalPeriodRevenue / data.length : 0;
 
   return (
-    <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+    <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-sm">
       {/* Header with Title and Period Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-red-600/10 text-red-500">
-              <BarChart3 className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Monthly Sales & Category Mix
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Revenue in ₹ Lakhs (FRP Doors vs WPC Doors & Frames)
-              </p>
-            </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-red-600/10 text-red-500">
+            <BarChart3 className="w-4 h-4" />
           </div>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+            Monthly Sales &amp; Category Mix
+          </h2>
         </div>
 
         {/* Period Selector Tabs */}
-        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-900/80 p-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold">
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px] font-semibold">
           <button
             onClick={() => setSelectedPeriod('6m')}
-            className={`px-3 py-1 rounded-md transition-colors ${
+            className={`px-2.5 py-0.5 rounded transition-colors cursor-pointer ${
               selectedPeriod === '6m'
                 ? 'bg-red-600 text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Last 6 Months
+            6M
           </button>
           <button
             onClick={() => setSelectedPeriod('fy26')}
-            className={`px-3 py-1 rounded-md transition-colors ${
+            className={`px-2.5 py-0.5 rounded transition-colors cursor-pointer ${
               selectedPeriod === 'fy26'
                 ? 'bg-red-600 text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            FY 2026-27
+            FY 26-27
           </button>
           <button
             onClick={() => setSelectedPeriod('q3')}
-            className={`px-3 py-1 rounded-md transition-colors ${
+            className={`px-2.5 py-0.5 rounded transition-colors cursor-pointer ${
               selectedPeriod === 'q3'
                 ? 'bg-red-600 text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Current Q3
+            Q3
           </button>
         </div>
       </div>
 
       {/* Highlights Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800 text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 p-2 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200/80 dark:border-slate-800 text-xs">
         <div>
-          <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Total 6-Mo Revenue</span>
-          <span className="font-bold text-slate-900 dark:text-white text-sm">
-            ₹{totalPeriodRevenue.toFixed(2)} Lakhs
+          <span className="text-slate-500 dark:text-slate-400 block text-[10px]">6-Mo Revenue</span>
+          <span className="font-bold text-slate-900 dark:text-white text-xs">
+            ₹{totalPeriodRevenue.toFixed(2)} L
           </span>
         </div>
         <div>
-          <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Monthly Average</span>
-          <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+          <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Monthly Avg</span>
+          <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs">
             ₹{avgMonthly.toFixed(2)} L/mo
           </span>
         </div>
         <div>
-          <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Top Product Line</span>
-          <span className="font-bold text-red-600 dark:text-red-400 text-sm">
-            {data.length > 0 ? 'FRP Series (Live Mix)' : 'No Sales Yet'}
+          <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Top Line</span>
+          <span className="font-bold text-red-600 dark:text-red-400 text-xs">
+            {data.length > 0 ? 'FRP Series' : 'No Sales Yet'}
           </span>
         </div>
         <div>
-          <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Period Coverage</span>
-          <span className="font-bold text-slate-900 dark:text-white text-sm">
-            {data.length > 0 ? `${data.length} Months Recorded` : 'Fresh Factory Baseline'}
+          <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Coverage</span>
+          <span className="font-bold text-slate-900 dark:text-white text-xs">
+            {data.length > 0 ? `${data.length} Months` : 'Baseline'}
           </span>
         </div>
       </div>
 
       {/* Chart Visualization Container */}
-      <div className="relative pt-6 pb-2">
+      <div className="relative pt-2 pb-1">
         {data.length === 0 ? (
-          <div className="h-56 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 p-6">
-            <BarChart3 className="w-8 h-8 text-slate-400 mb-2 opacity-60" />
+          <div className="h-36 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-900/30 p-4">
+            <BarChart3 className="w-6 h-6 text-slate-400 mb-1.5 opacity-60" />
             <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
               No monthly sales history recorded yet
             </p>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Create quotations and confirm factory orders to populate live monthly analytics.
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Create quotations and confirm orders to populate live analytics.
             </p>
           </div>
         ) : (

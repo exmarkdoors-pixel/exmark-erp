@@ -84,38 +84,33 @@ export default function RecentOrdersTable({
   };
 
   return (
-    <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+    <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-sm">
       {/* Title & Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-red-600/10 text-red-500">
-            <ShoppingBag className="w-5 h-5" />
+          <div className="p-1.5 rounded-lg bg-red-600/10 text-red-500">
+            <ShoppingBag className="w-4 h-4" />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              Recent Sales & Manufacturing Orders
-              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">
-                {filteredOrders.length} Orders
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Live orders from Kerala authorized dealers, builders and architects
-            </p>
-          </div>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            Recent Sales &amp; Manufacturing Orders
+            <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">
+              {filteredOrders.length}
+            </span>
+          </h2>
         </div>
 
         {onViewAllOrders && (
           <button
             onClick={onViewAllOrders}
-            className="text-xs font-semibold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-1 self-start md:self-auto"
+            className="text-xs font-semibold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-1 cursor-pointer"
           >
-            All Sales Orders ({orders.length}) &rarr;
+            All Orders ({orders.length}) &rarr;
           </button>
         )}
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 mb-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-2.5">
         {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

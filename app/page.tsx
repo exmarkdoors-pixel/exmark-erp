@@ -403,7 +403,7 @@ export default function Home() {
         {/* Main Content Area */}
         <div
           className={`flex-1 flex flex-col transition-all duration-300 min-w-0 print:pl-0 print:m-0 ${
-            isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'
+            isSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-56'
           }`}
         >
           {/* Top Sticky Navbar */}
@@ -433,30 +433,24 @@ export default function Home() {
           />
 
           {/* Main Body Content */}
-          <main
-            className={`flex-1 p-3 md:p-5 lg:p-6 w-full mx-auto space-y-6 pb-20 md:pb-6 print:p-0 print:m-0 print:max-w-none transition-all duration-200 ${
-              ['quotations', 'production', 'sales-orders', 'inventory', 'batch-print'].includes(currentTab)
-                ? 'max-w-[98%] 2xl:max-w-[1920px]'
-                : 'max-w-7xl'
-            }`}
-          >
+          <main className="flex-1 p-2.5 md:p-3 lg:p-3.5 w-full max-w-[1920px] mx-auto space-y-3 pb-16 md:pb-4 print:p-0 print:m-0 print:max-w-none transition-all duration-200">
             {/* Security Prompt When Using Seeded / Temporary Password */}
             {mustChangePassword && (
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs print:hidden">
-                <div className="flex items-start gap-2.5 text-amber-200">
-                  <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-amber-300">First-Time Factory Security Setup:</span>{' '}
-                    You are signed in with a default/temporary password. Set your own private Password &amp; optional 4–6 digit Quick PIN now.
-                  </div>
+              <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs print:hidden">
+                <div className="flex items-center gap-2 text-amber-200">
+                  <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>
+                    <span className="font-bold text-amber-300">First-Time Security Setup:</span>{' '}
+                    Set your own private Password &amp; optional Quick PIN now.
+                  </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setCredentialModalTrigger((c) => c + 1)}
-                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  className="px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs inline-flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <KeyRound className="w-3.5 h-3.5" />
-                  <span>Set Password &amp; Quick PIN</span>
+                  <span>Set Password / PIN</span>
                 </button>
               </div>
             )}
@@ -479,158 +473,128 @@ export default function Home() {
             {/* Dashboard View */}
             {currentTab === 'dashboard' && effectiveAllowedModules.includes('dashboard') && (
               <>
-                {/* Hero / Factory Header Card */}
-                {isSimpleMode ? (
-                  <div className="rounded-2xl bg-[#0B132B] border border-slate-800 p-5 sm:p-6 shadow-sm">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                            {activeFactoryName}
-                          </span>
-                          <span className="text-slate-600">•</span>
-                          <span className="text-xs text-slate-400 font-medium">{userRole}</span>
-                        </div>
-                        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                          Welcome, {userName}
-                        </h2>
-                        <p className="text-xs sm:text-sm text-slate-400">
-                          Quick daily controls for quotations, leads, factory floor production, and stickers.
-                        </p>
-                      </div>
+                {/* Ultra-Minimal Single-Row Greeting & Daily Actions Bar */}
+                <div className="rounded-xl bg-[#0B132B] border border-slate-800 px-3.5 py-2 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Factory Online" />
+                      <h2 className="text-sm sm:text-base font-extrabold text-white tracking-tight truncate">
+                        Welcome, {userName}
+                      </h2>
+                      <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-900 text-emerald-400 border border-slate-800 truncate max-w-[200px]">
+                        {activeFactoryName}
+                      </span>
+                      <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-900 text-slate-400 border border-slate-800">
+                        {userRole}
+                      </span>
 
-                      {/* 4 Primary 1-Click Daily Actions */}
-                      <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5">
-                        {effectiveAllowedModules.includes('quotations') && (
+                      {/* Inline Full-Ops Dashboard View Switcher */}
+                      {!isSimpleMode && (
+                        <div className="inline-flex items-center gap-0.5 bg-slate-900 p-0.5 rounded-lg border border-slate-800 ml-1">
                           <button
                             type="button"
-                            onClick={() => setCurrentTab('quotations')}
-                            className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md shadow-red-950/30 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                            onClick={() => setDashboardSubView('overview')}
+                            className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
+                              dashboardSubView === 'overview'
+                                ? 'bg-red-600 text-white'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
                           >
-                            <FileSpreadsheet className="w-4 h-4" />
-                            <span>+ New Quotation</span>
+                            Overview
                           </button>
-                        )}
-                        {effectiveAllowedModules.includes('crm') && (
                           <button
                             type="button"
-                            onClick={() => setCurrentTab('crm')}
-                            className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                            onClick={() => setDashboardSubView('control-center')}
+                            className={`px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
+                              dashboardSubView === 'control-center'
+                                ? 'bg-red-600 text-white'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
                           >
-                            <Target className="w-4 h-4 text-amber-400" />
-                            <span>+ New Lead</span>
+                            Modules (10)
                           </button>
-                        )}
-                        {effectiveAllowedModules.includes('production') && (
-                          <button
-                            type="button"
-                            onClick={() => setCurrentTab('production')}
-                            className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <Factory className="w-4 h-4 text-emerald-400" />
-                            <span>Production Floor</span>
-                          </button>
-                        )}
-                        {effectiveAllowedModules.includes('batch-print') && (
-                          <button
-                            type="button"
-                            onClick={() => setCurrentTab('batch-print')}
-                            className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <Printer className="w-4 h-4 text-rose-400" />
-                            <span>12L Stickers</span>
-                          </button>
-                        )}
-                        {(userRole === 'Super Admin' ||
-                          effectiveAllowedModules.includes('finance') ||
-                          effectiveAllowedModules.includes('accounts')) && (
-                          <button
-                            type="button"
-                            onClick={() => setIsEveningCloseOpen(true)}
-                            className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-extrabold shadow-md shadow-amber-950/30 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-                            title="Record Daily Evening Close (Sales, Purchases, Cash & WhatsApp Summary)"
-                          >
-                            <Calendar className="w-4 h-4" />
-                            <span>Evening Close</span>
-                          </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#0F1E3D] to-[#162544] border border-slate-800 p-5 sm:p-6 shadow-xl">
-                    {/* Subtle red accent glow */}
-                    <div className="absolute top-0 right-0 w-80 h-80 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
 
-                    <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="space-y-1.5 max-w-2xl">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600/90 text-white shadow-xs">
-                            EXMARK Manufacturing ERP
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-red-300 border border-red-500/30">
-                            Role: {userRole}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                            {activeFactoryName}: Active
-                          </span>
-                        </div>
-                        <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
-                          Welcome, {userName}
-                        </h2>
-                        <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
-                          FRP &amp; WPC Door Operations Control • Precision engineering for Kerala climate across 14 Kerala districts.
-                        </p>
-                      </div>
-
-                      {/* Quick Stat Highlights */}
-                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap md:flex-nowrap">
+                    {/* Compact 1-Click Primary Actions */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {effectiveAllowedModules.includes('quotations') && (
                         <button
+                          type="button"
+                          onClick={() => setCurrentTab('quotations')}
+                          className="px-2.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-[11px] font-bold transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                          <span>+ Quotation</span>
+                        </button>
+                      )}
+                      {effectiveAllowedModules.includes('crm') && (
+                        <button
+                          type="button"
+                          onClick={() => setCurrentTab('crm')}
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-[11px] font-bold border border-slate-700 transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Target className="w-3.5 h-3.5 text-amber-400" />
+                          <span>+ Lead</span>
+                        </button>
+                      )}
+                      {effectiveAllowedModules.includes('production') && (
+                        <button
+                          type="button"
                           onClick={() => setCurrentTab('production')}
-                          className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                          title="Jump directly to Production Floor Queue"
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-[11px] font-bold border border-slate-700 transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
                         >
-                          <span>🏭 Production Floor</span>
+                          <Factory className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Production</span>
                         </button>
+                      )}
+                      {effectiveAllowedModules.includes('batch-print') && (
                         <button
+                          type="button"
                           onClick={() => setCurrentTab('batch-print')}
-                          className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                          title="Open 12L Barcode Sticker Generator"
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-[11px] font-bold border border-slate-700 transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer"
                         >
-                          <span>🏷️ 12L Stickers</span>
+                          <Printer className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Stickers</span>
                         </button>
+                      )}
+                      {!isSimpleMode && effectiveAllowedModules.includes('accounts') && (
                         <button
+                          type="button"
                           onClick={() => setCurrentTab('accounts')}
-                          className="px-3.5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-xl text-xs font-bold border border-amber-500/30 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                          title="Accounts, Financial Analysis & Gang Weekly Payouts"
+                          className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-lg text-[11px] font-bold border border-amber-500/30 transition-all active:scale-95 inline-flex items-center gap-1 cursor-pointer"
                         >
-                          <span>💰 Accounts &amp; Finance</span>
+                          <ReceiptIndianRupee className="w-3.5 h-3.5" />
+                          <span>Accounts</span>
                         </button>
-                        {(userRole === 'Super Admin' ||
-                          effectiveAllowedModules.includes('finance') ||
-                          effectiveAllowedModules.includes('accounts')) && (
-                          <button
-                            type="button"
-                            onClick={() => setIsEveningCloseOpen(true)}
-                            className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-extrabold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                            title="Record Daily Evening Close"
-                          >
-                            <span>🌆 Evening Close</span>
-                          </button>
-                        )}
+                      )}
+                      {(userRole === 'Super Admin' ||
+                        effectiveAllowedModules.includes('finance') ||
+                        effectiveAllowedModules.includes('accounts')) && (
                         <button
-                          onClick={() => setIsQuickActionOpen(true)}
-                          className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-950/40 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                          type="button"
+                          onClick={() => setIsEveningCloseOpen(true)}
+                          className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-[11px] font-extrabold transition-all active:scale-95 inline-flex items-center gap-1 cursor-pointer"
+                          title="Record Daily Evening Close (Sales, Purchases, Cash & WhatsApp Summary)"
                         >
-                          <Sparkles className="w-4 h-4" />
-                          Quick New Action
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>Evening Close</span>
                         </button>
-                      </div>
+                      )}
+                      {!isSimpleMode && (
+                        <button
+                          type="button"
+                          onClick={() => setIsQuickActionOpen(true)}
+                          className="px-2.5 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 rounded-lg text-[11px] font-bold transition-all active:scale-95 inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Quick</span>
+                        </button>
+                      )}
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* 1. Live Database KPI Cards */}
                 <section aria-label="Key Performance Indicators">
@@ -640,36 +604,6 @@ export default function Home() {
                     isSimpleMode={isSimpleMode}
                   />
                 </section>
-
-                {/* Dashboard Sub-View Switcher Bar (Shown only in Full Ops Mode) */}
-                {!isSimpleMode && (
-                  <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-2">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setDashboardSubView('overview')}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                          dashboardSubView === 'overview'
-                            ? 'bg-red-600 text-white shadow-md shadow-red-950/40'
-                            : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
-                        }`}
-                      >
-                        <span>📊 Plant &amp; Sales Floor Charts</span>
-                      </button>
-
-                      <button
-                        onClick={() => setDashboardSubView('control-center')}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                          dashboardSubView === 'control-center'
-                            ? 'bg-red-600 text-white shadow-md shadow-red-950/40'
-                            : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
-                        }`}
-                      >
-                        <span>🗂️ Corporate Control Center</span>
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30">10 Folders</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {/* Sub-View 1: EXMARK Corporate Control Center (Full Ops Mode when selected) */}
                 {!isSimpleMode && dashboardSubView === 'control-center' && (
@@ -687,7 +621,7 @@ export default function Home() {
                 {(isSimpleMode || dashboardSubView === 'overview') && (
                   <>
                     {/* Recent Orders Table & Follow-up Reminders (High priority daily view) */}
-                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 items-start">
                       <div className="xl:col-span-8">
                         <RecentOrdersTable
                           orders={liveRecentOrders}
@@ -703,7 +637,7 @@ export default function Home() {
                     </div>
 
                     {/* Sales Chart & Production Status */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
                       <div className="lg:col-span-7">
                         <SalesChart data={liveSalesChartData} />
                       </div>
@@ -718,31 +652,29 @@ export default function Home() {
 
                     {/* Collapsible Enterprise Directory Drawer in Simple Mode */}
                     {isSimpleMode && (
-                      <div className="rounded-2xl border border-slate-800/80 bg-[#0B132B]/70 overflow-hidden">
+                      <div className="rounded-xl border border-slate-800/80 bg-[#0B132B]/70 overflow-hidden">
                         <button
                           type="button"
                           onClick={() => setShowDirectoryDrawer((v) => !v)}
-                          className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-slate-900/60 transition cursor-pointer"
+                          className="w-full px-3.5 py-2 flex items-center justify-between text-left hover:bg-slate-900/60 transition cursor-pointer"
                         >
-                          <div className="flex items-center gap-2.5">
-                            <FolderOpen className="w-4 h-4 text-amber-400" />
-                            <div>
-                              <span className="text-xs font-bold text-slate-200 block">
-                                Browse All 10 Enterprise Modules &amp; Features (Directory)
-                              </span>
-                              <span className="text-[11px] text-slate-400">
-                                Need BOQ reports, Job Work, Inventory POs, or Quality Control? Open full directory here.
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FolderOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="text-xs font-bold text-slate-200 truncate">
+                              All 10 Enterprise Modules Directory
+                            </span>
+                            <span className="hidden sm:inline text-[11px] text-slate-500 truncate">
+                              · BOQ, Job Work, Inventory POs, Quality Control &amp; Reports
+                            </span>
                           </div>
                           {showDirectoryDrawer ? (
-                            <ChevronUp className="w-4 h-4 text-slate-400" />
+                            <ChevronUp className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           ) : (
-                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           )}
                         </button>
                         {showDirectoryDrawer && (
-                          <div className="p-4 border-t border-slate-800">
+                          <div className="p-3 border-t border-slate-800">
                             <CorporateControlCenter
                               onNavigateTab={(tab) => {
                                 if (tab === 'settings') setSettingsInitialTab('customization');
@@ -825,15 +757,15 @@ export default function Home() {
           </main>
 
           {/* Footer */}
-          <footer className="mt-auto border-t border-slate-800/80 bg-[#070D1E] py-4 px-6 text-xs text-slate-400 print:hidden">
-            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <footer className="mt-auto border-t border-slate-800/80 bg-[#070D1E] py-2 px-4 text-[11px] text-slate-400 print:hidden">
+            <div className="max-w-[1920px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-white tracking-wider">{brandName}</span>
-                <span>•</span>
-                <span>{activeFactoryName} &amp; Corporate Hub</span>
+                <span>·</span>
+                <span>{activeFactoryName}</span>
               </div>
-              <div className="flex items-center gap-4 text-[11px]">
-                <span className="text-slate-400">FRP Molded &amp; WPC Solid Composite Doors</span>
+              <div className="flex items-center gap-3 text-[10px]">
+                <span className="text-slate-400">FRP &amp; WPC Doors</span>
                 <span className="text-red-400 font-semibold">Direct Factory Pricing</span>
                 <span className="text-emerald-400">ISO 9001:2015</span>
               </div>

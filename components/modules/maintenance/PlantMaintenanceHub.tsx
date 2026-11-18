@@ -234,80 +234,67 @@ export default function PlantMaintenanceHub() {
   };
 
   return (
-    <div className="space-y-6 text-slate-200">
-      {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#1E1B0E] to-[#070D1E] border border-amber-500/30 shadow-xl">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-inner">
-              <Wrench className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black tracking-tight text-white">
-                  Molds &amp; Hand Tools Care
-                </h1>
-                <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  100% Handcrafted Workshop
-                </span>
-              </div>
-              <p className="text-sm text-slate-400 mt-0.5">
-                മാസ്റ്റർ മോൾഡുകൾ &amp; കൈ ഉപകരണങ്ങൾ • FRP master door molds, manual spray guns, hand circular saws &amp; artisan tool readiness
-              </p>
-            </div>
-          </div>
+    <div className="space-y-3 text-slate-200">
+      {/* Compact Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-[#0B132B] border border-amber-500/30">
+        <div className="flex items-center gap-2 min-w-0">
+          <Wrench className="w-4 h-4 text-amber-400 shrink-0" />
+          <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-white truncate">
+            Molds &amp; Hand Tools Care
+          </h1>
+          <span className="hidden sm:inline-flex px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            Workshop OEE
+          </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsTicketModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm shadow-lg shadow-amber-600/30 transition-all hover:scale-105"
-          >
-            <Plus className="w-4 h-4" />
-            + New Maintenance Work Order
-          </button>
-        </div>
+        <button
+          onClick={() => setIsTicketModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New Maintenance Order
+        </button>
       </div>
 
-      {/* KPI Overview Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+      {/* Compact KPI Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Plant OEE</span>
-            <Activity className="w-4 h-4 text-amber-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Plant OEE</span>
+            <Activity className="w-3.5 h-3.5 text-amber-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-amber-300">{plantOeeIndex.toFixed(1)}%</div>
-          <p className="text-xs text-amber-400/80 mt-1">World Class Target: &ge; 85.0%</p>
+          <div className="mt-0.5 text-lg font-black text-amber-300 leading-tight">{plantOeeIndex.toFixed(1)}%</div>
+          <p className="text-[10px] text-amber-400/80">Target &ge; 85%</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Heavy Equipment</span>
-            <Cpu className="w-4 h-4 text-blue-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Active Equipment</span>
+            <Cpu className="w-3.5 h-3.5 text-blue-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-white">{machines.length} Units</div>
-          <p className="text-xs text-slate-400 mt-1">Presses, CNCs & Compressors</p>
+          <div className="mt-0.5 text-lg font-black text-white leading-tight">{machines.length} Units</div>
+          <p className="text-[10px] text-slate-400">Molds, Saws &amp; Guns</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Machine Availability</span>
-            <Gauge className="w-4 h-4 text-emerald-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Availability</span>
+            <Gauge className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-emerald-400">{avgAvailability.toFixed(1)}%</div>
-          <p className="text-xs text-slate-400 mt-1">Plant uptime availability</p>
+          <div className="mt-0.5 text-lg font-black text-emerald-400 leading-tight">{avgAvailability.toFixed(1)}%</div>
+          <p className="text-[10px] text-slate-400">Uptime</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Tickets</span>
-            <AlertCircle className="w-4 h-4 text-rose-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Active Tickets</span>
+            <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-rose-400">
+          <div className="mt-0.5 text-lg font-black text-rose-400 leading-tight">
             {tickets.filter((t) => t.status !== 'RESOLVED').length} Open
           </div>
-          <p className="text-xs text-rose-400/80 mt-1">
-            {tickets.filter((t) => t.priority === 'CRITICAL' && t.status !== 'RESOLVED').length} Critical Breakdown
+          <p className="text-[10px] text-rose-400/80">
+            {tickets.filter((t) => t.priority === 'CRITICAL' && t.status !== 'RESOLVED').length} Critical
           </p>
         </div>
       </div>

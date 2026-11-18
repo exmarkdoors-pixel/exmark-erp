@@ -491,10 +491,10 @@ export default function SalesAndReturnHub() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 p-4 bg-emerald-950/90 border border-emerald-500/50 rounded-xl text-emerald-200 text-xs shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-3">
+        <div className="fixed top-5 right-5 z-50 p-3 bg-emerald-950/90 border border-emerald-500/50 rounded-xl text-emerald-200 text-xs shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-3">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <div>
             <p className="font-bold text-white">{toastMessage.title}</p>
@@ -503,91 +503,79 @@ export default function SalesAndReturnHub() {
         </div>
       )}
 
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#0F1E3D] to-[#162544] border border-slate-800 p-5 sm:p-6 shadow-xl">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Compact Single-Row Header */}
+      <div className="rounded-xl bg-[#0B132B] border border-slate-800 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <ReceiptText className="w-4 h-4 text-red-500 shrink-0" />
+          <h1 className="text-sm sm:text-base font-extrabold text-white tracking-tight truncate">
+            Sales &amp; Returns Register
+          </h1>
+          <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            Direct Billing
+          </span>
+        </div>
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5 max-w-2xl">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600 text-white shadow-xs flex items-center gap-1.5">
-                <ReceiptText className="w-3.5 h-3.5" />
-                Sales &amp; Sales Return Hub
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Direct Factory Billing
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
-              Commercial Sales &amp; Returns Register (സെയിൽസ് &amp; റിട്ടേൺസ്)
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
-              Direct Commercial Sales Billing, dealer credit vouchers, size mismatch adjustments, factory rework routing, and net sales reconciliation for Kerala door projects.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('returns');
-                if (invoices.length > 0) handleInitiateReturn(invoices[0]);
-              }}
-              className="px-3.5 py-2.5 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4 text-rose-400" />
-              <span>+ Record Sales Return</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (invoices.length > 0) handlePrintInvoice(invoices[0]);
-              }}
-              className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-950/40 transition flex items-center gap-2 cursor-pointer"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print Hub (5 Themes)</span>
-            </button>
-          </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('returns');
+              if (invoices.length > 0) handleInitiateReturn(invoices[0]);
+            }}
+            className="px-2.5 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+            <span>+ Sales Return</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (invoices.length > 0) handlePrintInvoice(invoices[0]);
+            }}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-[11px] font-bold shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print Hub</span>
+          </button>
         </div>
       </div>
 
-      {/* 5 KPI Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
-        <div className="bg-[#0B132B] p-4 rounded-xl border border-slate-800">
-          <span className="text-xs text-slate-400 block font-medium">Gross Billed Sales</span>
-          <p className="text-lg sm:text-xl font-bold text-white mt-1">₹{(grossSales / 100000).toFixed(2)}L</p>
-          <span className="text-[11px] text-slate-400 mt-0.5 block">{totalDoorsSold} Doors Billed</span>
+      {/* Compact 5 KPI Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-800">
+          <span className="text-[10px] text-slate-400 block font-bold uppercase">Gross Billed</span>
+          <p className="text-base font-black text-white leading-tight mt-0.5">₹{(grossSales / 100000).toFixed(2)}L</p>
+          <span className="text-[10px] text-slate-400 block">{totalDoorsSold} Doors</span>
         </div>
 
-        <div className="bg-[#0B132B] p-4 rounded-xl border border-rose-900/40">
-          <span className="text-xs text-rose-400 block font-medium flex items-center gap-1">
-            <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
-            Sales Returns
+        <div className="bg-[#0B132B] px-3 py-2 rounded-xl border border-rose-900/40">
+          <span className="text-[10px] text-rose-400 font-bold uppercase flex items-center gap-1">
+            <TrendingDown className="w-3 h-3 text-rose-400" />
+            Returns
           </span>
-          <p className="text-lg sm:text-xl font-bold text-rose-400 mt-1">₹{(totalReturns / 100000).toFixed(2)}L</p>
-          <span className="text-[11px] text-rose-300 mt-0.5 block">{totalDoorsReturned} Doors Credited</span>
+          <p className="text-base font-black text-rose-400 leading-tight mt-0.5">₹{(totalReturns / 100000).toFixed(2)}L</p>
+          <span className="text-[10px] text-rose-300 block">{totalDoorsReturned} Credited</span>
         </div>
 
-        <div className="bg-[#0B132B] p-4 rounded-xl border border-emerald-900/40">
-          <span className="text-xs text-emerald-400 block font-medium flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-            Net Billed Sales
+        <div className="bg-[#0B132B] px-3 py-2 rounded-xl border border-emerald-900/40">
+          <span className="text-[10px] text-emerald-400 font-bold uppercase flex items-center gap-1">
+            <TrendingUp className="w-3 h-3 text-emerald-400" />
+            Net Sales
           </span>
-          <p className="text-lg sm:text-xl font-bold text-emerald-400 mt-1">₹{(netSales / 100000).toFixed(2)}L</p>
-          <span className="text-[11px] text-emerald-300 mt-0.5 block">Gross minus Returns</span>
+          <p className="text-base font-black text-emerald-400 leading-tight mt-0.5">₹{(netSales / 100000).toFixed(2)}L</p>
+          <span className="text-[10px] text-emerald-300 block">Net Billed</span>
         </div>
 
-        <div className="bg-[#0B132B] p-4 rounded-xl border border-slate-800">
-          <span className="text-xs text-slate-400 block font-medium">Advances Credited</span>
-          <p className="text-lg sm:text-xl font-bold text-cyan-400 mt-1">₹{(totalAdvance / 100000).toFixed(2)}L</p>
-          <span className="text-[11px] text-slate-400 mt-0.5 block">Bank / UPI Received</span>
+        <div className="bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-800">
+          <span className="text-[10px] text-slate-400 block font-bold uppercase">Advances</span>
+          <p className="text-base font-black text-cyan-400 leading-tight mt-0.5">₹{(totalAdvance / 100000).toFixed(2)}L</p>
+          <span className="text-[10px] text-slate-400 block">Bank / UPI</span>
         </div>
 
-        <div className="bg-[#0B132B] p-4 rounded-xl border border-slate-800 col-span-2 md:col-span-1">
-          <span className="text-xs text-slate-400 block font-medium">Receivables Outstanding</span>
-          <p className="text-lg sm:text-xl font-bold text-amber-400 mt-1">₹{(totalReceivable / 100000).toFixed(2)}L</p>
-          <span className="text-[11px] text-amber-300 mt-0.5 block">Net Due from Clients</span>
+        <div className="bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-800 col-span-2 md:col-span-1">
+          <span className="text-[10px] text-slate-400 block font-bold uppercase">Receivables</span>
+          <p className="text-base font-black text-amber-400 leading-tight mt-0.5">₹{(totalReceivable / 100000).toFixed(2)}L</p>
+          <span className="text-[10px] text-amber-300 block">Net Due</span>
         </div>
       </div>
 

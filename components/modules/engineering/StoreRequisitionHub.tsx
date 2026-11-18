@@ -1818,48 +1818,50 @@ export default function StoreRequisitionHub({
       : 'H − Deduction';
 
   return (
-    <div className="space-y-6">
-      {/* Selection Header */}
-      <div className="bg-[#0B132B] border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-            <h2 className="font-bold text-white text-base sm:text-lg flex items-center gap-2">
-              <FlaskConical className="w-5 h-5 text-emerald-400" />
+    <div className="space-y-3">
+      {/* Compact Single-Row Auto-BOQ Command Bar */}
+      <div className="bg-[#0B132B] border border-slate-800 rounded-xl px-3.5 py-2.5 shadow-sm flex flex-wrap justify-between items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <h2 className="font-extrabold text-white text-sm sm:text-base flex items-center gap-1.5 truncate">
+            <FlaskConical className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="truncate">
               {isCustomCalcMode
-                ? 'Quick Door Size Auto-BOQ Calculator (80×210 cm Basis)'
+                ? 'Quick Size BOQ Calculator'
                 : isBatchBoqMode
-                ? 'Consolidated Batch BOQ & Automatic Sq.Ft Material Engine'
-                : 'Auto BOQ Material Calculator & Store Requisition'}
-            </h2>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            {isCustomCalcMode
-              ? 'കസ്റ്റം അളവുകൾ (cm) നൽകി ആവശ്യമായ Resin, GEL, Catalyst, Accelerator, CSM 300 GSM, Colour Pigment, Timber (Cu.Ft), Rigid Foam (50×100 cm) എന്നിവ ഉടൻ കണക്കാക്കുക.'
-              : isBatchBoqMode
-              ? 'ഒന്നിലധികം പാർട്ടികളിൽ നിന്നുള്ള വാതിലുകൾ ഒരുമിച്ച് ഹാൻഡ്-ക്രാഫ്റ്റ് പ്രൊഡക്ഷൻ നടത്തുമ്പോൾ ആവശ്യമായ ആകെ മെറ്റീരിയൽ ലിസ്റ്റ് (Total Batch BOQ).'
-              : `Sq.Ft-scaled Resin (${ratesConfig.resinKg}kg), Gel (${ratesConfig.gelKg}kg), Catalyst (${ratesConfig.catalystGrams}g), Accelerator (${ratesConfig.acceleratorGrams}g), CSM 300 GSM (${ratesConfig.csm300Kg}kg), Colour Pigments (${ratesConfig.pigmentGrams}g), Cu.Ft Frame/Shutter Wood & Rigid Foam (${ratesConfig.foamSheet.widthCm}×${ratesConfig.foamSheet.heightCm} cm) based on ${ratesConfig.baseDoorWidthCm}×${ratesConfig.baseDoorHeightCm} cm baseline (${boq.baseDoorSqFt.toFixed(2)} Sq.Ft).`}
-          </p>
+                ? 'Consolidated Multi-Party BOQ'
+                : isReportMode
+                ? 'BOQ Issued Report'
+                : 'Auto-BOQ & Store Requisition'}
+            </span>
+          </h2>
+          <span
+            className="hidden xl:inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0"
+            title={`Resin ${ratesConfig.resinKg}kg · Gel ${ratesConfig.gelKg}kg · Catalyst ${ratesConfig.catalystGrams}g · Accelerator ${ratesConfig.acceleratorGrams}g · CSM ${ratesConfig.csm300Kg}kg · Pigment ${ratesConfig.pigmentGrams}g per ${ratesConfig.baseDoorWidthCm}×${ratesConfig.baseDoorHeightCm} cm (${boq.baseDoorSqFt.toFixed(2)} Sq.Ft)`}
+          >
+            {ratesConfig.resinKg}kg / {boq.baseDoorSqFt.toFixed(2)} sq.ft
+          </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={openRatesModal}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 shadow transition flex items-center gap-1.5 cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 transition inline-flex items-center gap-1 cursor-pointer"
+            title="BOQ Rates, Pigments & Lock Kits"
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>BOQ Rates, Pigments &amp; Lock Kits</span>
+            <span>Rates</span>
           </button>
 
           <button
             type="button"
             onClick={handleSelectAllInProductionOrders}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-950/70 hover:bg-rose-900 text-rose-200 border border-rose-500/50 shadow transition flex items-center gap-1.5 cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-rose-950/70 hover:bg-rose-900 text-rose-200 border border-rose-500/50 transition inline-flex items-center gap-1 cursor-pointer"
             title="Combine all non-completed production orders to check total locks & kit screws needed before delivery rush"
           >
             <Lock className="w-3.5 h-3.5 text-rose-300" />
-            <span>Lock Rush (All In-Production)</span>
+            <span>Lock Rush</span>
           </button>
 
           <button
@@ -1873,15 +1875,15 @@ export default function StoreRequisitionHub({
                 setIsReportMode(false);
               }
             }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer ${
               isConsumablesMode
-                ? 'bg-indigo-600 hover:bg-indigo-500 text-white ring-2 ring-indigo-400/50'
+                ? 'bg-indigo-600 hover:bg-indigo-500 text-white ring-1 ring-indigo-400/50'
                 : 'bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-600/60'
             }`}
             title="Log standalone evening / daily floor consumables not tied to a single door order & convert to PO"
           >
             <Moon className="w-3.5 h-3.5" />
-            <span>Floor / Evening Consumables ({extraItems.filter((i) => i.orderKey === 'FLOOR-CONSUMABLES' || i.isFloorConsumable).length})</span>
+            <span>Consumables ({extraItems.filter((i) => i.orderKey === 'FLOOR-CONSUMABLES' || i.isFloorConsumable).length})</span>
           </button>
 
           <button
@@ -1895,14 +1897,15 @@ export default function StoreRequisitionHub({
                 setIsReportMode(false);
               }
             }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer ${
               isCustomCalcMode
-                ? 'bg-cyan-600 hover:bg-cyan-500 text-white ring-2 ring-cyan-400/50'
+                ? 'bg-cyan-600 hover:bg-cyan-500 text-white ring-1 ring-cyan-400/50'
                 : 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-600/60'
             }`}
+            title="Quick Door Size Auto-BOQ Calculator (80×210 cm Basis)"
           >
             <Calculator className="w-3.5 h-3.5" />
-            <span>Quick Size Calculator (80×210 cm)</span>
+            <span>Size Calc</span>
           </button>
 
           <button
@@ -1916,14 +1919,14 @@ export default function StoreRequisitionHub({
                 setIsReportMode(false);
               }
             }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer ${
               isBatchBoqMode
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white ring-2 ring-emerald-400/50'
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white ring-1 ring-emerald-400/50'
                 : 'bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-600/60'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-            <span>⚡ Consolidated Multi-Party BOQ</span>
+            <span>Consolidated BOQ</span>
           </button>
 
           <button
@@ -1938,23 +1941,23 @@ export default function StoreRequisitionHub({
                 setIsConsumablesMode(false);
               }
             }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer ${
               isReportMode
-                ? 'bg-cyan-600 hover:bg-cyan-500 text-white ring-2 ring-cyan-300/60'
+                ? 'bg-cyan-600 hover:bg-cyan-500 text-white ring-1 ring-cyan-300/60'
                 : 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/50'
             }`}
             title="View Door-Wise, Order-Wise & Batch-Wise BOQ Issued Report with CSV Export and Print"
           >
             <BarChart3 className="w-3.5 h-3.5" />
-            <span>📊 BOQ Issued Report (Door / Order / Batch)</span>
+            <span>BOQ Report</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsCustomUsageEditMode((v) => !v)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer ${
               isCustomUsageEditMode
-                ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300'
+                ? 'bg-amber-500 text-slate-950 ring-1 ring-amber-300'
                 : hasCustomUsageOverrides
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 hover:bg-amber-500/30'
                 : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40'
@@ -1964,23 +1967,23 @@ export default function StoreRequisitionHub({
             <Edit2 className="w-3.5 h-3.5" />
             <span>
               {isCustomUsageEditMode
-                ? 'Close Custom Usage Edit'
+                ? 'Close Edit'
                 : hasCustomUsageOverrides
-                ? `⚡ Custom Usage Active (+${customUsageBufferPercent}%)`
-                : 'Edit Custom Usage (കസ്റ്റം യൂസേജ്)'}
+                ? `Custom (+${customUsageBufferPercent}%)`
+                : 'Custom Usage'}
             </span>
           </button>
 
           {!isBatchBoqMode && !isCustomCalcMode && !isConsumablesMode && !isReportMode && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <select
                 value={orderHistoryFilter}
                 onChange={(e) => setOrderHistoryFilter(e.target.value as 'ALL' | 'PENDING' | 'ISSUED')}
-                className="bg-[#070D1E] border border-slate-700 text-slate-300 text-xs rounded-xl p-2 font-semibold cursor-pointer"
+                className="bg-[#070D1E] border border-slate-700 text-slate-300 text-[11px] rounded-lg px-2 py-1.5 font-semibold cursor-pointer"
                 title="Filter between Pending BOQ Issue vs Already Issued BOQ History"
               >
                 <option value="ALL">All Orders ({orders.length})</option>
-                <option value="PENDING">Pending BOQ Issue ({pendingBoqOrders.length})</option>
+                <option value="PENDING">Pending BOQ ({pendingBoqOrders.length})</option>
                 <option value="ISSUED">Already Issued ({issuedBoqOrders.length})</option>
               </select>
 

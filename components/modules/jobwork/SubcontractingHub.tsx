@@ -177,82 +177,69 @@ export default function SubcontractingHub() {
   };
 
   return (
-    <div className="space-y-6 text-slate-200">
-      {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#1A1235] to-[#070D1E] border border-indigo-500/30 shadow-xl">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-inner">
-              <Repeat className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black tracking-tight text-white">
-                  Subcontracting &amp; Job Work Challans
-                </h1>
-                <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  Outwork Tracking
-                </span>
-              </div>
-              <p className="text-sm text-slate-400 mt-0.5">
-                സബ് കോൺട്രാക്റ്റിംഗ് / ജോബ് വർക്ക് • Glass etching, brass CNC inlays &amp; factory return tracking
-              </p>
-            </div>
-          </div>
+    <div className="space-y-3 text-slate-200">
+      {/* Compact Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-[#0B132B] border border-indigo-500/30">
+        <div className="flex items-center gap-2 min-w-0">
+          <Repeat className="w-4 h-4 text-indigo-400 shrink-0" />
+          <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-white truncate">
+            Subcontracting &amp; Job Work Challans
+          </h1>
+          <span className="hidden sm:inline-flex px-2 py-0.5 text-[10px] font-bold rounded-md bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+            Outwork
+          </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsChallanModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all hover:scale-105"
-          >
-            <Plus className="w-4 h-4" />
-            + New Outward Delivery Challan
-          </button>
-        </div>
+        <button
+          onClick={() => setIsChallanModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New Outward Challan
+        </button>
       </div>
 
-      {/* KPI Overview Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+      {/* Compact KPI Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Doors at Outsource</span>
-            <Package className="w-4 h-4 text-indigo-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Doors at Outsource</span>
+            <Package className="w-3.5 h-3.5 text-indigo-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-indigo-300">{totalOutsourceDoors} Units</div>
-          <p className="text-xs text-indigo-400/80 mt-1">Glass & Brass CNC processing</p>
+          <div className="mt-0.5 text-lg font-black text-indigo-300 leading-tight">{totalOutsourceDoors} Units</div>
+          <p className="text-[10px] text-indigo-400/80">Glass &amp; Brass CNC</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Outsource Asset Value</span>
-            <DollarSign className="w-4 h-4 text-emerald-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Outsource Value</span>
+            <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-emerald-400">₹{totalOutsourceValue.toLocaleString()}</div>
-          <p className="text-xs text-slate-400 mt-1">Dispatched material value</p>
+          <div className="mt-0.5 text-lg font-black text-emerald-400 leading-tight">₹{totalOutsourceValue.toLocaleString()}</div>
+          <p className="text-[10px] text-slate-400">Dispatched value</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tracking Return Window</span>
-            <Clock className="w-4 h-4 text-amber-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Return Window</span>
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-white">365 Days</div>
-          <p className="text-xs text-slate-400 mt-1">Returnable factory challan</p>
+          <div className="mt-0.5 text-lg font-black text-white leading-tight">365 Days</div>
+          <p className="text-[10px] text-slate-400">Returnable challan</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Challan Control</span>
-            <ShieldCheck className="w-4 h-4 text-teal-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Challan Control</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-teal-400">100% Verified</div>
-          <p className="text-xs text-teal-400/80 mt-1">Outward dispatch challans active</p>
+          <div className="mt-0.5 text-lg font-black text-teal-400 leading-tight">100% Verified</div>
+          <p className="text-[10px] text-teal-400/80">Active tracking</p>
         </div>
       </div>
 
       {/* Main Split: Left Challans List, Right Delivery Challan Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* Left Column (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
           <div className="p-4 rounded-xl bg-[#0B132B]/90 border border-slate-800 space-y-3">

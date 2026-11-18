@@ -932,54 +932,48 @@ export default function BatchPrintHub({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+        <div className="px-3 py-2 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Header Banner */}
-      <div className="bg-[#0B132B] border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-rose-500 animate-pulse" />
-            <h2 className="font-bold text-white text-base sm:text-lg flex items-center gap-2">
-              <Printer className="w-5 h-5 text-rose-500" />
-              12L Factory Shutter Stickers & Batch Printing Hub
-            </h2>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Batch-print 12-Up A4 die-cut door labels, Party-wise QC Reports (IS 14856:2000), and Master A4 Cutting Schedules simultaneously across multiple builder orders.
-          </p>
+      {/* Compact Single-Row Header */}
+      <div className="bg-[#0B132B] border border-slate-800 rounded-xl px-3.5 py-2 shadow-sm flex flex-wrap justify-between items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+          <h2 className="font-extrabold text-white text-sm sm:text-base flex items-center gap-1.5 truncate">
+            <Printer className="w-4 h-4 text-rose-500 shrink-0" />
+            <span className="truncate">12L Stickers &amp; Batch Print Hub</span>
+          </h2>
         </div>
 
         {/* Batch Counter Pill & Optional Close */}
-        <div className="flex items-center gap-3">
-          <div className="bg-slate-900/90 border border-slate-700/80 px-4 py-2 rounded-xl text-right shrink-0">
-            <div className="text-[10px] text-slate-400 uppercase font-semibold">Active Batch Summary</div>
-            <div className="text-xs font-bold text-white mt-0.5">
-              <span className="text-rose-400 font-black text-sm">{selectedOrderIds.length}</span> Orders •{' '}
-              <span className="text-emerald-400 font-black text-sm">{totalStickers}</span> Labels •{' '}
-              <span className="text-amber-400 font-black text-sm">{totalSheets}</span> A4 Sheets
-            </div>
+        <div className="flex items-center gap-2">
+          <div className="bg-slate-900/90 border border-slate-700/80 px-2.5 py-1 rounded-lg text-xs font-bold text-white flex items-center gap-2">
+            <span><span className="text-rose-400 font-black">{selectedOrderIds.length}</span> Orders</span>
+            <span className="text-slate-600">·</span>
+            <span><span className="text-emerald-400 font-black">{totalStickers}</span> Labels</span>
+            <span className="text-slate-600">·</span>
+            <span><span className="text-amber-400 font-black">{totalSheets}</span> A4 Sheets</span>
           </div>
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition"
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
               title="Close modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
       </div>
 
       {/* Toolbar & Filter */}
-      <div className="bg-[#0B132B] border border-slate-800 rounded-xl p-4 flex flex-wrap justify-between items-center gap-3">
+      <div className="bg-[#0B132B] border border-slate-800 rounded-xl px-3 py-2 flex flex-wrap justify-between items-center gap-2">
         <div className="flex items-center gap-2 text-xs flex-wrap">
           <button
             onClick={selectAll}

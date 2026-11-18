@@ -568,39 +568,39 @@ export default function Navbar({
       .toUpperCase() || 'EX';
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 bg-[#0B132B] border-b border-slate-800 shadow-md print:hidden">
+    <header className="sticky top-0 z-30 flex items-center justify-between h-12 px-3 md:px-4 bg-[#0B132B] border-b border-slate-800 shadow-sm print:hidden">
       {/* Left: Mobile Toggle + Breadcrumb / Title */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={onOpenMobileSidebar}
-          className="p-2 -ml-1 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800 lg:hidden focus:outline-none"
+          className="p-1.5 -ml-1 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800 lg:hidden focus:outline-none"
           aria-label="Open navigation menu"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-4 h-4" />
         </button>
 
         <div className="flex items-center gap-2 whitespace-nowrap">
           {!isSimpleMode && (
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+            <div className="hidden sm:flex items-center gap-1 text-[11px] text-slate-400 font-medium">
               <span>EXMARK</span>
               <span>/</span>
             </div>
           )}
-          <h1 className="text-base sm:text-lg font-bold text-white capitalize tracking-tight flex items-center gap-2 whitespace-nowrap">
+          <h1 className="text-sm sm:text-base font-bold text-white capitalize tracking-tight flex items-center gap-1.5 whitespace-nowrap">
             {currentTabName}
           </h1>
 
           {/* Multi-Company Switcher + Create New Company Dropdown */}
-          <div ref={companyMenuRef} className="relative ml-1">
+          <div ref={companyMenuRef} className="relative ml-0.5">
             <button
               type="button"
               onClick={() => setShowCompanyMenu((v) => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-xs font-bold text-emerald-300 transition cursor-pointer max-w-[190px]"
+              className="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-[11px] font-bold text-emerald-300 transition cursor-pointer max-w-[175px]"
               title="Switch Company or Create New Company"
             >
-              <Building2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+              <Building2 className="w-3 h-3 shrink-0 text-emerald-400" />
               <span className="truncate">{activeCompany?.brandName || 'EXMARK Doors'}</span>
-              <ChevronDown className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+              <ChevronDown className="w-3 h-3 shrink-0 text-slate-400" />
             </button>
 
             {showCompanyMenu && (

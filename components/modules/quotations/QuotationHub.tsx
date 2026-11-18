@@ -2605,12 +2605,12 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
   };
 
   return (
-    <div className="bg-[#090d16] text-slate-100 min-h-screen flex flex-col font-sans rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
+    <div className="bg-[#090d16] text-slate-100 flex flex-col font-sans rounded-xl overflow-hidden border border-slate-800 shadow-lg">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-auto">
           <div
-            className={`p-3.5 rounded-xl border shadow-2xl flex items-start gap-2.5 text-xs transition-all duration-300 ${
+            className={`p-3 rounded-xl border shadow-2xl flex items-start gap-2 text-xs transition-all duration-300 ${
               toastMessage.type === 'info'
                 ? 'bg-[#261017] border-rose-500/50 text-rose-200'
                 : 'bg-[#0f241d] border-emerald-500/50 text-emerald-200'
@@ -2625,49 +2625,101 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
         </div>
       )}
 
-      {/* TOP SYSTEM BAR */}
-      <header className="h-14 border-b border-slate-800 bg-[#0d1424] px-5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-rose-600 rounded-lg flex items-center justify-center font-black text-white text-base shadow-md shadow-rose-900/40">
-            EX
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-slate-400">EXMARK</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                <span>
-                  {activeTab === 'quotations'
-                    ? 'Quotations Management Hub'
-                    : activeTab === 'pipeline'
-                    ? 'CRM & Leads Pipeline'
-                    : 'Sales Orders Step-by-Step'}
-                </span>
-                <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold">
-                  Live Ops
-                </span>
-              </span>
-            </div>
-          </div>
+      {/* UNIFIED SINGLE-ROW QUOTATIONS TOOLBAR (Merges Tabs + Search + Primary Controls) */}
+      <div className="px-3 py-2 border-b border-slate-800 bg-[#0d1424] flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-1 bg-slate-900/90 p-0.5 rounded-lg border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setActiveTab('quotations')}
+            className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'quotations'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>Quotations</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                activeTab === 'quotations' ? 'bg-rose-800 text-white' : 'bg-slate-800 text-slate-400'
+              }`}
+            >
+              {quotations.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('siteMeasurements')}
+            className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition flex items-center gap-1 cursor-pointer ${
+              activeTab === 'siteMeasurements'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Ruler className="w-3 h-3 text-cyan-400" />
+            <span>Measurements</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                activeTab === 'siteMeasurements' ? 'bg-rose-800 text-white' : 'bg-slate-800 text-cyan-400'
+              }`}
+            >
+              {siteMeasurements.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('pipeline')}
+            className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition flex items-center gap-1 cursor-pointer ${
+              activeTab === 'pipeline'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>Pipeline</span>
+            <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded-full">
+              {leads.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('salesOrders')}
+            className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition flex items-center gap-1 cursor-pointer ${
+              activeTab === 'salesOrders'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>Sales Orders</span>
+            <span className="bg-slate-800 text-cyan-400 text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+              {salesOrders.length}
+            </span>
+          </button>
         </div>
 
-        {/* Search & Audio Toggle */}
-        <div className="flex items-center gap-3">
-          <div className="relative hidden md:block">
+        {/* Right: Compact Search, Clear Draft, Audio & New Lead */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="relative">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search orders, quotes, models, clients..."
-              className="w-64 bg-slate-900 border border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-rose-500 transition"
+              placeholder="Search quotes, models, clients..."
+              className="w-48 sm:w-56 bg-slate-900 border border-slate-700/80 rounded-lg pl-7 pr-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-rose-500 transition"
             />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1.5" />
           </div>
 
-          <div className="text-xs text-slate-400 border border-slate-800 px-2.5 py-1.5 rounded-lg bg-slate-900/40 hidden sm:flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <span>27 Oct 2026 - Kerala Plant</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsZeroConfirmOpen(true)}
+            className="px-2 py-1 text-[11px] font-semibold text-rose-400 hover:text-white bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 rounded-lg transition cursor-pointer flex items-center gap-1"
+            title="Clear current draft rows to zero"
+          >
+            <Trash2 className="w-3 h-3 text-rose-400" />
+            <span>Clear ₹0</span>
+          </button>
 
           <button
             type="button"
@@ -2676,9 +2728,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             title="Toggle Sound Feedback"
           >
             {audioEnabled ? (
-              <Volume2 className="w-4 h-4 text-emerald-400" />
+              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
             ) : (
-              <VolumeX className="w-4 h-4 text-slate-500" />
+              <VolumeX className="w-3.5 h-3.5 text-slate-500" />
             )}
           </button>
 
@@ -2699,120 +2751,27 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
               playBeep(560, 0.1);
               showToast('New Lead Created', `Added ${newId}: ${newL.title}`);
             }}
-            className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-md shadow-rose-900/30 flex items-center gap-1 transition cursor-pointer"
+            className="bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs flex items-center gap-1 transition cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>New CRM Lead</span>
-          </button>
-        </div>
-      </header>
-
-      {/* TOP VIEW SWITCHER TABS */}
-      <div className="px-5 py-2.5 border-b border-slate-800/80 bg-[#0b101d] flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <span>Door Manufacturing &amp; Sales System</span>
-            <span className="text-xs font-normal text-slate-400 hidden lg:inline">
-              | Direct Factory Pricing, Custom Dimensions &amp; Door Catalog Sync
-            </span>
-          </h2>
-        </div>
-
-        <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-lg border border-slate-800">
-          <button
-            type="button"
-            onClick={() => setActiveTab('quotations')}
-            className={`px-3.5 py-1 text-xs font-semibold rounded-md transition flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'quotations'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span>Quotations Section</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                activeTab === 'quotations' ? 'bg-rose-800 text-white' : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              {quotations.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('siteMeasurements')}
-            className={`px-3.5 py-1 text-xs font-semibold rounded-md transition flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'siteMeasurements'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Ruler className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Site Measurements (By Staff)</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                activeTab === 'siteMeasurements' ? 'bg-rose-800 text-white' : 'bg-slate-800 text-cyan-400'
-              }`}
-            >
-              {siteMeasurements.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('pipeline')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'pipeline'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span>Pipeline Board</span>
-            <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded-full">
-              {leads.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('salesOrders')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'salesOrders'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span>Sales Orders Tracking</span>
-            <span className="bg-slate-800 text-cyan-400 text-[10px] px-1.5 py-0.2 rounded-full font-mono">
-              {salesOrders.length} Orders
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsZeroConfirmOpen(true)}
-            className="px-2.5 py-1 text-xs text-rose-400 hover:text-white bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 rounded-md transition cursor-pointer flex items-center gap-1.5"
-            title="Clear current draft rows to zero"
-          >
-            <Trash2 className="w-3 h-3 text-rose-400" />
-            <span>Clear Draft to ₹0</span>
+            <span>New Lead</span>
           </button>
         </div>
       </div>
 
       {/* VIEW 1: QUOTATIONS HUB & FORM VIEW */}
       {activeTab === 'quotations' && (
-        <div className="p-5 overflow-y-auto space-y-5 flex-1">
+        <div className="p-3 overflow-y-auto space-y-3 flex-1">
           {/* SALES TARGET & COMMISSIONS SUMMARY STRIP */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-gradient-to-r from-slate-900/90 via-[#131b2e] to-slate-900/90 p-3.5 rounded-xl border border-slate-800">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-                <Target className="w-5 h-5" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                <Target className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Monthly Target</span>
-                <span className="text-base font-extrabold text-white font-mono">₹25,00,000</span>
-                <span className="text-[10px] text-emerald-400 block font-medium truncate">Kerala 14 Districts Active</span>
+                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block leading-tight">Monthly Target</span>
+                <span className="text-sm font-extrabold text-white font-mono">₹25,00,000</span>
+                <span className="text-[10px] text-emerald-400 block font-medium truncate">14 Districts Active</span>
               </div>
             </div>
 

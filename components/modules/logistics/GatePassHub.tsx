@@ -190,82 +190,69 @@ export default function GatePassHub() {
   };
 
   return (
-    <div className="space-y-6 text-slate-200">
-      {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#0E281E] to-[#070D1E] border border-emerald-500/30 shadow-xl">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-inner">
-              <Ticket className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black tracking-tight text-white">
-                  Gate Pass & Logistics Security (RGP / NRGP)
-                </h1>
-                <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  SAP LE-TRA / Factory Security Standard
-                </span>
-              </div>
-              <p className="text-sm text-slate-400 mt-0.5">
-                ഗേറ്റ് പാസ് & ഇ-വേ ബിൽ • Commercial delivery slips, returnable steel cradles, chemical tankers & security sign-off
-              </p>
-            </div>
-          </div>
+    <div className="space-y-3 text-slate-200">
+      {/* Compact Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-[#0B132B] border border-emerald-500/30">
+        <div className="flex items-center gap-2 min-w-0">
+          <Ticket className="w-4 h-4 text-emerald-400 shrink-0" />
+          <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-white truncate">
+            Gate Pass &amp; Security (RGP / NRGP)
+          </h1>
+          <span className="hidden sm:inline-flex px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            Factory Security
+          </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsNewPassModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 transition-all hover:scale-105"
-          >
-            <Plus className="w-4 h-4" />
-            + Generate Gate Pass
-          </button>
-        </div>
+        <button
+          onClick={() => setIsNewPassModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Generate Gate Pass
+        </button>
       </div>
 
-      {/* KPI Overview Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+      {/* Compact KPI Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Outward Fleet Dispatched</span>
-            <Truck className="w-4 h-4 text-emerald-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Outward Fleet</span>
+            <Truck className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-emerald-400">{todayOutwardTrucks} Lorries</div>
-          <p className="text-xs text-slate-400 mt-1">Non-Returnable (NRGP)</p>
+          <div className="mt-0.5 text-lg font-black text-emerald-400 leading-tight">{todayOutwardTrucks} Lorries</div>
+          <p className="text-[10px] text-slate-400">Non-Returnable (NRGP)</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Returnable Pallets Pending</span>
-            <Clock className="w-4 h-4 text-amber-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">RGP Pending</span>
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-amber-300">{pendingRgpCount} Passes</div>
-          <p className="text-xs text-amber-400/80 mt-1">Steel racks with glass vendors</p>
+          <div className="mt-0.5 text-lg font-black text-amber-300 leading-tight">{pendingRgpCount} Passes</div>
+          <p className="text-[10px] text-amber-400/80">Returnable racks</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inward Deliveries</span>
-            <ArrowDownLeft className="w-4 h-4 text-blue-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Inward Loads</span>
+            <ArrowDownLeft className="w-3.5 h-3.5 text-blue-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-blue-400">{inwardReceipts} Loads</div>
-          <p className="text-xs text-slate-400 mt-1">Resin tankers & roving batches</p>
+          <div className="mt-0.5 text-lg font-black text-blue-400 leading-tight">{inwardReceipts} Loads</div>
+          <p className="text-[10px] text-slate-400">Resin &amp; roving</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Security Gatehouse</span>
-            <ShieldCheck className="w-4 h-4 text-teal-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Gatehouse</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-teal-300">Gate A & B Active</div>
-          <p className="text-xs text-slate-400 mt-1">100% manifest verified</p>
+          <div className="mt-0.5 text-lg font-black text-teal-300 leading-tight">Gate A &amp; B</div>
+          <p className="text-[10px] text-slate-400">100% verified</p>
         </div>
       </div>
 
       {/* Main Split: Left Gate Passes List, Right Official Gate Pass Paperwork */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* Left Column (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
           <div className="p-4 rounded-xl bg-[#0B132B]/90 border border-slate-800 space-y-3">

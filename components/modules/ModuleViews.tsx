@@ -302,27 +302,25 @@ export function CustomersView() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {toastMessage && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+        <div className="px-3 py-2 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Top Header Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Users className="w-6 h-6 text-red-500" />
-            Dealer & Builder Directory
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Kerala Authorized Dealers, Commercial Builders, Architects & Direct Contractors
-          </p>
-        </div>
+      {/* Compact Top Header Actions */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+          <Users className="w-4 h-4 text-red-500" />
+          <span>Customers &amp; Dealers</span>
+          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300">
+            {customers.length}
+          </span>
+        </h2>
 
-        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {selectedCustomerIds.length > 0 && (
             <button
               onClick={() => triggerDelete('SELECTED')}
@@ -726,29 +724,24 @@ export function DoorMeasurementsView() {
   const totalOpenings = records.reduce((s, r) => s + (Array.isArray(r.doors) ? r.doors.length : r.totalOpenings || 0), 0);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {toast && (
-        <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2">
+        <div className="px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{toast}</span>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Ruler className="w-6 h-6 text-cyan-400" />
-            Site Measurements &amp; 4-Point Opening Verification
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Field door opening schedules, rebate tolerance deductions &amp; 1-click Auto-Quotation
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+          <Ruler className="w-4 h-4 text-cyan-400" />
+          <span>Site Measurements (4-Point)</span>
+        </h2>
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={loadMeasurements}
-            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </button>
@@ -758,31 +751,31 @@ export function DoorMeasurementsView() {
               setEditingRecord(null);
               setModalOpen(true);
             }}
-            className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
           >
-            <Plus className="w-4 h-4" /> Record Site Measurement
+            <Plus className="w-3.5 h-3.5" /> Record Measurement
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-3.5 rounded-xl bg-[#0B132B] border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-slate-400">Total Site Sheets</div>
-          <div className="text-xl font-black text-white mt-0.5">{records.length}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Site Sheets</div>
+          <div className="text-lg font-black text-white leading-tight mt-0.5">{records.length}</div>
         </div>
-        <div className="p-3.5 rounded-xl bg-[#0B132B] border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-slate-400">Measured Openings</div>
-          <div className="text-xl font-black text-cyan-400 mt-0.5">{totalOpenings}</div>
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Openings</div>
+          <div className="text-lg font-black text-cyan-400 leading-tight mt-0.5">{totalOpenings}</div>
         </div>
-        <div className="p-3.5 rounded-xl bg-[#0B132B] border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-slate-400">Verified / Approved</div>
-          <div className="text-xl font-black text-emerald-400 mt-0.5">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Verified</div>
+          <div className="text-lg font-black text-emerald-400 leading-tight mt-0.5">
             {records.filter((r) => r.status === 'VERIFIED' || r.status === 'APPROVED' || r.status === 'SENT_TO_PRODUCTION').length}
           </div>
         </div>
-        <div className="p-3.5 rounded-xl bg-[#0B132B] border border-slate-800">
-          <div className="text-[10px] uppercase font-bold text-slate-400">Draft / Pending</div>
-          <div className="text-xl font-black text-amber-400 mt-0.5">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Pending</div>
+          <div className="text-lg font-black text-amber-400 leading-tight mt-0.5">
             {records.filter((r) => r.status === 'DRAFT').length}
           </div>
         </div>
@@ -961,48 +954,46 @@ export function SalesOrdersView() {
   const readyDispatch = orders.filter((o) => o.orderStatus === 'READY_TO_DISPATCH').length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {toastMessage && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+        <div className="px-3 py-2 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <ShoppingBag className="w-6 h-6 text-red-500" />
-            Complete Sales Orders Registry
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Work orders, advance receipts, dispatch dates &amp; billing status across Kerala
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+          <ShoppingBag className="w-4 h-4 text-red-500" />
+          <span>Sales Orders Registry</span>
+          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300">
+            {orders.length} Orders · {totalDoors} Doors
+          </span>
+        </h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Total Confirmed Orders</span>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">{orders.length} Orders</p>
-          <span className="text-[11px] text-emerald-500 font-semibold">{totalDoors} Door Sets</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+          <span className="text-[10px] font-bold uppercase text-slate-400">Confirmed Orders</span>
+          <p className="text-lg font-black text-slate-900 dark:text-white leading-tight">{orders.length} Orders</p>
+          <span className="text-[10px] text-emerald-500 font-semibold">{totalDoors} Door Sets</span>
         </div>
-        <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Total Work Order Value</span>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+          <span className="text-[10px] font-bold uppercase text-slate-400">Work Order Value</span>
+          <p className="text-lg font-black text-slate-900 dark:text-white leading-tight">
             ₹{(totalValue / 100000).toFixed(2)} Lakhs
           </p>
-          <span className="text-[11px] text-slate-400">Direct Net Value</span>
+          <span className="text-[10px] text-slate-400">Direct Net Value</span>
         </div>
-        <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">In Production Floor</span>
-          <p className="text-2xl font-bold text-blue-500">{inProd} Orders</p>
-          <span className="text-[11px] text-blue-400">FRP Press &amp; CNC</span>
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+          <span className="text-[10px] font-bold uppercase text-slate-400">In Production</span>
+          <p className="text-lg font-black text-blue-500 leading-tight">{inProd} Orders</p>
+          <span className="text-[10px] text-blue-400">Active Floor</span>
         </div>
-        <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Ready to Dispatch</span>
-          <p className="text-2xl font-bold text-emerald-500">{readyDispatch} Orders</p>
-          <span className="text-[11px] text-emerald-400">QC Passed</span>
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+          <span className="text-[10px] font-bold uppercase text-slate-400">Ready to Dispatch</span>
+          <p className="text-lg font-black text-emerald-500 leading-tight">{readyDispatch} Orders</p>
+          <span className="text-[10px] text-emerald-400">QC Passed</span>
         </div>
       </div>
 
@@ -1280,20 +1271,18 @@ export function InventoryView() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Boxes className="w-6 h-6 text-red-500" />
-            Raw Material &amp; Hardware Inventory
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Resin chemicals, fiberglass roving, WPC virgin polymer granules &amp; SS hinges
-          </p>
-        </div>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+          <Boxes className="w-4 h-4 text-red-500" />
+          <span>Raw Material &amp; Hardware Inventory</span>
+          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300">
+            {inventory.length} SKUs
+          </span>
+        </h2>
       </div>
 
-      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-3 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
             <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase text-[10px]">
@@ -1448,52 +1437,47 @@ export function PurchasesView() {
     statusFilter === 'ALL' ? purchases : purchases.filter((p) => p.status === statusFilter);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {toastMsg && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs font-bold flex items-center gap-2">
+        <div className="px-3 py-2 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs font-bold flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{toastMsg}</span>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Layers className="w-6 h-6 text-red-500" />
-            Purchase Orders (PO) &amp; Supplier Bills
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Create vendor POs for resin, consumables &amp; hardware — Receive Goods automatically syncs Inventory stock
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+          <Layers className="w-4 h-4 text-red-500" />
+          <span>Purchase Orders &amp; Supplier Bills</span>
+        </h2>
 
         <button
           type="button"
           onClick={() => setIsPoModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
         >
-          <Plus className="w-4 h-4" />
-          <span>+ Create Purchase Order</span>
+          <Plus className="w-3.5 h-3.5" />
+          <span>Create PO</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Total Procurement Value</span>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+          <span className="text-[10px] font-bold uppercase text-slate-400">Procurement Value</span>
+          <p className="text-lg font-black text-slate-900 dark:text-white leading-tight mt-0.5">
             ₹{totalSpend.toLocaleString('en-IN')}
           </p>
-          <span className="text-[11px] text-slate-400">Direct Non-GST Factory Bills</span>
+          <span className="text-[10px] text-slate-400">Direct Non-GST Bills</span>
         </div>
-        <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Total POs Created</span>
-          <p className="text-2xl font-bold text-blue-500 mt-1">{purchases.length} Orders</p>
-          <span className="text-[11px] text-blue-400">Stored in Purchases Ledger</span>
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+          <span className="text-[10px] font-bold uppercase text-slate-400">Total POs</span>
+          <p className="text-lg font-black text-blue-500 leading-tight mt-0.5">{purchases.length} Orders</p>
+          <span className="text-[10px] text-blue-400">Purchases Ledger</span>
         </div>
-        <div className="bg-white dark:bg-[#0B132B] p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-400">Open / Pending Receipt</span>
-          <p className="text-2xl font-bold text-amber-400 mt-1">{pendingCount} Pending</p>
-          <span className="text-[11px] text-slate-400">Awaiting Store Receipt &amp; Stock Sync</span>
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+          <span className="text-[10px] font-bold uppercase text-slate-400">Pending Receipt</span>
+          <p className="text-lg font-black text-amber-400 leading-tight mt-0.5">{pendingCount} Pending</p>
+          <span className="text-[10px] text-slate-400">Awaiting Store Sync</span>
         </div>
       </div>
 
@@ -1702,44 +1686,39 @@ export function AccountsGstView() {
   const collectionPct = totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 100) : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {toastMessage && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+        <div className="px-3 py-2 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <ReceiptIndianRupee className="w-6 h-6 text-red-500" />
-            Accounts &amp; Financial Governance
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Client billing ledger, advance collections, bank receipts &amp; AI strategist
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+          <ReceiptIndianRupee className="w-4 h-4 text-red-500" />
+          <span>Accounts &amp; Financial Governance</span>
+        </h2>
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setIsEveningCloseModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-[11px] shadow-xs transition-colors cursor-pointer"
           >
-            <Calendar className="w-4 h-4" /> 🌆 Record Evening Close
+            <Calendar className="w-3.5 h-3.5" /> Evening Close
           </button>
           {activeFinanceTab === 'CLIENT_INVOICES' && (
             <>
               <button
                 onClick={() => setIsStrategistOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer"
               >
-                <TrendingUp className="w-4 h-4 text-red-500" /> Financial Strategist
+                <TrendingUp className="w-3.5 h-3.5 text-red-500" /> Strategist
               </button>
               <button
                 onClick={() => setIsPaymentModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
               >
-                <Plus className="w-4 h-4" /> Record Payment Receipt
+                <Plus className="w-3.5 h-3.5" /> Payment Receipt
               </button>
             </>
           )}
@@ -1747,18 +1726,18 @@ export function AccountsGstView() {
       </div>
 
       {/* Accounts Navigation: Complete Accounting Suite + Daily Closing + Customer Invoices + BEP + AI Forecast + Order Profit + Contractor Payables */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
+      <div className="flex items-center gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-2 flex-wrap">
         <button
           type="button"
           onClick={() => setActiveFinanceTab('ACCOUNTING_SUITE')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
             activeFinanceTab === 'ACCOUNTING_SUITE'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
           }`}
         >
-          <BookOpen className="w-4 h-4" />
-          <span>📒 Complete Accounting Suite</span>
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Complete Accounting Suite</span>
         </button>
 
         <button
@@ -2276,35 +2255,30 @@ export function EmployeesView({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <UserCheck className="w-6 h-6 text-red-500" />
-            Factory Staff &amp; Field Engineers Roster
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Factory technicians, CNC programmers, QC inspectors and site measurement supervisors across Kerala
-          </p>
-        </div>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+          <UserCheck className="w-4 h-4 text-red-500" />
+          <span>Factory Staff &amp; Engineers Roster</span>
+        </h2>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {isSuperAdmin && onManageStaffLogins && (
             <button
               type="button"
               onClick={onManageStaffLogins}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
             >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Staff Logins &amp; Roles</span>
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Staff Logins</span>
             </button>
           )}
           <button
             type="button"
             onClick={openAddEmployee}
-            className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow"
+            className="px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             <span>Add Employee</span>
           </button>
         </div>
@@ -2837,26 +2811,21 @@ export function DispatchInstallationView() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {dispatchToast && (
-        <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-2">
+        <div className="px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{dispatchToast}</span>
         </div>
       )}
-      {/* Header & Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Truck className="w-6 h-6 text-red-500" />
-            Dispatch Logistics, Installation &amp; FRP Warranty
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Dedicated delivery fleet across all 14 Kerala districts • Site installation sign-offs • Official 10/15 year FRP material warranty
-          </p>
-        </div>
+      {/* Compact Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+          <Truck className="w-4 h-4 text-red-500" />
+          <span>Dispatch, Installation &amp; Warranty</span>
+        </h2>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {activeTab === 'dispatches' && (
             <>
               <button
@@ -3353,27 +3322,22 @@ export function ReportsView() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {toastMessage && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2 print:hidden">
+        <div className="px-3 py-2 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs flex items-center gap-2 print:hidden">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-red-500" />
-            Executive Business &amp; Accounts Reports
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            All Accounts Reports (P&amp;L, Balance Sheet, Trial Balance, Day Book, Aging) &amp; Factory Operations Analytics
-          </p>
-        </div>
+      {/* Compact Header & Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 print:hidden">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+          <BarChart3 className="w-4 h-4 text-red-500" />
+          <span>Business &amp; Accounts Reports</span>
+        </h2>
         {reportCategory === 'OPERATIONS' && (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => setIsWhatsAppOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
@@ -4012,21 +3976,16 @@ export function SettingsView({
   >(initialTab && (initialTab !== 'staff_access' || isSuperAdmin) ? initialTab : 'customization');
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Settings className="w-6 h-6 text-red-500" />
-            Admin Settings &amp; Plant Configuration
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Master ERP customization, dynamic fields, tolerances, staff logins, product categories &amp; backups
-          </p>
-        </div>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+          <Settings className="w-4 h-4 text-red-500" />
+          <span>Settings &amp; Plant Configuration</span>
+        </h2>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 text-xs overflow-x-auto">
+      <div className="flex items-center gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-2 text-xs overflow-x-auto">
         <button
           onClick={() => setActiveTab('customization')}
           className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 ${

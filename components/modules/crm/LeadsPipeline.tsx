@@ -735,59 +735,31 @@ export default function LeadsPipeline() {
   const totalSalesOrdersValue = salesOrders.reduce((sum, o) => sum + (o.value || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs flex items-center gap-2 shadow-lg animate-fade-in">
+        <div className="px-3 py-2 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs flex items-center gap-2 shadow-sm animate-fade-in">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
           <span className="font-semibold">{toastMessage}</span>
         </div>
       )}
 
-      {/* Header and KPI Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <Target className="w-6 h-6 text-red-500" />
-            <span>Kerala CRM &amp; Sales Pipeline</span>
+      {/* Compact Single-Row CRM Header & Actions */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5 mr-1">
+            <Target className="w-4 h-4 text-red-500 shrink-0" />
+            <span>CRM &amp; Sales Pipeline</span>
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Automated stage progression: Inquiries &rarr; Measurement &rarr; Quotation &rarr; Negotiation &rarr; Sales Order
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* WhatsApp Connection Status Pill */}
-          <button
-            type="button"
-            onClick={() => setIsWaLoginOpen(true)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 border shadow-sm ${
-              waSession.connected
-                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/50'
-                : 'bg-rose-950/40 border-rose-500/40 text-rose-400 hover:bg-rose-900/50 animate-pulse'
-            }`}
-            title="Manage EXMARK WhatsApp connection, pair phone or scan QR"
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                waSession.connected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
-              }`}
-            />
-            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden sm:inline">
-              {waSession.connected ? `WhatsApp: ${waSession.phoneNumber || '+91 94470 12345'}` : 'Pair WhatsApp'}
-            </span>
-            <span className="sm:hidden">WhatsApp</span>
-          </button>
 
           {/* Navigation Segment Tabs */}
-          <div className="inline-flex p-1 bg-slate-100 dark:bg-[#070D1E] rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="inline-flex p-0.5 bg-slate-100 dark:bg-[#070D1E] rounded-lg border border-slate-200 dark:border-slate-800">
             <button
               type="button"
               onClick={() => setActiveTab('PIPELINE')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
                 activeTab === 'PIPELINE'
-                  ? 'bg-red-600 text-white shadow-md'
+                  ? 'bg-red-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-white'
               }`}
             >
@@ -796,21 +768,46 @@ export default function LeadsPipeline() {
             <button
               type="button"
               onClick={() => setActiveTab('ORDERS')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
                 activeTab === 'ORDERS'
-                  ? 'bg-emerald-600 text-white shadow-md'
+                  ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-white'
               }`}
             >
               <span>Sales Orders ({salesOrders.length})</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             </button>
           </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* WhatsApp Connection Status Pill */}
+          <button
+            type="button"
+            onClick={() => setIsWaLoginOpen(true)}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer inline-flex items-center gap-1 border ${
+              waSession.connected
+                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/50'
+                : 'bg-rose-950/40 border-rose-500/40 text-rose-400 hover:bg-rose-900/50 animate-pulse'
+            }`}
+            title="Manage EXMARK WhatsApp connection, pair phone or scan QR"
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                waSession.connected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
+              }`}
+            />
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">
+              {waSession.connected ? `${waSession.phoneNumber || '+91 94470 12345'}` : 'Pair WhatsApp'}
+            </span>
+            <span className="sm:hidden">WA</span>
+          </button>
 
           <button
             type="button"
             onClick={() => setIsBulkImportOpen(true)}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-100 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 border border-slate-700 shadow-sm"
+            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-100 hover:text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer inline-flex items-center gap-1 border border-slate-700"
             title="Import multiple leads from an Excel or CSV spreadsheet"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-red-400" />
@@ -820,48 +817,56 @@ export default function LeadsPipeline() {
           <button
             type="button"
             onClick={() => setIsNewLeadOpen(true)}
-            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-red-950/40"
+            className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer inline-flex items-center gap-1 shadow-xs"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>+ New Lead</span>
+            <span>New Lead</span>
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-[#0B132B] p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Pipeline Leads</span>
-          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">{leads.length} Leads</div>
-          <div className="text-[11px] text-blue-400 font-semibold">₹{(totalPipelineValue / 100000).toFixed(2)} Lakhs Pipeline</div>
-        </div>
-
-        <div className="bg-white dark:bg-[#0B132B] p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Final Negotiation</span>
-          <div className="text-xl sm:text-2xl font-black text-amber-500">
-            {leads.filter((l) => l.stage === 'negotiation').length} Ready
+      {/* Compact Inline KPI Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Active Leads</span>
+            <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">{leads.length}</div>
           </div>
-          <div className="text-[11px] text-amber-400 font-semibold">Click to Convert to Sales Order</div>
+          <span className="text-[11px] text-blue-400 font-semibold text-right">₹{(totalPipelineValue / 100000).toFixed(2)}L</span>
         </div>
 
-        <div className="bg-white dark:bg-[#0B132B] p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Confirmed Sales Orders</span>
-          <div className="text-xl sm:text-2xl font-black text-emerald-500">{salesOrders.length} Orders</div>
-          <div className="text-[11px] text-emerald-400 font-semibold">₹{(totalSalesOrdersValue / 100000).toFixed(2)} Lakhs Booked</div>
-        </div>
-
-        <div className="bg-white dark:bg-[#0B132B] p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">50% Advance Status</span>
-          <div className="text-xl sm:text-2xl font-black text-cyan-400">
-            {salesOrders.filter((o) => o.stepIndex >= 1).length} / {salesOrders.length}
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Final Negotiation</span>
+            <div className="text-base sm:text-lg font-black text-amber-500 leading-tight">
+              {leads.filter((l) => l.stage === 'negotiation').length} Ready
+            </div>
           </div>
-          <div className="text-[11px] text-cyan-300 font-semibold">Advance Verified</div>
+          <span className="text-[10px] text-amber-400 font-semibold">Convert &rarr;</span>
+        </div>
+
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Sales Orders</span>
+            <div className="text-base sm:text-lg font-black text-emerald-500 leading-tight">{salesOrders.length}</div>
+          </div>
+          <span className="text-[11px] text-emerald-400 font-semibold">₹{(totalSalesOrdersValue / 100000).toFixed(2)}L</span>
+        </div>
+
+        <div className="bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">50% Advance</span>
+            <div className="text-base sm:text-lg font-black text-cyan-400 leading-tight">
+              {salesOrders.filter((o) => o.stepIndex >= 1).length} / {salesOrders.length}
+            </div>
+          </div>
+          <span className="text-[10px] text-cyan-300 font-semibold">Verified</span>
         </div>
       </div>
 
       {/* VIEW 1: KANBAN PIPELINE */}
       {activeTab === 'PIPELINE' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {PIPELINE_STAGES.map((col, idx) => {
             const colLeads = leads.filter((l) => l.stage === col.key);
             const isLastLeadStage = col.key === 'negotiation';

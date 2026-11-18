@@ -140,11 +140,8 @@ export default function UnifiedBondingPipelineBar({
   // Slim Breadcrumb Flow Bar (Compact / Default in Simple Mode)
   if (isCollapsed) {
     return (
-      <div className="bg-[#0B132B]/80 border border-slate-800/80 rounded-xl px-3 py-1.5 print:hidden flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none text-[11px]">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1.5 shrink-0 hidden sm:inline">
-            Workflow:
-          </span>
+      <div className="bg-[#0B132B]/70 border border-slate-800/70 rounded-lg px-2.5 py-1 print:hidden flex items-center justify-between gap-2">
+        <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none text-[11px]">
           {PIPELINE_STEPS.map((step, idx) => {
             const isActive = currentTab === step.id;
             const isPassed = currentStepIndex > idx;
@@ -153,7 +150,7 @@ export default function UnifiedBondingPipelineBar({
                 <button
                   type="button"
                   onClick={() => onNavigate(step.id)}
-                  className={`px-2 py-0.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                  className={`px-1.5 py-0.5 rounded font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                     isActive
                       ? 'bg-red-600/20 text-red-300 border border-red-500/40 font-bold'
                       : isPassed
@@ -165,7 +162,7 @@ export default function UnifiedBondingPipelineBar({
                   {step.stepNumber}. {step.labelEn}
                 </button>
                 {idx < PIPELINE_STEPS.length - 1 && (
-                  <ChevronRight className="w-3 h-3 text-slate-600 shrink-0" />
+                  <ChevronRight className="w-3 h-3 text-slate-700 shrink-0" />
                 )}
               </React.Fragment>
             );
@@ -175,10 +172,10 @@ export default function UnifiedBondingPipelineBar({
         <button
           type="button"
           onClick={toggleCollapse}
-          className="px-2 py-0.5 rounded-md text-[10px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 flex items-center gap-1 shrink-0 transition cursor-pointer"
+          className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 flex items-center gap-1 shrink-0 transition cursor-pointer"
           title="Expand full pipeline bar"
         >
-          <span className="hidden sm:inline">Expand Flow</span>
+          <span className="hidden sm:inline">Flow</span>
           <ChevronDown className="w-3 h-3" />
         </button>
       </div>
@@ -186,7 +183,7 @@ export default function UnifiedBondingPipelineBar({
   }
 
   return (
-    <div className="bg-[#0B132B] border border-slate-800 rounded-2xl p-3 shadow-xl print:hidden transition-all">
+    <div className="bg-[#0B132B] border border-slate-800 rounded-xl p-2 shadow-lg print:hidden transition-all">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Left branding title */}
         <div className="flex items-center justify-between lg:justify-start gap-2.5 shrink-0">

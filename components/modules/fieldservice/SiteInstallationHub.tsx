@@ -205,82 +205,69 @@ export default function SiteInstallationHub() {
   };
 
   return (
-    <div className="space-y-6 text-slate-200">
-      {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#0E2835] to-[#070D1E] border border-cyan-500/30 shadow-xl">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-inner">
-              <ClipboardCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black tracking-tight text-white">
-                  Site Installation & Field Punch List
-                </h1>
-                <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                  Dynamics 365 Field Service Benchmark
-                </span>
-              </div>
-              <p className="text-sm text-slate-400 mt-0.5">
-                സൈറ്റ് ഫിറ്റിംഗ് & സർവീസ് • Field carpenter allocation, snag punch list & 15-Year Warranty customer OTP sign-off
-              </p>
-            </div>
-          </div>
+    <div className="space-y-3 text-slate-200">
+      {/* Compact Header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-[#0B132B] border border-cyan-500/30">
+        <div className="flex items-center gap-2 min-w-0">
+          <ClipboardCheck className="w-4 h-4 text-cyan-400 shrink-0" />
+          <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-white truncate">
+            Site Installation &amp; Punch List
+          </h1>
+          <span className="hidden sm:inline-flex px-2 py-0.5 text-[10px] font-bold rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+            Field Service
+          </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsNewOrderModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-sm shadow-lg shadow-cyan-600/30 transition-all hover:scale-105"
-          >
-            <Plus className="w-4 h-4" />
-            + Schedule Site Fitting
-          </button>
-        </div>
+        <button
+          onClick={() => setIsNewOrderModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Schedule Site Fitting
+        </button>
       </div>
 
-      {/* KPI Overview Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+      {/* Compact KPI Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Doors Under Installation</span>
-            <ClipboardCheck className="w-4 h-4 text-cyan-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Under Installation</span>
+            <ClipboardCheck className="w-3.5 h-3.5 text-cyan-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-cyan-300">{totalFittedDoors} Units</div>
-          <p className="text-xs text-slate-400 mt-1">Across Kerala job sites</p>
+          <div className="mt-0.5 text-lg font-black text-cyan-300 leading-tight">{totalFittedDoors} Units</div>
+          <p className="text-[10px] text-slate-400">Active job sites</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Snag List Items</span>
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Snag List</span>
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-amber-300">{pendingSnagsCount} Pending</div>
-          <p className="text-xs text-amber-400/80 mt-1">Punch list clearance in progress</p>
+          <div className="mt-0.5 text-lg font-black text-amber-300 leading-tight">{pendingSnagsCount} Pending</div>
+          <p className="text-[10px] text-amber-400/80">Punch clearance</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Customer OTP Sign-Offs</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">OTP Sign-Offs</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-emerald-400">{activeSignoffs} Completed</div>
-          <p className="text-xs text-emerald-400/80 mt-1">15-Year Warranty Activated</p>
+          <div className="mt-0.5 text-lg font-black text-emerald-400 leading-tight">{activeSignoffs} Completed</div>
+          <p className="text-[10px] text-emerald-400/80">15-Yr Warranty</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#0B132B]/80 border border-slate-800/80 shadow-md">
+        <div className="px-3 py-2 rounded-xl bg-[#0B132B]/80 border border-slate-800/80">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Fitment Rating</span>
-            <Award className="w-4 h-4 text-purple-400" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Fitment Rating</span>
+            <Award className="w-3.5 h-3.5 text-purple-400" />
           </div>
-          <div className="mt-2 text-2xl font-black text-purple-300">5.0 / 5.0 ★</div>
-          <p className="text-xs text-slate-400 mt-1">Architect & Client Satisfaction</p>
+          <div className="mt-0.5 text-lg font-black text-purple-300 leading-tight">5.0 / 5.0 ★</div>
+          <p className="text-[10px] text-slate-400">Client satisfaction</p>
         </div>
       </div>
 
       {/* Main Split: Left Site Orders, Right Snag List & Handover Sign-off */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* Left Column (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
           <div className="p-4 rounded-xl bg-[#0B132B]/90 border border-slate-800 space-y-3">

@@ -517,108 +517,83 @@ export function ProductionBoardHub() {
   const activeDoorsCount = activeOrders.reduce((s, o) => s + (o.quantity || o.doors?.length || 0), 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       {toastMessage && (
-        <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs font-bold flex items-center gap-2">
+        <div className="px-3 py-2 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs font-bold flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Top Action Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Factory className="w-6 h-6 text-red-500" />
-            Production Floor Kanban &amp; Stage Board
+      {/* Unified Compact Production Command Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5 mr-1">
+            <Factory className="w-4 h-4 text-red-500 shrink-0" />
+            <span>Production Floor</span>
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Track orders visually column-by-column • In-House Floor Gang piece rates • Conditional Site Installation
-          </p>
+
+          <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-[#070D1E] p-0.5 rounded-lg border border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setActiveTab('BOARD')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 cursor-pointer transition ${
+                activeTab === 'BOARD'
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-white'
+              }`}
+            >
+              <span>Active ({activeOrders.length} · {activeDoorsCount} Doors)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('COMPLETED')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 cursor-pointer transition ${
+                activeTab === 'COMPLETED'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-white'
+              }`}
+            >
+              <Archive className="w-3 h-3" />
+              <span>Archive ({completedOrdersRaw.length})</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search party, job card..."
-              className="pl-8 pr-3 py-1.5 bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white w-48"
+              className="pl-7 pr-2.5 py-1 bg-white dark:bg-[#070D1E] border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white w-44"
             />
           </div>
 
           <button
             type="button"
             onClick={() => setIsGangsModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold cursor-pointer shadow"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[11px] font-bold cursor-pointer shadow-xs"
           >
-            <Users className="w-4 h-4" />
-            <span>Floor Gangs &amp; Piece Rates ({gangs.length})</span>
+            <Users className="w-3.5 h-3.5" />
+            <span>Floor Gangs ({gangs.length})</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsJobCardModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold cursor-pointer shadow"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-[11px] font-bold cursor-pointer shadow-xs"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             <span>Issue Job Card</span>
           </button>
         </div>
       </div>
 
-      {/* View Switcher & Summary Pills */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#0B132B] p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab('BOARD')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${
-              activeTab === 'BOARD'
-                ? 'bg-red-600 text-white shadow'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            <Factory className="w-3.5 h-3.5" />
-            <span>Active Floor Board ({activeOrders.length} Orders • {activeDoorsCount} Doors)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('COMPLETED')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition ${
-              activeTab === 'COMPLETED'
-                ? 'bg-emerald-600 text-white shadow'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            <Archive className="w-3.5 h-3.5" />
-            <span>Completed Orders Archive ({completedOrdersRaw.length})</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-4 text-[11px] text-slate-500 dark:text-slate-400">
-          <span>
-            Active Gangs: <strong className="text-amber-400">{gangs.length}</strong>
-          </span>
-          <span>
-            With Installation:{' '}
-            <strong className="text-indigo-400">
-              {activeOrders.filter((o) => o.includeInstallation).length}
-            </strong>
-          </span>
-          <span>
-            Delivery Only:{' '}
-            <strong className="text-emerald-400">
-              {activeOrders.filter((o) => !o.includeInstallation).length}
-            </strong>
-          </span>
-        </div>
-      </div>
-
-      {/* FACTORY DOOR-BY-DOOR STAGE DISTRIBUTION BAR */}
+      {/* Slim Single-Line Door Stage Distribution & Floor Summary Strip */}
       {!isLoading && activeTab === 'BOARD' && (() => {
         const totalDoors = activeOrders.reduce((sum, o) => sum + (o.doors?.length || o.quantity || 0), 0);
         const stageDoors: Record<string, number> = {};
@@ -629,32 +604,35 @@ export function ProductionBoardHub() {
           });
         });
         return (
-          <div className="bg-[#0B132B] border border-indigo-700/50 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse" />
-              <strong className="text-white text-xs uppercase tracking-wide">
-                Factory Door-by-Door Pipeline ({totalDoors} Total Doors):
-              </strong>
+          <div className="bg-[#0B132B] border border-slate-800 rounded-lg px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 font-bold text-white uppercase tracking-wide mr-1">
+                <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+                Doors ({totalDoors}):
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-semibold">
+                Queued <strong className="text-white">{stageDoors['QUEUED'] || 0}</strong>
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-600/40 text-amber-300 font-semibold">
+                Molding <strong className="text-white">{stageDoors['MOLDING'] || 0}</strong>
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-600/40 text-cyan-300 font-semibold">
+                Cutting/QC <strong className="text-white">{stageDoors['CUTTING_FINISHING'] || 0}</strong>
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-600/40 text-purple-300 font-semibold">
+                Painting <strong className="text-white">{stageDoors['PAINT_SECTION'] || 0}</strong>
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-teal-950/60 border border-teal-600/40 text-teal-300 font-semibold">
+                Packing <strong className="text-white">{stageDoors['PACKING'] || 0}</strong>
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-blue-950/60 border border-blue-600/40 text-blue-300 font-semibold">
+                Delivery <strong className="text-white">{(stageDoors['DELIVERY'] || 0) + (stageDoors['INSTALLATION'] || 0)}</strong>
+              </span>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-[11px]">
-              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-bold">
-                Queued: <strong className="text-white">{stageDoors['QUEUED'] || 0}</strong>
-              </span>
-              <span className="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-600/40 text-amber-300 font-bold">
-                Molding: <strong className="text-white">{stageDoors['MOLDING'] || 0}</strong>
-              </span>
-              <span className="px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-600/40 text-cyan-300 font-bold">
-                Cutting/QC: <strong className="text-white">{stageDoors['CUTTING_FINISHING'] || 0}</strong>
-              </span>
-              <span className="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-600/40 text-purple-300 font-bold">
-                Painting: <strong className="text-white">{stageDoors['PAINT_SECTION'] || 0}</strong>
-              </span>
-              <span className="px-2 py-0.5 rounded bg-teal-950/60 border border-teal-600/40 text-teal-300 font-bold">
-                Packing: <strong className="text-white">{stageDoors['PACKING'] || 0}</strong>
-              </span>
-              <span className="px-2 py-0.5 rounded bg-blue-950/60 border border-blue-600/40 text-blue-300 font-bold">
-                Delivery/Done: <strong className="text-white">{(stageDoors['DELIVERY'] || 0) + (stageDoors['INSTALLATION'] || 0)}</strong>
-              </span>
+
+            <div className="hidden xl:flex items-center gap-3 text-[11px] text-slate-400">
+              <span>Install: <strong className="text-indigo-400">{activeOrders.filter((o) => o.includeInstallation).length}</strong></span>
+              <span>Delivery Only: <strong className="text-emerald-400">{activeOrders.filter((o) => !o.includeInstallation).length}</strong></span>
             </div>
           </div>
         );
