@@ -30,6 +30,8 @@ import {
   Ticket,
   Printer,
   Smartphone,
+  Sparkles,
+  LayoutGrid,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/erp';
 import { UserRole, canAccessModule } from '@/lib/auth/roles';
@@ -46,7 +48,29 @@ interface SidebarProps {
   userRole?: UserRole;
   allowedModules?: string[];
   liveBadges?: Record<string, string>;
+  isSimpleMode?: boolean;
+  onToggleSimpleMode?: () => void;
 }
+
+const SIMPLE_MODE_TABS: NavigationTab[] = [
+  'dashboard',
+  'quotations',
+  'crm',
+  'production',
+  'dispatch',
+  'accounts',
+  'settings',
+];
+
+const SIMPLE_LABELS: Partial<Record<NavigationTab, string>> = {
+  dashboard: 'Dashboard',
+  quotations: 'Quotations & Estimates',
+  crm: 'CRM & Leads',
+  production: 'Production Floor',
+  dispatch: 'Packing & Dispatch',
+  accounts: 'Accounts & Payouts',
+  settings: 'Settings & Staff',
+};
 
 interface NavItemConfig {
   id: NavigationTab;
@@ -96,6 +120,8 @@ export default function Sidebar({
   userRole = 'Super Admin',
   allowedModules,
   liveBadges,
+  isSimpleMode = true,
+  onToggleSimpleMode,
 }: SidebarProps) {
   const [factoryName, setFactoryName] = React.useState<string>('Central Manufacturing Unit');
 
@@ -203,111 +229,164 @@ export default function Sidebar({
 
         {/* Navigation Items List */}
         <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-1 custom-scrollbar">
-          {NAV_ITEMS.map((item, index) => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
-            const isAllowed = hasModuleAccess(item.id);
-            const prevItem = index > 0 ? NAV_ITEMS[index - 1] : null;
-            const showCategoryDivider =
-              (!isCollapsed || isMobileOpen) &&
-              item.category &&
-              (!prevItem || prevItem.category !== item.category);
+          {(() => {
+            const visibleItems = isSimpleMode
+              ? NAV_ITEMS.filter((item) => SIMPLE_MODE_TABS.includes(item.id) || item.id === currentTab)
+              : NAV_ITEMS;
 
-            return (
-              <React.Fragment key={item.id}>
-                {showCategoryDivider && (
-                  <div className="pt-3 pb-1 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 select-none">
-                    {item.category}
-                  </div>
-                )}
-                <button
-                  onClick={() => handleItemClick(item.id)}
-                  title={isCollapsed && !isMobileOpen ? (isAllowed ? item.label : `${item.label} (Locked for ${userRole})`) : undefined}
-                  className={`group relative flex items-center w-full rounded-lg transition-all duration-150 ${
-                    isCollapsed && !isMobileOpen
-                      ? 'justify-center h-11 px-0'
-                      : 'justify-between px-3 py-2 text-sm'
-                  } ${
-                    !isAllowed
-                      ? 'opacity-40 hover:opacity-75 text-slate-400 hover:bg-slate-800/30'
-                      : isActive
-                      ? 'bg-red-600/15 text-white font-semibold border border-red-500/40 shadow-sm shadow-red-950/40'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-                  }`}
-                >
-                  {/* Active Indicator Bar on Left */}
-                  {isActive && (
-                    <span className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-red-500 rounded-r-md" />
+            return visibleItems.map((item, index) => {
+              const Icon = item.icon;
+              const isActive = currentTab === item.id;
+              const isAllowed = hasModuleAccess(item.id);
+              const prevItem = index > 0 ? visibleItems[index - 1] : null;
+              const showCategoryDivider =
+                !isSimpleMode &&
+                (!isCollapsed || isMobileOpen) &&
+                item.category &&
+                (!prevItem || prevItem.category !== item.category);
+              const displayLabel = isSimpleMode ? (SIMPLE_LABELS[item.id] || item.label) : item.label;
+              const badgeText = isSimpleMode ? liveBadges?.[item.id] : (liveBadges?.[item.id] || item.badge);
+
+              return (
+                <React.Fragment key={item.id}>
+                  {showCategoryDivider && (
+                    <div className="pt-3 pb-1 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 select-none">
+                      {item.category}
+                    </div>
                   )}
-
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Icon
-                      className={`w-5 h-5 flex-shrink-0 transition-colors ${
-                        isActive
-                          ? 'text-red-500'
-                          : 'text-slate-400 group-hover:text-red-400'
-                      }`}
-                    />
-                    {(!isCollapsed || isMobileOpen) && (
-                      <span className="truncate text-left flex items-center gap-1.5">
-                        {item.label}
-                        {!isAllowed && <Lock className="w-3 h-3 text-slate-400" />}
-                      </span>
+                  <button
+                    onClick={() => handleItemClick(item.id)}
+                    title={isCollapsed && !isMobileOpen ? (isAllowed ? displayLabel : `${displayLabel} (Locked for ${userRole})`) : undefined}
+                    className={`group relative flex items-center w-full rounded-xl transition-all duration-150 cursor-pointer ${
+                      isCollapsed && !isMobileOpen
+                        ? 'justify-center h-11 px-0'
+                        : isSimpleMode
+                        ? 'justify-between px-3.5 py-2.5 text-sm'
+                        : 'justify-between px-3 py-2 text-sm'
+                    } ${
+                      !isAllowed
+                        ? 'opacity-40 hover:opacity-75 text-slate-400 hover:bg-slate-800/30'
+                        : isActive
+                        ? 'bg-red-600/15 text-white font-semibold border border-red-500/40 shadow-sm shadow-red-950/40'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/50 border border-transparent'
+                    }`}
+                  >
+                    {/* Active Indicator Bar on Left */}
+                    {isActive && (
+                      <span className="absolute left-0 top-2 bottom-2 w-1 bg-red-500 rounded-r-md" />
                     )}
-                  </div>
 
-                  {/* Badge */}
-                  {(!isCollapsed || isMobileOpen) && (liveBadges?.[item.id] || item.badge) && (
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border border-current/20 flex-shrink-0 ${
-                        item.badgeColor || 'bg-slate-800 text-slate-300'
-                      }`}
-                    >
-                      {liveBadges?.[item.id] || item.badge}
-                    </span>
-                  )}
-
-                  {/* Floating Tooltip when Collapsed on Desktop */}
-                  {isCollapsed && !isMobileOpen && (
-                    <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 text-white text-xs rounded-md shadow-xl border border-slate-700 whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
-                      {item.label}
-                      {(liveBadges?.[item.id] || item.badge) && (
-                        <span className="ml-1.5 text-[10px] text-red-400 font-bold">
-                          ({liveBadges?.[item.id] || item.badge})
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon
+                        className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                          isActive
+                            ? 'text-red-500'
+                            : 'text-slate-400 group-hover:text-red-400'
+                        }`}
+                      />
+                      {(!isCollapsed || isMobileOpen) && (
+                        <span className="truncate text-left flex items-center gap-1.5">
+                          {displayLabel}
+                          {!isAllowed && <Lock className="w-3 h-3 text-slate-400" />}
                         </span>
                       )}
                     </div>
-                  )}
-                </button>
-              </React.Fragment>
-            );
-          })}
+
+                    {/* Badge */}
+                    {(!isCollapsed || isMobileOpen) && badgeText && (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border border-current/20 flex-shrink-0 ${
+                          item.badgeColor || 'bg-slate-800 text-slate-300'
+                        }`}
+                      >
+                        {badgeText}
+                      </span>
+                    )}
+
+                    {/* Floating Tooltip when Collapsed on Desktop */}
+                    {isCollapsed && !isMobileOpen && (
+                      <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-900 text-white text-xs rounded-md shadow-xl border border-slate-700 whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+                        {displayLabel}
+                        {badgeText && (
+                          <span className="ml-1.5 text-[10px] text-red-400 font-bold">
+                            ({badgeText})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                </React.Fragment>
+              );
+            });
+          })()}
+
+          {/* Simple Mode / Full Modules Toggle Button */}
+          {onToggleSimpleMode && (
+            <div className="pt-3 mt-2 border-t border-slate-800/80">
+              <button
+                type="button"
+                onClick={onToggleSimpleMode}
+                title={isSimpleMode ? 'Expand all 19 manufacturing & admin modules' : 'Switch back to clean 7-tab Simple View'}
+                className={`w-full flex items-center rounded-xl transition-all text-xs font-bold cursor-pointer border ${
+                  isCollapsed && !isMobileOpen
+                    ? 'justify-center h-10 px-0'
+                    : 'justify-center gap-2 px-3 py-2.5'
+                } ${
+                  isSimpleMode
+                    ? 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-700/80'
+                    : 'bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 border-emerald-700/40'
+                }`}
+              >
+                {isSimpleMode ? (
+                  <>
+                    <LayoutGrid className="w-4 h-4 text-amber-400 shrink-0" />
+                    {(!isCollapsed || isMobileOpen) && <span>Show All Modules ({NAV_ITEMS.length})</span>}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                    {(!isCollapsed || isMobileOpen) && <span>Switch to Simple View</span>}
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Plant Status Footer Card */}
         {(!isCollapsed || isMobileOpen) ? (
-          <div className="p-3 mx-2.5 mb-3 rounded-xl bg-gradient-to-br from-[#0B132B] to-slate-900 border border-slate-800 text-xs shadow-inner">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-200">
-                <Flame className="w-3.5 h-3.5 text-red-500" />
-                {factoryName}
+          isSimpleMode ? (
+            <div className="px-3.5 py-2.5 mx-2.5 mb-3 rounded-xl bg-slate-900/70 border border-slate-800/80 flex items-center justify-between text-[11px]">
+              <span className="inline-flex items-center gap-1.5 font-medium text-slate-300 truncate">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                <span className="truncate">{factoryName}</span>
               </span>
-              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                Active
-              </span>
+              <span className="text-[10px] text-slate-500 font-semibold shrink-0 ml-2">Simple</span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-tight">
-              FRP Press &amp; WPC Extrusion lines running Day Shift A (28 Techs).
-            </p>
-            <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
-              <span className="flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-red-500" />
-                ISO 9001:2015
-              </span>
-              <span>v2.4 Pro</span>
+          ) : (
+            <div className="p-3 mx-2.5 mb-3 rounded-xl bg-gradient-to-br from-[#0B132B] to-slate-900 border border-slate-800 text-xs shadow-inner">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-200">
+                  <Flame className="w-3.5 h-3.5 text-red-500" />
+                  {factoryName}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  Active
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-tight">
+                FRP Press &amp; WPC Extrusion lines running Day Shift A (28 Techs).
+              </p>
+              <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
+                <span className="flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-red-500" />
+                  ISO 9001:2015
+                </span>
+                <span>v2.4 Pro</span>
+              </div>
             </div>
-          </div>
+          )
         ) : (
           <div className="p-2 mb-2 flex justify-center" title={`${factoryName}: Active`}>
             <div className="w-8 h-8 rounded-lg bg-[#0B132B] border border-slate-800 flex items-center justify-center text-red-500">

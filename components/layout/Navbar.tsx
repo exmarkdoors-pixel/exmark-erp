@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import React, { useState, useEffect, useCallback, useSyncExternalStore, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch, clearAuthToken } from '@/lib/api/apiClient';
 import {
@@ -27,6 +27,10 @@ import {
   MessageCircle,
   Globe,
   Cloud,
+  LayoutGrid,
+  Users,
+  Target,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/erp';
 import { ERP_ROLES, UserRole } from '@/lib/auth/roles';
@@ -49,6 +53,16 @@ interface NavbarProps {
   onRoleChange?: (role: UserRole) => void;
   onRbacSaved?: (updatedRoles: Record<string, string[]>) => void;
   onCredentialsUpdated?: () => void;
+  isSimpleMode?: boolean;
+  onToggleSimpleMode?: () => void;
+}
+
+interface QuickSearchEntry {
+  id: string;
+  type: 'Quotation' | 'Lead' | 'Customer' | 'Page';
+  title: string;
+  subtitle: string;
+  targetTab: NavigationTab;
 }
 
 const RBAC_MODULE_LABELS: Array<{ id: string; name: string }> = [
@@ -93,6 +107,8 @@ export default function Navbar({
   onRoleChange,
   onRbacSaved,
   onCredentialsUpdated,
+  isSimpleMode = true,
+  onToggleSimpleMode,
 }: NavbarProps) {
   const router = useRouter();
   const isRealSuperAdmin = actualRole === 'Super Admin';
@@ -100,6 +116,124 @@ export default function Navbar({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [notificationsRead, setNotificationsRead] = useState(false);
+
+  // Live Quick Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchEntries, setSearchEntries] = useState<QuickSearchEntry[]>([]);
+  const [searchLoaded, setSearchLoaded] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const loadSearchIndex = useCallback(async () => {
+    if (searchLoaded || searchLoading) return;
+    setSearchLoading(true);
+    try {
+      const [qRes, lRes, cRes] = await Promise.all([
+        apiFetch('/api/quotations').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        apiFetch('/api/crm/leads').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        apiFetch('/api/customers').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      ]);
+
+      const entries: QuickSearchEntry[] = [];
+
+      // Built-in quick module shortcuts
+      const shortcuts: Array<{ title: string; subtitle: string; tab: NavigationTab }> = [
+        { title: 'Quotations & Estimates', subtitle: 'Create or edit door quotations', tab: 'quotations' },
+        { title: 'CRM & Leads Pipeline', subtitle: 'Leads, follow-ups & bulk import', tab: 'crm' },
+        { title: 'Production Floor', subtitle: 'Kanban job cards & molding gangs', tab: 'production' },
+        { title: '12L & Thermal Stickers', subtitle: 'Batch door barcode sticker printing', tab: 'batch-print' },
+        { title: 'Packing & Dispatch', subtitle: 'Delivery challans & gate passes', tab: 'dispatch' },
+        { title: 'Accounts & Payouts', subtitle: 'Cashbook, advances & gang weekly payout', tab: 'accounts' },
+        { title: 'Customers & Dealers', subtitle: 'Builder & architect directory', tab: 'customers' },
+        { title: 'Settings & Staff Access', subtitle: 'Company bank details, staff logins & RBAC', tab: 'settings' },
+      ];
+      shortcuts.forEach((s) =>
+        entries.push({ id: `page-${s.tab}`, type: 'Page', title: s.title, subtitle: s.subtitle, targetTab: s.tab })
+      );
+
+      if (qRes && Array.isArray(qRes.data)) {
+        qRes.data.slice(0, 60).forEach((q: any) => {
+          entries.push({
+            id: `q-${q.id}`,
+            type: 'Quotation',
+            title: `${q.quotationNumber || q.id} — ${q.customerName || q.clientName || 'Client'}`,
+            subtitle: `${q.district || 'Kerala'} • ₹${Number(q.grandTotal || q.totalAmount || 0).toLocaleString('en-IN')}`,
+            targetTab: 'quotations',
+          });
+        });
+      }
+
+      if (lRes && Array.isArray(lRes.data)) {
+        lRes.data.slice(0, 60).forEach((l: any) => {
+          entries.push({
+            id: `l-${l.id}`,
+            type: 'Lead',
+            title: `${l.title || l.client || 'Lead'} (${l.leadCode || 'CRM'})`,
+            subtitle: `${l.client || l.contactPerson || ''} • ${l.phone || 'No Phone'} • ${l.district || ''}`,
+            targetTab: 'crm',
+          });
+        });
+      }
+
+      if (cRes && Array.isArray(cRes.data)) {
+        cRes.data.slice(0, 60).forEach((c: any) => {
+          entries.push({
+            id: `c-${c.id}`,
+            type: 'Customer',
+            title: c.name || 'Customer',
+            subtitle: `${c.phone || ''} • ${c.district || c.town || 'Kerala'}`,
+            targetTab: 'customers',
+          });
+        });
+      }
+
+      setSearchEntries(entries);
+      setSearchLoaded(true);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [searchLoaded, searchLoading]);
+
+  // Ctrl+K shortcut & click outside handler
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setIsSearchOpen(true);
+        loadSearchIndex();
+      } else if (e.key === 'Escape') {
+        setIsSearchOpen(false);
+        searchInputRef.current?.blur();
+      }
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    document.addEventListener('mousedown', onMouseDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [loadSearchIndex]);
+
+  const filteredSearchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return searchEntries.filter((e) => e.type === 'Page').slice(0, 6);
+    return searchEntries
+      .filter(
+        (item) =>
+          item.title.toLowerCase().includes(q) ||
+          item.subtitle.toLowerCase().includes(q) ||
+          item.type.toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [searchEntries, searchQuery]);
   const isMounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -376,38 +510,159 @@ export default function Navbar({
         </button>
 
         <div className="flex items-center gap-2 whitespace-nowrap">
-          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-            <span>EXMARK</span>
-            <span>/</span>
-          </div>
+          {!isSimpleMode && (
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+              <span>EXMARK</span>
+              <span>/</span>
+            </div>
+          )}
           <h1 className="text-base sm:text-lg font-bold text-white capitalize tracking-tight flex items-center gap-2 whitespace-nowrap">
             {currentTabName}
           </h1>
-          <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-            Live Ops
-          </span>
+          {!isSimpleMode && (
+            <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              Live Ops
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Center: Search Bar */}
-      <div className="hidden md:flex items-center flex-1 max-w-md mx-6">
+      {/* Center: Interactive Live Quick Search Bar */}
+      <div ref={searchContainerRef} className="hidden md:flex items-center flex-1 max-w-md mx-6 relative">
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder="Search orders, dealers, door specs, job cards..."
-            className="w-full pl-9 pr-12 py-1.5 bg-slate-900/90 text-sm text-slate-200 placeholder-slate-400 rounded-lg border border-slate-700/80 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-all"
+            value={searchQuery}
+            onFocus={() => {
+              setIsSearchOpen(true);
+              loadSearchIndex();
+            }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setIsSearchOpen(true);
+              if (!searchLoaded) loadSearchIndex();
+            }}
+            placeholder="Quick search: quotations, leads, clients, pages..."
+            className="w-full pl-9 pr-14 py-1.5 bg-slate-900/90 text-sm text-slate-200 placeholder-slate-400 rounded-lg border border-slate-700/80 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-all"
           />
-          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden lg:inline-block px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-400 bg-slate-800 border border-slate-700 rounded">
-            Ctrl K
-          </kbd>
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                searchInputRef.current?.focus();
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+              aria-label="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden lg:inline-block px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-400 bg-slate-800 border border-slate-700 rounded">
+              Ctrl K
+            </kbd>
+          )}
         </div>
+
+        {/* Live Search Results Dropdown */}
+        {isSearchOpen && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-[#0B132B] border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
+            <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400 bg-slate-900/60">
+              <span>{searchQuery.trim() ? `Matches for "${searchQuery}"` : 'Quick Jump'}</span>
+              {searchLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-red-400" />}
+            </div>
+
+            {filteredSearchResults.length === 0 ? (
+              <div className="p-4 text-center text-xs text-slate-400">
+                No matching quotations, leads, or customers found.
+              </div>
+            ) : (
+              <div className="max-h-72 overflow-y-auto divide-y divide-slate-800/70">
+                {filteredSearchResults.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      onNavigateTab(item.targetTab);
+                      setIsSearchOpen(false);
+                      setSearchQuery('');
+                    }}
+                    className="w-full px-3.5 py-2.5 text-left hover:bg-slate-800/80 transition flex items-center justify-between gap-2 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`p-1.5 rounded-lg shrink-0 ${
+                          item.type === 'Quotation'
+                            ? 'bg-blue-500/15 text-blue-400'
+                            : item.type === 'Lead'
+                            ? 'bg-amber-500/15 text-amber-400'
+                            : item.type === 'Customer'
+                            ? 'bg-emerald-500/15 text-emerald-400'
+                            : 'bg-slate-800 text-slate-300'
+                        }`}
+                      >
+                        {item.type === 'Quotation' ? (
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                        ) : item.type === 'Lead' ? (
+                          <Target className="w-3.5 h-3.5" />
+                        ) : item.type === 'Customer' ? (
+                          <Users className="w-3.5 h-3.5" />
+                        ) : (
+                          <Sparkles className="w-3.5 h-3.5" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white truncate">{item.title}</div>
+                        <div className="text-[11px] text-slate-400 truncate">{item.subtitle}</div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 shrink-0">
+                      {item.type}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Right: Super Admin Preview Controls, Quick Switch Staff, Notifications, Profile */}
+      {/* Right: Mode Toggle, Cloud, WhatsApp, Admin Tools, Profile */}
       <div className="flex items-center gap-2 sm:gap-2.5">
-        {/* SUPER ADMIN ONLY: Role View Preview & RBAC Matrix */}
-        {isMounted && isRealSuperAdmin && (
+        {/* Simple UI / Full Operations Switcher Pill */}
+        {onToggleSimpleMode && (
+          <button
+            type="button"
+            onClick={onToggleSimpleMode}
+            title={
+              isSimpleMode
+                ? 'Simple UI active (7 clean tabs). Click to switch to Full Operations Mode (all 19 modules).'
+                : 'Full Operations Mode active. Click to switch to clean Simple UI.'
+            }
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+              isSimpleMode
+                ? 'bg-emerald-950/60 hover:bg-emerald-900/70 text-emerald-300 border-emerald-700/60'
+                : 'bg-slate-900 hover:bg-slate-800 text-amber-300 border-slate-700'
+            }`}
+          >
+            {isSimpleMode ? (
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">Simple UI</span>
+              </>
+            ) : (
+              <>
+                <LayoutGrid className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Full Ops</span>
+              </>
+            )}
+          </button>
+        )}
+
+        {/* SUPER ADMIN ONLY: Role View Preview & RBAC Matrix (shown in Full Ops mode to keep Simple UI clean) */}
+        {isMounted && isRealSuperAdmin && !isSimpleMode && (
           <>
             {/* Direct Super Admin Access to Mobile Field Operations */}
             <a
@@ -452,21 +707,23 @@ export default function Navbar({
         )}
 
         {/* Non-Super-Admin read-only role badge */}
-        {isMounted && !isRealSuperAdmin && (
+        {isMounted && !isRealSuperAdmin && !isSimpleMode && (
           <div className="hidden sm:flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg text-[11px] text-slate-300">
             <Shield className="w-3.5 h-3.5 text-emerald-400" />
             <span className="font-semibold">{userRole}</span>
           </div>
         )}
 
-        {/* Date & Location Pill */}
-        <div className="hidden 2xl:flex items-center gap-2 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs text-slate-300">
-          <Calendar className="w-3.5 h-3.5 text-red-400" />
-          <span>{todayLabel || 'Active Shift'}</span>
-          <span className="text-slate-600">•</span>
-          <Clock className="w-3.5 h-3.5 text-slate-400" />
-          <span>Kerala Plant</span>
-        </div>
+        {/* Date & Location Pill (Full Ops Mode) */}
+        {!isSimpleMode && (
+          <div className="hidden 2xl:flex items-center gap-2 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs text-slate-300">
+            <Calendar className="w-3.5 h-3.5 text-red-400" />
+            <span>{todayLabel || 'Active Shift'}</span>
+            <span className="text-slate-600">•</span>
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <span>Kerala Plant</span>
+          </div>
+        )}
 
         {/* Inbuilt WhatsApp Live Session Indicator & Quick Pairing */}
         <button
@@ -476,13 +733,13 @@ export default function Navbar({
           className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
             waSession.connected
               ? 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border-emerald-700/60 shadow-xs'
-              : 'bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border-rose-800/50'
+              : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700/80'
           }`}
         >
           <span className={`w-2 h-2 rounded-full ${waSession.connected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
           <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="hidden md:inline font-mono text-[11px]">
-            {waSession.connected ? (waSession.phoneNumber ? waSession.phoneNumber.replace('+91 ', '') : 'Linked') : 'Connect WhatsApp'}
+          <span className="hidden xl:inline font-mono text-[11px]">
+            {waSession.connected ? (waSession.phoneNumber ? waSession.phoneNumber.replace('+91 ', '') : 'Linked') : 'WhatsApp'}
           </span>
         </button>
 
@@ -498,7 +755,7 @@ export default function Navbar({
           }`}
         >
           <Globe className="w-3.5 h-3.5 text-blue-400" />
-          <span className="hidden md:inline">Cloud Access</span>
+          <span className="hidden xl:inline">Cloud</span>
           <span className={`w-2 h-2 rounded-full ${isCloudActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
         </button>
 

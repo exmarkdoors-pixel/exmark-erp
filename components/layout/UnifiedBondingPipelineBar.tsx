@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationTab } from '@/types/erp';
 import {
   FileSpreadsheet,
@@ -10,8 +10,9 @@ import {
   Palette,
   Truck,
   Wrench,
-  ReceiptIndianRupee,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   ArrowRight,
   Sparkles,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ import {
 interface UnifiedBondingPipelineBarProps {
   currentTab: NavigationTab;
   onNavigate: (tab: NavigationTab) => void;
+  isSimpleMode?: boolean;
 }
 
 interface PipelineStep {
@@ -108,30 +110,110 @@ const PIPELINE_STEPS: PipelineStep[] = [
 export default function UnifiedBondingPipelineBar({
   currentTab,
   onNavigate,
+  isSimpleMode = true,
 }: UnifiedBondingPipelineBarProps) {
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(isSimpleMode);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('exmark_pipeline_collapsed');
+      if (saved === 'true') setIsCollapsed(true);
+      else if (saved === 'false') setIsCollapsed(false);
+      else setIsCollapsed(isSimpleMode);
+    } catch {
+      setIsCollapsed(isSimpleMode);
+    }
+  }, [isSimpleMode]);
+
+  const toggleCollapse = () => {
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    try {
+      localStorage.setItem('exmark_pipeline_collapsed', String(next));
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
   const currentStepIndex = PIPELINE_STEPS.findIndex((s) => s.id === currentTab);
+
+  // Slim Breadcrumb Flow Bar (Compact / Default in Simple Mode)
+  if (isCollapsed) {
+    return (
+      <div className="bg-[#0B132B]/80 border border-slate-800/80 rounded-xl px-3 py-1.5 print:hidden flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none text-[11px]">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1.5 shrink-0 hidden sm:inline">
+            Workflow:
+          </span>
+          {PIPELINE_STEPS.map((step, idx) => {
+            const isActive = currentTab === step.id;
+            const isPassed = currentStepIndex > idx;
+            return (
+              <React.Fragment key={step.id}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(step.id)}
+                  className={`px-2 py-0.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                    isActive
+                      ? 'bg-red-600/20 text-red-300 border border-red-500/40 font-bold'
+                      : isPassed
+                      ? 'text-slate-300 hover:text-white hover:bg-slate-800'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                  title={`${step.stepNumber}. ${step.labelEn} (${step.labelMl})`}
+                >
+                  {step.stepNumber}. {step.labelEn}
+                </button>
+                {idx < PIPELINE_STEPS.length - 1 && (
+                  <ChevronRight className="w-3 h-3 text-slate-600 shrink-0" />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={toggleCollapse}
+          className="px-2 py-0.5 rounded-md text-[10px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 flex items-center gap-1 shrink-0 transition cursor-pointer"
+          title="Expand full pipeline bar"
+        >
+          <span className="hidden sm:inline">Expand Flow</span>
+          <ChevronDown className="w-3 h-3" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#0B132B] border border-slate-800 rounded-2xl p-3 shadow-xl print:hidden transition-all">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Left branding title */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-700 to-rose-500 flex items-center justify-center text-white shadow-md shadow-rose-950/50">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-black text-white text-xs tracking-wider uppercase">
-                EXMARK Production Execution Pipeline
-              </span>
-              <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 px-2 py-0.2 rounded-full font-bold">
-                Production-First Active
-              </span>
+        <div className="flex items-center justify-between lg:justify-start gap-2.5 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-700 to-rose-500 flex items-center justify-center text-white shadow-md shadow-rose-950/50">
+              <Sparkles className="w-4 h-4" />
             </div>
-            <p className="text-[10px] text-slate-400">
-              Quotation → Advance Lock & 12L Stickers → Molding → Cutting/QC → Painting → Delivery Challan → Site Fitting • <span className="text-amber-400 font-medium">Billing: Future Phase</span>
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-white text-xs tracking-wider uppercase">
+                  EXMARK Production Pipeline
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400">
+                Quotation → Order Lock → Molding → 12L Stickers → Paint → Dispatch → Fitting
+              </p>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            className="lg:hidden px-2 py-1 rounded-lg text-[10px] font-semibold text-slate-400 hover:text-white bg-slate-900 border border-slate-800 flex items-center gap-1 cursor-pointer"
+          >
+            <span>Slim</span>
+            <ChevronUp className="w-3 h-3" />
+          </button>
         </div>
 
         {/* Step Progression Buttons */}
@@ -178,16 +260,6 @@ export default function UnifiedBondingPipelineBar({
                       </span>
                     </div>
                   </div>
-
-                  <span
-                    className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-semibold ${
-                      isActive
-                        ? 'bg-black/25 text-white'
-                        : 'bg-slate-800/80 text-slate-400 border border-slate-700/50'
-                    }`}
-                  >
-                    {step.badge}
-                  </span>
                 </button>
 
                 {idx < PIPELINE_STEPS.length - 1 && (
@@ -200,6 +272,16 @@ export default function UnifiedBondingPipelineBar({
               </React.Fragment>
             );
           })}
+
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            className="hidden lg:flex ml-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 items-center gap-1 shrink-0 transition cursor-pointer"
+            title="Minimize to slim workflow breadcrumb"
+          >
+            <span>Slim</span>
+            <ChevronUp className="w-3 h-3" />
+          </button>
         </div>
       </div>
     </div>

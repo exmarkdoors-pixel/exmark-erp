@@ -48,6 +48,13 @@ import {
   Loader2,
   ReceiptIndianRupee,
   Settings as SettingsIcon,
+  FileSpreadsheet,
+  Target,
+  Factory,
+  ChevronDown,
+  ChevronUp,
+  LayoutDashboard,
+  FolderOpen,
 } from 'lucide-react';
 
 const ZERO_KPI_METRICS: KpiMetric[] = [
@@ -122,7 +129,9 @@ export default function Home() {
   const [hasQuickPin, setHasQuickPin] = useState(false);
   const [credentialModalTrigger, setCredentialModalTrigger] = useState(0);
   const [settingsInitialTab, setSettingsInitialTab] = useState<'customization' | 'staff_access'>('customization');
-  const [dashboardSubView, setDashboardSubView] = useState<'control-center' | 'overview'>('control-center');
+  const [dashboardSubView, setDashboardSubView] = useState<'control-center' | 'overview'>('overview');
+  const [isSimpleMode, setIsSimpleMode] = useState<boolean>(true);
+  const [showDirectoryDrawer, setShowDirectoryDrawer] = useState<boolean>(false);
   const [liveKpiMetrics, setLiveKpiMetrics] = useState<KpiMetric[]>(ZERO_KPI_METRICS);
   const [liveRecentOrders, setLiveRecentOrders] = useState<OrderItem[]>([]);
   const [liveSalesChartData] = useState<SalesChartDataPoint[]>([]);
@@ -131,6 +140,29 @@ export default function Home() {
   const [liveSidebarBadges, setLiveSidebarBadges] = useState<Record<string, string>>({});
   const [activeFactoryName, setActiveFactoryName] = useState<string>('Central Manufacturing Unit');
   const [brandName, setBrandName] = useState<string>('EXMARK DOORS');
+
+  // Hydrate persisted Simple UI mode preference
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('exmark_ui_simple_mode');
+      if (saved === 'false') setIsSimpleMode(false);
+      else if (saved === 'true') setIsSimpleMode(true);
+    } catch {
+      // Default to Simple Mode
+    }
+  }, []);
+
+  const handleToggleSimpleMode = () => {
+    setIsSimpleMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('exmark_ui_simple_mode', String(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
 
   const effectiveAllowedModules = useMemo(() => {
     if (allRolePermissions && allRolePermissions[userRole]) {
@@ -336,6 +368,8 @@ export default function Home() {
           userRole={userRole}
           allowedModules={effectiveAllowedModules}
           liveBadges={liveSidebarBadges}
+          isSimpleMode={isSimpleMode}
+          onToggleSimpleMode={handleToggleSimpleMode}
         />
 
         {/* Main Content Area */}
@@ -366,6 +400,8 @@ export default function Home() {
               setMustChangePassword(false);
               setHasQuickPin(true);
             }}
+            isSimpleMode={isSimpleMode}
+            onToggleSimpleMode={handleToggleSimpleMode}
           />
 
           {/* Main Body Content */}
@@ -397,123 +433,193 @@ export default function Home() {
               </div>
             )}
 
-            {/* Unified Factory ERP Bonding Pipeline */}
-            <div className="print:hidden">
-              <UnifiedBondingPipelineBar
-                currentTab={currentTab}
-                onNavigate={(tab) => {
-                  if (effectiveAllowedModules.includes(tab)) {
-                    setCurrentTab(tab);
-                  }
-                }}
-              />
-            </div>
+            {/* Unified Factory ERP Bonding Pipeline (Dashboard-only in Simple Mode to maximize workspace) */}
+            {(!isSimpleMode || currentTab === 'dashboard') && (
+              <div className="print:hidden">
+                <UnifiedBondingPipelineBar
+                  currentTab={currentTab}
+                  isSimpleMode={isSimpleMode}
+                  onNavigate={(tab) => {
+                    if (effectiveAllowedModules.includes(tab)) {
+                      setCurrentTab(tab);
+                    }
+                  }}
+                />
+              </div>
+            )}
 
             {/* Dashboard View */}
             {currentTab === 'dashboard' && effectiveAllowedModules.includes('dashboard') && (
               <>
                 {/* Hero / Factory Header Card */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#0F1E3D] to-[#162544] border border-slate-800 p-5 sm:p-6 shadow-xl">
-                  {/* Subtle red accent glow */}
-                  <div className="absolute top-0 right-0 w-80 h-80 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
-
-                  <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1.5 max-w-2xl">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600/90 text-white shadow-xs">
-                          EXMARK Manufacturing ERP
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-red-300 border border-red-500/30">
-                          Role: {userRole}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          {activeFactoryName}: Active
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-xs text-amber-300 font-semibold bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
-                          🏭 Production-First Mode • Billing: Future Phase
-                        </span>
+                {isSimpleMode ? (
+                  <div className="rounded-2xl bg-[#0B132B] border border-slate-800 p-5 sm:p-6 shadow-sm">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                            {activeFactoryName}
+                          </span>
+                          <span className="text-slate-600">•</span>
+                          <span className="text-xs text-slate-400 font-medium">{userRole}</span>
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                          Welcome, {userName}
+                        </h2>
+                        <p className="text-xs sm:text-sm text-slate-400">
+                          Quick daily controls for quotations, leads, factory floor production, and stickers.
+                        </p>
                       </div>
-                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
-                        Welcome, {userName}
-                      </h2>
-                      <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
-                        FRP & WPC Door Operations Control • Precision engineering for Kerala climate: 100% waterproof, termite-proof, and acoustic door systems across 14 Kerala districts.
-                      </p>
-                    </div>
 
-                    {/* Quick Stat Highlights */}
-                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap md:flex-nowrap">
-                      <button
-                        onClick={() => setCurrentTab('production')}
-                        className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                        title="Jump directly to Production Floor Queue"
-                      >
-                        <span>🏭 Production Floor</span>
-                      </button>
-                      <button
-                        onClick={() => setCurrentTab('batch-print')}
-                        className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                        title="Open 12L Barcode Sticker Generator"
-                      >
-                        <span>🏷️ 12L Stickers</span>
-                      </button>
-                      <button
-                        onClick={() => setCurrentTab('accounts')}
-                        className="px-3.5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-xl text-xs font-bold border border-amber-500/30 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                        title="In-House Floor Gang Weekly Payouts & Accounts"
-                      >
-                        <span>👷 Floor Gang Payouts</span>
-                      </button>
-                      <button
-                        onClick={() => setIsQuickActionOpen(true)}
-                        className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-950/40 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        Quick New Action
-                      </button>
+                      {/* 4 Primary 1-Click Daily Actions */}
+                      <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5">
+                        {effectiveAllowedModules.includes('quotations') && (
+                          <button
+                            type="button"
+                            onClick={() => setCurrentTab('quotations')}
+                            className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md shadow-red-950/30 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            <span>+ New Quotation</span>
+                          </button>
+                        )}
+                        {effectiveAllowedModules.includes('crm') && (
+                          <button
+                            type="button"
+                            onClick={() => setCurrentTab('crm')}
+                            className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Target className="w-4 h-4 text-amber-400" />
+                            <span>+ New Lead</span>
+                          </button>
+                        )}
+                        {effectiveAllowedModules.includes('production') && (
+                          <button
+                            type="button"
+                            onClick={() => setCurrentTab('production')}
+                            className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Factory className="w-4 h-4 text-emerald-400" />
+                            <span>Production Floor</span>
+                          </button>
+                        )}
+                        {effectiveAllowedModules.includes('batch-print') && (
+                          <button
+                            type="button"
+                            onClick={() => setCurrentTab('batch-print')}
+                            className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Printer className="w-4 h-4 text-rose-400" />
+                            <span>12L Stickers</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#0F1E3D] to-[#162544] border border-slate-800 p-5 sm:p-6 shadow-xl">
+                    {/* Subtle red accent glow */}
+                    <div className="absolute top-0 right-0 w-80 h-80 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+
+                    <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="space-y-1.5 max-w-2xl">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-red-600/90 text-white shadow-xs">
+                            EXMARK Manufacturing ERP
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-red-300 border border-red-500/30">
+                            Role: {userRole}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            {activeFactoryName}: Active
+                          </span>
+                        </div>
+                        <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
+                          Welcome, {userName}
+                        </h2>
+                        <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
+                          FRP &amp; WPC Door Operations Control • Precision engineering for Kerala climate across 14 Kerala districts.
+                        </p>
+                      </div>
+
+                      {/* Quick Stat Highlights */}
+                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap md:flex-nowrap">
+                        <button
+                          onClick={() => setCurrentTab('production')}
+                          className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                          title="Jump directly to Production Floor Queue"
+                        >
+                          <span>🏭 Production Floor</span>
+                        </button>
+                        <button
+                          onClick={() => setCurrentTab('batch-print')}
+                          className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                          title="Open 12L Barcode Sticker Generator"
+                        >
+                          <span>🏷️ 12L Stickers</span>
+                        </button>
+                        <button
+                          onClick={() => setCurrentTab('accounts')}
+                          className="px-3.5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-xl text-xs font-bold border border-amber-500/30 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                          title="In-House Floor Gang Weekly Payouts & Accounts"
+                        >
+                          <span>👷 Floor Gang Payouts</span>
+                        </button>
+                        <button
+                          onClick={() => setIsQuickActionOpen(true)}
+                          className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-950/40 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          Quick New Action
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 1. Live Database KPI Cards */}
                 <section aria-label="Key Performance Indicators">
                   <KpiCards
                     metrics={liveKpiMetrics}
                     onCardClick={handleKpiCardClick}
+                    isSimpleMode={isSimpleMode}
                   />
                 </section>
 
-                {/* Dashboard Sub-View Switcher Bar */}
-                <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setDashboardSubView('control-center')}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                        dashboardSubView === 'control-center'
-                          ? 'bg-red-600 text-white shadow-md shadow-red-950/40'
-                          : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
-                      }`}
-                    >
-                      <span>🗂️ Corporate Control Center</span>
-                      <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30">10 Folders</span>
-                    </button>
+                {/* Dashboard Sub-View Switcher Bar (Shown only in Full Ops Mode) */}
+                {!isSimpleMode && (
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setDashboardSubView('overview')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                          dashboardSubView === 'overview'
+                            ? 'bg-red-600 text-white shadow-md shadow-red-950/40'
+                            : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
+                        }`}
+                      >
+                        <span>📊 Plant &amp; Sales Floor Charts</span>
+                      </button>
 
-                    <button
-                      onClick={() => setDashboardSubView('overview')}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                        dashboardSubView === 'overview'
-                          ? 'bg-red-600 text-white shadow-md shadow-red-950/40'
-                          : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
-                      }`}
-                    >
-                      <span>📊 Plant &amp; Sales Floor Charts</span>
-                    </button>
+                      <button
+                        onClick={() => setDashboardSubView('control-center')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                          dashboardSubView === 'control-center'
+                            ? 'bg-red-600 text-white shadow-md shadow-red-950/40'
+                            : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
+                        }`}
+                      >
+                        <span>🗂️ Corporate Control Center</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30">10 Folders</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Sub-View 1: EXMARK Corporate Control Center (10 Enterprise Folders) */}
-                {dashboardSubView === 'control-center' && (
+                {/* Sub-View 1: EXMARK Corporate Control Center (Full Ops Mode when selected) */}
+                {!isSimpleMode && dashboardSubView === 'control-center' && (
                   <CorporateControlCenter
                     onNavigateTab={(tab) => {
                       if (tab === 'settings') setSettingsInitialTab('customization');
@@ -524,17 +630,31 @@ export default function Home() {
                   />
                 )}
 
-                {/* Sub-View 2: Executive Charts & Floor Load Overview */}
-                {dashboardSubView === 'overview' && (
+                {/* Sub-View 2: Executive Overview (Default in both Simple Mode & Full Ops) */}
+                {(isSimpleMode || dashboardSubView === 'overview') && (
                   <>
-                    {/* Middle Row: Sales Chart & Production Status */}
+                    {/* Recent Orders Table & Follow-up Reminders (High priority daily view) */}
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                      <div className="xl:col-span-8">
+                        <RecentOrdersTable
+                          orders={liveRecentOrders}
+                          onViewAllOrders={() => setCurrentTab('sales-orders')}
+                        />
+                      </div>
+
+                      <div className="xl:col-span-4">
+                        <FollowUpReminders
+                          initialReminders={liveFollowUpReminders}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Sales Chart & Production Status */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                      {/* Sales Chart (7 Cols) */}
                       <div className="lg:col-span-7">
                         <SalesChart data={liveSalesChartData} />
                       </div>
 
-                      {/* Production Status (5 Cols) */}
                       <div className="lg:col-span-5">
                         <ProductionStatus
                           lines={liveProductionLines}
@@ -543,23 +663,45 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Bottom Row: Recent Orders Table & Follow-up Reminders */}
-                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                      {/* Recent Orders Table (8 Cols) */}
-                      <div className="xl:col-span-8">
-                        <RecentOrdersTable
-                          orders={liveRecentOrders}
-                          onViewAllOrders={() => setCurrentTab('sales-orders')}
-                        />
+                    {/* Collapsible Enterprise Directory Drawer in Simple Mode */}
+                    {isSimpleMode && (
+                      <div className="rounded-2xl border border-slate-800/80 bg-[#0B132B]/70 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setShowDirectoryDrawer((v) => !v)}
+                          className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-slate-900/60 transition cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <FolderOpen className="w-4 h-4 text-amber-400" />
+                            <div>
+                              <span className="text-xs font-bold text-slate-200 block">
+                                Browse All 10 Enterprise Modules &amp; Features (Directory)
+                              </span>
+                              <span className="text-[11px] text-slate-400">
+                                Need BOQ reports, Job Work, Inventory POs, or Quality Control? Open full directory here.
+                              </span>
+                            </div>
+                          </div>
+                          {showDirectoryDrawer ? (
+                            <ChevronUp className="w-4 h-4 text-slate-400" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                          )}
+                        </button>
+                        {showDirectoryDrawer && (
+                          <div className="p-4 border-t border-slate-800">
+                            <CorporateControlCenter
+                              onNavigateTab={(tab) => {
+                                if (tab === 'settings') setSettingsInitialTab('customization');
+                                setCurrentTab(tab);
+                              }}
+                              userRole={userRole}
+                              allowedModules={effectiveAllowedModules}
+                            />
+                          </div>
+                        )}
                       </div>
-
-                      {/* Follow-up Reminders (4 Cols) */}
-                      <div className="xl:col-span-4">
-                        <FollowUpReminders
-                          initialReminders={liveFollowUpReminders}
-                        />
-                      </div>
-                    </div>
+                    )}
                   </>
                 )}
               </>
@@ -629,12 +771,11 @@ export default function Home() {
         className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-[#0B132B] border-t border-slate-800 flex items-center justify-around z-40 px-2 text-[10px] print:hidden shadow-2xl backdrop-blur-md"
       >
         {[
-          { tab: 'crm' as NavigationTab, label: 'CRM', color: 'text-cyan-400', Icon: Users },
-          { tab: 'sales-orders' as NavigationTab, label: 'Orders', color: 'text-rose-400', Icon: ClipboardList },
-          { tab: 'bom' as NavigationTab, label: 'BOQ/BOM', color: 'text-emerald-400', Icon: Layers },
-          { tab: 'production' as NavigationTab, label: 'Plant Floor', color: 'text-purple-400', Icon: ShieldCheck },
-          { tab: 'batch-print' as NavigationTab, label: '12L Print', color: 'text-rose-500', Icon: Printer },
-          { tab: 'accounts' as NavigationTab, label: 'Accounts', color: 'text-amber-400', Icon: ReceiptIndianRupee },
+          { tab: 'dashboard' as NavigationTab, label: 'Home', color: 'text-red-400', Icon: LayoutDashboard },
+          { tab: 'quotations' as NavigationTab, label: 'Quotes', color: 'text-blue-400', Icon: FileSpreadsheet },
+          { tab: 'crm' as NavigationTab, label: 'CRM', color: 'text-amber-400', Icon: Target },
+          { tab: 'production' as NavigationTab, label: 'Plant', color: 'text-emerald-400', Icon: Factory },
+          { tab: 'accounts' as NavigationTab, label: 'Accounts', color: 'text-indigo-400', Icon: ReceiptIndianRupee },
           { tab: 'settings' as NavigationTab, label: 'Settings', color: 'text-slate-200', Icon: SettingsIcon },
         ]
           .filter((item) => effectiveAllowedModules.includes(item.tab))
@@ -647,7 +788,7 @@ export default function Home() {
                 currentTab === tab ? `${color} font-bold` : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Icon className={`w-4 h-4 ${color}`} />
+              <Icon className={`w-4 h-4 ${currentTab === tab ? color : 'text-slate-400'}`} />
               <span>{label}</span>
             </button>
           ))}
