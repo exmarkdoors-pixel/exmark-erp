@@ -11,6 +11,46 @@ const globalForPrisma = globalThis as unknown as {
   cloudClients: Map<string, PrismaClient> | undefined;
 };
 
+export type PostgresProviderKind =
+  | 'NEON'
+  | 'SUPABASE_POOLER'
+  | 'SUPABASE_DIRECT_IPV6'
+  | 'LOCAL'
+  | 'CUSTOM';
+
+export interface PostgresProviderInfo {
+  kind: PostgresProviderKind;
+  label: string;
+  isRemote: boolean;
+  warning?: string;
+}
+
+export function detectPostgresProvider(rawUrl: string | undefined): PostgresProviderInfo {
+  const cleaned = (rawUrl || '').trim().toLowerCase();
+  if (!cleaned) {
+    return { kind: 'LOCAL', label: 'Local PostgreSQL', isRemote: false };
+  }
+  if (cleaned.includes('.neon.tech')) {
+    return { kind: 'NEON', label: 'Neon PostgreSQL', isRemote: true };
+  }
+  if (cleaned.includes('.pooler.supabase.com')) {
+    return { kind: 'SUPABASE_POOLER', label: 'Supabase Pooler (IPv4)', isRemote: true };
+  }
+  if (/\.supabase\.co(?:[:/]|$)/i.test(cleaned)) {
+    return {
+      kind: 'SUPABASE_DIRECT_IPV6',
+      label: 'Supabase Direct (IPv6)',
+      isRemote: true,
+      warning:
+        'Supabase Direct URLs (db.*.supabase.co) are IPv6-only and often fail on IPv4 broadband. Use Supabase Session Pooler (*.pooler.supabase.com:5432) or Neon PostgreSQL.',
+    };
+  }
+  if (cleaned.includes('127.0.0.1') || cleaned.includes('localhost')) {
+    return { kind: 'LOCAL', label: 'Local PostgreSQL', isRemote: false };
+  }
+  return { kind: 'CUSTOM', label: 'Remote PostgreSQL', isRemote: true };
+}
+
 export function sanitizeDatabaseUrl(raw: string | undefined): string {
   if (!raw) return '';
   let cleaned = raw.trim().replace(/^["'`]|["'`]$/g, '').trim();
@@ -22,6 +62,32 @@ export function sanitizeDatabaseUrl(raw: string | undefined): string {
     const safePass = pass.replace(/#/g, '%23').replace(/@/g, '%40');
     cleaned = `${scheme}${user}:${safePass}@${hostPort}${tail}`;
   }
+
+  // Normalize cloud provider query parameters (Neon channel_binding, TLS sslmode, Supabase :6543 pgbouncer)
+  try {
+    const parsed = new URL(cleaned);
+    const hostLower = parsed.hostname.toLowerCase();
+    const isRemoteCloud =
+      hostLower.endsWith('.neon.tech') ||
+      hostLower.endsWith('.supabase.com') ||
+      hostLower.endsWith('.supabase.co') ||
+      hostLower.endsWith('.render.com');
+
+    // Neon dashboards often append channel_binding=require which can cause SASL failures in Node pg
+    if (parsed.searchParams.has('channel_binding')) {
+      parsed.searchParams.delete('channel_binding');
+    }
+    if (isRemoteCloud && !parsed.searchParams.has('sslmode')) {
+      parsed.searchParams.set('sslmode', 'require');
+    }
+    if (hostLower.includes('pooler.supabase.com') && parsed.port === '6543' && !parsed.searchParams.has('pgbouncer')) {
+      parsed.searchParams.set('pgbouncer', 'true');
+    }
+    cleaned = parsed.toString();
+  } catch {
+    // Preserve sanitized raw string if URL parser rejects non-standard syntax
+  }
+
   return cleaned;
 }
 
@@ -37,7 +103,15 @@ export function resolveEffectiveDatabaseUrl(explicitUrl?: string): string {
 
 function createPrismaClient(explicitUrl?: string): PrismaClient {
   const connectionString = resolveEffectiveDatabaseUrl(explicitUrl);
-  const adapter = new PrismaPg({ connectionString });
+  const provider = detectPostgresProvider(connectionString);
+  const adapter = provider.isRemote
+    ? new PrismaPg({
+        connectionString,
+        connectionTimeoutMillis: 15000,
+        idleTimeoutMillis: 30000,
+        ssl: { rejectUnauthorized: false },
+      })
+    : new PrismaPg({ connectionString });
 
   return new PrismaClient({
     adapter,

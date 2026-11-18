@@ -195,6 +195,8 @@ async function main() {
     `Installed App Default Path (NSIS): %LocalAppData%\\Programs\\EXMARK ERP\\EXMARK ERP.exe`,
     '',
     'Key Release Highlights:',
+    '- Unrestricted Super Admin permissions across Financial, Accounts, Evening Close, Mobile Field Ops & all 26 ERP modules',
+    '- Neon PostgreSQL (Recommended) & Supabase Pooler Cloud Sync hardening (auto channel_binding strip, 15s cold-wake retry & guided setup)',
     '- Local PostgreSQL 18 SQL Server integration with encrypted vault credentials & pg_dump backups',
     '- Fixed Quotation PDF colour accuracy for renamed & custom factory colours across all Tally & Vyapar themes',
     '- New 12L After-Packing Site Verification Pass (99x44mm, 2x6 A4 Grid) with Frame Opening, Finish Door, QR & Sign-Off',

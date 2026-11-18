@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import type { PrismaClient } from '@prisma/client';
-import { getCloudPrismaClient, sanitizeDatabaseUrl } from '@/lib/prisma';
+import { detectPostgresProvider, getCloudPrismaClient, sanitizeDatabaseUrl } from '@/lib/prisma';
 import { getDataDir, getDataFilePath, registerStoreWriteListener } from '@/lib/utils/dataPaths';
 import { getAppVersion } from './schemaMigrator';
 import { createBackupSnapshot } from './backupService';
@@ -62,6 +62,8 @@ export interface CloudConnectionTestReport {
     remoteStoresCount: number;
     latencyMs: number;
     maskedUrl: string | null;
+    provider?: string;
+    providerKind?: string;
     message: string;
   };
   drive: DriveTestResult;
@@ -204,6 +206,7 @@ export async function testCloudConnections(options?: {
 }): Promise<CloudConnectionTestReport> {
   const activeUrl = sanitizeDatabaseUrl(options?.overrideDatabaseUrl) || getActiveCloudDatabaseUrl();
   const masked = getMaskedSecretsSummary().maskedDatabaseUrl;
+  const providerInfo = detectPostgresProvider(activeUrl);
   const start = Date.now();
 
   let pgResult: CloudConnectionTestReport['postgres'] = {
@@ -213,17 +216,34 @@ export async function testCloudConnections(options?: {
     remoteStoresCount: 0,
     latencyMs: 0,
     maskedUrl: activeUrl ? masked || 'postgresql://*** (configured)' : null,
+    provider: activeUrl ? providerInfo.label : undefined,
+    providerKind: activeUrl ? providerInfo.kind : undefined,
     message: activeUrl
       ? 'Not tested yet'
-      : 'No Supabase / Neon PostgreSQL URL saved. Paste DATABASE_URL in Settings to enable SQL sync.',
+      : 'No Neon / Supabase PostgreSQL URL saved. Paste your Neon PostgreSQL connection string in Settings to enable Cloud SQL Sync.',
   };
 
   if (activeUrl || options?.prismaClientOverride) {
     const client = options?.prismaClientOverride || getCloudPrismaClient(activeUrl);
-    try {
+    const runProbe = async () => {
       await client.$queryRaw`SELECT 1 AS alive`;
       await ensureCloudVaultSchema(client);
-      const count = await client.cloudVaultStore.count();
+      return await client.cloudVaultStore.count();
+    };
+
+    try {
+      let count: number;
+      try {
+        count = await runProbe();
+      } catch (firstErr) {
+        // Neon serverless computes wake from scale-to-zero in ~0.5-2s; retry once cleanly on cold-start
+        if (providerInfo.kind === 'NEON') {
+          await new Promise((r) => setTimeout(r, 1200));
+          count = await runProbe();
+        } else {
+          throw firstErr;
+        }
+      }
       pgResult = {
         configured: true,
         reachable: true,
@@ -231,17 +251,25 @@ export async function testCloudConnections(options?: {
         remoteStoresCount: count,
         latencyMs: Date.now() - start,
         maskedUrl: activeUrl ? masked || 'postgresql://*** (configured)' : 'mock-client',
-        message: `Connected cleanly (${count} cloud stores indexed, ${Date.now() - start}ms).`,
+        provider: providerInfo.label,
+        providerKind: providerInfo.kind,
+        message: `Connected cleanly to ${providerInfo.label} (${count} cloud stores indexed, ${Date.now() - start}ms).`,
       };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      const hint =
+        providerInfo.kind === 'SUPABASE_DIRECT_IPV6'
+          ? ' Hint: Supabase direct URLs (db.*.supabase.co) are IPv6-only; use the Session Pooler URL (*.pooler.supabase.com:5432) or switch to Neon PostgreSQL.'
+          : '';
       pgResult = {
         ...pgResult,
         configured: true,
         reachable: false,
         tableReady: false,
         latencyMs: Date.now() - start,
-        message: `PostgreSQL connection failed: ${msg}`,
+        provider: providerInfo.label,
+        providerKind: providerInfo.kind,
+        message: `${providerInfo.label} connection failed: ${msg}${hint}`,
       };
     }
   }

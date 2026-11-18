@@ -89,6 +89,7 @@ export default function CloudSyncSettingsTab() {
   const [enabled, setEnabled] = useState(false);
   const [postgresEnabled, setPostgresEnabled] = useState(false);
   const [databaseUrlInput, setDatabaseUrlInput] = useState('');
+  const [selectedCloudProvider, setSelectedCloudProvider] = useState<'NEON' | 'SUPABASE'>('NEON');
   const [autoInterval, setAutoInterval] = useState(0);
   const [deviceName, setDeviceName] = useState('');
 
@@ -106,7 +107,14 @@ export default function CloudSyncSettingsTab() {
   const [webhookToken, setWebhookToken] = useState('');
 
   const [testReport, setTestReport] = useState<{
-    postgres?: { reachable: boolean; tableReady: boolean; remoteStoresCount: number; latencyMs: number; message: string };
+    postgres?: {
+      reachable: boolean;
+      tableReady: boolean;
+      remoteStoresCount: number;
+      latencyMs: number;
+      provider?: string;
+      message: string;
+    };
     drive?: { ready: boolean; targetLocation: string; message: string };
   } | null>(null);
   const [remoteDiff, setRemoteDiff] = useState<StoreDiffItem[] | null>(null);
@@ -605,10 +613,22 @@ export default function CloudSyncSettingsTab() {
       {/* 2. Channel 1: PostgreSQL Vault & Outbox Sync */}
       <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Database className="w-4 h-4 text-sky-400" />
-            Channel 1 — Cloud PostgreSQL Database (Supabase / Neon)
-          </h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Database className="w-4 h-4 text-sky-400" />
+              Channel 1 — Cloud PostgreSQL Database (Neon Recommended)
+            </h3>
+            {overview?.secretsSummary.maskedDatabaseUrl?.toLowerCase().includes('neon.tech') && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                ⚡ Neon PostgreSQL Active
+              </span>
+            )}
+            {overview?.secretsSummary.maskedDatabaseUrl?.toLowerCase().includes('supabase') && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                Supabase Connected
+              </span>
+            )}
+          </div>
           <label className="flex items-center gap-2 text-xs text-slate-200 font-semibold cursor-pointer">
             <input
               type="checkbox"
@@ -616,15 +636,80 @@ export default function CloudSyncSettingsTab() {
               onChange={(e) => setPostgresEnabled(e.target.checked)}
               className="rounded accent-sky-500"
             />
-            Sync to PostgreSQL
+            Sync to Cloud PostgreSQL
           </label>
         </div>
+
+        {/* Provider Quick-Setup Selector (Neon Recommended vs Supabase) */}
+        <div className="p-3 rounded-lg bg-[#070D1E] border border-slate-800 space-y-2.5 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedCloudProvider('NEON')}
+                className={`px-3 py-1 rounded-lg font-bold text-[11px] transition cursor-pointer ${
+                  selectedCloudProvider === 'NEON'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                ⚡ Neon PostgreSQL (Recommended)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedCloudProvider('SUPABASE')}
+                className={`px-3 py-1 rounded-lg font-bold text-[11px] transition cursor-pointer ${
+                  selectedCloudProvider === 'SUPABASE'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'bg-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                Supabase (Pooler)
+              </button>
+            </div>
+            <span className="text-[11px] text-slate-400">
+              {selectedCloudProvider === 'NEON'
+                ? 'Never pauses after 7 days • Native IPv4 • Instant auto-wake'
+                : 'Use IPv4 Session Pooler (*.pooler.supabase.com:5432)'}
+            </span>
+          </div>
+
+          {selectedCloudProvider === 'NEON' ? (
+            <div className="text-[11px] text-slate-300 leading-relaxed">
+              <strong className="text-emerald-300">Neon 3-Step Setup:</strong>{' '}
+              1) Sign in at <span className="font-mono text-sky-300">console.neon.tech</span> and create a project in{' '}
+              <strong>AWS Singapore (ap-southeast-1)</strong> →{' '}
+              2) Click <strong>Connect</strong> and copy the <strong>PostgreSQL Connection String</strong> →{' '}
+              3) Paste below (EXMARK automatically strips <code className="text-amber-300">channel_binding</code> &amp; handles TLS/auto-wake), click{' '}
+              <strong>Save URL</strong>, then <strong>Test Connections</strong>.
+            </div>
+          ) : (
+            <div className="text-[11px] text-slate-300 leading-relaxed">
+              <strong className="text-sky-300">Supabase 3-Step Setup:</strong>{' '}
+              1) Open your Supabase project (AWS Mumbai <code className="text-sky-300">ap-south-1</code>) →{' '}
+              2) Click <strong>Connect → Session Pooler (IPv4)</strong> and copy the <code className="text-amber-300">*.pooler.supabase.com:5432</code> URI (avoid direct IPv6 <code className="text-rose-300">db.*.supabase.co</code>) →{' '}
+              3) Paste below, click <strong>Save URL</strong>, and enable Background Auto-Sync so the free tier stays active.
+            </div>
+          )}
+        </div>
+
+        {/* Immediate IPv6 Direct URL Warning for Supabase */}
+        {/\.supabase\.co(?:[:/]|$)/i.test(databaseUrlInput) && (
+          <div className="p-2.5 rounded-lg bg-amber-950/50 border border-amber-600/50 text-amber-200 text-[11px] flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <span>
+              <strong>IPv6 Direct URL Detected:</strong> <code className="text-amber-300">db.*.supabase.co</code> often fails on Kerala IPv4 broadband. Copy Supabase&apos;s <strong>Session Pooler</strong> URL (<code className="text-sky-300">*.pooler.supabase.com:5432</code>) or use <strong>Neon PostgreSQL</strong> instead.
+            </span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end text-xs">
           <div className="md:col-span-2 space-y-1">
             <label className="text-slate-400 font-medium flex items-center gap-1.5">
               <KeyRound className="w-3.5 h-3.5 text-sky-400" />
-              Supabase / Neon PostgreSQL URI (AES-256 Encrypted Locally, Never Exported)
+              {selectedCloudProvider === 'NEON'
+                ? 'Neon PostgreSQL Connection URI (AES-256 Encrypted Locally, Never Exported)'
+                : 'Supabase Session Pooler URI (AES-256 Encrypted Locally, Never Exported)'}
             </label>
             <input
               type="password"
@@ -633,7 +718,9 @@ export default function CloudSyncSettingsTab() {
               placeholder={
                 overview?.secretsSummary.maskedDatabaseUrl
                   ? `Saved: ${overview.secretsSummary.maskedDatabaseUrl} (leave blank to keep)`
-                  : 'postgresql://postgres:PASSWORD@host:5432/postgres?sslmode=require'
+                  : selectedCloudProvider === 'NEON'
+                  ? 'postgresql://neondb_owner:PASSWORD@ep-xxxx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
+                  : 'postgresql://postgres.REF:PASSWORD@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require'
               }
               className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono"
             />

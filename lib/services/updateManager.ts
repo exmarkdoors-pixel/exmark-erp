@@ -57,7 +57,7 @@ export function getAuthoritativeAppVersion(): string {
   } catch {
     // Non-fatal fallback
   }
-  return '1.2.7';
+  return '1.2.8';
 }
 
 export function parseSemVer(v: string): number[] {
@@ -278,6 +278,16 @@ export async function checkForSystemUpdates(options: {
 
   // Curated changelog features
   const changelog = [
+    {
+      version: '1.2.8',
+      title: 'Unrestricted Super Admin Permissions & Neon PostgreSQL Cloud Sync Hardening',
+      features: [
+        'Guaranteed unrestricted Super Admin access across all 26 ERP modules and every API endpoint (Financial, Accounts, Evening Close, Mobile Field Ops, Settings & Security)',
+        'Fixed 403 error on Evening Close (/api/system/daily-closing) and unlocked Mobile Field Ops in both Simple UI Mode and Full Ops Mode',
+        'Upgraded all 12 Financial, Accounts, Break-Even, Daybook, AI Strategist, Order Profit & Contractor Payables panels to authenticated apiFetch for seamless Desktop .exe & LAN sessions',
+        'Hardened Neon PostgreSQL (Recommended) & Supabase Pooler Cloud Sync with automatic channel_binding stripping, TLS/15s cold-wake retry, IPv6 warning & guided setup card',
+      ],
+    },
     {
       version: '1.2.7',
       title: 'Quotation Live Colour PDF Fix, 12L After-Packing Site Verification Pass & Next.js 16.4.6 Security Update',
