@@ -57,7 +57,7 @@ export function getAuthoritativeAppVersion(): string {
   } catch {
     // Non-fatal fallback
   }
-  return '1.2.5';
+  return '1.2.6';
 }
 
 export function parseSemVer(v: string): number[] {
@@ -278,6 +278,18 @@ export async function checkForSystemUpdates(options: {
 
   // Curated changelog features
   const changelog = [
+    {
+      version: '1.2.6',
+      title: 'Local PostgreSQL 18 Server Integration, Simple UI Mode, Excel Bulk Lead Import & Hardened Cloud Tunnel',
+      features: [
+        'Native Local PostgreSQL 18 SQL Server integration across Web Server & installed Desktop .exe with AES-256-GCM encrypted vault config',
+        'Settings -> Local PostgreSQL Server live status card, 1-click Initialize/Sync Vault, and PostgreSQL 18 pg_dump (.dump) backups',
+        'Simple UI Mode (7-tab core sidebar, clean Executive Overview dashboard, slim collapsible pipeline bar, and 1-click Full Ops toggle)',
+        'Live Ctrl+K Quick Search across Quotations, CRM Leads, Customers, and key workspaces',
+        'Repaired Bulk Lead Import with native Excel (.xlsx/.xls) support, direct Ctrl+V paste from Excel, UTF-8 BOM fix, and non-blocking phone warnings',
+        'Hardened TryCloudflare Tunnel with PID liveness verification, auto-recovery watchdog, and live reachability probes',
+      ],
+    },
     {
       version: '1.2.5',
       title: 'Quotation Specs, Bank Details Config, Advance 30% Lock & Salesperson Slabs',

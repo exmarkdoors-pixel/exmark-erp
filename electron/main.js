@@ -63,6 +63,50 @@ function getOrCreateMachineAuthSecret() {
   }
 }
 
+function resolveLocalPostgresDatabaseUrl(dataDir) {
+  try {
+    const cfgPath = path.join(dataDir, 'local-postgres.json');
+    if (fs.existsSync(cfgPath)) {
+      const raw = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      if (raw && raw.enabled !== false) {
+        let password = '';
+        if (raw.passwordEnc && typeof raw.passwordEnc === 'string') {
+          if (raw.passwordEnc.startsWith('enc1:')) {
+            const keyPath = path.join(dataDir, '.vault-sync.key');
+            if (fs.existsSync(keyPath)) {
+              const keyHex = fs.readFileSync(keyPath, 'utf8').trim();
+              if (/^[a-f0-9]{64}$/i.test(keyHex)) {
+                const [, ivHex, tagHex, dataHex] = raw.passwordEnc.split(':');
+                const decipher = crypto.createDecipheriv(
+                  'aes-256-gcm',
+                  Buffer.from(keyHex, 'hex'),
+                  Buffer.from(ivHex, 'hex')
+                );
+                decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+                password = Buffer.concat([
+                  decipher.update(Buffer.from(dataHex, 'hex')),
+                  decipher.final(),
+                ]).toString('utf8');
+              }
+            }
+          } else {
+            password = raw.passwordEnc;
+          }
+        }
+        const host = (raw.host || '127.0.0.1').trim();
+        const port = Number(raw.port || 5432);
+        const user = encodeURIComponent((raw.user || 'postgres').trim());
+        const pass = password ? `:${encodeURIComponent(password)}` : '';
+        const db = encodeURIComponent((raw.database || 'exmark_erp').trim());
+        return `postgresql://${user}${pass}@${host}:${port}/${db}?schema=public`;
+      }
+    }
+  } catch (err) {
+    console.warn('[Desktop Main] Could not resolve local-postgres.json:', err.message);
+  }
+  return '';
+}
+
 function loadDesktopConfig() {
   const defaults = {
     mode: 'standalone', // 'standalone' | 'client'
@@ -366,6 +410,7 @@ async function startEmbeddedStandaloneServer(options = {}) {
 
     const useBundledNode = paths.runtimeNode && fs.existsSync(paths.runtimeNode);
     const serverExecutable = useBundledNode ? paths.runtimeNode : process.execPath;
+    const localPgUrl = resolveLocalPostgresDatabaseUrl(dataDir);
 
     const serverEnv = {
       ...process.env,
@@ -385,13 +430,16 @@ async function startEmbeddedStandaloneServer(options = {}) {
         : {}),
       COOKIE_SECURE: 'false',
       AUTH_SECRET: machineSecret,
-      DATABASE_URL: '',
-      DIRECT_URL: '',
+      DATABASE_URL: localPgUrl || '',
+      DIRECT_URL: localPgUrl || '',
       NEXT_TELEMETRY_DISABLED: '1',
     };
 
     console.log(`[Desktop Main] Launching embedded Next.js server (${paths.serverJs}) via ${useBundledNode ? 'bundled Node runtime' : 'ELECTRON_RUN_AS_NODE'} on ${bindHost}:${activeLocalPort}`);
     console.log(`[Desktop Main] Active external data vault: ${dataDir}`);
+    if (localPgUrl) {
+      console.log(`[Desktop Main] Local PostgreSQL SQL Server attached cleanly.`);
+    }
 
     localServerProcess = spawn(serverExecutable, [paths.serverJs], {
       cwd: paths.standaloneDir,

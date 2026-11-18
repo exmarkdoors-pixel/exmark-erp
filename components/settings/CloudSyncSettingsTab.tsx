@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/apiClient';
 import { CloudServerAccessModal } from '@/components/modules/cloud/CloudServerAccessModal';
+import { LocalPostgresCard } from './LocalPostgresCard';
 
 interface CloudSyncLogEntry {
   id: string;
@@ -410,6 +411,9 @@ export default function CloudSyncSettingsTab() {
           <span>{banner.text}</span>
         </div>
       )}
+
+      {/* 0. Local PostgreSQL Server (Primary Offline SQL Database) */}
+      <LocalPostgresCard />
 
       {/* 1. Overview KPI Header */}
       <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">

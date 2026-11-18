@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { isPostgresAvailable, getOutbox, isCloudEnvironment } from '@/lib/services/dbSyncEngine';
+import {
+  isPostgresAvailable,
+  getOutbox,
+  isCloudEnvironment,
+  getPostgresConnectionMode,
+} from '@/lib/services/dbSyncEngine';
+import { getLocalPostgresUrl } from '@/lib/services/localPostgresConfig';
 import { getCloudSyncOverview } from '@/lib/services/cloudSyncService';
 import { getCompanyProfile, getActiveFactory } from '@/lib/services/companyProfileService';
 import { ensureFactoryBootstrapOnce, getAppVersion } from '@/lib/services/schemaMigrator';
@@ -37,12 +43,18 @@ export async function GET() {
   let readiness: 'READY' | 'DEGRADED' | 'NOT_READY';
   let readinessReason: string;
 
+  const pgMode = getPostgresConnectionMode();
+  const hasLocalPg = Boolean(getLocalPostgresUrl());
+
   if (postgresOnline) {
     readiness = 'READY';
-    readinessReason = 'Central PostgreSQL database is connected and authoritative.';
+    readinessReason =
+      pgMode === 'LOCAL_FACTORY_POSTGRES'
+        ? 'Local PostgreSQL SQL server is connected and authoritative.'
+        : 'Central PostgreSQL database is connected and authoritative.';
   } else if (!isCloud && storesExist && storeCount >= 10) {
     readiness = 'DEGRADED';
-    readinessReason = 'Running in local desktop development mode on persistent JSON stores.';
+    readinessReason = 'Running in local desktop mode on persistent JSON stores (PostgreSQL offline).';
   } else {
     readiness = 'NOT_READY';
     readinessReason = isCloud
@@ -71,9 +83,13 @@ export async function GET() {
       database: {
         authoritativeStore,
         postgresReachable: postgresOnline,
-        connectionMode: postgresOnline ? 'CENTRAL_CLOUD_POSTGRES' : 'LOCAL_PERSISTENT_FALLBACK',
+        connectionMode: postgresOnline
+          ? pgMode === 'LOCAL_FACTORY_POSTGRES'
+            ? 'LOCAL_FACTORY_POSTGRES'
+            : 'CENTRAL_CLOUD_POSTGRES'
+          : 'LOCAL_PERSISTENT_FALLBACK',
         pendingOutboxSync: pendingOutboxCount,
-        configured: Boolean(process.env.DATABASE_URL || cloudSync?.secretsSummary.hasDatabaseUrl),
+        configured: Boolean(hasLocalPg || process.env.DATABASE_URL || cloudSync?.secretsSummary.hasDatabaseUrl),
       },
       cloudSync: cloudSync
         ? {

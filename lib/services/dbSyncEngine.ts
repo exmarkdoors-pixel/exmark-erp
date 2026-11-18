@@ -18,6 +18,7 @@ import { SiteMeasurementRecord } from '@/types/measurements';
 import { ProductCategoryConfig } from '@/types/categories';
 import { getDataFilePath } from '@/lib/utils/dataPaths';
 import { getActiveCloudDatabaseUrl } from './cloudSyncConfigService';
+import { getLocalPostgresUrl } from './localPostgresConfig';
 
 export type DatabaseProvider = 'POSTGRESQL' | 'PERSISTENT_STORE';
 export type SyncStatus = 'COMMITTED_POSTGRES' | 'PENDING_POSTGRES_SYNC' | 'PERSISTENT_STORE_PRIMARY';
@@ -92,8 +93,27 @@ function sanitizeUrl(raw: string | undefined): string {
   return sanitizeDatabaseUrl(raw);
 }
 
+export function resolveActivePostgresUrl(): string {
+  return (
+    sanitizeUrl(getLocalPostgresUrl()) ||
+    sanitizeUrl(getActiveCloudDatabaseUrl()) ||
+    sanitizeUrl(process.env.DATABASE_URL)
+  );
+}
+
+export function getPostgresConnectionMode(): 'LOCAL_FACTORY_POSTGRES' | 'CENTRAL_CLOUD_POSTGRES' | 'NONE' {
+  const localUrl = getLocalPostgresUrl();
+  if (localUrl) return 'LOCAL_FACTORY_POSTGRES';
+  const dbUrl = resolveActivePostgresUrl();
+  if (!dbUrl) return 'NONE';
+  if (dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1')) {
+    return 'LOCAL_FACTORY_POSTGRES';
+  }
+  return 'CENTRAL_CLOUD_POSTGRES';
+}
+
 /**
- * Check whether the configured PostgreSQL instance is actively reachable
+ * Check whether the configured PostgreSQL instance is actively reachable & authenticated
  */
 export async function isPostgresAvailable(): Promise<boolean> {
   const now = Date.now();
@@ -101,43 +121,20 @@ export async function isPostgresAvailable(): Promise<boolean> {
     return cachedDbOnline;
   }
 
-  const dbUrl = getActiveCloudDatabaseUrl() || sanitizeUrl(process.env.DATABASE_URL);
+  const dbUrl = resolveActivePostgresUrl();
   if (!dbUrl) {
     cachedDbOnline = false;
     lastProbeTime = now;
     return false;
   }
 
-  const isCloud = isCloudEnvironment();
-  const isLocalhost = dbUrl.includes('localhost:5432') || dbUrl.includes('127.0.0.1');
-
-  // In local development with default localhost placeholder, use fast TCP socket probe
-  if (isLocalhost && !isCloud) {
-    try {
-      const isAvailable = await new Promise<boolean>((resolve) => {
-        const socket = new net.Socket();
-        socket.setTimeout(600);
-        socket.on('connect', () => { socket.destroy(); resolve(true); });
-        socket.on('timeout', () => { socket.destroy(); resolve(false); });
-        socket.on('error', () => { socket.destroy(); resolve(false); });
-        socket.connect(5432, 'localhost');
-      });
-      cachedDbOnline = isAvailable;
-      lastProbeTime = now;
-      return isAvailable;
-    } catch {
-      cachedDbOnline = false;
-      lastProbeTime = now;
-      return false;
-    }
-  }
-
-  // Cloud or remote PostgreSQL probe: execute real query with SSL negotiation via dynamic Prisma pool
+  // Always execute a real SQL authentication probe (SELECT 1) with strict timeout
+  // Never fall back to a raw TCP port probe which produces false positives on invalid passwords
   try {
     const client = getCloudPrismaClient(dbUrl);
     const queryPromise = client.$queryRaw`SELECT 1 as alive`;
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Postgres probe timeout (3500ms)')), 3500)
+      setTimeout(() => reject(new Error('Postgres probe timeout (2500ms)')), 2500)
     );
 
     await Promise.race([queryPromise, timeoutPromise]);
@@ -145,29 +142,9 @@ export async function isPostgresAvailable(): Promise<boolean> {
     lastProbeTime = now;
     return true;
   } catch {
-    // Fallback: If prisma client failed (e.g. before schema tables initialized), test TCP socket with 3500ms
-    try {
-      const url = new URL(dbUrl);
-      const host = url.hostname || 'localhost';
-      const port = parseInt(url.port || '5432', 10);
-
-      const isAvailable = await new Promise<boolean>((resolve) => {
-        const socket = new net.Socket();
-        socket.setTimeout(3500);
-        socket.on('connect', () => { socket.destroy(); resolve(true); });
-        socket.on('timeout', () => { socket.destroy(); resolve(false); });
-        socket.on('error', () => { socket.destroy(); resolve(false); });
-        socket.connect(port, host);
-      });
-
-      cachedDbOnline = isAvailable;
-      lastProbeTime = now;
-      return isAvailable;
-    } catch {
-      cachedDbOnline = false;
-      lastProbeTime = now;
-      return false;
-    }
+    cachedDbOnline = false;
+    lastProbeTime = now;
+    return false;
   }
 }
 

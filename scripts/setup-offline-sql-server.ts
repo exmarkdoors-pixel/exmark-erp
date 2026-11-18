@@ -2,20 +2,27 @@
  * EXMARK ERP — Offline PostgreSQL SQL Server Setup & Schema Initializer
  *
  * Automates:
- * 1. Probing local PostgreSQL Windows Service on localhost:5432
+ * 1. Probing local PostgreSQL Windows Service (18/17/16/15/14) on 127.0.0.1:5432
  * 2. Creating `exmark_erp` relational database if missing
- * 3. Deploying 698-line Prisma relational schema (all 30+ tables & indexes) via `prisma db push`
- * 4. Migrating existing JSON store records into PostgreSQL
- * 5. Updating .env.local with local database credentials
- * 6. Verifying live health and reporting local & LAN connection URLs
+ * 3. Saving AES-256-GCM encrypted credentials to C:\EXMARK-ERP-DATA\local-postgres.json
+ * 4. Deploying Prisma relational schema (30+ tables & indexes) via `prisma db push`
+ * 5. Syncing all live JSON vault stores into `exmark_vault_stores` & relational tables
+ * 6. Updating `.env.local` with URL-encoded local PostgreSQL connection string
  */
 
 import fs from 'fs';
 import path from 'path';
 import net from 'net';
+import crypto from 'crypto';
 import pg from 'pg';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import {
+  buildLocalPostgresUrl,
+  detectLocalPostgresInstallation,
+  saveLocalPostgresConfig,
+} from '../lib/services/localPostgresConfig';
+import { getDataDir } from '../lib/utils/dataPaths';
 
 const { Client } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,7 +32,7 @@ interface SetupConfig {
   host: string;
   port: number;
   user: string;
-  password?: string;
+  password: string;
   database: string;
   migrateJson: boolean;
 }
@@ -71,8 +78,7 @@ function checkPortOpen(host: string, port: number, timeoutMs = 2000): Promise<bo
   });
 }
 
-async function ensureDatabaseExists(config: SetupConfig): Promise<boolean> {
-  // Connect to default 'postgres' database to check/create the target database
+async function ensureDatabaseExists(config: SetupConfig): Promise<{ ok: boolean; version?: string }> {
   const client = new Client({
     host: config.host,
     port: config.port,
@@ -84,33 +90,99 @@ async function ensureDatabaseExists(config: SetupConfig): Promise<boolean> {
 
   try {
     await client.connect();
+    const verRes = await client.query('SELECT version() AS v');
+    const shortVer = String(verRes.rows[0]?.v || '').split(',')[0];
+
     const res = await client.query(
-      `SELECT 1 FROM pg_database WHERE datname = $1`,
+      'SELECT 1 FROM pg_database WHERE datname = $1',
       [config.database]
     );
 
     if (res.rowCount === 0) {
       console.log(`[SQL Setup] Database '${config.database}' not found. Creating database...`);
-      // CREATE DATABASE cannot run inside a transaction block
-      await client.query(`CREATE DATABASE "${config.database}" WITH ENCODING 'UTF8';`);
-      console.log(`[SQL Setup] ✓ Database '${config.database}' created successfully.`);
+      const safeDb = config.database.replace(/[^a-zA-Z0-9_]/g, '');
+      await client.query(`CREATE DATABASE "${safeDb}" WITH ENCODING 'UTF8';`);
+      console.log(`[SQL Setup] ✓ Database '${safeDb}' created successfully.`);
     } else {
       console.log(`[SQL Setup] ✓ Database '${config.database}' already exists.`);
     }
     await client.end();
-    return true;
+    return { ok: true, version: shortVer };
   } catch (err: unknown) {
     const error = err as Error;
-    console.error(`[SQL Setup] Failed to connect to PostgreSQL 'postgres' database: ${error.message}`);
-    try { await client.end(); } catch {}
-    return false;
+    console.error(`[SQL Setup] Failed to connect to PostgreSQL: ${error.message}`);
+    try {
+      await client.end();
+    } catch {
+      // ignore
+    }
+    return { ok: false };
   }
 }
 
-function buildDatabaseUrl(config: SetupConfig): string {
-  const encUser = encodeURIComponent(config.user);
-  const encPass = config.password ? `:${encodeURIComponent(config.password)}` : '';
-  return `postgresql://${encUser}${encPass}@${config.host}:${config.port}/${config.database}?schema=public`;
+async function syncAllVaultJsonFilesToSql(config: SetupConfig): Promise<{ synced: number; tables: number }> {
+  const client = new Client({
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password,
+    database: config.database,
+    connectionTimeoutMillis: 4000,
+  });
+
+  await client.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS exmark_vault_stores (
+        store_name TEXT PRIMARY KEY,
+        payload_json TEXT NOT NULL,
+        sha256_hash TEXT NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    const dataDir = getDataDir();
+    const excluded = new Set([
+      'local-postgres.json',
+      'cloud-sync-state.json',
+      'db-outbox-sync.json',
+      'cloud-tunnel.json',
+      'cloud-tunnel-config.json',
+    ]);
+
+    let synced = 0;
+    if (fs.existsSync(dataDir)) {
+      const files = fs
+        .readdirSync(dataDir)
+        .filter((f) => f.endsWith('.json') && !f.startsWith('.') && !excluded.has(f));
+
+      for (const file of files) {
+        try {
+          const content = fs.readFileSync(path.join(dataDir, file), 'utf8');
+          const hash = crypto.createHash('sha256').update(content).digest('hex');
+          await client.query(
+            `
+            INSERT INTO exmark_vault_stores (store_name, payload_json, sha256_hash, updated_at)
+            VALUES ($1, $2, $3, NOW())
+            ON CONFLICT (store_name)
+            DO UPDATE SET payload_json = EXCLUDED.payload_json, sha256_hash = EXCLUDED.sha256_hash, updated_at = NOW();
+            `,
+            [file, content, hash]
+          );
+          synced++;
+        } catch {
+          // continue on individual unreadable file
+        }
+      }
+    }
+
+    const tblRes = await client.query(
+      "SELECT COUNT(*)::int AS cnt FROM pg_tables WHERE schemaname = 'public'"
+    );
+    return { synced, tables: Number(tblRes.rows[0]?.cnt || 0) };
+  } finally {
+    await client.end().catch(() => {});
+  }
 }
 
 function updateEnvLocal(databaseUrl: string): void {
@@ -120,43 +192,47 @@ function updateEnvLocal(databaseUrl: string): void {
     content = fs.readFileSync(envLocalPath, 'utf8');
   }
 
-  // Update or insert DATABASE_URL and DIRECT_URL
   const lines = content.split(/\r?\n/);
   let hasDbUrl = false;
   let hasDirectUrl = false;
   let hasLocalFactory = false;
 
-  const nextLines = lines.map((line) => {
-    if (line.startsWith('DATABASE_URL=')) {
-      hasDbUrl = true;
-      return `DATABASE_URL="${databaseUrl}"`;
-    }
-    if (line.startsWith('DIRECT_URL=')) {
-      hasDirectUrl = true;
-      return `DIRECT_URL="${databaseUrl}"`;
-    }
-    if (line.startsWith('EXMARK_LOCAL_FACTORY=')) {
-      hasLocalFactory = true;
-      return `EXMARK_LOCAL_FACTORY=true`;
-    }
-    return line;
-  });
+  const nextLines = lines
+    .filter((line) => !line.startsWith('EXMARK_CLOUD_DATABASE_URL='))
+    .map((line) => {
+      if (line.startsWith('DATABASE_URL=')) {
+        hasDbUrl = true;
+        return `DATABASE_URL="${databaseUrl}"`;
+      }
+      if (line.startsWith('DIRECT_URL=')) {
+        hasDirectUrl = true;
+        return `DIRECT_URL="${databaseUrl}"`;
+      }
+      if (line.startsWith('EXMARK_LOCAL_FACTORY=')) {
+        hasLocalFactory = true;
+        return 'EXMARK_LOCAL_FACTORY=true';
+      }
+      return line;
+    });
 
   if (!hasDbUrl) nextLines.push(`DATABASE_URL="${databaseUrl}"`);
   if (!hasDirectUrl) nextLines.push(`DIRECT_URL="${databaseUrl}"`);
-  if (!hasLocalFactory) nextLines.push(`EXMARK_LOCAL_FACTORY=true`);
+  if (!hasLocalFactory) nextLines.push('EXMARK_LOCAL_FACTORY=true');
 
   fs.writeFileSync(envLocalPath, nextLines.join('\n').trim() + '\n', 'utf8');
-  console.log(`[SQL Setup] ✓ Updated .env.local with offline database URL.`);
+  console.log('[SQL Setup] ✓ Updated .env.local with local PostgreSQL URL.');
 }
 
 async function main() {
   console.log('========================================================================');
-  console.log('  EXMARK ERP — OFFLINE SQL SERVER (POSTGRESQL) CONFIGURATOR');
-  console.log('  Air-Gapped Enterprise Factory Relational Database Initializer');
+  console.log('  EXMARK ERP — LOCAL POSTGRESQL SQL SERVER CONFIGURATOR');
+  console.log('  Factory Relational Database & Vault Initializer');
   console.log('========================================================================\n');
 
   const config = parseArgs();
+  const install = detectLocalPostgresInstallation();
+
+  console.log(`Detected Engine:    ${install.versionDetected || 'PostgreSQL'} (${install.serviceName || 'Local Service'}: ${install.serviceStatus})`);
   console.log(`Target SQL Server:  ${config.host}:${config.port}`);
   console.log(`Database Name:      ${config.database}`);
   console.log(`Database User:      ${config.user}`);
@@ -167,75 +243,86 @@ async function main() {
   const isOpen = await checkPortOpen(config.host, config.port);
   if (!isOpen) {
     console.error(`\n❌ [ERROR] PostgreSQL is NOT responding on ${config.host}:${config.port}.`);
-    console.error(`Please ensure the PostgreSQL Windows Service is running:`);
-    console.error(`  1. Press Win+R, type 'services.msc' and press Enter.`);
-    console.error(`  2. Locate 'postgresql-x64-16' (or your PostgreSQL service).`);
-    console.error(`  3. Right-click and click 'Start' or run: net start postgresql-x64-16`);
-    console.error(`  4. If PostgreSQL is not installed, install 'postgresql-16-windows-x64.exe'.`);
+    console.error('Please start your PostgreSQL Windows Service (e.g. postgresql-x64-18) via services.msc.');
     process.exit(1);
   }
   console.log(`      ✓ PostgreSQL service detected online on port ${config.port}.`);
 
   // Step 2: Ensure database exists
-  console.log(`\n[2/5] Verifying database '${config.database}'...`);
-  const dbOk = await ensureDatabaseExists(config);
-  if (!dbOk) {
+  console.log(`\n[2/5] Authenticating & verifying database '${config.database}'...`);
+  const dbCheck = await ensureDatabaseExists(config);
+  if (!dbCheck.ok) {
     console.error(`\n❌ [ERROR] Could not authenticate to PostgreSQL with user '${config.user}'.`);
-    console.error(`If your PostgreSQL password is not 'postgres', re-run with:`);
-    console.error(`  npx tsx scripts/setup-offline-sql-server.ts --password YOUR_PASSWORD`);
+    console.error('Re-run with: npx.cmd tsx scripts/setup-offline-sql-server.ts --password YOUR_PASSWORD');
     process.exit(1);
   }
+  if (dbCheck.version) {
+    console.log(`      ✓ Verified Engine: ${dbCheck.version}`);
+  }
 
-  const databaseUrl = buildDatabaseUrl(config);
+  const databaseUrl = buildLocalPostgresUrl(config);
 
-  // Step 3: Run Prisma DB Push
-  console.log(`\n[3/5] Deploying Prisma Relational Schema to '${config.database}'...`);
+  // Step 3: Save encrypted vault config & update .env.local
+  console.log('\n[3/5] Saving AES-256-GCM encrypted local-postgres.json & updating .env.local...');
+  saveLocalPostgresConfig({
+    enabled: true,
+    host: config.host,
+    port: config.port,
+    database: config.database,
+    user: config.user,
+    password: config.password,
+  });
+  updateEnvLocal(databaseUrl);
+  console.log('      ✓ Saved encrypted C:\\EXMARK-ERP-DATA\\local-postgres.json (shared with Desktop .exe).');
+
+  // Step 4: Deploy Prisma Relational Schema
+  console.log(`\n[4/5] Deploying Prisma Relational Schema to '${config.database}'...`);
   try {
     const env = {
       ...process.env,
       DATABASE_URL: databaseUrl,
       DIRECT_URL: databaseUrl,
     };
-    execSync('npx prisma db push --skip-generate', {
+    const npxBin = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+    execSync(`${npxBin} prisma db push`, {
       cwd: rootDir,
       env,
       stdio: 'inherit',
     });
-    console.log(`      ✓ All relational tables, foreign keys, and indexes deployed cleanly.`);
+    console.log('      ✓ All Prisma relational tables, foreign keys, and indexes deployed cleanly.');
   } catch (err: unknown) {
     const error = err as Error;
     console.error(`\n❌ [ERROR] Prisma db push failed: ${error.message}`);
     process.exit(1);
   }
 
-  // Step 4: Migrate JSON store data into PostgreSQL
+  // Step 5: Sync Vault JSON stores + optional relational migration
   if (config.migrateJson) {
-    console.log(`\n[4/5] Migrating existing factory records from JSON store into SQL...`);
+    console.log('\n[5/5] Syncing all live C:\\EXMARK-ERP-DATA vault stores into PostgreSQL...');
+    const vaultRes = await syncAllVaultJsonFilesToSql(config);
+    console.log(`      ✓ Synced ${vaultRes.synced} factory JSON vault stores into exmark_vault_stores.`);
+    console.log(`      ✓ Total PostgreSQL public tables active: ${vaultRes.tables}.`);
+
     try {
-      // Dynamic import of migrate-json-to-postgres
+      process.env.DATABASE_URL = databaseUrl;
+      process.env.DIRECT_URL = databaseUrl;
       const { runMigration } = await import('./migrate-json-to-postgres');
       const summary = await runMigration({ dryRun: false });
-      console.log(`      ✓ Migration completed in ${summary.executionTimeMs}ms.`);
-      console.log(`      ✓ Analyzed ${summary.storesAnalyzed} stores.`);
+      console.log(`      ✓ Relational entity migration completed in ${summary.executionTimeMs}ms (${summary.storesAnalyzed} stores analyzed).`);
     } catch (err: unknown) {
       const error = err as Error;
-      console.warn(`      ⚠️ Note: JSON data migration skipped or partial: ${error.message}`);
-      console.warn(`      (New records will still write directly to PostgreSQL).`);
+      console.warn(`      ⚠️ Relational entity migration note: ${error.message}`);
     }
   } else {
-    console.log(`\n[4/5] Skipping JSON migration (--no-json-migrate passed).`);
+    console.log('\n[5/5] Skipping JSON migration (--no-json-migrate passed).');
   }
 
-  // Step 5: Update .env.local
-  console.log(`\n[5/5] Configuring environment files for local offline server...`);
-  updateEnvLocal(databaseUrl);
-
   console.log('\n========================================================================');
-  console.log('  ✓ OFFLINE SQL SERVER SETUP COMPLETED SUCCESSFULLY!');
+  console.log('  ✓ LOCAL POSTGRESQL SERVER SETUP COMPLETED SUCCESSFULLY!');
   console.log('========================================================================');
-  console.log(`  Database URL:   ${databaseUrl}`);
-  console.log(`  Relational DB:  ${config.database} (PostgreSQL on port ${config.port})`);
-  console.log(`  Server Mode:    100% Offline Factory SQL Host`);
+  console.log(`  Database:       ${config.database} @ ${config.host}:${config.port}`);
+  console.log('  Vault Config:   C:\\EXMARK-ERP-DATA\\local-postgres.json (Encrypted)');
+  console.log('  Mode:           100% Local Factory PostgreSQL Primary');
   console.log('========================================================================\n');
 }
 

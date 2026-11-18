@@ -1,38 +1,37 @@
 /**
- * EXMARK ERP — Offline SQL Database Backup Engine
+ * EXMARK ERP — Offline SQL Database Backup Engine (PostgreSQL 18/17/16/15/14/13)
  *
  * Automates:
- * 1. Running `pg_dump` on the local PostgreSQL database `exmark_erp`
- * 2. Saving compressed backup snapshots to `C:\EXMARK-ERP-DATA\backups\`
- * 3. Detecting removable USB flash drives and mirroring the backup
- * 4. Cleaning up snapshots older than 30 days to prevent disk exhaustion
+ * 1. Reading decrypted credentials from C:\EXMARK-ERP-DATA\local-postgres.json (or env)
+ * 2. Running `pg_dump` on the local PostgreSQL database `exmark_erp`
+ * 3. Saving compressed backup snapshots to `C:\EXMARK-ERP-DATA\backups\`
+ * 4. Detecting removable USB flash drives and mirroring the backup
+ * 5. Cleaning up snapshots older than 30 days to prevent disk exhaustion
  */
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(__dirname, '..');
+import { execFileSync, execSync } from 'child_process';
+import { findLocalPgExecutable, readLocalPostgresConfig } from '../lib/services/localPostgresConfig';
 
 interface BackupConfig {
   host: string;
   port: number;
   user: string;
-  password?: string;
+  password: string;
   database: string;
   outputDir: string;
   retentionDays: number;
 }
 
 function parseConfig(): BackupConfig {
+  const stored = readLocalPostgresConfig();
   return {
-    host: process.env.PGHOST || '127.0.0.1',
-    port: Number(process.env.PGPORT || 5432),
-    user: process.env.PGUSER || 'postgres',
-    password: process.env.PGPASSWORD || 'postgres',
-    database: process.env.PGDATABASE || 'exmark_erp',
+    host: process.env.PGHOST || stored?.host || '127.0.0.1',
+    port: Number(process.env.PGPORT || stored?.port || 5432),
+    user: process.env.PGUSER || stored?.user || 'postgres',
+    password: process.env.PGPASSWORD || stored?.password || 'postgres',
+    database: process.env.PGDATABASE || stored?.database || 'exmark_erp',
     outputDir: process.env.EXMARK_BACKUP_DIR || 'C:\\EXMARK-ERP-DATA\\backups',
     retentionDays: 30,
   };
@@ -49,32 +48,9 @@ function findRemovableDrives(): string[] {
     const lines = output.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     drives.push(...lines);
   } catch {
-    // Non-fatal if PowerShell drive inspection fails
+    // Non-fatal
   }
   return drives;
-}
-
-function findPgDumpExecutable(): string {
-  // Check common PostgreSQL installation paths on Windows
-  const candidates = [
-    'pg_dump',
-    'C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe',
-    'C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe',
-    'C:\\Program Files\\PostgreSQL\\14\\bin\\pg_dump.exe',
-    'C:\\Program Files\\PostgreSQL\\13\\bin\\pg_dump.exe',
-  ];
-
-  for (const c of candidates) {
-    if (c === 'pg_dump') {
-      try {
-        execSync('pg_dump --version', { stdio: 'ignore' });
-        return 'pg_dump';
-      } catch {}
-    } else if (fs.existsSync(c)) {
-      return `"${c}"`;
-    }
-  }
-  return 'pg_dump';
 }
 
 function cleanOldBackups(dir: string, maxDays: number): number {
@@ -91,13 +67,15 @@ function cleanOldBackups(dir: string, maxDays: number): number {
         removed++;
       }
     }
-  } catch {}
+  } catch {
+    // ignore
+  }
   return removed;
 }
 
 async function main() {
   console.log('========================================================================');
-  console.log('  EXMARK ERP — OFFLINE SQL DATABASE BACKUP UTILITY');
+  console.log('  EXMARK ERP — LOCAL POSTGRESQL SQL BACKUP UTILITY');
   console.log('========================================================================\n');
 
   const config = parseConfig();
@@ -109,7 +87,12 @@ async function main() {
   }
 
   const primaryTarget = path.join(config.outputDir, fileName);
-  const pgDump = findPgDumpExecutable();
+  const pgDump = findLocalPgExecutable('pg_dump');
+
+  if (!pgDump) {
+    console.error('❌ [ERROR] pg_dump.exe was not found in C:\\Program Files\\PostgreSQL\\*\\bin or PATH.');
+    process.exit(1);
+  }
 
   console.log(`Target Database:  ${config.database} on ${config.host}:${config.port}`);
   console.log(`Primary Output:   ${primaryTarget}`);
@@ -125,13 +108,30 @@ async function main() {
   };
 
   try {
-    console.log('[1/3] Exporting full atomic database snapshot...');
-    const cmd = `${pgDump} -h ${config.host} -p ${config.port} -U ${config.user} -d ${config.database} -F c -b -v -f "${primaryTarget}"`;
-    execSync(cmd, { env, stdio: 'inherit' });
+    console.log('[1/3] Exporting full atomic PostgreSQL snapshot...');
+    execFileSync(
+      pgDump,
+      [
+        '-h',
+        config.host,
+        '-p',
+        String(config.port),
+        '-U',
+        config.user,
+        '-d',
+        config.database,
+        '-F',
+        'c',
+        '-b',
+        '-f',
+        primaryTarget,
+      ],
+      { env, stdio: 'inherit' }
+    );
 
     const stats = fs.statSync(primaryTarget);
-    const sizeMb = (stats.size / (1024 * 1024)).toFixed(2);
-    console.log(`      ✓ Snapshot created successfully (${sizeMb} MB).`);
+    const sizeKb = (stats.size / 1024).toFixed(1);
+    console.log(`      ✓ Snapshot created successfully (${sizeKb} KB).`);
 
     // Step 2: Check for USB Removable drives
     console.log('\n[2/3] Checking for connected USB flash drives...');
