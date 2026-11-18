@@ -46,6 +46,12 @@ export interface CreateCompanyInput {
   accountNumber?: string;
   ifscCode?: string;
   upiId?: string;
+  openingBalances?: Array<{
+    accountId: string;
+    openingBalance: number;
+    openingType: 'DEBIT' | 'CREDIT';
+  }>;
+  autoBalanceToCapital?: boolean;
   switchImmediately?: boolean;
 }
 

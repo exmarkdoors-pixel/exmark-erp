@@ -58,11 +58,32 @@ export function CreateCompanyModal({ isOpen, onClose, onCreated }: CreateCompany
   const [accountNumber, setAccountNumber] = useState('');
   const [ifscCode, setIfscCode] = useState('');
   const [upiId, setUpiId] = useState('');
+  const [showOpeningSetup, setShowOpeningSetup] = useState(true);
+  const [obCash, setObCash] = useState('0');
+  const [obBank, setObBank] = useState('0');
+  const [obStock, setObStock] = useState('0');
+  const [obMachinery, setObMachinery] = useState('0');
+  const [obReceivables, setObReceivables] = useState('0');
+  const [obPayables, setObPayables] = useState('0');
+  const [obAdvances, setObAdvances] = useState('0');
+  const [obCapital, setObCapital] = useState('0');
+  const [autoBalanceToCapital, setAutoBalanceToCapital] = useState(true);
   const [switchImmediately, setSwitchImmediately] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const obDebitTotal =
+    (Number(obCash) || 0) +
+    (Number(obBank) || 0) +
+    (Number(obStock) || 0) +
+    (Number(obMachinery) || 0) +
+    (Number(obReceivables) || 0);
+  const obNonCapCredit = (Number(obPayables) || 0) + (Number(obAdvances) || 0);
+  const computedCapital = Math.max(0, Math.round((obDebitTotal - obNonCapCredit) * 100) / 100);
+  const effectiveCapital = autoBalanceToCapital ? computedCapital : Number(obCapital) || 0;
+  const obCreditTotal = obNonCapCredit + effectiveCapital;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +114,17 @@ export function CreateCompanyModal({ isOpen, onClose, onCreated }: CreateCompany
           accountNumber: accountNumber.trim(),
           ifscCode: ifscCode.trim().toUpperCase(),
           upiId: upiId.trim(),
+          openingBalances: [
+            { accountId: 'coa-1001-cash', openingBalance: Math.max(0, Number(obCash) || 0), openingType: 'DEBIT' },
+            { accountId: 'coa-1010-bank', openingBalance: Math.max(0, Number(obBank) || 0), openingType: 'DEBIT' },
+            { accountId: 'coa-1300-inv', openingBalance: Math.max(0, Number(obStock) || 0), openingType: 'DEBIT' },
+            { accountId: 'coa-1500-machinery', openingBalance: Math.max(0, Number(obMachinery) || 0), openingType: 'DEBIT' },
+            { accountId: 'coa-1100-ar', openingBalance: Math.max(0, Number(obReceivables) || 0), openingType: 'DEBIT' },
+            { accountId: 'coa-2001-ap', openingBalance: Math.max(0, Number(obPayables) || 0), openingType: 'CREDIT' },
+            { accountId: 'coa-2200-cust-adv', openingBalance: Math.max(0, Number(obAdvances) || 0), openingType: 'CREDIT' },
+            { accountId: 'coa-3001-capital', openingBalance: Math.max(0, effectiveCapital), openingType: 'CREDIT' },
+          ],
+          autoBalanceToCapital,
           switchImmediately,
         }),
       });
@@ -319,6 +351,90 @@ export function CreateCompanyModal({ isOpen, onClose, onCreated }: CreateCompany
                 className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white"
               />
             </div>
+          </div>
+
+          {/* Day-1 Opening Balance Setup (Assets, Liabilities & Capital) */}
+          <div className="p-3 rounded-xl bg-[#070D1E] border border-emerald-500/30 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="font-bold text-emerald-300">Day-1 Opening Balances Setup (Optional)</div>
+                <div className="text-[10px] text-slate-400">
+                  Set starting Cash, Bank, Stock, Receivables, Payables &amp; Capital for a balanced Day-1 Balance Sheet
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOpeningSetup((v) => !v)}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold cursor-pointer"
+              >
+                {showOpeningSetup ? 'Hide' : 'Configure'}
+              </button>
+            </div>
+
+            {showOpeningSetup && (
+              <div className="space-y-2.5 pt-2 border-t border-slate-800">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <label className="text-[10px] text-emerald-400 block mb-0.5">Cash in Hand (Dr ₹)</label>
+                    <input type="number" min={0} step="0.01" value={obCash} onChange={(e) => setObCash(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-right" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-emerald-400 block mb-0.5">Primary Bank (Dr ₹)</label>
+                    <input type="number" min={0} step="0.01" value={obBank} onChange={(e) => setObBank(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-right" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-emerald-400 block mb-0.5">Opening Stock (Dr ₹)</label>
+                    <input type="number" min={0} step="0.01" value={obStock} onChange={(e) => setObStock(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-right" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-emerald-400 block mb-0.5">Machinery / Assets (Dr ₹)</label>
+                    <input type="number" min={0} step="0.01" value={obMachinery} onChange={(e) => setObMachinery(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-right" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-emerald-400 block mb-0.5">Opening Receivables (Dr ₹)</label>
+                    <input type="number" min={0} step="0.01" value={obReceivables} onChange={(e) => setObReceivables(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-right" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-rose-400 block mb-0.5">Opening Payables (Cr ₹)</label>
+                    <input type="number" min={0} step="0.01" value={obPayables} onChange={(e) => setObPayables(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-right" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-rose-400 block mb-0.5">Customer Advances (Cr ₹)</label>
+                    <input type="number" min={0} step="0.01" value={obAdvances} onChange={(e) => setObAdvances(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-right" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-purple-300 block mb-0.5">Owner Capital (Cr ₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      disabled={autoBalanceToCapital}
+                      value={autoBalanceToCapital ? String(computedCapital) : obCapital}
+                      onChange={(e) => setObCapital(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-purple-500/40 text-purple-200 font-mono text-right disabled:opacity-75"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] bg-slate-950/70 px-3 py-2 rounded-lg border border-slate-800">
+                  <label className="flex items-center gap-1.5 text-amber-300 font-bold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoBalanceToCapital}
+                      onChange={(e) => {
+                        setAutoBalanceToCapital(e.target.checked);
+                        if (!e.target.checked) setObCapital(String(computedCapital));
+                      }}
+                      className="accent-amber-500"
+                    />
+                    <span>Auto-Balance to Owner Capital</span>
+                  </label>
+                  <div className="font-mono text-slate-300">
+                    Dr: <strong className="text-emerald-400">₹{obDebitTotal.toLocaleString('en-IN')}</strong> • Cr:{' '}
+                    <strong className="text-sky-400">₹{obCreditTotal.toLocaleString('en-IN')}</strong>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <label className="flex items-center gap-2 text-slate-200 font-semibold cursor-pointer">

@@ -17,9 +17,12 @@ import type {
   ContraTransferRecord,
   ExpenseCategory,
   ExpenseRecord,
+  FinancialYearCloseRecord,
   InvoiceLineItem,
   JournalEntryRecord,
   JournalLine,
+  OpeningBalanceEntryInput,
+  OpeningBalancesSnapshot,
   OtherIncomeRecord,
   PaymentInRecord,
   PaymentOutRecord,
@@ -205,6 +208,16 @@ function createInitialStore(): AccountingLedgerStore {
   };
 }
 
+export function createInitialAccountingStore(gstEnabled = false): AccountingLedgerStore {
+  const store = createInitialStore();
+  store.settings = {
+    gstEnabled: Boolean(gstEnabled),
+    lockDate: undefined,
+    closedYears: [],
+  };
+  return store;
+}
+
 export function readAccountingStore(): AccountingLedgerStore {
   const storePath = getDataFilePath(STORE_FILENAME);
   if (!fs.existsSync(storePath)) {
@@ -219,6 +232,8 @@ export function readAccountingStore(): AccountingLedgerStore {
       version: parsed.version || 1,
       settings: {
         gstEnabled: Boolean(parsed.settings?.gstEnabled ?? false),
+        lockDate: parsed.settings?.lockDate || undefined,
+        closedYears: Array.isArray(parsed.settings?.closedYears) ? parsed.settings.closedYears : [],
       },
       accounts: Array.isArray(parsed.accounts) && parsed.accounts.length > 0 ? parsed.accounts : seed.accounts,
       expenseCategories:
@@ -247,9 +262,22 @@ export function readAccountingStore(): AccountingLedgerStore {
   }
 }
 
-function saveAccountingStore(store: AccountingLedgerStore): void {
+export function saveAccountingStore(store: AccountingLedgerStore): void {
   store.updatedAt = new Date().toISOString();
   writeJsonSafe(getDataFilePath(STORE_FILENAME), store);
+}
+
+/**
+ * Blocks creating, modifying, or deleting vouchers/journals on or before a closed Financial Year lock date.
+ */
+export function assertDateNotLocked(store: AccountingLedgerStore, date: string, sourceType?: VoucherSourceType): void {
+  if (sourceType === 'YEAR_CLOSE') return;
+  const lockDate = store.settings?.lockDate;
+  if (lockDate && date && date <= lockDate) {
+    throw new Error(
+      `Financial period is locked up to ${lockDate} (Year-End Closed). Choose a date after ${lockDate} or unlock the period in Accounting → FY Close & Lock.`
+    );
+  }
 }
 
 // ── Internal Journal Helpers ──────────────────────────────────────────────────
@@ -310,6 +338,7 @@ function upsertSourceJournal(
     createdBy?: string;
   }
 ): JournalEntryRecord {
+  assertDateNotLocked(store, input.date, input.sourceType);
   const { lines, totalDebit, totalCredit } = buildJournalLines(store, input.lines);
   const now = new Date().toISOString();
   const existingIdx = store.journals.findIndex(
@@ -356,6 +385,10 @@ function upsertSourceJournal(
 }
 
 function removeSourceJournal(store: AccountingLedgerStore, sourceType: VoucherSourceType, sourceId: string): void {
+  const target = store.journals.find((j) => j.sourceType === sourceType && j.sourceId === sourceId);
+  if (target) {
+    assertDateNotLocked(store, target.date, target.sourceType);
+  }
   store.journals = store.journals.filter((j) => !(j.sourceType === sourceType && j.sourceId === sourceId));
 }
 
@@ -1534,6 +1567,8 @@ export function createManualJournal(input: {
   const store = readAccountingStore();
   const narration = String(input.narration || '').trim();
   if (!narration) throw new Error('Journal narration is required.');
+  const date = input.date || todayIso();
+  assertDateNotLocked(store, date, 'MANUAL');
 
   const { lines, totalDebit, totalCredit } = buildJournalLines(store, input.lines);
   const now = new Date().toISOString();
@@ -1572,6 +1607,8 @@ export function updateManualJournal(
   if (existing.sourceType !== 'MANUAL') {
     throw new Error('Auto-posted system journals cannot be edited here. Edit or delete the source voucher instead.');
   }
+  assertDateNotLocked(store, existing.date, 'MANUAL');
+  assertDateNotLocked(store, input.date || existing.date, 'MANUAL');
 
   const { lines, totalDebit, totalCredit } = buildJournalLines(store, input.lines);
   const updated: JournalEntryRecord = {
@@ -1596,6 +1633,7 @@ export function deleteManualJournal(id: string): void {
   if (target.sourceType !== 'MANUAL') {
     throw new Error('Auto-posted system journals cannot be deleted directly. Delete the originating Sales/Purchase/Expense voucher instead.');
   }
+  assertDateNotLocked(store, target.date, 'MANUAL');
   store.journals = store.journals.filter((j) => j.id !== id);
   saveAccountingStore(store);
 }
@@ -2093,13 +2131,148 @@ export function generateAccountingReport(
 
 // ── 9. OVERVIEW SNAPSHOT ──────────────────────────────────────────────────────
 
-export function updateAccountingSettings(input: { gstEnabled?: boolean }): { gstEnabled: boolean } {
+export function updateAccountingSettings(input: {
+  gstEnabled?: boolean;
+  lockDate?: string | null;
+  closedYears?: FinancialYearCloseRecord[];
+}): { gstEnabled: boolean; lockDate?: string; closedYears?: FinancialYearCloseRecord[] } {
   const store = readAccountingStore();
   store.settings = {
     gstEnabled: input.gstEnabled !== undefined ? Boolean(input.gstEnabled) : Boolean(store.settings?.gstEnabled ?? false),
+    lockDate:
+      input.lockDate === null
+        ? undefined
+        : input.lockDate !== undefined
+        ? input.lockDate || undefined
+        : store.settings?.lockDate,
+    closedYears: input.closedYears !== undefined ? input.closedYears : store.settings?.closedYears || [],
   };
   saveAccountingStore(store);
   return store.settings;
+}
+
+// ── 10. OPENING BALANCES SETUP (BULK & NEW COMPANY) ───────────────────────────
+
+export function applyOpeningBalancesToStore(
+  store: AccountingLedgerStore,
+  entries: OpeningBalanceEntryInput[],
+  autoBalanceToCapital = false
+): OpeningBalancesSnapshot {
+  const now = new Date().toISOString();
+  const entryMap = new Map(entries.map((e) => [e.accountId, e]));
+
+  for (const acc of store.accounts) {
+    const incoming = entryMap.get(acc.id);
+    if (incoming) {
+      acc.openingBalance = round2(Math.max(0, Number(incoming.openingBalance) || 0));
+      acc.openingType = incoming.openingType === 'CREDIT' ? 'CREDIT' : 'DEBIT';
+      acc.updatedAt = now;
+    }
+  }
+
+  // Optional 1-click Auto-Balance difference into Owner Capital Account (3001)
+  if (autoBalanceToCapital) {
+    const capitalAcc = store.accounts.find((a) => a.id === SYSTEM_ACCOUNT_IDS.OWNER_CAPITAL);
+    if (capitalAcc) {
+      let otherDr = 0;
+      let otherCr = 0;
+      for (const acc of store.accounts) {
+        if (acc.id === capitalAcc.id) continue;
+        if (acc.openingType === 'DEBIT') otherDr = round2(otherDr + acc.openingBalance);
+        else otherCr = round2(otherCr + acc.openingBalance);
+      }
+      const net = round2(otherDr - otherCr);
+      if (net >= 0) {
+        capitalAcc.openingBalance = net;
+        capitalAcc.openingType = 'CREDIT';
+      } else {
+        capitalAcc.openingBalance = Math.abs(net);
+        capitalAcc.openingType = 'DEBIT';
+      }
+      capitalAcc.updatedAt = now;
+    }
+  }
+
+  // Sync matching Cash & Bank opening balances
+  for (const cb of store.cashBankAccounts) {
+    const linked = store.accounts.find((a) => a.id === cb.coaAccountId);
+    if (linked) {
+      cb.openingBalance = linked.openingType === 'DEBIT' ? linked.openingBalance : -linked.openingBalance;
+      cb.updatedAt = now;
+    }
+  }
+
+  return buildOpeningBalancesSnapshot(store);
+}
+
+export function buildOpeningBalancesSnapshot(store: AccountingLedgerStore): OpeningBalancesSnapshot {
+  const cbByCoa = new Map(store.cashBankAccounts.map((cb) => [cb.coaAccountId, cb.name]));
+  const bsAccounts = store.accounts
+    .filter((a) => a.group === 'ASSET' || a.group === 'LIABILITY' || a.group === 'EQUITY')
+    .sort((a, b) => a.code.localeCompare(b.code))
+    .map((a) => ({
+      id: a.id,
+      code: a.code,
+      name: a.name,
+      group: a.group,
+      subType: a.subType,
+      openingBalance: a.openingBalance,
+      openingType: a.openingType,
+      linkedCashBankName: cbByCoa.get(a.id),
+    }));
+
+  const totalOpeningDebit = round2(
+    store.accounts.reduce((s, a) => s + (a.openingType === 'DEBIT' ? a.openingBalance : 0), 0)
+  );
+  const totalOpeningCredit = round2(
+    store.accounts.reduce((s, a) => s + (a.openingType === 'CREDIT' ? a.openingBalance : 0), 0)
+  );
+  const difference = round2(totalOpeningDebit - totalOpeningCredit);
+
+  return {
+    accounts: bsAccounts,
+    totalOpeningDebit,
+    totalOpeningCredit,
+    difference,
+    isBalanced: Math.abs(difference) < 0.01,
+  };
+}
+
+export function getOpeningBalancesSnapshot(): OpeningBalancesSnapshot {
+  return buildOpeningBalancesSnapshot(readAccountingStore());
+}
+
+export function bulkUpdateOpeningBalances(
+  entries: OpeningBalanceEntryInput[],
+  autoBalanceToCapital = false
+): OpeningBalancesSnapshot {
+  const store = readAccountingStore();
+  const snapshot = applyOpeningBalancesToStore(store, entries, autoBalanceToCapital);
+  saveAccountingStore(store);
+  return snapshot;
+}
+
+export function postYearCloseJournalEntry(
+  store: AccountingLedgerStore,
+  input: {
+    date: string;
+    fyLabel: string;
+    lines: Array<{ accountId: string; debit: number; credit: number; lineNote?: string }>;
+    createdBy?: string;
+  }
+): JournalEntryRecord | null {
+  const nonZero = input.lines.filter((l) => round2(l.debit) > 0 || round2(l.credit) > 0);
+  if (nonZero.length < 2) return null;
+  const journal = upsertSourceJournal(store, {
+    sourceType: 'YEAR_CLOSE',
+    sourceId: `fyclose-${input.fyLabel}-${input.date}`,
+    date: input.date,
+    reference: `FYCLOSE-${input.fyLabel}`,
+    narration: `Financial Year Close (${input.fyLabel}): Transfer Income & Expenses to Owner Capital Account`,
+    lines: nonZero,
+    createdBy: input.createdBy,
+  });
+  return journal;
 }
 
 export function getAccountingOverview(): AccountingOverviewPayload {

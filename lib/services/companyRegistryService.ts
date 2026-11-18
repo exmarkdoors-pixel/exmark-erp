@@ -17,6 +17,11 @@ import type {
 } from '@/types/companyRegistry';
 import { DEFAULT_COMPANY_BANK_DETAILS, DEFAULT_COMPANY_PROFILE, type CompanyProfile } from '@/types/companyProfile';
 import { DEFAULT_ERP_CONFIG } from './customizationService';
+import {
+  applyOpeningBalancesToStore,
+  createInitialAccountingStore,
+} from './accountingService';
+import type { AccountingLedgerStore } from '@/types/accounting';
 
 function getRegistryPath(): string {
   return path.join(getRootDataDir(), COMPANIES_REGISTRY_FILENAME);
@@ -249,26 +254,23 @@ function initializeCompanyVault(company: CompanySummary, input: CreateCompanyInp
     }
   }
 
-  // Initialize accounting settings (gstEnabled) inside the new company's accounting ledger store
-  const accPath = path.join(companyDir, 'accounting-ledger-store.json');
-  if (!fs.existsSync(accPath)) {
-    writeJsonSafe(accPath, {
-      version: 1,
-      settings: { gstEnabled: Boolean(company.gstEnabled) },
-      accounts: [],
-      expenseCategories: [],
-      cashBankAccounts: [],
-      salesInvoices: [],
-      paymentsIn: [],
-      creditNotes: [],
-      otherIncomes: [],
-      purchaseBills: [],
-      paymentsOut: [],
-      expenses: [],
-      contraTransfers: [],
-      journals: [],
-      updatedAt: now,
-    });
+  // Initialize complete seeded accounting ledger store (with Day-1 Opening Balances if provided)
+  const accPath = path.join(/*turbopackIgnore: true*/ companyDir, 'accounting-ledger-store.json');
+  if (!fs.existsSync(/*turbopackIgnore: true*/ accPath)) {
+    const initialAcc = createInitialAccountingStore(Boolean(company.gstEnabled));
+    if (input.bankName?.trim()) {
+      const primaryBank = initialAcc.cashBankAccounts.find((cb) => cb.accountType === 'BANK');
+      if (primaryBank) {
+        primaryBank.bankName = input.bankName.trim();
+        primaryBank.accountNumber = input.accountNumber?.trim() || undefined;
+        primaryBank.ifsc = input.ifscCode?.trim().toUpperCase() || undefined;
+        primaryBank.upiId = input.upiId?.trim() || undefined;
+      }
+    }
+    if (Array.isArray(input.openingBalances) && input.openingBalances.length > 0) {
+      applyOpeningBalancesToStore(initialAcc, input.openingBalances, Boolean(input.autoBalanceToCapital));
+    }
+    writeJsonSafe(accPath, initialAcc);
   }
 }
 
@@ -404,4 +406,100 @@ export function deleteCompany(companyId: string): { deletedId: string; legalName
   }
 
   return { deletedId: target.id, legalName: target.legalName };
+}
+
+/**
+ * Creates a brand-new Financial Year company carried forward from a source company:
+ * - Preserves company profile, customizations, customers, inventory & masters
+ * - Seeds carried-forward COA, Expense Categories, Cash & Bank accounts & exact Opening Balances (Dr == Cr)
+ * - Optionally copies open unpaid sales/purchase vouchers as starting receivables/payables
+ */
+export function createCarryForwardCompany(params: {
+  sourceCompanyId: string;
+  newLegalName: string;
+  newBrandName: string;
+  nextFyStart: string;
+  carryForwardAccountingStore: AccountingLedgerStore;
+  copyMasters?: boolean;
+  switchImmediately?: boolean;
+}): { company: CompanySummary; activeCompanyId: string } {
+  const reg = readCompanyRegistry();
+  const source = reg.companies.find((c) => c.id === params.sourceCompanyId) || reg.companies[0];
+
+  const legalName = String(params.newLegalName || '').trim() || `${source.legalName} (${params.nextFyStart.slice(0, 4)})`;
+  const brandName = String(params.newBrandName || '').trim() || legalName;
+
+  const now = new Date().toISOString();
+  const newCompany: CompanySummary = {
+    id: slugifyId(brandName),
+    legalName,
+    brandName,
+    businessType: source.businessType,
+    financialYearStart: params.nextFyStart,
+    phone: source.phone || '',
+    email: source.email || '',
+    district: source.district || 'Malappuram',
+    state: source.state || 'Kerala',
+    address: source.address || '',
+    gstEnabled: Boolean(params.carryForwardAccountingStore.settings?.gstEnabled ?? source.gstEnabled),
+    gstin: source.gstin || '',
+    isDefault: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const srcDir = getCompanyDataDir(source.id);
+  const dstDir = getCompanyDataDir(newCompany.id);
+  fs.mkdirSync(dstDir, { recursive: true });
+
+  // Always copy customization/company profile (and optionally copy Customers, Inventory & Door Masters)
+  const filesToCopy = params.copyMasters !== false
+    ? ['customization-store.json', 'customers-store.json', 'inventory-store.json', 'door-models-store.json', 'catalog-store.json', 'employees-store.json', 'contractors-store.json']
+    : ['customization-store.json'];
+
+  for (const fname of filesToCopy) {
+    const srcPath = path.join(/*turbopackIgnore: true*/ srcDir, fname);
+    const dstPath = path.join(/*turbopackIgnore: true*/ dstDir, fname);
+    if (fs.existsSync(/*turbopackIgnore: true*/ srcPath)) {
+      try {
+        fs.copyFileSync(/*turbopackIgnore: true*/ srcPath, /*turbopackIgnore: true*/ dstPath);
+      } catch {
+        // Non-fatal
+      }
+    }
+  }
+
+  // Ensure empty transactional operational stores in new FY company
+  const freshTxStores = [
+    'crm-leads-store.json',
+    'quotations-store.json',
+    'measurements-store.json',
+    'orders-store.json',
+    'production-orders.json',
+    'purchases-store.json',
+    'qc-inspections-store.json',
+    'job-work-challans-store.json',
+    'gate-passes-store.json',
+    'daily-closing-store.json',
+  ];
+  for (const fname of freshTxStores) {
+    const dstPath = path.join(/*turbopackIgnore: true*/ dstDir, fname);
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dstPath)) {
+      writeJsonSafe(dstPath, []);
+    }
+  }
+
+  // Write carried-forward accounting ledger store
+  writeJsonSafe(path.join(/*turbopackIgnore: true*/ dstDir, 'accounting-ledger-store.json'), params.carryForwardAccountingStore);
+
+  reg.companies.push(newCompany);
+  if (params.switchImmediately !== false) {
+    reg.activeCompanyId = newCompany.id;
+  }
+  saveCompanyRegistry(reg);
+
+  return {
+    company: newCompany,
+    activeCompanyId: reg.activeCompanyId,
+  };
 }

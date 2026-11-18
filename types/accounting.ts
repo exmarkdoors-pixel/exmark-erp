@@ -37,7 +37,96 @@ export type VoucherSourceType =
   | 'PURCHASE_BILL'
   | 'PAYMENT_OUT'
   | 'EXPENSE'
-  | 'CONTRA';
+  | 'CONTRA'
+  | 'YEAR_CLOSE';
+
+export interface FinancialYearCloseRecord {
+  id: string;
+  fyLabel: string;
+  fromDate: string;
+  toDate: string;
+  mode: 'CARRY_FORWARD_NEW_COMPANY' | 'IN_PLACE';
+  netProfit: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  closingCapital: number;
+  closingJournalId?: string;
+  nextCompanyId?: string;
+  nextCompanyName?: string;
+  snapshotFile: string;
+  closedBy: string;
+  closedAt: string;
+}
+
+export interface OpeningBalanceEntryInput {
+  accountId: string;
+  openingBalance: number;
+  openingType: BalanceSide;
+}
+
+export interface OpeningBalancesSnapshot {
+  accounts: Array<{
+    id: string;
+    code: string;
+    name: string;
+    group: AccountGroup;
+    subType: AccountSubType;
+    openingBalance: number;
+    openingType: BalanceSide;
+    linkedCashBankName?: string;
+  }>;
+  totalOpeningDebit: number;
+  totalOpeningCredit: number;
+  difference: number;
+  isBalanced: boolean;
+}
+
+export interface FinancialYearClosePreview {
+  companyId: string;
+  companyName: string;
+  fromDate: string;
+  toDate: string;
+  fyLabel: string;
+  nextFyStart: string;
+  suggestedNextCompanyName: string;
+  lockDate?: string;
+  alreadyClosed: boolean;
+  pnlSummary: {
+    totalRevenue: number;
+    totalDirectCost: number;
+    totalOperatingExpenses: number;
+    netProfit: number;
+  };
+  carryForwardAccounts: Array<{
+    accountId: string;
+    code: string;
+    name: string;
+    group: AccountGroup;
+    openingBalance: number;
+    openingType: BalanceSide;
+  }>;
+  cashBankCarryForward: Array<{
+    id: string;
+    name: string;
+    accountType: 'CASH' | 'BANK' | 'UPI_WALLET';
+    closingBalance: number;
+  }>;
+  totals: {
+    totalAssets: number;
+    totalLiabilities: number;
+    closingCapitalWithProfit: number;
+    totalCarryForwardDebit: number;
+    totalCarryForwardCredit: number;
+    isBalanced: boolean;
+  };
+  openVouchers: {
+    unpaidSalesCount: number;
+    unpaidSalesTotal: number;
+    unpaidPurchasesCount: number;
+    unpaidPurchasesTotal: number;
+  };
+  closedYears: FinancialYearCloseRecord[];
+}
 
 export interface ChartOfAccount {
   id: string;
@@ -303,6 +392,8 @@ export interface AccountingLedgerStore {
   version: number;
   settings?: {
     gstEnabled: boolean;
+    lockDate?: string;
+    closedYears?: FinancialYearCloseRecord[];
   };
   accounts: ChartOfAccount[];
   expenseCategories: ExpenseCategory[];

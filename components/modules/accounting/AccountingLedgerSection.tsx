@@ -15,8 +15,12 @@ import {
   AlertCircle,
   X,
   RefreshCw,
+  Scale,
+  CalendarCheck2,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/apiClient';
+import { OpeningBalanceSetupPanel } from './OpeningBalanceSetupPanel';
+import { FinancialYearClosePanel } from './FinancialYearClosePanel';
 import type {
   AccountGroup,
   AccountStatementResponse,
@@ -42,7 +46,7 @@ const GROUPS: Array<{ id: AccountGroup; label: string; color: string }> = [
 ];
 
 export function AccountingLedgerSection({ accounts: parentAccounts, onDataChanged }: AccountingLedgerSectionProps) {
-  const [subTab, setSubTab] = useState<'JOURNAL' | 'COA' | 'STATEMENT'>('COA');
+  const [subTab, setSubTab] = useState<'JOURNAL' | 'COA' | 'STATEMENT' | 'OPENING_BALANCES' | 'FY_CLOSE'>('COA');
   const [coaList, setCoaList] = useState<ChartOfAccountWithBalance[]>(parentAccounts);
   const [journals, setJournals] = useState<JournalEntryRecord[]>([]);
   const [journalFilter, setJournalFilter] = useState<string>('ALL');
@@ -358,6 +362,8 @@ export function AccountingLedgerSection({ accounts: parentAccounts, onDataChange
             { id: 'COA', label: `Chart of Accounts (${coaList.length})`, Icon: ListTree },
             { id: 'JOURNAL', label: `Journal Entry (${journals.length})`, Icon: BookText },
             { id: 'STATEMENT', label: 'Account Statement', Icon: FileText },
+            { id: 'OPENING_BALANCES', label: 'Opening Balances', Icon: Scale },
+            { id: 'FY_CLOSE', label: 'FY Close & Lock', Icon: CalendarCheck2 },
           ].map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -870,6 +876,24 @@ export function AccountingLedgerSection({ accounts: parentAccounts, onDataChange
             </div>
           )}
         </div>
+      )}
+
+      {subTab === 'OPENING_BALANCES' && (
+        <OpeningBalanceSetupPanel
+          onSaved={() => {
+            loadCoaAndJournals();
+            onDataChanged();
+          }}
+        />
+      )}
+
+      {subTab === 'FY_CLOSE' && (
+        <FinancialYearClosePanel
+          onClosed={() => {
+            loadCoaAndJournals();
+            onDataChanged();
+          }}
+        />
       )}
     </div>
   );
