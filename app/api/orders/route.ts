@@ -5,6 +5,7 @@ import { createProductionOrder } from '@/lib/services/productionService';
 import { getActiveFactory } from '@/lib/services/companyProfileService';
 import { authorizeRequest } from '@/lib/auth/authorization';
 import { getDataFilePath } from '@/lib/utils/dataPaths';
+import { autoBillCompletedDelivery } from '@/lib/services/autoDeliveryBillingService';
 
 const getStorePath = () => getDataFilePath('quotations-store.json');
 const getCustomersPath = () => getDataFilePath('customers-store.json');
@@ -223,7 +224,32 @@ export async function POST(req: Request) {
           quotes[idx].status = newStatus;
           quotes[idx].orderStatus = newStatus;
           fs.writeFileSync(storePath, JSON.stringify(quotes, null, 2), 'utf8');
-          return NextResponse.json({ success: true, updated: quotes[idx] });
+
+          let autoBilling = null;
+          if (String(newStatus).toUpperCase() === 'DELIVERED') {
+            try {
+              autoBilling = autoBillCompletedDelivery({
+                source: 'ORDER',
+                sourceId: quotes[idx].id,
+                salesOrderId: quotes[idx].id,
+                orderRef: quotes[idx].quoteNumber?.replace(/^QTN-/, 'SO-') || quotes[idx].id,
+                customerName: quotes[idx].customerName,
+                deliveryDate: new Date().toISOString().slice(0, 10),
+                createdBy: auth.user?.name || 'Order Delivery',
+              });
+            } catch (billErr) {
+              console.warn('[orders:auto-bill] Non-fatal auto-billing warning:', billErr);
+            }
+          }
+
+          return NextResponse.json({
+            success: true,
+            updated: quotes[idx],
+            autoBilling,
+            message: autoBilling?.billed
+              ? `Order marked DELIVERED & auto-billed as ${autoBilling.invoiceNumber}.`
+              : `Order status updated to ${newStatus}.`,
+          });
         }
       }
     }

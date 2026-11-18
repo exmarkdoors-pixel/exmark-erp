@@ -6,6 +6,7 @@ import {
   updateDispatchStatus,
 } from '@/lib/services/fulfillmentService';
 import { DispatchStatus } from '@/types/fulfillment';
+import { autoBillCompletedDelivery } from '@/lib/services/autoDeliveryBillingService';
 
 export async function GET(req: NextRequest) {
   try {
@@ -72,7 +73,36 @@ export async function PUT(req: NextRequest) {
     }
 
     const updated = await updateDispatchStatus(body.id, body.status as DispatchStatus);
-    return NextResponse.json({ success: true, data: updated });
+
+    let autoBilling = null;
+    if (updated.status === 'DELIVERED') {
+      try {
+        autoBilling = autoBillCompletedDelivery({
+          source: 'DISPATCH',
+          sourceId: updated.id,
+          salesOrderId: updated.salesOrderId,
+          orderRef: updated.dispatchNumber || updated.id,
+          customerName: updated.customerName,
+          deliveryDate: updated.dispatchDate || new Date().toISOString().slice(0, 10),
+          doorCount: updated.doorCount,
+          overrideAmount: body.overrideAmount !== undefined ? Number(body.overrideAmount) : undefined,
+          createdBy: auth.user?.name || 'Dispatch Completion',
+        });
+      } catch (billErr) {
+        console.warn('[dispatch:auto-bill] Non-fatal auto-billing warning:', billErr);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+      autoBilling,
+      message: autoBilling?.billed
+        ? `Delivery marked COMPLETED & auto-billed as ${autoBilling.invoiceNumber} (₹${(autoBilling.totalAmount || 0).toLocaleString('en-IN')}, Due ₹${(autoBilling.balanceDue || 0).toLocaleString('en-IN')}).`
+        : autoBilling?.alreadyBilled
+        ? `Delivery marked COMPLETED (already billed under ${autoBilling.invoiceNumber}).`
+        : `Dispatch status updated to ${updated.status}.`,
+    });
   } catch (error) {
     console.error('Failed to update dispatch status:', error);
     return NextResponse.json(

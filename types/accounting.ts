@@ -388,10 +388,37 @@ export interface JournalEntryRecord {
   updatedAt: string;
 }
 
+export interface AutoBillDeliveryResult {
+  billed: boolean;
+  alreadyBilled: boolean;
+  skippedReason?: string;
+  invoiceNumber?: string;
+  invoiceId?: string;
+  totalAmount?: number;
+  advanceAdjusted?: number;
+  balanceDue?: number;
+  paymentReceiptNumber?: string;
+  customerName?: string;
+}
+
+export interface PendingDeliveryBillItem {
+  source: 'DISPATCH' | 'PRODUCTION' | 'ORDER';
+  sourceId: string;
+  orderRef: string;
+  customerName: string;
+  district?: string;
+  deliveryDate: string;
+  doorCount: number;
+  estimatedAmount: number;
+  advanceAmount: number;
+  needsManualAmount: boolean;
+}
+
 export interface AccountingLedgerStore {
   version: number;
   settings?: {
     gstEnabled: boolean;
+    autoBillOnDelivery?: boolean;
     lockDate?: string;
     closedYears?: FinancialYearCloseRecord[];
   };

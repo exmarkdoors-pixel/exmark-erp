@@ -21,6 +21,7 @@ import {
   recordPieceRateCreditIfUnpaid,
 } from '@/lib/services/contractorService';
 import { getStageLockGroup } from '@/lib/utils/pieceRateLocks';
+import { autoBillCompletedDelivery } from '@/lib/services/autoDeliveryBillingService';
 
 interface StageCreditAssignmentInput {
   gangId?: string;
@@ -561,11 +562,36 @@ export async function PUT(
       console.warn('[production:stage:auto] Non-fatal auto-action warning:', autoErr);
     }
 
+    // Auto-bill completed delivery party into Sales Ledger (Non-GST, idempotent)
+    let autoBilling = null;
+    if (
+      String(updated.status || '').toUpperCase() === 'DELIVERED' ||
+      String(body.stage || '').toUpperCase() === 'DELIVERED' ||
+      String(body.stage || '').toUpperCase() === 'COMPLETED'
+    ) {
+      try {
+        autoBilling = autoBillCompletedDelivery({
+          source: 'PRODUCTION',
+          sourceId: updated.id,
+          salesOrderId: updated.salesOrderId,
+          orderRef: updated.measurementRef || updated.jobCardNumber || updated.prodOrderNumber || updated.id,
+          productionOrderId: updated.id,
+          customerName: updated.customerName,
+          deliveryDate: new Date().toISOString().slice(0, 10),
+          doorCount: updated.doors?.length || updated.quantity || 1,
+          createdBy: auth.user?.name || 'Production Delivery',
+        });
+      } catch (billErr) {
+        console.warn('[production:auto-bill] Non-fatal auto-billing warning:', billErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: updated,
       pieceRateSkipped,
       pieceRateMessage,
+      autoBilling,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to update production stage';

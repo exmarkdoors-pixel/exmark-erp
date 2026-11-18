@@ -2756,6 +2756,8 @@ export function DispatchInstallationView() {
   const [installations, setInstallations] = useState<InstallationRecord[]>([]);
   const [warranties, setWarranties] = useState<WarrantyCertificate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [dispatchActionId, setDispatchActionId] = useState<string | null>(null);
+  const [dispatchToast, setDispatchToast] = useState<string | null>(null);
 
   // Modals state
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
@@ -2766,9 +2768,9 @@ export function DispatchInstallationView() {
   const loadData = () => {
     setIsLoading(true);
     Promise.all([
-      fetch('/api/fulfillment/dispatch').then((r) => r.json()),
-      fetch('/api/fulfillment/installation').then((r) => r.json()),
-      fetch('/api/fulfillment/warranty').then((r) => r.json()),
+      apiFetch('/api/fulfillment/dispatch').then((r) => r.json()),
+      apiFetch('/api/fulfillment/installation').then((r) => r.json()),
+      apiFetch('/api/fulfillment/warranty').then((r) => r.json()),
     ])
       .then(([dRes, iRes, wRes]) => {
         if (dRes.success) setDispatches(dRes.data);
@@ -2781,9 +2783,9 @@ export function DispatchInstallationView() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/fulfillment/dispatch').then((r) => r.json()),
-      fetch('/api/fulfillment/installation').then((r) => r.json()),
-      fetch('/api/fulfillment/warranty').then((r) => r.json()),
+      apiFetch('/api/fulfillment/dispatch').then((r) => r.json()),
+      apiFetch('/api/fulfillment/installation').then((r) => r.json()),
+      apiFetch('/api/fulfillment/warranty').then((r) => r.json()),
     ])
       .then(([dRes, iRes, wRes]) => {
         if (dRes.success) setDispatches(dRes.data);
@@ -2793,8 +2795,55 @@ export function DispatchInstallationView() {
       .catch((err) => console.error('Failed to load fulfillment data:', err));
   }, []);
 
+  const handleMarkDispatchDelivered = async (dispatch: DispatchRecord) => {
+    setDispatchActionId(dispatch.id);
+    try {
+      const res = await apiFetch('/api/fulfillment/dispatch', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: dispatch.id, status: 'DELIVERED' }),
+      });
+      const json = await res.json();
+      if (res.ok && json?.success) {
+        setDispatchToast(json.message || `Dispatch ${dispatch.dispatchNumber} marked DELIVERED.`);
+        setTimeout(() => setDispatchToast(null), 6000);
+        loadData();
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setDispatchActionId(null);
+    }
+  };
+
+  const handleAutoBillAllDelivered = async () => {
+    setDispatchActionId('SYNC_ALL');
+    try {
+      const res = await apiFetch('/api/accounting/auto-bill-deliveries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'SYNC_ALL' }),
+      });
+      const json = await res.json();
+      if (res.ok && json?.success) {
+        setDispatchToast(json.message || 'Auto-billed completed deliveries.');
+        setTimeout(() => setDispatchToast(null), 6000);
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setDispatchActionId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {dispatchToast && (
+        <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{dispatchToast}</span>
+        </div>
+      )}
       {/* Header & Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -2809,13 +2858,24 @@ export function DispatchInstallationView() {
 
         <div className="flex items-center gap-2">
           {activeTab === 'dispatches' && (
-            <button
-              onClick={() => setIsDispatchModalOpen(true)}
-              className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Schedule Dispatch
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={dispatchActionId === 'SYNC_ALL'}
+                onClick={handleAutoBillAllDelivered}
+                className="px-3 py-1.5 text-xs font-bold text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 rounded-lg flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                {dispatchActionId === 'SYNC_ALL' ? 'Auto-Billing...' : 'Auto-Bill Delivered Parties'}
+              </button>
+              <button
+                onClick={() => setIsDispatchModalOpen(true)}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Schedule Dispatch
+              </button>
+            </>
           )}
           {activeTab === 'warranties' && (
             <button
@@ -2920,6 +2980,7 @@ export function DispatchInstallationView() {
                     <th className="px-4 py-3">Doors</th>
                     <th className="px-4 py-3">Waybill / Ref</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Delivery Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -2960,11 +3021,27 @@ export function DispatchInstallationView() {
                           {d.status.replace('_', ' ')}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        {d.status === 'DELIVERED' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                            <CheckCircle2 className="w-3 h-3" /> Delivered
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={dispatchActionId === d.id}
+                            onClick={() => handleMarkDispatchDelivered(d)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer disabled:opacity-50"
+                          >
+                            {dispatchActionId === d.id ? 'Posting...' : 'Mark Delivered & Auto-Bill'}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {dispatches.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-xs">
+                      <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-xs">
                         No dispatches found. Click &quot;Schedule Dispatch&quot; to register fleet transport.
                       </td>
                     </tr>

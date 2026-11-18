@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  Zap,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/apiClient';
 import type {
@@ -20,6 +21,7 @@ import type {
   ChartOfAccountWithBalance,
   OtherIncomeRecord,
   PaymentInRecord,
+  PendingDeliveryBillItem,
   SalesInvoiceRecord,
   SalesReturnCreditNoteRecord,
 } from '@/types/accounting';
@@ -51,6 +53,10 @@ export function AccountingSalesSection({
   const [banner, setBanner] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [printVoucher, setPrintVoucher] = useState<{ title: string; number: string; date: string; party: string; rows: Array<[string, string]>; total: number; notes?: string } | null>(null);
+  const [autoBillOnDelivery, setAutoBillOnDelivery] = useState(true);
+  const [pendingDeliveries, setPendingDeliveries] = useState<PendingDeliveryBillItem[]>([]);
+  const [showAutoBillDrawer, setShowAutoBillDrawer] = useState(false);
+  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>({});
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -107,9 +113,10 @@ export function AccountingSalesSection({
   const loadSalesData = useCallback(async () => {
     setLoading(true);
     try {
-      const [salesRes, custRes] = await Promise.all([
+      const [salesRes, custRes, pendingRes] = await Promise.all([
         apiFetch('/api/accounting/sales').then((r) => r.json()),
         apiFetch('/api/customers').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        apiFetch('/api/accounting/auto-bill-deliveries').then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
       if (salesRes?.success && salesRes.data) {
         setInvoices(salesRes.data.salesInvoices || []);
@@ -119,6 +126,10 @@ export function AccountingSalesSection({
       }
       if (custRes?.success && Array.isArray(custRes.data)) {
         setCustomers(custRes.data);
+      }
+      if (pendingRes?.success && pendingRes.data) {
+        setAutoBillOnDelivery(pendingRes.data.autoBillOnDelivery !== false);
+        setPendingDeliveries(Array.isArray(pendingRes.data.pendingItems) ? pendingRes.data.pendingItems : []);
       }
     } catch {
       notify('err', 'Failed to load Sales accounting records.');
@@ -300,6 +311,80 @@ export function AccountingSalesSection({
     }
   };
 
+  const handleToggleAutoBill = async () => {
+    setBusy(true);
+    try {
+      const res = await apiFetch('/api/accounting/auto-bill-deliveries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'TOGGLE_AUTO_BILL', enabled: !autoBillOnDelivery }),
+      });
+      const json = await res.json();
+      if (res.ok && json?.success) {
+        setAutoBillOnDelivery(Boolean(json.data?.autoBillOnDelivery));
+        notify('ok', json.message || 'Auto-bill setting updated.');
+      }
+    } catch {
+      notify('err', 'Failed to update auto-bill setting.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSyncAllDelivered = async () => {
+    setBusy(true);
+    try {
+      const res = await apiFetch('/api/accounting/auto-bill-deliveries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'SYNC_ALL' }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Sync failed');
+      notify('ok', json.message || 'Completed deliveries synced.');
+      await loadSalesData();
+      onDataChanged();
+    } catch (err: unknown) {
+      notify('err', err instanceof Error ? err.message : 'Sync failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleBillSinglePending = async (item: PendingDeliveryBillItem) => {
+    const manualVal = Number(manualAmounts[item.sourceId] || 0);
+    if (item.needsManualAmount && manualVal <= 0) {
+      notify('err', `Enter net amount for ${item.customerName} (${item.orderRef}) first.`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiFetch('/api/accounting/auto-bill-deliveries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'BILL_SINGLE',
+          source: item.source,
+          sourceId: item.sourceId,
+          orderRef: item.orderRef,
+          customerName: item.customerName,
+          deliveryDate: item.deliveryDate,
+          doorCount: item.doorCount,
+          overrideAmount: item.needsManualAmount ? manualVal : undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not bill delivery');
+      notify('ok', json.message || 'Delivery billed cleanly.');
+      await loadSalesData();
+      onDataChanged();
+    } catch (err: unknown) {
+      notify('err', err instanceof Error ? err.message : 'Could not bill delivery');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const invSubtotalPreview = invItems.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.rate) || 0), 0);
   const invTaxPreview = !gstEnabled || invGstMode === 'EXEMPT' ? 0 : (invSubtotalPreview * (Number(invGstRate) || 0)) / 100;
 
@@ -346,23 +431,146 @@ export function AccountingSalesSection({
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>
-            {subTab === 'INVOICES'
-              ? gstEnabled ? 'New Sales Invoice' : 'New Sales Entry'
-              : subTab === 'PAYMENT_IN'
-              ? 'Record Payment In'
-              : subTab === 'CREDIT_NOTE'
-              ? 'Issue Credit Note'
-              : 'Add Other Income'}
-          </span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {subTab === 'INVOICES' && (
+            <button
+              type="button"
+              onClick={() => setShowAutoBillDrawer((v) => !v)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border cursor-pointer transition ${
+                pendingDeliveries.length > 0
+                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40'
+                  : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/30'
+              }`}
+              title="Auto-Bill Completed Delivery Parties"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>
+                Auto-Bill Deliveries {pendingDeliveries.length > 0 ? `(${pendingDeliveries.length} Pending)` : '(Synced)'}
+              </span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>
+              {subTab === 'INVOICES'
+                ? gstEnabled ? 'New Sales Invoice' : 'New Sales Entry'
+                : subTab === 'PAYMENT_IN'
+                ? 'Record Payment In'
+                : subTab === 'CREDIT_NOTE'
+                ? 'Issue Credit Note'
+                : 'Add Other Income'}
+            </span>
+          </button>
+        </div>
       </div>
+
+      {/* Auto-Bill Completed Delivery Parties Drawer */}
+      {subTab === 'INVOICES' && showAutoBillDrawer && (
+        <div className="bg-[#0B132B] border border-emerald-500/40 rounded-xl p-4 space-y-3 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+            <div>
+              <h4 className="font-black text-white text-sm flex items-center gap-2">
+                <Zap className="w-4 h-4 text-emerald-400" />
+                Auto-Bill Completed Delivery Parties
+              </h4>
+              <p className="text-[11px] text-slate-400">
+                Automatically posts Non-GST Direct Sales Entries + adjusts verified Advance Payments whenever a party&apos;s delivery is marked Delivered.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={handleToggleAutoBill}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border cursor-pointer ${
+                  autoBillOnDelivery
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}
+              >
+                Auto-Bill on Delivery: {autoBillOnDelivery ? 'ON' : 'PAUSED'}
+              </button>
+              <button
+                type="button"
+                disabled={busy || pendingDeliveries.length === 0}
+                onClick={handleSyncAllDelivered}
+                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer disabled:opacity-40"
+              >
+                ⚡ Auto-Bill All Pending ({pendingDeliveries.filter((p) => !p.needsManualAmount).length})
+              </button>
+              <button type="button" onClick={() => setShowAutoBillDrawer(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {pendingDeliveries.length === 0 ? (
+            <div className="p-4 text-center text-emerald-300 bg-emerald-500/10 rounded-lg border border-emerald-500/20 font-semibold">
+              ✓ All completed deliveries are already posted to the Sales Ledger (zero unbilled deliveries).
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="text-[10px] uppercase text-slate-400 border-b border-slate-800">
+                    <th className="p-2">Source / Ref</th>
+                    <th className="p-2">Party / Customer</th>
+                    <th className="p-2">Delivered Date</th>
+                    <th className="p-2 text-center">Doors</th>
+                    <th className="p-2 text-right">Net Amount</th>
+                    <th className="p-2 text-right">Advance</th>
+                    <th className="p-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/70">
+                  {pendingDeliveries.map((item) => (
+                    <tr key={`${item.source}-${item.sourceId}`}>
+                      <td className="p-2 font-mono text-sky-300">
+                        {item.orderRef}
+                        <div className="text-[9px] text-slate-500">{item.source}</div>
+                      </td>
+                      <td className="p-2 font-semibold text-white">{item.customerName}</td>
+                      <td className="p-2 text-slate-300">{item.deliveryDate}</td>
+                      <td className="p-2 text-center font-mono">{item.doorCount}</td>
+                      <td className="p-2 text-right">
+                        {item.needsManualAmount ? (
+                          <input
+                            type="number"
+                            min={1}
+                            placeholder="Enter ₹"
+                            value={manualAmounts[item.sourceId] || ''}
+                            onChange={(e) => setManualAmounts((prev) => ({ ...prev, [item.sourceId]: e.target.value }))}
+                            className="w-28 px-2 py-1 rounded bg-slate-900 border border-amber-500/50 text-white text-right font-mono"
+                          />
+                        ) : (
+                          <span className="font-mono font-bold text-white">{fmt(item.estimatedAmount)}</span>
+                        )}
+                      </td>
+                      <td className="p-2 text-right font-mono text-emerald-300">
+                        {item.advanceAmount > 0 ? fmt(item.advanceAmount) : '-'}
+                      </td>
+                      <td className="p-2 text-right">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handleBillSinglePending(item)}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer disabled:opacity-50"
+                        >
+                          Post Sales Entry
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Forms */}
       {showForm && subTab === 'INVOICES' && (

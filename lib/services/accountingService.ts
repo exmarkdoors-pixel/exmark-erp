@@ -232,6 +232,7 @@ export function readAccountingStore(): AccountingLedgerStore {
       version: parsed.version || 1,
       settings: {
         gstEnabled: Boolean(parsed.settings?.gstEnabled ?? false),
+        autoBillOnDelivery: parsed.settings?.autoBillOnDelivery !== false,
         lockDate: parsed.settings?.lockDate || undefined,
         closedYears: Array.isArray(parsed.settings?.closedYears) ? parsed.settings.closedYears : [],
       },
@@ -2133,12 +2134,17 @@ export function generateAccountingReport(
 
 export function updateAccountingSettings(input: {
   gstEnabled?: boolean;
+  autoBillOnDelivery?: boolean;
   lockDate?: string | null;
   closedYears?: FinancialYearCloseRecord[];
-}): { gstEnabled: boolean; lockDate?: string; closedYears?: FinancialYearCloseRecord[] } {
+}): { gstEnabled: boolean; autoBillOnDelivery: boolean; lockDate?: string; closedYears?: FinancialYearCloseRecord[] } {
   const store = readAccountingStore();
   store.settings = {
     gstEnabled: input.gstEnabled !== undefined ? Boolean(input.gstEnabled) : Boolean(store.settings?.gstEnabled ?? false),
+    autoBillOnDelivery:
+      input.autoBillOnDelivery !== undefined
+        ? Boolean(input.autoBillOnDelivery)
+        : store.settings?.autoBillOnDelivery !== false,
     lockDate:
       input.lockDate === null
         ? undefined
@@ -2148,7 +2154,12 @@ export function updateAccountingSettings(input: {
     closedYears: input.closedYears !== undefined ? input.closedYears : store.settings?.closedYears || [],
   };
   saveAccountingStore(store);
-  return store.settings;
+  return {
+    gstEnabled: store.settings.gstEnabled,
+    autoBillOnDelivery: store.settings.autoBillOnDelivery !== false,
+    lockDate: store.settings.lockDate,
+    closedYears: store.settings.closedYears,
+  };
 }
 
 // ── 10. OPENING BALANCES SETUP (BULK & NEW COMPANY) ───────────────────────────
