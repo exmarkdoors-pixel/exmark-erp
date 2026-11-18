@@ -43,7 +43,14 @@ async function writeStore(data: Record<string, BoqCustomUsageRecord>): Promise<v
   await fs.writeFile(storePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
+const DYNAMIC_NON_PERSISTENT_BATCH_KEYS = new Set(['CONSOLIDATED_BATCH', 'CUSTOM_SIMULATOR']);
+
 export async function getBoqCustomUsage(batchKey: string): Promise<BoqCustomUsageRecord | null> {
+  // Never serve stale global customQty overrides for dynamic multi-party consolidated batches
+  // so Required Qty always scales dynamically from the Calculation Basis formula (e.g. 8 kg / 18.08 sq.ft).
+  if (DYNAMIC_NON_PERSISTENT_BATCH_KEYS.has(batchKey)) {
+    return null;
+  }
   const store = await readStore();
   return store[batchKey] || null;
 }
@@ -57,6 +64,23 @@ export async function saveBoqCustomUsage(
     updatedBy?: string;
   }
 ): Promise<BoqCustomUsageRecord> {
+  const nowIso = new Date().toISOString();
+  if (DYNAMIC_NON_PERSISTENT_BATCH_KEYS.has(batchKey)) {
+    // Strip stale disk record if any existed; return ephemeral response without polluting future batches
+    const store = await readStore();
+    if (store[batchKey]) {
+      delete store[batchKey];
+      await writeStore(store);
+    }
+    return {
+      batchKey,
+      bufferPercent: payload.bufferPercent || 0,
+      overrides: payload.overrides || {},
+      supervisorNotes: payload.supervisorNotes || '',
+      updatedBy: payload.updatedBy || 'Factory Supervisor',
+      updatedAt: nowIso,
+    };
+  }
   const store = await readStore();
   const existing = store[batchKey];
   const updated: BoqCustomUsageRecord = {
@@ -65,7 +89,7 @@ export async function saveBoqCustomUsage(
     overrides: payload.overrides !== undefined ? payload.overrides : (existing?.overrides || {}),
     supervisorNotes: payload.supervisorNotes !== undefined ? payload.supervisorNotes : (existing?.supervisorNotes || ''),
     updatedBy: payload.updatedBy || 'Factory Supervisor',
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso,
   };
 
   store[batchKey] = updated;

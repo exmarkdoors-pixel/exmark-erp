@@ -855,7 +855,49 @@ export default function StoreRequisitionHub({
     return selectedOrderId || 'SINGLE_ORDER';
   }, [isCustomCalcMode, isBatchBoqMode, selectedOrderId]);
 
+  const selectedDoorsSignature = useMemo(() => {
+    return activeDoors
+      .map(
+        (d, idx) =>
+          `${d.id || d.doorId || d.doorNumber || idx}:${d.widthCm || 80}x${d.heightCm || 210}x${d.quantity || 1}`
+      )
+      .join('|');
+  }, [activeDoors]);
+
+  const clearManualCustomQtyOverrides = () => {
+    setCustomUsageOverrides((prev) => {
+      let changed = false;
+      const next: typeof prev = {};
+      for (const [key, val] of Object.entries(prev)) {
+        if (!val) continue;
+        if (val.customQty !== undefined) {
+          changed = true;
+        }
+        if (val.excluded || val.customRate !== undefined || val.note) {
+          next[key] = {
+            ...(val.excluded ? { excluded: true } : {}),
+            ...(val.customRate !== undefined ? { customRate: val.customRate } : {}),
+            ...(val.note ? { note: val.note } : {}),
+          };
+        }
+      }
+      return changed ? next : prev;
+    });
+  };
+
+  // Whenever selected parties or door counts change, strip stale manual customQty overrides
+  // so Required Qty ALWAYS recalculates live from the Calculation Basis formula (e.g. 8 kg / 18.08 sq.ft).
   useEffect(() => {
+    clearManualCustomQtyOverrides();
+  }, [selectedDoorsSignature]);
+
+  useEffect(() => {
+    if (activeBatchKey === 'CONSOLIDATED_BATCH' || activeBatchKey === 'CUSTOM_SIMULATOR') {
+      setCustomUsageBufferPercent(0);
+      setCustomUsageOverrides({});
+      setCustomUsageNotes('');
+      return;
+    }
     apiFetch(`/api/boq/custom-usage?batchKey=${encodeURIComponent(activeBatchKey)}`)
       .then((res) => res.json())
       .then((json) => {
@@ -1364,6 +1406,7 @@ export default function StoreRequisitionHub({
       }
 
       applyOrderUpdateAfterIssue(json.data as DailyStoreIssueResult);
+      clearManualCustomQtyOverrides();
       setBoqIssueNotice({
         type: 'success',
         text:
@@ -1563,19 +1606,6 @@ export default function StoreRequisitionHub({
     setIsIssuingBoq(true);
     setBoqIssueNotice(null);
     try {
-      if (hasCustomUsageOverrides || isCustomUsageEditMode) {
-        await apiFetch('/api/boq/custom-usage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            batchKey: activeBatchKey,
-            bufferPercent: customUsageBufferPercent,
-            overrides: customUsageOverrides,
-            supervisorNotes: customUsageNotes,
-          }),
-        });
-      }
-
       const res = await apiFetch('/api/boq/issue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1603,6 +1633,7 @@ export default function StoreRequisitionHub({
       }
 
       applyBatchUpdateAfterIssue(json.data as ConsolidatedBatchIssueResult, json.message);
+      clearManualCustomQtyOverrides();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to issue Consolidated BOQ batch';
       console.error('Failed to direct issue consolidated BOQ:', err);
@@ -3196,10 +3227,11 @@ export default function StoreRequisitionHub({
                 <button
                   type="button"
                   onClick={handleResetCustomUsage}
-                  className="px-2 py-1 bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-300 rounded-lg font-bold text-[10px] border border-slate-700 cursor-pointer"
-                  title="Reset all quantities, checkboxes, and rates to standard formula baseline"
+                  className="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-800 text-rose-200 rounded-lg font-bold text-[10.5px] border border-rose-500/40 flex items-center gap-1 cursor-pointer"
+                  title="Reset all quantities, checkboxes, and rates back to standard Calculation Basis formula"
                 >
                   <RotateCcw className="w-3 h-3" />
+                  <span>Reset to Formula</span>
                 </button>
               </div>
             </div>
@@ -4805,9 +4837,32 @@ export default function StoreRequisitionHub({
                 </div>
               </div>
 
+              {isBatchBoqMode && consolidatedBatchEntries.length > 0 && (
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-300 text-[11px] space-y-1">
+                  <div className="font-black text-slate-800 uppercase text-[10px]">
+                    Party-Wise Partial Doors in This Consolidated Print ({totalDoors} Doors • {totalSqft} Sq.Ft):
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {consolidatedBatchEntries.map((ce) => (
+                      <span
+                        key={ce.prodOrderId}
+                        className="px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-900 font-semibold"
+                      >
+                        <strong>{ce.customerName.split('(')[0].trim()}</strong> ({ce.jobCardNumber}):{' '}
+                        <span className="font-mono font-black text-emerald-800">
+                          {ce.doorIds.length}/{ce.totalOrderDoors}
+                        </span>{' '}
+                        [{ce.doorNumbers.join(', ')}]
+                        {ce.balanceDoorsAfter > 0 ? ` • Bal: ${ce.balanceDoorsAfter}` : ' • Full'}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {hasCustomUsageOverrides && (
                 <div className="p-2.5 bg-amber-50 rounded-lg border-2 border-amber-500 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] font-bold">
-                  <span>⚡ CUSTOM SHOP-FLOOR USAGE OVERRIDE APPROVED (+{customUsageBufferPercent}% Buffer / Shop-Floor Custom Requisition)</span>
+                  <span>⚡ CUSTOM SHOP-FLOOR USAGE ACTIVE (+{customUsageBufferPercent}% Buffer / Marked Items Requisition)</span>
                   {customUsageNotes && <span className="font-normal italic text-[10px] text-amber-900">Note: {customUsageNotes}</span>}
                 </div>
               )}
@@ -4824,182 +4879,220 @@ export default function StoreRequisitionHub({
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b border-slate-200">
-                    <td className="p-2 border-r border-slate-300 font-bold">1</td>
-                    <td className="p-2 border-r border-slate-300">
-                      <strong>FRP Polyester Resin</strong>
-                    </td>
-                    <td className="p-2 border-r border-slate-300">
-                      {ratesConfig.resinKg} kg / {boq.baseDoorSqFt.toFixed(2)} sq.ft
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right font-black">
-                      {effectiveBoq.resin.qty.toFixed(2)} Kg
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right">
-                      ₹{effectiveBoq.resin.cost.toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <td className="p-2 border-r border-slate-300 font-bold">2</td>
-                    <td className="p-2 border-r border-slate-300">
-                      <strong>Gelcoat (GEL)</strong>
-                    </td>
-                    <td className="p-2 border-r border-slate-300">
-                      {ratesConfig.gelKg} kg / {boq.baseDoorSqFt.toFixed(2)} sq.ft
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right font-black">
-                      {effectiveBoq.gel.qty.toFixed(2)} Kg
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right">
-                      ₹{effectiveBoq.gel.cost.toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <td className="p-2 border-r border-slate-300 font-bold">3</td>
-                    <td className="p-2 border-r border-slate-300">
-                      <strong>Catalyst (MEKP) &amp; Accelerator</strong>
-                    </td>
-                    <td className="p-2 border-r border-slate-300">
-                      {ratesConfig.catalystGrams}g MEKP + {ratesConfig.acceleratorGrams}g Cobalt / door base
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right font-black">
-                      {Math.round(effectiveBoq.catalystGrams.qty)}g + {Math.round(effectiveBoq.acceleratorGrams.qty)}g
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right">
-                      ₹{(effectiveBoq.catalystGrams.cost + effectiveBoq.acceleratorGrams.cost).toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <td className="p-2 border-r border-slate-300 font-bold">4</td>
-                    <td className="p-2 border-r border-slate-300">
-                      <strong>Chopped Strand Mat (300 GSM)</strong>
-                    </td>
-                    <td className="p-2 border-r border-slate-300">
-                      {ratesConfig.csm300Kg} kg / {boq.baseDoorSqFt.toFixed(2)} sq.ft
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right font-black">
-                      {effectiveBoq.csm300.qty.toFixed(2)} Kg
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right">
-                      ₹{effectiveBoq.csm300.cost.toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <td className="p-2 border-r border-slate-300 font-bold">5</td>
-                    <td className="p-2 border-r border-slate-300">
-                      <strong>Pigment Paste (Colour-Wise)</strong>
-                      <div className="text-[10px] text-slate-600">
-                        {boq.pigmentByColour
-                          .map((p) => `${p.colourLabel}: ${Math.round(p.pigmentGrams)}g`)
-                          .join(' | ')}
-                      </div>
-                    </td>
-                    <td className="p-2 border-r border-slate-300">
-                      {ratesConfig.pigmentGrams} gm / base door
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right font-black">
-                      {Math.round(boq.pigmentGrams)} gm
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right">
-                      ₹{Math.round(boq.pigmentCost).toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <td className="p-2 border-r border-slate-300 font-bold">6</td>
-                    <td className="p-2 border-r border-slate-300">
-                      <strong>Frame &amp; Shutter Wood Reepers (Cu.Ft)</strong>
-                      <div className="text-[10px] text-slate-600">
-                        Frame: {boq.frameWoodRunningFt.toFixed(2)} Rft ({boq.frameWoodCuFt.toFixed(4)} cu.ft) •
-                        Lock 2×12×15cm×2: {boq.lockReeperCuFt.toFixed(4)} cu.ft •
-                        Hinge 2×4×16cm×3: {boq.hingeReeperCuFt.toFixed(4)} cu.ft
-                      </div>
-                    </td>
-                    <td className="p-2 border-r border-slate-300">{frameModeLabel}</td>
-                    <td className="p-2 border-r border-slate-300 text-right font-black">
-                      {boq.totalWoodCuFt.toFixed(4)} Cu.Ft
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right">
-                      ₹{Math.round(boq.totalWoodCost).toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
-                  </tr>
-
-                  <tr className="border-b border-slate-200">
-                    <td className="p-2 border-r border-slate-300 font-bold">7</td>
-                    <td className="p-2 border-r border-slate-300">
-                      <strong>
-                        Rigid Foam Sheet ({ratesConfig.foamSheet.widthCm}×{ratesConfig.foamSheet.heightCm} cm)
-                      </strong>
-                    </td>
-                    <td className="p-2 border-r border-slate-300">
-                      1 Sheet / {ratesConfig.foamSheet.doorsPerSheet} Doors (Buy {boq.foamSheetsPurchaseCeil} Full)
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right font-black">
-                      {effectiveBoq.foam.qty.toFixed(2)} Sheets
-                    </td>
-                    <td className="p-2 border-r border-slate-300 text-right">
-                      ₹{effectiveBoq.foam.cost.toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
-                  </tr>
-
-                  {activeExtraItems.map((ext, idx) => (
-                    <tr key={`print-ext-${ext.id}`} className="border-b border-slate-200 bg-purple-50/40">
-                      <td className="p-2 border-r border-slate-300 font-bold">{8 + idx}</td>
+                  {effectiveBoq.resin.included && (
+                    <tr className="border-b border-slate-200">
+                      <td className="p-2 border-r border-slate-300 font-bold">1</td>
                       <td className="p-2 border-r border-slate-300">
-                        <strong>{ext.itemName}</strong>
-                        {ext.specNote && (
-                          <div className="text-[10px] text-slate-600">{ext.specNote}</div>
-                        )}
+                        <strong>FRP Polyester Resin</strong>
                       </td>
                       <td className="p-2 border-r border-slate-300">
-                        Extra Item ({ext.category})
+                        {ratesConfig.resinKg} kg / {boq.baseDoorSqFt.toFixed(2)} sq.ft
                       </td>
                       <td className="p-2 border-r border-slate-300 text-right font-black">
-                        {ext.quantity} {ext.unit}
+                        {effectiveBoq.resin.qty.toFixed(2)} Kg
                       </td>
                       <td className="p-2 border-r border-slate-300 text-right">
-                        ₹{Math.round(ext.amount).toLocaleString('en-IN')}
+                        ₹{effectiveBoq.resin.cost.toLocaleString('en-IN')}
                       </td>
                       <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
                     </tr>
-                  ))}
+                  )}
 
-                  {boq.lockBoxBreakdown.map((lb, idx) => (
-                    <tr key={`print-lb-${lb.profileId}-${idx}`} className="border-b border-slate-200 bg-rose-50/40">
-                      <td className="p-2 border-r border-slate-300 font-bold">L{idx + 1}</td>
+                  {effectiveBoq.gel.included && (
+                    <tr className="border-b border-slate-200">
+                      <td className="p-2 border-r border-slate-300 font-bold">2</td>
                       <td className="p-2 border-r border-slate-300">
-                        <strong>Lock Box — {lb.boxName}</strong>
+                        <strong>Gelcoat (GEL)</strong>
+                      </td>
+                      <td className="p-2 border-r border-slate-300">
+                        {ratesConfig.gelKg} kg / {boq.baseDoorSqFt.toFixed(2)} sq.ft
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-right font-black">
+                        {effectiveBoq.gel.qty.toFixed(2)} Kg
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-right">
+                        ₹{effectiveBoq.gel.cost.toLocaleString('en-IN')}
+                      </td>
+                      <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
+                    </tr>
+                  )}
+
+                  {(effectiveBoq.catalystGrams.included || effectiveBoq.acceleratorGrams.included) && (
+                    <tr className="border-b border-slate-200">
+                      <td className="p-2 border-r border-slate-300 font-bold">3</td>
+                      <td className="p-2 border-r border-slate-300">
+                        <strong>Catalyst (MEKP) &amp; Accelerator</strong>
+                      </td>
+                      <td className="p-2 border-r border-slate-300">
+                        {ratesConfig.catalystGrams}g MEKP + {ratesConfig.acceleratorGrams}g Cobalt / door base
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-right font-black">
+                        {effectiveBoq.catalystGrams.included ? `${Math.round(effectiveBoq.catalystGrams.qty)}g` : '—'} +{' '}
+                        {effectiveBoq.acceleratorGrams.included ? `${Math.round(effectiveBoq.acceleratorGrams.qty)}g` : '—'}
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-right">
+                        ₹{(effectiveBoq.catalystGrams.cost + effectiveBoq.acceleratorGrams.cost).toLocaleString('en-IN')}
+                      </td>
+                      <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
+                    </tr>
+                  )}
+
+                  {effectiveBoq.csm300.included && (
+                    <tr className="border-b border-slate-200">
+                      <td className="p-2 border-r border-slate-300 font-bold">4</td>
+                      <td className="p-2 border-r border-slate-300">
+                        <strong>Chopped Strand Mat (300 GSM)</strong>
+                      </td>
+                      <td className="p-2 border-r border-slate-300">
+                        {ratesConfig.csm300Kg} kg / {boq.baseDoorSqFt.toFixed(2)} sq.ft
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-right font-black">
+                        {effectiveBoq.csm300.qty.toFixed(2)} Kg
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-right">
+                        ₹{effectiveBoq.csm300.cost.toLocaleString('en-IN')}
+                      </td>
+                      <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
+                    </tr>
+                  )}
+
+                  {(() => {
+                    const mult = 1 + customUsageBufferPercent / 100;
+                    const activePigs = (boq.pigmentByColour || [])
+                      .map((p) => {
+                        const pk = `pigment_${p.matchedRateKey || p.colourLabel}`;
+                        const ov = customUsageOverrides[pk];
+                        if (ov?.excluded) return null;
+                        const baseG = customUsageBufferPercent > 0 ? Math.round(p.pigmentGrams * mult) : Math.round(p.pigmentGrams);
+                        const qtyG = ov?.customQty !== undefined ? Math.round(ov.customQty) : baseG;
+                        const rate = ov?.customRate !== undefined ? ov.customRate : p.ratePerKg;
+                        return {
+                          label: p.colourLabel,
+                          qtyG,
+                          cost: Math.round((qtyG / 1000) * rate),
+                        };
+                      })
+                      .filter(Boolean) as Array<{ label: string; qtyG: number; cost: number }>;
+                    if (activePigs.length === 0) return null;
+                    const totG = activePigs.reduce((s, p) => s + p.qtyG, 0);
+                    const totCost = activePigs.reduce((s, p) => s + p.cost, 0);
+                    return (
+                      <tr className="border-b border-slate-200">
+                        <td className="p-2 border-r border-slate-300 font-bold">5</td>
+                        <td className="p-2 border-r border-slate-300">
+                          <strong>Pigment Paste (Colour-Wise)</strong>
+                          <div className="text-[10px] text-slate-600">
+                            {activePigs.map((p) => `${p.label}: ${p.qtyG}g`).join(' | ')}
+                          </div>
+                        </td>
+                        <td className="p-2 border-r border-slate-300">
+                          {ratesConfig.pigmentGrams} gm / base door
+                        </td>
+                        <td className="p-2 border-r border-slate-300 text-right font-black">
+                          {totG} gm
+                        </td>
+                        <td className="p-2 border-r border-slate-300 text-right">
+                          ₹{totCost.toLocaleString('en-IN')}
+                        </td>
+                        <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
+                      </tr>
+                    );
+                  })()}
+
+                  {effectiveBoq.timber.included && (
+                    <tr className="border-b border-slate-200">
+                      <td className="p-2 border-r border-slate-300 font-bold">6</td>
+                      <td className="p-2 border-r border-slate-300">
+                        <strong>Frame &amp; Shutter Wood Reepers (Cu.Ft)</strong>
                         <div className="text-[10px] text-slate-600">
-                          {lb.isNoHardware
-                            ? 'Cutout Only (0 Lock Box Hardware)'
-                            : `RH: ${lb.rhCount} | LH: ${lb.lhCount} • ${lb.aggregatedComponents
-                                .map((c) => `${c.name}: ${c.totalQty}`)
-                                .join(', ')}`}
+                          Frame: {boq.frameWoodRunningFt.toFixed(2)} Rft ({boq.frameWoodCuFt.toFixed(4)} cu.ft) •
+                          Lock 2×12×15cm×2: {boq.lockReeperCuFt.toFixed(4)} cu.ft •
+                          Hinge 2×4×16cm×3: {boq.hingeReeperCuFt.toFixed(4)} cu.ft
                         </div>
                       </td>
-                      <td className="p-2 border-r border-slate-300">
-                        {lb.isNoHardware ? 'Cutout Only' : getLockReadinessStatus(lb.profileId).replace(/_/g, ' ')}
-                      </td>
+                      <td className="p-2 border-r border-slate-300">{frameModeLabel}</td>
                       <td className="p-2 border-r border-slate-300 text-right font-black">
-                        {lb.isNoHardware ? '0 Box' : `${lb.doorsCount} Box`}
+                        {effectiveBoq.timber.qty.toFixed(4)} Cu.Ft
                       </td>
                       <td className="p-2 border-r border-slate-300 text-right">
-                        ₹{Math.round(lb.totalBoxCost).toLocaleString('en-IN')}
+                        ₹{effectiveBoq.timber.cost.toLocaleString('en-IN')}
                       </td>
                       <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
                     </tr>
-                  ))}
+                  )}
+
+                  {effectiveBoq.foam.included && (
+                    <tr className="border-b border-slate-200">
+                      <td className="p-2 border-r border-slate-300 font-bold">7</td>
+                      <td className="p-2 border-r border-slate-300">
+                        <strong>
+                          Rigid Foam Sheet ({ratesConfig.foamSheet.widthCm}×{ratesConfig.foamSheet.heightCm} cm)
+                        </strong>
+                      </td>
+                      <td className="p-2 border-r border-slate-300">
+                        1 Sheet / {ratesConfig.foamSheet.doorsPerSheet} Doors (Buy {Math.ceil(effectiveBoq.foam.qty)} Full)
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-right font-black">
+                        {effectiveBoq.foam.qty.toFixed(2)} Sheets
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-right">
+                        ₹{effectiveBoq.foam.cost.toLocaleString('en-IN')}
+                      </td>
+                      <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
+                    </tr>
+                  )}
+
+                  {activeExtraItems
+                    .filter((ext) => isItemIncluded(`extra_${ext.id}`))
+                    .map((ext, idx) => (
+                      <tr key={`print-ext-${ext.id}`} className="border-b border-slate-200 bg-purple-50/40">
+                        <td className="p-2 border-r border-slate-300 font-bold">{8 + idx}</td>
+                        <td className="p-2 border-r border-slate-300">
+                          <strong>{ext.itemName}</strong>
+                          {ext.specNote && (
+                            <div className="text-[10px] text-slate-600">{ext.specNote}</div>
+                          )}
+                        </td>
+                        <td className="p-2 border-r border-slate-300">
+                          Extra Item ({ext.category})
+                        </td>
+                        <td className="p-2 border-r border-slate-300 text-right font-black">
+                          {ext.quantity} {ext.unit}
+                        </td>
+                        <td className="p-2 border-r border-slate-300 text-right">
+                          ₹{Math.round(ext.amount).toLocaleString('en-IN')}
+                        </td>
+                        <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
+                      </tr>
+                    ))}
+
+                  {boq.lockBoxBreakdown
+                    .filter((lb) => lb.isNoHardware || isItemIncluded(`lock_${lb.profileId}`))
+                    .map((lb, idx) => (
+                      <tr key={`print-lb-${lb.profileId}-${idx}`} className="border-b border-slate-200 bg-rose-50/40">
+                        <td className="p-2 border-r border-slate-300 font-bold">L{idx + 1}</td>
+                        <td className="p-2 border-r border-slate-300">
+                          <strong>Lock Box — {lb.boxName}</strong>
+                          <div className="text-[10px] text-slate-600">
+                            {lb.isNoHardware
+                              ? 'Cutout Only (0 Lock Box Hardware)'
+                              : `RH: ${lb.rhCount} | LH: ${lb.lhCount} • ${lb.aggregatedComponents
+                                  .map((c) => `${c.name}: ${c.totalQty}`)
+                                  .join(', ')}`}
+                          </div>
+                        </td>
+                        <td className="p-2 border-r border-slate-300">
+                          {lb.isNoHardware ? 'Cutout Only' : getLockReadinessStatus(lb.profileId).replace(/_/g, ' ')}
+                        </td>
+                        <td className="p-2 border-r border-slate-300 text-right font-black">
+                          {lb.isNoHardware ? '0 Box' : `${lb.doorsCount} Box`}
+                        </td>
+                        <td className="p-2 border-r border-slate-300 text-right">
+                          ₹{Math.round(lb.totalBoxCost).toLocaleString('en-IN')}
+                        </td>
+                        <td className="p-2 text-center font-bold text-emerald-700">✓ ISSUED</td>
+                      </tr>
+                    ))}
 
                   {boq.consolidatedLockKitHardware.length > 0 && (
                     <tr className="border-b border-slate-300 bg-slate-50">
@@ -5014,11 +5107,10 @@ export default function StoreRequisitionHub({
 
                   <tr className="bg-slate-100 font-black">
                     <td colSpan={4} className="p-2 border-r border-slate-300 text-right">
-                      COMBINED RAW MATERIAL &amp; LOCK BOX VALUE ({totalDoors} DOORS • {boq.totalLockBoxes} BOXES
-                      {activeExtraItems.length > 0 ? ` + ${activeExtraItems.length} EXTRA` : ''}):
+                      COMBINED RAW MATERIAL &amp; LOCK BOX VALUE ({totalDoors} DOORS • {markedIssueItems.length} MARKED ITEMS):
                     </td>
                     <td className="p-2 border-r border-slate-300 text-right text-emerald-800">
-                      ₹{grandTotalCost.toLocaleString('en-IN')}
+                      ₹{markedIssueTotalValue.toLocaleString('en-IN')}
                     </td>
                     <td className="p-2 text-center">APPROVED</td>
                   </tr>
