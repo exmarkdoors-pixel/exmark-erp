@@ -527,6 +527,7 @@ function buildApplicationMenu() {
   const lanIps = getLanAddresses();
   const primaryLanIp = lanIps[0] || '127.0.0.1';
   const lanUrl = `http://${primaryLanIp}:${activeLocalPort}`;
+  const hasLocalPg = Boolean(resolveLocalPostgresDatabaseUrl(config.dataDir));
 
   const menuTemplate = [
     {
@@ -563,6 +564,15 @@ function buildApplicationMenu() {
           label: `Active Vault: ${config.dataDir}`,
           enabled: false,
         },
+        {
+          label: `SQL Engine: ${hasLocalPg ? 'Local PostgreSQL 18 (Configured)' : 'JSON Vault Mode (Local PG Not Configured)'}`,
+          enabled: false,
+        },
+        {
+          label: 'Local PostgreSQL & Cloud Sync Settings...',
+          click: () => navigateToTab('settings'),
+        },
+        { type: 'separator' },
         {
           label: 'Open Live Data Vault Folder in Explorer',
           click: () => {
@@ -693,19 +703,7 @@ function buildApplicationMenu() {
         {
           label: 'Check for Software Updates...',
           accelerator: 'CmdOrCtrl+U',
-          click: () => {
-            if (mainWindow) {
-              mainWindow.webContents.executeJavaScript(`
-                try {
-                  window.location.hash = '#settings';
-                  setTimeout(() => {
-                    const btn = document.querySelector('[data-tab="system_updates"]') || Array.from(document.querySelectorAll('button')).find(b => b.textContent && b.textContent.includes('Software Updates'));
-                    if (btn) btn.click();
-                  }, 300);
-                } catch (e) {}
-              `);
-            }
-          },
+          click: () => navigateToTab('backup'),
         },
         {
           label: 'Open EXE Releases Folder (C:\\EXMARK-Releases)',
@@ -734,7 +732,30 @@ function buildApplicationMenu() {
         {
           label: 'Factory Technical Support (WhatsApp)',
           click: async () => {
-            await shell.openExternal('https://wa.me/919447012345?text=EXMARK%20ERP%20Desktop%20Support');
+            await shell.openExternal('https://wa.me/919447928866?text=EXMARK%20ERP%20Desktop%20Support');
+          },
+        },
+        { type: 'separator' },
+        {
+          label: `About EXMARK ERP v${app.getVersion()}...`,
+          click: () => {
+            if (!mainWindow) return;
+            const cfg = loadDesktopConfig();
+            const pgConfigured = Boolean(resolveLocalPostgresDatabaseUrl(cfg.dataDir));
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'About EXMARK ERP',
+              message: `EXMARK ERP Desktop v${app.getVersion()}`,
+              detail: [
+                'EXMARK DOORS PRIVATE LIMITED',
+                'Enterprise FRP & WPC Architectural Doors Platform',
+                '',
+                `Active Data Vault: ${cfg.dataDir}`,
+                `SQL Engine: ${pgConfigured ? 'Local PostgreSQL 18 (Configured)' : 'Local JSON Vault'}`,
+                `Runtime: Electron ${process.versions.electron} • Node ${process.versions.node}`,
+                `Server URL: ${getNavigationBaseUrl()}`,
+              ].join('\n'),
+            });
           },
         },
       ],
@@ -768,7 +789,7 @@ function createMainWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    title: 'EXMARK ERP — Enterprise FRP Architectural Doors Platform',
+    title: `EXMARK ERP v${app.getVersion()} — Enterprise FRP Architectural Doors Platform`,
     icon: iconPath,
     backgroundColor: '#070D1E',
     show: false,
@@ -970,7 +991,23 @@ ipcMain.handle('launch-update-installer', async (event, installerPath) => {
     if (!resolved) {
       const releaseDir = getReleaseFolderPath();
       if (fs.existsSync(releaseDir)) {
-        const files = fs.readdirSync(releaseDir).filter((f) => f.toLowerCase().endsWith('.exe'));
+        const parseVer = (name) => {
+          const m = String(name).match(/(\d+)\.(\d+)\.(\d+)/);
+          return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0];
+        };
+        const files = fs
+          .readdirSync(releaseDir)
+          .filter((f) => f.toLowerCase().endsWith('.exe'))
+          .sort((a, b) => {
+            const va = parseVer(a);
+            const vb = parseVer(b);
+            for (let i = 0; i < 3; i++) {
+              if (vb[i] !== va[i]) return vb[i] - va[i];
+            }
+            const aSetup = a.toLowerCase().includes('setup') ? 1 : 0;
+            const bSetup = b.toLowerCase().includes('setup') ? 1 : 0;
+            return bSetup - aSetup;
+          });
         if (files.length > 0) {
           resolved = path.join(releaseDir, files[0]);
         }

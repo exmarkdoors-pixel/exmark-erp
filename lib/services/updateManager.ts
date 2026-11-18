@@ -57,7 +57,7 @@ export function getAuthoritativeAppVersion(): string {
   } catch {
     // Non-fatal fallback
   }
-  return '1.2.6';
+  return '1.2.7';
 }
 
 export function parseSemVer(v: string): number[] {
@@ -278,6 +278,16 @@ export async function checkForSystemUpdates(options: {
 
   // Curated changelog features
   const changelog = [
+    {
+      version: '1.2.7',
+      title: 'Quotation Live Colour PDF Fix, 12L After-Packing Site Verification Pass & Next.js 16.4.6 Security Update',
+      features: [
+        'Fixed Quotation PDF colour mismatch across all 5 Tally & Vyapar themes so renamed and custom factory colours (e.g., PU WHITE, Natural Teak EXGC-510, 2 SIDE) print accurately per row/section',
+        'Added new 12L After-Packing Site Verification Pass format (99mm × 44mm, 2×6 A4 Grid) displaying Given Opening (Frame), Confirm Finish Door (QC: Passed & Packed), Verification QR Code, and Site Sign-Off footer',
+        'Available in both Batch Printing Hub and Job Card Sticker Studio (HTML print & calibrated pure-vector PDF) alongside the existing 12L Cutting Sticker',
+        'Upgraded Next.js framework to patched 16.4.6 security release',
+      ],
+    },
     {
       version: '1.2.6',
       title: 'Local PostgreSQL 18 Server Integration, Simple UI Mode, Excel Bulk Lead Import & Hardened Cloud Tunnel',

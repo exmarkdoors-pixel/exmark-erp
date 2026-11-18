@@ -1,6 +1,6 @@
 {
   "name": "exmark-erp",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "private": true,
   "description": "EXMARK ERP — Enterprise FRP Architectural Doors Manufacturing Platform",
   "author": "EXMARK DOORS PRIVATE LIMITED",
@@ -50,7 +50,7 @@
     "@types/qrcode": "^1.5.6",
     "bcryptjs": "^3.0.3",
     "lucide-react": "^1.62.0",
-    "next": "16.4.3",
+    "next": "16.4.6",
     "pg": "^8.23.1",
     "postcss": "^8.5.32",
     "prisma": "^7.10.1",
@@ -71,7 +71,7 @@
     "electron": "^45.1.0",
     "electron-builder": "^26.18.0",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.6",
     "tsx": "^4.23.15",
     "typescript": "^5"
   }

@@ -185,12 +185,21 @@ async function main() {
     throw new Error(`No compiled v${version} .exe installers found in ${distDir}. Run "npm run desktop:build" first.`);
   }
 
+  const nextVersion = pkg.dependencies?.next || '16.4.6';
   const infoLines = [
-    `EXMARK ERP v${version} — Official Windows Releases`,
+    `EXMARK ERP v${version} — Official Polished Windows Releases`,
     `Published At: ${new Date().toISOString()}`,
+    `Framework Runtime: Next.js ${nextVersion} (Standalone) + Local PostgreSQL 18 SQL Server Ready`,
     `Release Folder: ${releaseDir}`,
     `Live Factory Data Vault (Untouched): C:\\EXMARK-ERP-DATA`,
     `Installed App Default Path (NSIS): %LocalAppData%\\Programs\\EXMARK ERP\\EXMARK ERP.exe`,
+    '',
+    'Key Release Highlights:',
+    '- Local PostgreSQL 18 SQL Server integration with encrypted vault credentials & pg_dump backups',
+    '- Fixed Quotation PDF colour accuracy for renamed & custom factory colours across all Tally & Vyapar themes',
+    '- New 12L After-Packing Site Verification Pass (99x44mm, 2x6 A4 Grid) with Frame Opening, Finish Door, QR & Sign-Off',
+    '- Simple UI Mode, Excel (.xlsx/.xls) Bulk Lead Import, and Hardened TryCloudflare Tunnel',
+    '- Polished Desktop Shell (Live Local PG status in menu, About dialog, fixed SemVer updater & Ctrl+U)',
     '',
     'Verified Executables & SHA-256 Checksums:',
     ...published.map(
@@ -200,7 +209,15 @@ async function main() {
   ];
   fs.writeFileSync(path.join(releaseDir, 'RELEASE-INFO.txt'), infoLines.join('\r\n'), 'utf8');
 
-  // Copy Offline SQL Server setup utilities to C:\EXMARK-Releases\
+  // Copy Offline SQL Server setup utilities & 1-click Local PostgreSQL 18 installer to C:\EXMARK-Releases\
+  const rootInstallerBat = 'Install-EXMARK-Local-PostgreSQL.bat';
+  const rootBatSrc = path.join(rootDir, rootInstallerBat);
+  if (fs.existsSync(rootBatSrc)) {
+    const dest = path.join(releaseDir, rootInstallerBat);
+    copyAtomic(rootBatSrc, dest);
+    console.log(`  ✓ Copied Local PostgreSQL 18 helper: ${rootInstallerBat} -> ${dest}`);
+  }
+
   const scriptsDir = path.join(rootDir, 'scripts');
   const sqlHelperFiles = [
     'setup-offline-sql-server.bat',
