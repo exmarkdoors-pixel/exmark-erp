@@ -1354,13 +1354,14 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                         pageBreakInside: 'avoid',
                         breakInside: 'avoid',
                       }}
-                      className={`text-slate-950 border border-slate-900 flex flex-col justify-between overflow-hidden ${
+                      data-sticker="true"
+                      className={`clean-unslashed-zero font-sans text-slate-950 border border-slate-900 flex flex-col justify-between overflow-hidden ${
                         useYellowPaper ? 'bg-[#fef9c3]' : 'bg-white'
                       }`}
                     >
                       <div className="flex justify-between items-center border-b border-slate-900 pb-0.5 text-[9.5px]">
                         <strong className="font-black uppercase truncate max-w-[60mm]">{order.customerName}</strong>
-                        <span className="font-mono text-[8.5px] font-black px-1 rounded bg-slate-100 border border-slate-500">
+                        <span className="font-sans font-black tabular-nums text-[8.5px] px-1 rounded bg-slate-100 border border-slate-500">
                           {order.jobCardNumber} #{idx + 1}/{rows.length}
                         </span>
                       </div>
@@ -1387,16 +1388,16 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                       <div className="border border-slate-900 rounded grid grid-cols-12 overflow-hidden">
                         <div className="col-span-6 border-r border-slate-900 px-2 py-1 flex items-center justify-between">
                           <span className="text-[9px] font-bold text-slate-700">{calc.hLabel}</span>
-                          <span className="font-mono text-sm font-black">{calc.finHText}</span>
+                          <span className="font-sans font-black tracking-tight tabular-nums text-sm">{calc.finHText}</span>
                         </div>
                         <div className="col-span-6 divide-y divide-slate-900">
                           <div className="px-1.5 py-0.5 flex items-center justify-between text-[9px]">
                             <span className="text-[8px] font-bold text-slate-600">TOP</span>
-                            <span className="font-mono font-black">{calc.finTopWText}</span>
+                            <span className="font-sans font-black tracking-tight tabular-nums">{calc.finTopWText}</span>
                           </div>
                           <div className="px-1.5 py-0.5 flex items-center justify-between text-[9px]">
                             <span className="text-[8px] font-bold text-slate-600">BTM</span>
-                            <span className="font-mono font-black">{calc.finBtmWText}</span>
+                            <span className="font-sans font-black tracking-tight tabular-nums">{calc.finBtmWText}</span>
                           </div>
                         </div>
                       </div>
@@ -1483,7 +1484,8 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                 breakInside: 'avoid',
                                 pageBreakInside: 'avoid',
                               }}
-                              className={`border-[1.2px] border-slate-900 font-sans rounded-[5px] flex flex-col justify-between overflow-hidden ${
+                              data-sticker="true"
+                              className={`clean-unslashed-zero border-[1.2px] border-slate-900 font-sans rounded-[5px] flex flex-col justify-between overflow-hidden ${
                                 useYellowPaper ? 'bg-[#fef9c3]' : 'bg-white'
                               }`}
                             >
@@ -1556,11 +1558,11 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                   </div>
                                   <div className="px-1.5 py-[2px] flex-1 flex flex-col justify-between leading-[1.15]">
                                     <div className="text-[8.2px] font-black text-slate-950">
-                                      HEIGHT: <span className="font-mono">{calc.finHText}</span>
+                                      HEIGHT: <span className="font-sans font-black tabular-nums">{calc.finHText}</span>
                                     </div>
                                     <div className="text-[7.5px] font-black text-slate-950 truncate">
                                       WIDTH:{' '}
-                                      <span className="font-mono">
+                                      <span className="font-sans font-black tabular-nums">
                                         T:{calc.finTopWText} B:{calc.finBtmWText}
                                       </span>
                                     </div>
@@ -1677,7 +1679,8 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                 breakInside: 'avoid',
                                 pageBreakInside: 'avoid',
                               }}
-                              className={`${hasRemark ? 'p-1.5 space-y-0.5' : 'p-2 space-y-1'} rounded-lg border border-slate-800 flex flex-col justify-between overflow-hidden ${
+                              data-sticker="true"
+                              className={`clean-unslashed-zero font-sans ${hasRemark ? 'p-1.5 space-y-0.5' : 'p-2 space-y-1'} rounded-lg border border-slate-800 flex flex-col justify-between overflow-hidden ${
                                 useYellowPaper ? 'bg-[#fef9c3]' : 'bg-white'
                               }`}
                             >
@@ -1737,20 +1740,20 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                   <span className="text-[9px] font-bold text-slate-700 uppercase">
                                     {calc.hLabel}
                                   </span>
-                                  <span className="font-mono text-[11.5px] font-black text-slate-950">
+                                  <span className="font-sans font-black tracking-tight tabular-nums text-[12px] text-slate-950">
                                     {calc.finHText}
                                   </span>
                                 </div>
                                 <div className="col-span-6 divide-y divide-slate-800">
                                   <div className={`px-1.5 ${hasRemark ? 'py-0.2' : 'py-0.5'} flex items-center justify-between`}>
                                     <span className="text-[7.5px] font-bold text-slate-600 uppercase">TOP</span>
-                                    <span className="font-mono text-[10.5px] font-black text-slate-950">
+                                    <span className="font-sans font-black tracking-tight tabular-nums text-[10.5px] text-slate-950">
                                       {calc.finTopWText}
                                     </span>
                                   </div>
                                   <div className={`px-1.5 ${hasRemark ? 'py-0.2' : 'py-0.5'} flex items-center justify-between`}>
                                     <span className="text-[7.5px] font-bold text-slate-600 uppercase">BOTTOM</span>
-                                    <span className="font-mono text-[10.5px] font-black text-slate-950">
+                                    <span className="font-sans font-black tracking-tight tabular-nums text-[10.5px] text-slate-950">
                                       {calc.finBtmWText}
                                     </span>
                                   </div>

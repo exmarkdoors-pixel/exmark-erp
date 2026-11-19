@@ -1644,7 +1644,8 @@ export default function BatchPrintHub({
                               return (
                                 <div
                                   key={idx}
-                                  className={`sticker-card-12l ${hasRemark ? 'p-1.5 space-y-0.5' : 'p-2 space-y-1'} rounded-lg border border-slate-800 flex flex-col justify-between overflow-hidden font-sans ${
+                                  data-sticker="true"
+                                  className={`sticker-card-12l clean-unslashed-zero ${hasRemark ? 'p-1.5 space-y-0.5' : 'p-2 space-y-1'} rounded-lg border border-slate-800 flex flex-col justify-between overflow-hidden font-sans ${
                                     useYellowPaper ? 'bg-[#fef9c3]' : 'bg-white'
                                   }`}
                                   style={{
@@ -1712,20 +1713,20 @@ export default function BatchPrintHub({
                                       <span className="text-[9px] font-bold text-slate-700 uppercase">
                                         {hLabel}
                                       </span>
-                                      <span className="font-mono text-[11.5px] font-black text-slate-950">
+                                      <span className="font-sans font-black tracking-tight tabular-nums text-[12px] text-slate-950">
                                         {finHText}
                                       </span>
                                     </div>
                                     <div className="col-span-6 divide-y divide-slate-800">
                                       <div className={`px-1.5 ${hasRemark ? 'py-0.2' : 'py-0.5'} flex items-center justify-between`}>
                                         <span className="text-[7.5px] font-bold text-slate-600 uppercase">TOP</span>
-                                        <span className="font-mono text-[10.5px] font-black text-slate-950">
+                                        <span className="font-sans font-black tracking-tight tabular-nums text-[10.5px] text-slate-950">
                                           {widths.topText}
                                         </span>
                                       </div>
                                       <div className={`px-1.5 ${hasRemark ? 'py-0.2' : 'py-0.5'} flex items-center justify-between`}>
                                         <span className="text-[7.5px] font-bold text-slate-600 uppercase">BOTTOM</span>
-                                        <span className="font-mono text-[10.5px] font-black text-slate-950">
+                                        <span className="font-sans font-black tracking-tight tabular-nums text-[10.5px] text-slate-950">
                                           {widths.btmText}
                                         </span>
                                       </div>
@@ -1817,7 +1818,8 @@ export default function BatchPrintHub({
                                 return (
                                   <div
                                     key={idx}
-                                    className="sticker-card-12l border-[1.2px] border-slate-900 font-sans bg-white rounded-[5px] flex flex-col justify-between overflow-hidden"
+                                    data-sticker="true"
+                                    className="sticker-card-12l clean-unslashed-zero border-[1.2px] border-slate-900 font-sans bg-white rounded-[5px] flex flex-col justify-between overflow-hidden"
                                     style={{
                                       width: cardWidthMm,
                                       height: cardHeightMm,
@@ -1898,11 +1900,11 @@ export default function BatchPrintHub({
                                         </div>
                                         <div className="px-1.5 py-[2px] flex-1 flex flex-col justify-between leading-[1.15]">
                                           <div className="text-[8.2px] font-black text-slate-950">
-                                            HEIGHT: <span className="font-mono">-{formatCompactCm(finHNum, 1)}</span>
+                                            HEIGHT: <span className="font-sans font-black tabular-nums">-{formatCompactCm(finHNum, 1)}</span>
                                           </div>
                                           <div className="text-[7.5px] font-black text-slate-950 truncate">
                                             WIDTH:{' '}
-                                            <span className="font-mono">
+                                            <span className="font-sans font-black tabular-nums">
                                               T:-{formatCompactCm(widths.topW, 1)} B:-{formatCompactCm(widths.btmW, 1)}
                                             </span>
                                           </div>

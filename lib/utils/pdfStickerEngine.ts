@@ -84,6 +84,7 @@ export function sanitizePdfText(input: unknown): string {
     .replace(/[\u2713\u2714]/g, 'OK')
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u00D8\u00F8\u2205\u29B5\u2300]/g, '0') // Enforce normal open oval '0' (no slashed/diameter zeros)
     .replace(/[^\x20-\x7E]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

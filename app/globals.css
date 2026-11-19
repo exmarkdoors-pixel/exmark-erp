@@ -230,6 +230,28 @@ body {
   .shadow-lg {
     box-shadow: none !important;
   }
+
+  /* Ensure clean, open, unslashed zero ('0' without diagonal line or center dot) on all sticker prints */
+  .clean-unslashed-zero,
+  .clean-unslashed-zero *,
+  [data-sticker="true"],
+  [data-sticker="true"] * {
+    font-family: Arial, Helvetica, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-variant-numeric: normal !important;
+    font-feature-settings: "zero" 0 !important;
+  }
+}
+
+/* =============================================================
+ * STANDARD OPEN UNSLASHED ZERO FOR 12L STICKERS
+ * ============================================================= */
+.clean-unslashed-zero,
+.clean-unslashed-zero *,
+[data-sticker="true"],
+[data-sticker="true"] * {
+  font-family: Arial, Helvetica, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-variant-numeric: normal !important;
+  font-feature-settings: "zero" 0 !important;
 }
 
 /* =============================================================
