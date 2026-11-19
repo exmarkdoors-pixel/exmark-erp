@@ -25,6 +25,9 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
+  Trash2,
+  Wrench,
+  Hammer,
 } from 'lucide-react';
 import {
   CompanyStockOverview,
@@ -65,6 +68,58 @@ export default function StockMaintenanceHub() {
   const [isSubmittingFg, setIsSubmittingFg] = useState<boolean>(false);
 
   const [replenishingFgId, setReplenishingFgId] = useState<string | null>(null);
+
+  // 1. Add New RM State
+  const [isAddRmModalOpen, setIsAddRmModalOpen] = useState(false);
+  const [isSubmittingNewRm, setIsSubmittingNewRm] = useState(false);
+  const [newRmDraft, setNewRmDraft] = useState({
+    name: '',
+    category: 'Chemicals' as RawMaterialCategory,
+    itemCode: '',
+    unit: 'KG',
+    currentStock: '0',
+    minSafetyBuffer: '50',
+    targetStock: '150',
+    unitCost: '180',
+    warehouseLocation: 'Chemical Bay 1',
+  });
+
+  // 2. Full Edit RM State
+  const [fullEditRmItem, setFullEditRmItem] = useState<RawMaterialStockItem | null>(null);
+  const [isSubmittingEditRm, setIsSubmittingEditRm] = useState(false);
+  const [editRmDraft, setEditRmDraft] = useState({
+    name: '',
+    category: 'Chemicals' as RawMaterialCategory,
+    unit: 'KG',
+    currentStock: '0',
+    minSafetyBuffer: '50',
+    targetStock: '150',
+    unitCost: '180',
+    warehouseLocation: 'Chemical Bay 1',
+  });
+
+  // 3. Delete RM State
+  const [deletingRmItem, setDeletingRmItem] = useState<RawMaterialStockItem | null>(null);
+  const [isSubmittingDeleteRm, setIsSubmittingDeleteRm] = useState(false);
+
+  // 4. Manual Minus RM State
+  const [manualMinusRmItem, setManualMinusRmItem] = useState<RawMaterialStockItem | null>(null);
+  const [manualMinusQty, setManualMinusQty] = useState('');
+  const [manualMinusReason, setManualMinusReason] = useState('Floor Issue');
+  const [manualMinusDept, setManualMinusDept] = useState('Molding Gang');
+  const [isSubmittingMinusRm, setIsSubmittingMinusRm] = useState(false);
+
+  // 5. Issue Rework Material State
+  const [isReworkModalOpen, setIsReworkModalOpen] = useState(false);
+  const [reworkJobCard, setReworkJobCard] = useState('');
+  const [reworkOrderId, setReworkOrderId] = useState('');
+  const [reworkCustomerName, setReworkCustomerName] = useState('');
+  const [reworkReasonInput, setReworkReasonInput] = useState('Surface Defect Correction');
+  const [reworkMaterialName, setReworkMaterialName] = useState('UV-Stabilized PU Gelcoat (White / Clear)');
+  const [reworkMaterialQty, setReworkMaterialQty] = useState('2');
+  const [reworkMaterialUnit, setReworkMaterialUnit] = useState('KG');
+  const [reworkMaterialRate, setReworkMaterialRate] = useState('320');
+  const [isSubmittingRework, setIsSubmittingRework] = useState(false);
 
   // Target Settings Modal / Draft
   const [targetDraft, setTargetDraft] = useState<string>('2500000');
@@ -232,6 +287,206 @@ export default function StockMaintenanceHub() {
       setNotice({ type: 'error', text: 'Network error creating replenishment order.' });
     } finally {
       setReplenishingFgId(null);
+    }
+  };
+
+  // Handle Add New Raw Material
+  const handleCreateRawMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRmDraft.name.trim()) {
+      setNotice({ type: 'error', text: 'Please enter raw material name.' });
+      return;
+    }
+    setIsSubmittingNewRm(true);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/stock-maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'CREATE_RM',
+          name: newRmDraft.name.trim(),
+          category: newRmDraft.category,
+          itemCode: newRmDraft.itemCode.trim() || undefined,
+          unit: newRmDraft.unit.trim() || 'KG',
+          currentStock: Number(newRmDraft.currentStock) || 0,
+          minSafetyBuffer: Number(newRmDraft.minSafetyBuffer) || 10,
+          targetStock: Number(newRmDraft.targetStock) || 20,
+          unitCost: Number(newRmDraft.unitCost) || 0,
+          warehouseLocation: newRmDraft.warehouseLocation.trim() || 'Main Store Rack',
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotice({ type: 'success', text: json.message || 'Added new raw material!' });
+        setIsAddRmModalOpen(false);
+        loadStockData();
+      } else {
+        setNotice({ type: 'error', text: json.error || 'Failed to add raw material' });
+      }
+    } catch {
+      setNotice({ type: 'error', text: 'Network error saving new raw material.' });
+    } finally {
+      setIsSubmittingNewRm(false);
+    }
+  };
+
+  // Handle Full Edit Raw Material
+  const handleUpdateRawMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullEditRmItem) return;
+    if (!editRmDraft.name.trim()) {
+      setNotice({ type: 'error', text: 'Raw material name cannot be empty.' });
+      return;
+    }
+    setIsSubmittingEditRm(true);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/stock-maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'UPDATE_RM',
+          id: fullEditRmItem.id,
+          name: editRmDraft.name.trim(),
+          category: editRmDraft.category,
+          unit: editRmDraft.unit.trim() || 'KG',
+          currentStock: Number(editRmDraft.currentStock) || 0,
+          minSafetyBuffer: Number(editRmDraft.minSafetyBuffer) || 10,
+          targetStock: Number(editRmDraft.targetStock) || 20,
+          unitCost: Number(editRmDraft.unitCost) || 0,
+          warehouseLocation: editRmDraft.warehouseLocation.trim() || 'Main Store Rack',
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotice({ type: 'success', text: json.message || 'Updated raw material.' });
+        setFullEditRmItem(null);
+        loadStockData();
+      } else {
+        setNotice({ type: 'error', text: json.error || 'Failed to update raw material' });
+      }
+    } catch {
+      setNotice({ type: 'error', text: 'Network error updating raw material.' });
+    } finally {
+      setIsSubmittingEditRm(false);
+    }
+  };
+
+  // Handle Delete Raw Material
+  const handleDeleteRawMaterial = async () => {
+    if (!deletingRmItem) return;
+    setIsSubmittingDeleteRm(true);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/stock-maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'DELETE_RM',
+          id: deletingRmItem.id,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotice({ type: 'success', text: json.message || `Deleted ${deletingRmItem.name}` });
+        setDeletingRmItem(null);
+        loadStockData();
+      } else {
+        setNotice({ type: 'error', text: json.error || 'Failed to delete item' });
+      }
+    } catch {
+      setNotice({ type: 'error', text: 'Network error deleting item.' });
+    } finally {
+      setIsSubmittingDeleteRm(false);
+    }
+  };
+
+  // Handle Manual Stock Out (- Minus)
+  const handleManualStockOut = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualMinusRmItem) return;
+    const qty = Number(manualMinusQty);
+    if (!qty || qty <= 0) {
+      setNotice({ type: 'error', text: 'Enter a valid positive quantity to deduct.' });
+      return;
+    }
+    setIsSubmittingMinusRm(true);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/stock-maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'MANUAL_STOCK_OUT',
+          id: manualMinusRmItem.id,
+          quantity: qty,
+          reason: manualMinusReason,
+          department: manualMinusDept,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotice({ type: 'success', text: json.message || 'Stock deducted successfully.' });
+        setManualMinusRmItem(null);
+        setManualMinusQty('');
+        loadStockData();
+      } else {
+        setNotice({ type: 'error', text: json.error || 'Failed to deduct stock' });
+      }
+    } catch {
+      setNotice({ type: 'error', text: 'Network error deducting stock.' });
+    } finally {
+      setIsSubmittingMinusRm(false);
+    }
+  };
+
+  // Handle Issue Rework Material
+  const handleIssueReworkMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reworkOrderId) {
+      setNotice({ type: 'error', text: 'Please enter or select a Job Card / Order ID.' });
+      return;
+    }
+    const qty = Number(reworkMaterialQty);
+    if (!qty || qty <= 0) {
+      setNotice({ type: 'error', text: 'Enter valid material quantity.' });
+      return;
+    }
+    setIsSubmittingRework(true);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/stock-maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ISSUE_REWORK_MATERIAL',
+          prodOrderId: reworkOrderId,
+          jobCardNumber: reworkJobCard,
+          customerName: reworkCustomerName,
+          reason: reworkReasonInput,
+          items: [
+            {
+              name: reworkMaterialName,
+              qty,
+              unit: reworkMaterialUnit,
+              unitCost: Number(reworkMaterialRate) || 0,
+            },
+          ],
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotice({ type: 'success', text: json.message || 'Issued rework material and updated ledger.' });
+        setIsReworkModalOpen(false);
+        loadStockData();
+      } else {
+        setNotice({ type: 'error', text: json.error || 'Failed to issue rework material' });
+      }
+    } catch {
+      setNotice({ type: 'error', text: 'Network error issuing rework material.' });
+    } finally {
+      setIsSubmittingRework(false);
     }
   };
 
@@ -672,9 +927,33 @@ export default function StockMaintenanceHub() {
               </select>
             </div>
 
-            <span className="text-[11px] text-slate-400 font-mono font-bold shrink-0">
-              Showing {filteredRawMaterials.length} of {rawMaterials.length} Raw Material SKUs
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setNewRmDraft({
+                    name: '',
+                    category: 'Chemicals',
+                    itemCode: '',
+                    unit: 'KG',
+                    currentStock: '0',
+                    minSafetyBuffer: '50',
+                    targetStock: '150',
+                    unitCost: '180',
+                    warehouseLocation: 'Chemical Bay 1',
+                  });
+                  setIsAddRmModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition cursor-pointer"
+                title="Add new raw material to store inventory"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add New Stock (പുതിയ സ്റ്റോക്ക്)</span>
+              </button>
+              <span className="text-[11px] text-slate-400 font-mono font-bold shrink-0 hidden md:inline">
+                {filteredRawMaterials.length} of {rawMaterials.length} SKUs
+              </span>
+            </div>
           </div>
 
           {/* Raw Materials Table */}
@@ -745,18 +1024,62 @@ export default function StockMaintenanceHub() {
                           </span>
                         </td>
                         <td className="p-2.5 text-right">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingRmItem(rm);
-                              setRmAdjustmentQty('');
-                              setRmAdjustmentReason('Physical Count Audit');
-                            }}
-                            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-[11px] font-bold cursor-pointer transition"
-                            title="Adjust store quantity"
-                          >
-                            Adjust
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFullEditRmItem(rm);
+                                setEditRmDraft({
+                                  name: rm.name,
+                                  category: rm.category,
+                                  unit: rm.unit,
+                                  currentStock: String(rm.currentStock),
+                                  minSafetyBuffer: String(rm.minSafetyBuffer),
+                                  targetStock: String(rm.targetStock),
+                                  unitCost: String(rm.unitCost),
+                                  warehouseLocation: rm.warehouseLocation,
+                                });
+                              }}
+                              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 rounded text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
+                              title="Edit item name, rates, buffer & location"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingRmItem(rm);
+                                setRmAdjustmentQty('');
+                                setRmAdjustmentReason('PO Inward Restock');
+                              }}
+                              className="px-2 py-1 bg-blue-600/30 hover:bg-blue-600 text-blue-200 border border-blue-500/40 rounded text-[10px] font-bold cursor-pointer transition"
+                              title="Inward / Add stock (+)"
+                            >
+                              + Inward
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setManualMinusRmItem(rm);
+                                setManualMinusQty('');
+                                setManualMinusReason('Floor Issue');
+                                setManualMinusDept('Molding Gang');
+                              }}
+                              className="px-2 py-1 bg-amber-600/30 hover:bg-amber-600 text-amber-200 border border-amber-500/40 rounded text-[10px] font-bold cursor-pointer transition"
+                              title="Manual stock deduction (-)"
+                            >
+                              - Minus
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingRmItem(rm)}
+                              className="p-1 bg-rose-950/40 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 rounded text-[10px] font-bold cursor-pointer transition"
+                              title="Delete unwanted demo item"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -848,6 +1171,103 @@ export default function StockMaintenanceHub() {
                 </div>
               );
             })}
+          </div>
+
+          {/* Rework Station & Quality Rectification */}
+          <div className="bg-[#0B132B] border border-amber-500/40 rounded-xl p-4 shadow space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+              <div>
+                <h4 className="text-sm font-black text-amber-300 flex items-center gap-2">
+                  <Wrench className="w-4 h-4 text-amber-400" />
+                  <span>🛠️ Rework Station &amp; Quality Rectification (റീവർക്ക് സ്റ്റേഷൻ)</span>
+                </h4>
+                <p className="text-[11px] text-slate-400">
+                  Tracks doors undergoing quality defect rectification, reasons, and cumulative extra rework materials consumed.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="text-[10px] text-slate-400 uppercase font-bold">Total Rework Cost</div>
+                  <div className="text-sm font-mono font-black text-rose-400">
+                    ₹{(overview?.wipSummary.reworkStation?.totalReworkCost || 0).toLocaleString('en-IN')}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const firstOrder = overview?.wipSummary.stages[0]?.orders[0];
+                    setReworkOrderId(firstOrder?.id || '');
+                    setReworkJobCard(firstOrder?.jobCardNumber || '');
+                    setReworkCustomerName(firstOrder?.customerName || '');
+                    setReworkReasonInput('Surface Defect Correction');
+                    setReworkMaterialName('UV-Stabilized PU Gelcoat (White / Clear)');
+                    setReworkMaterialQty('2');
+                    setReworkMaterialUnit('KG');
+                    setReworkMaterialRate('320');
+                    setIsReworkModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-black text-xs flex items-center gap-1.5 shadow transition cursor-pointer"
+                >
+                  <Hammer className="w-3.5 h-3.5" />
+                  <span>+ Issue Rework Material (മെറ്റീരിയൽ നൽകുക)</span>
+                </button>
+              </div>
+            </div>
+
+            {(!overview?.wipSummary.reworkStation?.items || overview.wipSummary.reworkStation.items.length === 0) ? (
+              <div className="p-4 rounded-lg bg-[#070D1E] border border-slate-800 text-center text-xs text-slate-400">
+                <span className="text-emerald-400 font-bold">✓ Zero Rework Backlog:</span> No doors currently reported under defect rectification. Floor quality is 100% on track!
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {overview.wipSummary.reworkStation.items.map((item, idx) => (
+                  <div
+                    key={`${item.orderId}-${idx}`}
+                    className="p-3 rounded-xl bg-[#070D1E] border border-amber-500/30 flex flex-col justify-between gap-2"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] font-mono">
+                        <span className="text-cyan-300 font-bold">{item.jobCardNumber}</span>
+                        {item.doorNumber && (
+                          <span className="px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-600/40 font-bold text-[10px]">
+                            Door {item.doorNumber}
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-bold text-white text-xs truncate mt-0.5">{item.customerName}</div>
+                      <div className="text-[11px] text-amber-200 mt-1 flex items-start gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                        <span>{item.reworkReason}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Defect: <strong>{item.defectType}</strong> {item.gangName ? `• Gang: ${item.gangName}` : ''}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                      <span className="text-[9.5px] text-slate-500">
+                        Reported: {item.reportedAt ? new Date(item.reportedAt).toLocaleDateString('en-IN') : 'Recent'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReworkOrderId(item.orderId);
+                          setReworkJobCard(item.jobCardNumber);
+                          setReworkCustomerName(item.customerName);
+                          setReworkReasonInput(`Rectification for ${item.reworkReason}`);
+                          setIsReworkModalOpen(true);
+                        }}
+                        className="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] cursor-pointer"
+                      >
+                        Issue Material
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1191,6 +1611,660 @@ export default function StockMaintenanceHub() {
                 {isSubmittingFg ? 'Saving...' : 'Confirm FG Adjustment'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 1: ADD NEW RAW MATERIAL ITEM ───────────────────────────── */}
+      {isAddRmModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-[#0B132B] border border-slate-700 rounded-2xl p-4 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div>
+                <h4 className="text-sm font-black text-white flex items-center gap-1.5">
+                  <Plus className="w-4 h-4 text-emerald-400" />
+                  <span>Add New Raw Material (+ പുതിയ സ്റ്റോക്ക് ചേർക്കുക)</span>
+                </h4>
+                <p className="text-[10.5px] text-slate-400">
+                  Register a new factory stock item with pricing, safety buffer and warehouse location.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddRmModalOpen(false)}
+                className="p-1 rounded text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRawMaterial} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[10.5px] text-slate-400 mb-1">
+                  Raw Material Item Name <span className="text-rose-400">*</span>:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Isophthalic Resin 200L, SS 304 Hinges, Pure White Gelcoat..."
+                  value={newRmDraft.name}
+                  onChange={(e) => setNewRmDraft({ ...newRmDraft, name: e.target.value })}
+                  className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-bold text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Category:</label>
+                  <select
+                    value={newRmDraft.category}
+                    onChange={(e) =>
+                      setNewRmDraft({ ...newRmDraft, category: e.target.value as RawMaterialCategory })
+                    }
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-bold text-xs cursor-pointer"
+                  >
+                    <option value="Chemicals">🧪 Chemicals &amp; Resins</option>
+                    <option value="Fiberglass">🧵 Fiberglass &amp; Reinforcements</option>
+                    <option value="Pigments">🎨 Pigments &amp; Pastes</option>
+                    <option value="Core & Structural">🪵 Core &amp; Structural</option>
+                    <option value="Hardware">🔐 Hardware &amp; Locks</option>
+                    <option value="Consumables">🧰 Shop Consumables</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">
+                    Custom Item Code (Optional):
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Auto-generated if blank (e.g. RAW-CHM-101)"
+                    value={newRmDraft.itemCode}
+                    onChange={(e) => setNewRmDraft({ ...newRmDraft, itemCode: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono text-xs uppercase"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Unit:</label>
+                  <select
+                    value={newRmDraft.unit}
+                    onChange={(e) => setNewRmDraft({ ...newRmDraft, unit: e.target.value })}
+                    className="w-full px-2 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-bold text-xs"
+                  >
+                    <option value="KG">KG</option>
+                    <option value="Ltrs">Ltrs</option>
+                    <option value="Sets">Sets</option>
+                    <option value="Pairs">Pairs</option>
+                    <option value="Rolls">Rolls</option>
+                    <option value="Sheets">Sheets</option>
+                    <option value="Mtrs">Mtrs</option>
+                    <option value="Rft">Rft</option>
+                    <option value="Pcs">Pcs</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Opening Stock:</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min={0}
+                    value={newRmDraft.currentStock}
+                    onChange={(e) => setNewRmDraft({ ...newRmDraft, currentStock: e.target.value })}
+                    className="w-full px-2 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono font-bold text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Unit Rate (₹):</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min={0}
+                    value={newRmDraft.unitCost}
+                    onChange={(e) => setNewRmDraft({ ...newRmDraft, unitCost: e.target.value })}
+                    className="w-full px-2 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono font-bold text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">
+                    Min Safety Buffer ({newRmDraft.unit}):
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={newRmDraft.minSafetyBuffer}
+                    onChange={(e) => setNewRmDraft({ ...newRmDraft, minSafetyBuffer: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">
+                    Target Buffer ({newRmDraft.unit}):
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={newRmDraft.targetStock}
+                    onChange={(e) => setNewRmDraft({ ...newRmDraft, targetStock: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10.5px] text-slate-400 mb-1">
+                  Warehouse Location / Bay:
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Chemical Bay 1, Fiber Bay 2, Tinting Shed..."
+                  value={newRmDraft.warehouseLocation}
+                  onChange={(e) => setNewRmDraft({ ...newRmDraft, warehouseLocation: e.target.value })}
+                  className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white text-xs"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddRmModalOpen(false)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingNewRm}
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black shadow disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isSubmittingNewRm ? 'Adding...' : 'Save Stock Item'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 2: FULL EDIT RAW MATERIAL ─────────────────────────────── */}
+      {fullEditRmItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-[#0B132B] border border-slate-700 rounded-2xl p-4 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div>
+                <h4 className="text-sm font-black text-white flex items-center gap-1.5">
+                  <Edit2 className="w-4 h-4 text-blue-400" />
+                  <span>Edit Raw Material (വിവരങ്ങൾ / പേര് മാറ്റുക)</span>
+                </h4>
+                <p className="text-[10.5px] text-slate-400 font-mono">
+                  {fullEditRmItem.itemCode}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFullEditRmItem(null)}
+                className="p-1 rounded text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateRawMaterial} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[10.5px] text-slate-400 mb-1">
+                  Raw Material Item Name <span className="text-rose-400">*</span>:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editRmDraft.name}
+                  onChange={(e) => setEditRmDraft({ ...editRmDraft, name: e.target.value })}
+                  className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-bold text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Category:</label>
+                  <select
+                    value={editRmDraft.category}
+                    onChange={(e) =>
+                      setEditRmDraft({ ...editRmDraft, category: e.target.value as RawMaterialCategory })
+                    }
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-bold text-xs cursor-pointer"
+                  >
+                    <option value="Chemicals">🧪 Chemicals &amp; Resins</option>
+                    <option value="Fiberglass">🧵 Fiberglass &amp; Reinforcements</option>
+                    <option value="Pigments">🎨 Pigments &amp; Pastes</option>
+                    <option value="Core & Structural">🪵 Core &amp; Structural</option>
+                    <option value="Hardware">🔐 Hardware &amp; Locks</option>
+                    <option value="Consumables">🧰 Shop Consumables</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Unit:</label>
+                  <select
+                    value={editRmDraft.unit}
+                    onChange={(e) => setEditRmDraft({ ...editRmDraft, unit: e.target.value })}
+                    className="w-full px-2 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-bold text-xs"
+                  >
+                    <option value="KG">KG</option>
+                    <option value="Ltrs">Ltrs</option>
+                    <option value="Sets">Sets</option>
+                    <option value="Pairs">Pairs</option>
+                    <option value="Rolls">Rolls</option>
+                    <option value="Sheets">Sheets</option>
+                    <option value="Mtrs">Mtrs</option>
+                    <option value="Rft">Rft</option>
+                    <option value="Pcs">Pcs</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">
+                    Current Physical Stock ({editRmDraft.unit}):
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min={0}
+                    value={editRmDraft.currentStock}
+                    onChange={(e) => setEditRmDraft({ ...editRmDraft, currentStock: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono font-bold text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Unit Rate (₹):</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min={0}
+                    value={editRmDraft.unitCost}
+                    onChange={(e) => setEditRmDraft({ ...editRmDraft, unitCost: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono font-bold text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">
+                    Safety Buffer ({editRmDraft.unit}):
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editRmDraft.minSafetyBuffer}
+                    onChange={(e) => setEditRmDraft({ ...editRmDraft, minSafetyBuffer: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">
+                    Target Stock ({editRmDraft.unit}):
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editRmDraft.targetStock}
+                    onChange={(e) => setEditRmDraft({ ...editRmDraft, targetStock: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10.5px] text-slate-400 mb-1">
+                  Warehouse Location / Bay:
+                </label>
+                <input
+                  type="text"
+                  value={editRmDraft.warehouseLocation}
+                  onChange={(e) => setEditRmDraft({ ...editRmDraft, warehouseLocation: e.target.value })}
+                  className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white text-xs"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFullEditRmItem(null)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEditRm}
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-black shadow disabled:opacity-50"
+                >
+                  {isSubmittingEditRm ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 3: DELETE RAW MATERIAL (DEMO ITEM CLEANUP) ────────────── */}
+      {deletingRmItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-[#0B132B] border border-rose-500/50 rounded-2xl p-4 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <h4 className="text-sm font-black text-rose-400 flex items-center gap-1.5">
+                <Trash2 className="w-4 h-4 text-rose-400" />
+                <span>Delete Stock Item (ഡിലീറ്റ് ചെയ്യുക)</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => setDeletingRmItem(null)}
+                className="p-1 rounded text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-500/30 space-y-2 text-xs">
+              <p className="text-slate-200">
+                Are you sure you want to remove <strong>{deletingRmItem.name}</strong> (
+                <span className="font-mono text-rose-300">{deletingRmItem.itemCode}</span>) from the store inventory?
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Current store balance: <strong>{deletingRmItem.currentStock} {deletingRmItem.unit}</strong>. Once deleted, this item will not be restored or re-seeded automatically.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex justify-end gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setDeletingRmItem(null)}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingDeleteRm}
+                onClick={handleDeleteRawMaterial}
+                className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black shadow disabled:opacity-50"
+              >
+                {isSubmittingDeleteRm ? 'Deleting...' : 'Yes, Delete Item'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 4: MANUAL STOCK-OUT (- MINUS) ─────────────────────────── */}
+      {manualMinusRmItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-[#0B132B] border border-amber-500/50 rounded-2xl p-4 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div>
+                <h4 className="text-sm font-black text-amber-300 flex items-center gap-1.5">
+                  <Minus className="w-4 h-4 text-amber-400" />
+                  <span>Manual Stock-Out / Issue (- കുറയ്ക്കുക)</span>
+                </h4>
+                <p className="text-[10.5px] text-slate-400 font-mono">
+                  {manualMinusRmItem.itemCode} — {manualMinusRmItem.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManualMinusRmItem(null)}
+                className="p-1 rounded text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleManualStockOut} className="space-y-3 text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center font-mono">
+                <span className="text-slate-400 font-sans">Current Store Balance:</span>
+                <span className="font-bold text-white text-sm">
+                  {manualMinusRmItem.currentStock} {manualMinusRmItem.unit}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-[10.5px] text-slate-400 mb-1">
+                  Quantity to Deduct in {manualMinusRmItem.unit} <span className="text-rose-400">*</span>:
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min={0.01}
+                  max={manualMinusRmItem.currentStock || undefined}
+                  required
+                  placeholder={`e.g. 10 ${manualMinusRmItem.unit}`}
+                  value={manualMinusQty}
+                  onChange={(e) => setManualMinusQty(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#070D1E] border border-slate-700 rounded-xl text-white font-mono font-bold text-sm focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Department / Gang:</label>
+                  <select
+                    value={manualMinusDept}
+                    onChange={(e) => setManualMinusDept(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-bold text-xs"
+                  >
+                    <option value="Molding Gang">Molding Gang</option>
+                    <option value="Cutting Bay">Cutting Bay</option>
+                    <option value="Paint Section">Paint Section</option>
+                    <option value="Packing Team">Packing Team</option>
+                    <option value="Store Audit">Store Audit</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Deduction Reason:</label>
+                  <select
+                    value={manualMinusReason}
+                    onChange={(e) => setManualMinusReason(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-bold text-xs"
+                  >
+                    <option value="Floor Issue">Direct Floor Issue</option>
+                    <option value="Scrap / Wastage">Scrap / Wastage</option>
+                    <option value="Damaged Material">Damaged Material</option>
+                    <option value="QC Rejection">QC Rejection</option>
+                    <option value="Trial Layup">Trial Layup / Testing</option>
+                    <option value="Physical Audit Correction">Audit Correction</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setManualMinusRmItem(null)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingMinusRm}
+                  className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-black shadow disabled:opacity-50"
+                >
+                  {isSubmittingMinusRm ? 'Deducting...' : 'Confirm Deduction (-)'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 5: ISSUE REWORK MATERIAL ──────────────────────────────── */}
+      {isReworkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-[#0B132B] border border-amber-500/60 rounded-2xl p-4 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div>
+                <h4 className="text-sm font-black text-amber-300 flex items-center gap-1.5">
+                  <Hammer className="w-4 h-4 text-amber-400" />
+                  <span>Issue Rework Material (റീവർക്ക് മെറ്റീരിയൽ നൽകുക)</span>
+                </h4>
+                <p className="text-[10.5px] text-slate-400">
+                  Issues extra chemicals/hardware for defect correction and logs direct rework cost to the order profit ledger.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReworkModalOpen(false)}
+                className="p-1 rounded text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleIssueReworkMaterial} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Job Card Number:</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. EXM-2026-001"
+                    value={reworkJobCard}
+                    onChange={(e) => {
+                      setReworkJobCard(e.target.value);
+                      if (!reworkOrderId) setReworkOrderId(e.target.value);
+                    }}
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono font-bold text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] text-slate-400 mb-1">Customer / Party Name:</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sreejith Builders"
+                    value={reworkCustomerName}
+                    onChange={(e) => setReworkCustomerName(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10.5px] text-slate-400 mb-1">
+                  Defect / Rework Reason <span className="text-rose-400">*</span>:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Pinholes on outer face, Hinge rebate edge repair, Extra Gelcoat spray..."
+                  value={reworkReasonInput}
+                  onChange={(e) => setReworkReasonInput(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5">
+                <div className="font-bold text-white text-xs flex justify-between">
+                  <span>Material to Issue from Store:</span>
+                  <span className="font-mono text-amber-300">
+                    Est. Cost: ₹{Math.round((Number(reworkMaterialQty) || 0) * (Number(reworkMaterialRate) || 0)).toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-400 mb-1">Select Raw Material:</label>
+                  <select
+                    value={reworkMaterialName}
+                    onChange={(e) => {
+                      const selected = rawMaterials.find((rm) => rm.name === e.target.value);
+                      setReworkMaterialName(e.target.value);
+                      if (selected) {
+                        setReworkMaterialUnit(selected.unit);
+                        setReworkMaterialRate(String(selected.unitCost));
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-bold text-xs cursor-pointer"
+                  >
+                    {rawMaterials.map((rm) => (
+                      <option key={rm.id} value={rm.name}>
+                        {rm.name} ({rm.currentStock} {rm.unit} in store @ ₹{rm.unitCost}/{rm.unit})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-1">Qty to Issue:</label>
+                    <input
+                      type="number"
+                      step="any"
+                      min={0.1}
+                      required
+                      value={reworkMaterialQty}
+                      onChange={(e) => setReworkMaterialQty(e.target.value)}
+                      className="w-full px-2 py-1 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono font-bold text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-1">Unit:</label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={reworkMaterialUnit}
+                      className="w-full px-2 py-1 bg-[#070D1E] border border-slate-700 rounded-lg text-slate-300 font-mono text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-1">Rate (₹):</label>
+                    <input
+                      type="number"
+                      step="any"
+                      min={0}
+                      value={reworkMaterialRate}
+                      onChange={(e) => setReworkMaterialRate(e.target.value)}
+                      className="w-full px-2 py-1 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-mono text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-2 rounded-lg bg-amber-950/30 border border-amber-500/20 text-[10.5px] text-amber-200">
+                <strong>Accounting Note:</strong> This material will be immediately deducted from the store ledger and posted to Job Card <strong className="font-mono text-white">{reworkJobCard || reworkOrderId}</strong> as direct rework expense (<code className="text-rose-300">reworkCost</code>).
+              </div>
+
+              <div className="pt-2 border-t border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsReworkModalOpen(false)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingRework}
+                  className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-black shadow disabled:opacity-50"
+                >
+                  {isSubmittingRework ? 'Issuing...' : 'Confirm Rework Issue'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

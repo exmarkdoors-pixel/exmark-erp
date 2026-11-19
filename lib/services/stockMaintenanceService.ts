@@ -99,6 +99,63 @@ export interface ReorderRecommendation {
   urgency: 'HIGH' | 'MEDIUM';
 }
 
+export interface CreateRawMaterialInput {
+  itemCode?: string;
+  name: string;
+  category: RawMaterialCategory;
+  currentStock: number;
+  unit: string;
+  minSafetyBuffer?: number;
+  targetStock?: number;
+  reorderLevel?: number;
+  unitCost: number;
+  warehouseLocation?: string;
+}
+
+export interface UpdateRawMaterialInput {
+  name?: string;
+  category?: RawMaterialCategory;
+  unit?: string;
+  minSafetyBuffer?: number;
+  targetStock?: number;
+  unitCost?: number;
+  warehouseLocation?: string;
+  currentStock?: number;
+}
+
+export interface ReworkStationItem {
+  orderId: string;
+  jobCardNumber: string;
+  customerName: string;
+  doorNumber?: string;
+  doorId?: string;
+  reworkReason?: string;
+  defectType?: string;
+  reportedAt?: string;
+  gangName?: string;
+}
+
+export interface ReworkStationSummary {
+  reworkDoorsCount: number;
+  reworkOrdersCount: number;
+  totalReworkCost: number;
+  items: ReworkStationItem[];
+}
+
+export interface IssueReworkMaterialInput {
+  prodOrderId: string;
+  jobCardNumber?: string;
+  customerName?: string;
+  reason: string;
+  issuedBy?: string;
+  items: Array<{
+    name: string;
+    qty: number;
+    unit?: string;
+    unitCost?: number;
+  }>;
+}
+
 export interface CompanyStockOverview {
   consistentTargetValuation: number;
   totalInventoryValuation: number;
@@ -115,6 +172,7 @@ export interface CompanyStockOverview {
     activeOrdersCount: number;
     totalDoorsInPipeline: number;
     stages: WipStageStockItem[];
+    reworkStation?: ReworkStationSummary;
   };
   finishedGoodsSummary: {
     totalValue: number;
@@ -622,26 +680,15 @@ export function getRawMaterialsInventory(): RawMaterialStockItem[] {
     return DEFAULT_RAW_MATERIALS;
   }
 
-  let mutated = false;
-  const defMap = new Map(DEFAULT_RAW_MATERIALS.map((d) => [(d.itemCode || d.id).toUpperCase(), d]));
-
-  // Seamlessly merge any missing standard factory items from DEFAULT_RAW_MATERIALS
-  const existingCodes = new Set(current.map((i) => (i.itemCode || i.id).toUpperCase()));
-  for (const defItem of DEFAULT_RAW_MATERIALS) {
-    if (!existingCodes.has(defItem.itemCode.toUpperCase()) && !existingCodes.has(defItem.id.toUpperCase())) {
-      current.push({ ...defItem });
-      existingCodes.add(defItem.itemCode.toUpperCase());
-      mutated = true;
-    }
-  }
-
   // Ensure items have proper status based on currentStock & minSafetyBuffer
+  // Note: We do NOT re-merge DEFAULT_RAW_MATERIALS so that user-deleted demo items stay deleted,
+  // and user-edited names/rates are permanently preserved!
+  let mutated = false;
   const normalized = current.map((item) => {
-    const def = defMap.get((item.itemCode || item.id).toUpperCase());
-    const minBuffer = Number(item.minSafetyBuffer) || Number(def?.minSafetyBuffer) || Number(item.reorderLevel) || 10;
-    const stock = Number(item.currentStock) || 0;
-    const target = Number(item.targetStock) || Number(def?.targetStock) || minBuffer * 2;
-    const unitCost = Number(item.unitCost) || Number(def?.unitCost) || 100;
+    const minBuffer = Number(item.minSafetyBuffer) || Number(item.reorderLevel) || 10;
+    const stock = Math.max(0, Number(item.currentStock) || 0);
+    const target = Number(item.targetStock) || minBuffer * 2;
+    const unitCost = Number(item.unitCost) || 100;
     let nextStatus: 'IN_STOCK' | 'LOW_STOCK' | 'CRITICAL' = 'IN_STOCK';
     if (stock <= 0) {
       nextStatus = 'CRITICAL';
@@ -670,6 +717,161 @@ export function getRawMaterialsInventory(): RawMaterialStockItem[] {
     writeJsonFile(getInventoryPath(), normalized);
   }
   return normalized;
+}
+
+export async function createRawMaterialItem(
+  input: CreateRawMaterialInput
+): Promise<RawMaterialStockItem> {
+  await assertWriteAllowed('create raw material item');
+  const items = getRawMaterialsInventory();
+
+  const name = String(input.name || '').trim();
+  if (!name) throw new Error('Raw material name is required.');
+
+  // Generate item code if not provided
+  let code = String(input.itemCode || '').trim().toUpperCase();
+  if (!code) {
+    const catPrefixMap: Record<RawMaterialCategory, string> = {
+      Chemicals: 'CHM',
+      Fiberglass: 'FBR',
+      Pigments: 'PIG',
+      'Core & Structural': 'STR',
+      Hardware: 'HRD',
+      Consumables: 'CSM',
+    };
+    const prefix = catPrefixMap[input.category] || 'RAW';
+    const rand = Math.floor(100 + Math.random() * 900);
+    code = `RAW-${prefix}-${rand}`;
+  }
+
+  // Ensure unique code
+  if (items.some((i) => (i.itemCode || '').toUpperCase() === code)) {
+    code = `${code}-${Math.floor(10 + Math.random() * 90)}`;
+  }
+
+  const stock = Math.max(0, Number(input.currentStock) || 0);
+  const minBuffer = Math.max(0, Number(input.minSafetyBuffer) || Number(input.reorderLevel) || 10);
+  const target = Math.max(minBuffer, Number(input.targetStock) || minBuffer * 2);
+  const unitCost = Math.max(0, Number(input.unitCost) || 0);
+
+  let status: 'IN_STOCK' | 'LOW_STOCK' | 'CRITICAL' = 'IN_STOCK';
+  if (stock <= 0) status = 'CRITICAL';
+  else if (stock <= minBuffer) status = 'LOW_STOCK';
+
+  const newItem: RawMaterialStockItem = {
+    id: `inv-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    itemCode: code,
+    name,
+    category: input.category || 'Consumables',
+    currentStock: stock,
+    unit: String(input.unit || 'KG').trim(),
+    minSafetyBuffer: minBuffer,
+    targetStock: target,
+    reorderLevel: minBuffer,
+    unitCost,
+    warehouseLocation: String(input.warehouseLocation || 'Main Store Rack').trim(),
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+
+  items.unshift(newItem);
+  writeJsonFile(getInventoryPath(), items);
+  return newItem;
+}
+
+export async function updateRawMaterialItem(
+  id: string,
+  updates: UpdateRawMaterialInput
+): Promise<RawMaterialStockItem> {
+  await assertWriteAllowed('update raw material item');
+  const items = getRawMaterialsInventory();
+  const idx = items.findIndex((i) => i.id === id || i.itemCode === id);
+  if (idx === -1) throw new Error(`Raw material item "${id}" not found.`);
+
+  const current = items[idx];
+  const name = updates.name !== undefined ? String(updates.name).trim() : current.name;
+  if (!name) throw new Error('Raw material name cannot be empty.');
+
+  const category = updates.category !== undefined ? updates.category : current.category;
+  const unit = updates.unit !== undefined ? String(updates.unit).trim() : current.unit;
+  const warehouseLocation =
+    updates.warehouseLocation !== undefined
+      ? String(updates.warehouseLocation).trim()
+      : current.warehouseLocation;
+
+  const currentStock =
+    updates.currentStock !== undefined
+      ? Math.max(0, Number(updates.currentStock) || 0)
+      : current.currentStock;
+
+  const minSafetyBuffer =
+    updates.minSafetyBuffer !== undefined
+      ? Math.max(0, Number(updates.minSafetyBuffer) || 0)
+      : current.minSafetyBuffer;
+
+  const targetStock =
+    updates.targetStock !== undefined
+      ? Math.max(minSafetyBuffer, Number(updates.targetStock) || minSafetyBuffer * 2)
+      : current.targetStock;
+
+  const unitCost =
+    updates.unitCost !== undefined
+      ? Math.max(0, Number(updates.unitCost) || 0)
+      : current.unitCost;
+
+  let status: 'IN_STOCK' | 'LOW_STOCK' | 'CRITICAL' = 'IN_STOCK';
+  if (currentStock <= 0) status = 'CRITICAL';
+  else if (currentStock <= minSafetyBuffer) status = 'LOW_STOCK';
+
+  const updated: RawMaterialStockItem = {
+    ...current,
+    name,
+    category,
+    unit,
+    warehouseLocation,
+    currentStock,
+    minSafetyBuffer,
+    targetStock,
+    unitCost,
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+
+  items[idx] = updated;
+  writeJsonFile(getInventoryPath(), items);
+  return updated;
+}
+
+export async function deleteRawMaterialItem(
+  id: string
+): Promise<{ success: boolean; id: string; itemCode: string; name: string }> {
+  await assertWriteAllowed('delete raw material item');
+  const items = getRawMaterialsInventory();
+  const idx = items.findIndex((i) => i.id === id || i.itemCode === id);
+  if (idx === -1) throw new Error(`Raw material item "${id}" not found.`);
+
+  const [removed] = items.splice(idx, 1);
+  writeJsonFile(getInventoryPath(), items);
+  return {
+    success: true,
+    id: removed.id,
+    itemCode: removed.itemCode,
+    name: removed.name,
+  };
+}
+
+export async function manualStockOut(
+  itemId: string,
+  qty: number,
+  reason: string = 'Manual Floor Issue',
+  department?: string
+): Promise<RawMaterialStockItem> {
+  const deductQty = Math.max(0, Number(qty) || 0);
+  if (deductQty <= 0) {
+    throw new Error('Valid positive quantity is required for stock deduction.');
+  }
+  const fullReason = department ? `[${department}] ${reason}` : reason;
+  return adjustRawMaterialStock(itemId, -deductQty, fullReason);
 }
 
 export async function adjustRawMaterialStock(
@@ -815,6 +1017,7 @@ export function getWipStageStockSummary(): {
   stages: WipStageStockItem[];
   totalWipDoors: number;
   totalWipValuation: number;
+  reworkStation: ReworkStationSummary;
 } {
   const prodOrders = readJsonFile<ProductionOrder[]>(getProductionStorePath(), []);
   const activeOrders = prodOrders.filter((o) => o.status !== 'COMPLETED' && o.status !== 'DELIVERY');
@@ -906,8 +1109,68 @@ export function getWipStageStockSummary(): {
     });
   }
 
+  // Rework Station Tracking
+  const reworkItems: ReworkStationItem[] = [];
+  const reworkOrderIds = new Set<string>();
+
+  for (const order of prodOrders) {
+    const doors = Array.isArray(order.doors) ? order.doors : [];
+    for (const d of doors) {
+      if (d.qcInspection?.decision === 'REWORK_REQUIRED' || d.qcStatus === 'REJECTED' || (d as any).qcStatus === 'REWORK') {
+        reworkItems.push({
+          orderId: order.id,
+          jobCardNumber: order.jobCardNumber,
+          customerName: order.customerName,
+          doorNumber: d.doorNumber,
+          doorId: d.id,
+          reworkReason: d.qcInspection?.reworkNotes || d.moldingNotes || 'Quality Correction Required',
+          defectType: d.qcInspection?.defectType || 'Surface / Dimension Rectification',
+          reportedAt: d.qcInspection?.inspectedAt || order.updatedAt,
+          gangName: d.moldedByGangName || 'Floor Gang',
+        });
+        reworkOrderIds.add(order.id);
+      }
+    }
+
+    if (order.stageHistory && Array.isArray(order.stageHistory)) {
+      const reworkStage = order.stageHistory.find((sh) => sh.isRework);
+      if (reworkStage && !reworkOrderIds.has(order.id) && order.status !== 'COMPLETED') {
+        reworkItems.push({
+          orderId: order.id,
+          jobCardNumber: order.jobCardNumber,
+          customerName: order.customerName,
+          reworkReason: reworkStage.reworkReason || 'Stage Rework in Progress',
+          defectType: 'Stage Defect Rectification',
+          reportedAt: reworkStage.completedAt,
+          gangName: reworkStage.gangName || 'Floor Team',
+        });
+        reworkOrderIds.add(order.id);
+      }
+    }
+  }
+
+  let totalReworkCost = 0;
+  try {
+    const expensesPath = getDataFilePath('order-direct-expenses.json');
+    if (fs.existsSync(expensesPath)) {
+      const exp = JSON.parse(fs.readFileSync(expensesPath, 'utf8'));
+      if (Array.isArray(exp)) {
+        totalReworkCost = exp
+          .filter((e: any) => e.category === 'REWORK')
+          .reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+      }
+    }
+  } catch {}
+
+  const reworkStation: ReworkStationSummary = {
+    reworkDoorsCount: reworkItems.length,
+    reworkOrdersCount: reworkOrderIds.size,
+    totalReworkCost: Math.round(totalReworkCost),
+    items: reworkItems,
+  };
+
   const resultStages = STAGE_KEYS.map((k) => stageBuckets[k]);
-  return { stages: resultStages, totalWipDoors, totalWipValuation };
+  return { stages: resultStages, totalWipDoors, totalWipValuation, reworkStation };
 }
 
 // ── Finished Goods Buffer Stock Registry ─────────────────────────────────────
@@ -1092,6 +1355,7 @@ export function getCompanyStockOverview(): CompanyStockOverview {
       activeOrdersCount: wipSummary.stages.reduce((s, st) => s + st.orderCount, 0),
       totalDoorsInPipeline: wipSummary.totalWipDoors,
       stages: wipSummary.stages,
+      reworkStation: wipSummary.reworkStation,
     },
     finishedGoodsSummary: {
       totalValue: fgTotalValue,
@@ -1101,6 +1365,72 @@ export function getCompanyStockOverview(): CompanyStockOverview {
       deficitCount: fgDeficitCount,
     },
     reorderRecommendations: recommendations,
+  };
+}
+
+// ── Rework Material Issue & Profit Ledger Accounting ─────────────────────────
+
+export async function issueReworkMaterial(
+  input: IssueReworkMaterialInput
+): Promise<{
+  success: boolean;
+  voucherNumber: string;
+  totalCost: number;
+  deductedCount: number;
+}> {
+  await assertWriteAllowed('issue rework material');
+  const rmInventory = getRawMaterialsInventory();
+  let totalCost = 0;
+  const deductionItems: DeductibleBoqMaterialInput[] = [];
+
+  for (const it of input.items) {
+    const qty = Math.max(0, Number(it.qty) || 0);
+    if (qty <= 0) continue;
+    const lower = (it.name || '').toLowerCase().trim();
+    const match = rmInventory.find(
+      (rm) => rm.name.toLowerCase() === lower || rm.itemCode.toLowerCase() === lower
+    );
+    const unitPrice = it.unitCost ?? match?.unitCost ?? 100;
+    const lineCost = Math.round(qty * unitPrice);
+    totalCost += lineCost;
+    deductionItems.push({
+      name: it.name,
+      issuedQty: qty,
+      unit: it.unit || match?.unit || 'KG',
+    });
+  }
+
+  const voucherNumber = `RWK-MAT-${Date.now().toString().slice(-6)}`;
+
+  // 1. Deduct from live raw materials store
+  const { deductedCount } = await deductBoqMaterialsFromInventory(
+    deductionItems,
+    voucherNumber,
+    input.prodOrderId
+  );
+
+  // 2. Link to order direct expenses as REWORK cost
+  try {
+    const { addOrderExpense } = await import('./orderProfitService');
+    const desc = `Rework Material Issue: ${input.reason || 'Defect Rectification'} (${input.items.map((i) => `${i.qty} ${i.unit || 'units'} ${i.name}`).join(', ')})`;
+    await addOrderExpense({
+      orderId: input.prodOrderId,
+      jobCardNumber: input.jobCardNumber,
+      category: 'REWORK',
+      amount: totalCost,
+      description: desc,
+      vendorOrParty: 'In-House RM Store',
+      createdBy: input.issuedBy || 'Storekeeper',
+    });
+  } catch (err) {
+    console.warn('[stockMaintenanceService] Failed to record order direct expense:', err);
+  }
+
+  return {
+    success: true,
+    voucherNumber,
+    totalCost,
+    deductedCount,
   };
 }
 
