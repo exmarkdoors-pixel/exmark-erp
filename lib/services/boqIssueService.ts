@@ -149,6 +149,16 @@ export interface ConsolidatedBoqBatchSummary {
   bufferPercent: number;
   notes?: string;
   items: BoqIssueVoucherItem[];
+  teamBreakdowns?: Array<{
+    gangName: string;
+    doorsCount: number;
+    totalSqFt: number;
+    resinKg: number;
+    gelKg: number;
+    catalystGrams: number;
+    csmKg: number;
+    totalValue: number;
+  }>;
   partyBreakdowns: Array<{
     voucherId: string;
     voucherNumber: string;
@@ -1183,4 +1193,193 @@ export function computeServerFormulaBoqItems(
   }
 
   return items;
+}
+
+export interface DailyEveningBoqSummary {
+  date: string;
+  totalDoorsIssued: number;
+  totalVouchersCount: number;
+  totalPartiesCount: number;
+  totalMaterialValue: number;
+  dayTotals: {
+    resinKg: number;
+    gelKg: number;
+    catalystGrams: number;
+    acceleratorGrams: number;
+    csm300Kg: number;
+    wovenRovingKg: number;
+    calciumPowderKg: number;
+    woodCuFt: number;
+    woodReepersCount: number;
+    foamSheets: number;
+    lockKitsCount: number;
+    otherHardwareValue: number;
+  };
+  partyWise: Array<{
+    customerName: string;
+    jobCardNumber: string;
+    orderNumber: string;
+    doorsIssued: number;
+    totalValue: number;
+    resinKg: number;
+    gelKg: number;
+    csmKg: number;
+    woodCuFt: number;
+  }>;
+  batchWise: Array<{
+    voucherNumber: string;
+    batchNumber?: string;
+    shift: string;
+    gangName: string;
+    doorsIssued: number;
+    totalValue: number;
+    resinKg: number;
+    gelKg: number;
+    csmKg: number;
+  }>;
+}
+
+export function getDailyEveningBoqSummary(targetDate?: string): DailyEveningBoqSummary {
+  const dateStr = (targetDate || new Date().toISOString().slice(0, 10)).trim();
+  const allVouchers = listBoqIssueVouchers();
+  const dayVouchers = allVouchers.filter((v) => (v.issueDate || v.issuedAt?.slice(0, 10)) === dateStr);
+
+  const dayTotals = {
+    resinKg: 0,
+    gelKg: 0,
+    catalystGrams: 0,
+    acceleratorGrams: 0,
+    csm300Kg: 0,
+    wovenRovingKg: 0,
+    calciumPowderKg: 0,
+    woodCuFt: 0,
+    woodReepersCount: 0,
+    foamSheets: 0,
+    lockKitsCount: 0,
+    otherHardwareValue: 0,
+  };
+
+  const partyMap = new Map<
+    string,
+    {
+      customerName: string;
+      jobCardNumber: string;
+      orderNumber: string;
+      doorsIssued: number;
+      totalValue: number;
+      resinKg: number;
+      gelKg: number;
+      csmKg: number;
+      woodCuFt: number;
+    }
+  >();
+
+  const batchList: DailyEveningBoqSummary['batchWise'] = [];
+  let totalDoorsIssued = 0;
+  let totalMaterialValue = 0;
+
+  for (const v of dayVouchers) {
+    const vDoors = Number(v.doorsCount || v.doorNumbers?.length || 1);
+    totalDoorsIssued += vDoors;
+    totalMaterialValue += Number(v.totalIssuedValue || 0);
+
+    let vResin = 0;
+    let vGel = 0;
+    let vCsm = 0;
+    let vWood = 0;
+
+    for (const item of v.items || []) {
+      const k = (item.key || '').toLowerCase();
+      const name = (item.name || '').toLowerCase();
+      const qty = Number(item.issuedQty || item.formulaQty || 0);
+      const val = Number(item.value || 0);
+
+      if (k.includes('resin') || name.includes('resin') || name.includes('isophthalic') || name.includes('general purpose')) {
+        dayTotals.resinKg += qty;
+        vResin += qty;
+      } else if (k.includes('gel') || name.includes('gelcoat') || name.includes('gel coat')) {
+        dayTotals.gelKg += qty;
+        vGel += qty;
+      } else if (k.includes('catalyst') || name.includes('catalyst') || name.includes('mekp')) {
+        dayTotals.catalystGrams += (item.unit?.toLowerCase().includes('kg') ? qty * 1000 : qty);
+      } else if (k.includes('accelerator') || name.includes('accelerator') || name.includes('cobalt')) {
+        dayTotals.acceleratorGrams += (item.unit?.toLowerCase().includes('kg') ? qty * 1000 : qty);
+      } else if (k.includes('csm') || name.includes('csm') || name.includes('chopped strand')) {
+        dayTotals.csm300Kg += qty;
+        vCsm += qty;
+      } else if (k.includes('woven') || name.includes('woven roving')) {
+        dayTotals.wovenRovingKg += qty;
+      } else if (k.includes('calcium') || name.includes('calcium') || name.includes('powder')) {
+        dayTotals.calciumPowderKg += qty;
+      } else if (k.includes('timber') || k.includes('wood') || name.includes('timber') || name.includes('wood')) {
+        dayTotals.woodCuFt += qty;
+        vWood += qty;
+      } else if (k.includes('reeper') || name.includes('reeper') || name.includes('stile')) {
+        dayTotals.woodReepersCount += qty;
+      } else if (k.includes('foam') || name.includes('foam')) {
+        dayTotals.foamSheets += qty;
+      } else if (k.includes('lock') || name.includes('lock kit')) {
+        dayTotals.lockKitsCount += qty;
+      } else {
+        dayTotals.otherHardwareValue += val;
+      }
+    }
+
+    // Party Aggregation
+    const partyKey = (v.jobCardNumber || v.prodOrderId || v.customerName || 'UNKNOWN').trim();
+    if (!partyMap.has(partyKey)) {
+      partyMap.set(partyKey, {
+        customerName: v.customerName || 'Party Client',
+        jobCardNumber: v.jobCardNumber || 'JC-N/A',
+        orderNumber: v.orderNumber || v.prodOrderId || '',
+        doorsIssued: 0,
+        totalValue: 0,
+        resinKg: 0,
+        gelKg: 0,
+        csmKg: 0,
+        woodCuFt: 0,
+      });
+    }
+    const pEntry = partyMap.get(partyKey)!;
+    pEntry.doorsIssued += vDoors;
+    pEntry.totalValue += Number(v.totalIssuedValue || 0);
+    pEntry.resinKg += Number(vResin.toFixed(1));
+    pEntry.gelKg += Number(vGel.toFixed(1));
+    pEntry.csmKg += Number(vCsm.toFixed(1));
+    pEntry.woodCuFt += Number(vWood.toFixed(3));
+
+    // Batch List
+    batchList.push({
+      voucherNumber: v.voucherNumber,
+      batchNumber: v.consolidatedBatchNumber,
+      shift: v.shift,
+      gangName: v.gangName || 'Floor Gang',
+      doorsIssued: vDoors,
+      totalValue: Number(v.totalIssuedValue || 0),
+      resinKg: Number(vResin.toFixed(1)),
+      gelKg: Number(vGel.toFixed(1)),
+      csmKg: Number(vCsm.toFixed(1)),
+    });
+  }
+
+  // Round Day Totals
+  dayTotals.resinKg = Number(dayTotals.resinKg.toFixed(1));
+  dayTotals.gelKg = Number(dayTotals.gelKg.toFixed(1));
+  dayTotals.catalystGrams = Math.round(dayTotals.catalystGrams);
+  dayTotals.acceleratorGrams = Math.round(dayTotals.acceleratorGrams);
+  dayTotals.csm300Kg = Number(dayTotals.csm300Kg.toFixed(1));
+  dayTotals.wovenRovingKg = Number(dayTotals.wovenRovingKg.toFixed(1));
+  dayTotals.calciumPowderKg = Number(dayTotals.calciumPowderKg.toFixed(1));
+  dayTotals.woodCuFt = Number(dayTotals.woodCuFt.toFixed(3));
+
+  return {
+    date: dateStr,
+    totalDoorsIssued,
+    totalVouchersCount: dayVouchers.length,
+    totalPartiesCount: partyMap.size,
+    totalMaterialValue: Math.round(totalMaterialValue),
+    dayTotals,
+    partyWise: Array.from(partyMap.values()),
+    batchWise: batchList,
+  };
 }

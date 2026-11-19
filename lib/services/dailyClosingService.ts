@@ -608,19 +608,33 @@ export function getTodaySystemSuggestions(): {
   };
 }
 
+import { getDailyEveningBoqSummary } from './boqIssueService';
+
 /**
  * Formats a clean, high-impact WhatsApp executive report text for factory partners.
  */
 export function formatWhatsAppExecutiveReport(
   entry: DailyClosingEntry,
   mtd: MtdBreakEvenStatus,
-  health: BusinessHealthScorecard
+  health: BusinessHealthScorecard,
+  boqSummary?: import('./boqIssueService').DailyEveningBoqSummary | null
 ): string {
   const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
   const boqIndicator =
     entry.boqVariancePerDoor <= 0
       ? `✅ Under BOQ budget by ${fmt(Math.abs(entry.boqVariancePerDoor))}/door`
       : `⚠️ Over BOQ budget by +${fmt(entry.boqVariancePerDoor)}/door`;
+
+  const boqBlock = boqSummary && boqSummary.totalDoorsIssued > 0
+    ? [
+        `───────────────────────────────`,
+        `🧪 *Today's BOQ Material Consumption* (${boqSummary.totalDoorsIssued} Doors):`,
+        `   • Resin: ${boqSummary.dayTotals.resinKg} Kg | Gelcoat: ${boqSummary.dayTotals.gelKg} Kg`,
+        `   • Catalyst: ${boqSummary.dayTotals.catalystGrams}g | CSM 300: ${boqSummary.dayTotals.csm300Kg} Kg`,
+        `   • Reepers: ${boqSummary.dayTotals.woodReepersCount} Pcs | Lock Kits: ${boqSummary.dayTotals.lockKitsCount}`,
+        `   • Total Floor Material Value: ${fmt(boqSummary.totalMaterialValue)}`,
+      ]
+    : [];
 
   return [
     `🏭 *EXMARK DOORS — DAILY EVENING CLOSING*`,
@@ -634,6 +648,7 @@ export function formatWhatsAppExecutiveReport(
     `📦 *Raw Material Purchases*: ${fmt(entry.totalPurchases)}`,
     `⚙️ *Operating Expenses*: ${fmt(entry.totalExpenses)}`,
     `🏭 *Factory Output*: ${entry.doorsProduced} Doors Finished`,
+    ...boqBlock,
     `───────────────────────────────`,
     `📈 *Gross Profit*: ${fmt(entry.dailyGrossProfit)} (*${entry.dailyGrossMarginPct}%*)`,
     `🏆 *Net Operating Profit*: ${fmt(entry.dailyNetProfit)} (*${entry.dailyNetMarginPct}%*)`,
@@ -659,6 +674,10 @@ export function getDailyClosingOverview(targetDate?: string): DailyClosingOvervi
   const healthScorecard = computeHealthScorecard(store.entries, store.settings);
   const forecasting = computeForecasting(store.entries, store.settings);
   const suggestedTodayData = getTodaySystemSuggestions();
+  let todayBoqConsumption: DailyClosingOverviewResponse['todayBoqConsumption'] = undefined;
+  try {
+    todayBoqConsumption = getDailyEveningBoqSummary(dateStr);
+  } catch {}
 
   return {
     todayEntry,
@@ -667,5 +686,6 @@ export function getDailyClosingOverview(targetDate?: string): DailyClosingOvervi
     healthScorecard,
     forecasting,
     suggestedTodayData,
+    todayBoqConsumption,
   };
 }

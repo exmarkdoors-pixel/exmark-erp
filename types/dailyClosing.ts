@@ -148,4 +148,47 @@ export interface DailyClosingOverviewResponse {
     doorsCompletedToday: number;
     purchaseOrdersLogged: number;
   };
+  todayBoqConsumption?: {
+    date: string;
+    totalDoorsIssued: number;
+    totalVouchersCount: number;
+    totalPartiesCount: number;
+    totalMaterialValue: number;
+    dayTotals: {
+      resinKg: number;
+      gelKg: number;
+      catalystGrams: number;
+      acceleratorGrams: number;
+      csm300Kg: number;
+      wovenRovingKg: number;
+      calciumPowderKg: number;
+      woodCuFt: number;
+      woodReepersCount: number;
+      foamSheets: number;
+      lockKitsCount: number;
+      otherHardwareValue: number;
+    };
+    partyWise: Array<{
+      customerName: string;
+      jobCardNumber: string;
+      orderNumber: string;
+      doorsIssued: number;
+      totalValue: number;
+      resinKg: number;
+      gelKg: number;
+      csmKg: number;
+      woodCuFt: number;
+    }>;
+    batchWise: Array<{
+      voucherNumber: string;
+      batchNumber?: string;
+      shift: string;
+      gangName: string;
+      doorsIssued: number;
+      totalValue: number;
+      resinKg: number;
+      gelKg: number;
+      csmKg: number;
+    }>;
+  };
 }

@@ -241,6 +241,10 @@ export interface BoqDoorInput {
   handing?: 'LH' | 'RH';
   quantity?: number;
   stage?: string;
+  moldedByGangId?: string;
+  moldedByGangName?: string;
+  doorMolderName?: string;
+  frameMolderName?: string;
   materialIssued?: boolean;
   materialIssuedAt?: string;
   materialIssueBatchId?: string;
@@ -973,5 +977,63 @@ export function calculateDoorBatchBoq(
     combinedCostPerDoor: totalDoors > 0 ? combinedWithLockTotalCost / totalDoors : 0,
     costPerSqFt: totalSqFt > 0 ? grandTotalCost / totalSqFt : 0,
     perDoorLines,
+  };
+}
+
+export interface TeamBoqBreakdown {
+  gangId: string;
+  gangName: string;
+  doorsCount: number;
+  totalSqFt: number;
+  doors: BoqDoorInput[];
+  boq: BatchBoqCalculation;
+}
+
+export interface MultiTeamBoqSummary {
+  grandTotalBoq: BatchBoqCalculation;
+  totalDoors: number;
+  totalSqFt: number;
+  teams: TeamBoqBreakdown[];
+}
+
+export function calculateMultiTeamBoqBreakdown(
+  doors: BoqDoorInput[],
+  framesList: CustomFrameProfile[] = DEFAULT_FRAME_PROFILES,
+  ratesInput?: Partial<BoqMaterialRatesConfig> | null
+): MultiTeamBoqSummary {
+  const grandTotalBoq = calculateDoorBatchBoq(doors, framesList, ratesInput);
+  const teamMap = new Map<string, { gangId: string; gangName: string; doors: BoqDoorInput[] }>();
+
+  for (const door of doors) {
+    const rawGang =
+      door.moldedByGangName?.trim() ||
+      door.materialIssuedToGang?.trim() ||
+      'Floor Gang / Unassigned';
+    const gangId = door.moldedByGangId?.trim() || 'GANG-DEFAULT';
+    const key = rawGang.toLowerCase();
+
+    if (!teamMap.has(key)) {
+      teamMap.set(key, { gangId, gangName: rawGang, doors: [] });
+    }
+    teamMap.get(key)!.doors.push(door);
+  }
+
+  const teams: TeamBoqBreakdown[] = Array.from(teamMap.values()).map((t) => {
+    const teamBoq = calculateDoorBatchBoq(t.doors, framesList, ratesInput);
+    return {
+      gangId: t.gangId,
+      gangName: t.gangName,
+      doorsCount: t.doors.length,
+      totalSqFt: teamBoq.totalSqFt,
+      doors: t.doors,
+      boq: teamBoq,
+    };
+  });
+
+  return {
+    grandTotalBoq,
+    totalDoors: grandTotalBoq.totalDoors,
+    totalSqFt: grandTotalBoq.totalSqFt,
+    teams,
   };
 }

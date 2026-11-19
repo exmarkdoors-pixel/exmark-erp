@@ -127,6 +127,9 @@ export async function PUT(
         targetStage: body.targetStage,
         gangId: body.gangId,
         gangName: body.gangName,
+        doorMolderName: body.doorMolderName,
+        frameMolderName: body.frameMolderName,
+        moldingShift: body.moldingShift,
         operation: body.operation,
         notes: body.notes,
       });
@@ -188,8 +191,11 @@ export async function PUT(
       const { stampDoorsMoldingGang } = await import('@/lib/services/productionService');
       const assignments = (body.doorAssignments || []).map((a: any) => ({
         doorId: a.doorId,
-        gangId: a.gangId,
-        gangName: a.gangName,
+        gangId: a.gangId || body.gangId,
+        gangName: a.gangName || body.gangName,
+        doorMolderName: a.doorMolderName || body.doorMolderName,
+        frameMolderName: a.frameMolderName || body.frameMolderName,
+        moldingShift: a.moldingShift || body.moldingShift,
         moldingNotes: a.moldingNotes,
       }));
       const updated = await stampDoorsMoldingGang(id, assignments);
@@ -213,6 +219,8 @@ export async function PUT(
                 doorModel: doorObj.model,
                 operation: body.operation || 'MOLDING_ONLY_DOOR',
                 quantity: 1,
+                workerName: a.doorMolderName,
+                frameWorkerName: a.frameMolderName,
                 notes: `Molding Shift Heat Batch (${doorObj.doorNumber})`,
                 maxOrderDoorCount: updated.doors.length,
               });
@@ -227,6 +235,23 @@ export async function PUT(
         data: updated,
         creditedCount,
         message: `Assigned ${assignments.length} doors to molding gang (${creditedCount} piece-rate credited).`,
+      });
+    }
+
+    if (body.action === 'UPDATE_DOOR_ARTISANS') {
+      const { updateDoorArtisans } = await import('@/lib/services/productionService');
+      const updated = await updateDoorArtisans(id, body.doorId, {
+        doorMolderName: body.doorMolderName,
+        frameMolderName: body.frameMolderName,
+        moldingShift: body.moldingShift,
+        gangId: body.gangId,
+        gangName: body.gangName,
+        moldingNotes: body.moldingNotes,
+      });
+      return NextResponse.json({
+        success: true,
+        data: updated,
+        message: 'Door artisans updated successfully.',
       });
     }
 

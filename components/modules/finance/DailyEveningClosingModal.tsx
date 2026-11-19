@@ -22,6 +22,7 @@ import type {
   DailyClosingEntry,
   DailyClosingOverviewResponse,
 } from '@/types/dailyClosing';
+import { DailyEveningBoqReportModal } from '@/components/modules/engineering/DailyEveningBoqReportModal';
 
 interface DailyEveningClosingModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export default function DailyEveningClosingModal({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isEveningBoqModalOpen, setIsEveningBoqModalOpen] = useState(false);
   const [showAdvancedBreakdowns, setShowAdvancedBreakdowns] = useState(false);
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -378,6 +380,31 @@ export default function DailyEveningClosingModal({
                   placeholder="0"
                   className="w-full mt-1 px-3 py-2 bg-slate-950 border border-blue-800/50 rounded-lg text-base font-bold text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {overviewData?.todayBoqConsumption && overviewData.todayBoqConsumption.totalMaterialValue > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const boqCons = overviewData.todayBoqConsumption!;
+                      const boqVal = boqCons.totalMaterialValue;
+                      setTotalPurchases(boqVal);
+                      const resinCost = Math.round(boqCons.dayTotals.resinKg * 220 + boqCons.dayTotals.gelKg * 340);
+                      setGluePurchases(resinCost);
+                      const timberCost = Math.round(boqCons.dayTotals.woodCuFt * 1400);
+                      setTimberPurchases(timberCost);
+                      setBoardsPurchases(Math.max(0, boqVal - resinCost - timberCost));
+                    }}
+                    className="w-full mt-1.5 py-1 px-2 rounded bg-blue-900/60 hover:bg-blue-800 text-[10px] text-cyan-200 border border-blue-700/60 font-semibold flex items-center justify-between transition cursor-pointer"
+                    title="Auto-fill purchase costs from Store's actual BOQ material issues today"
+                  >
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-cyan-300" />
+                      <span>Use Store BOQ Value Today</span>
+                    </span>
+                    <span className="font-mono font-bold text-white">
+                      ₹{overviewData.todayBoqConsumption.totalMaterialValue.toLocaleString('en-IN')}
+                    </span>
+                  </button>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <div>
@@ -473,6 +500,76 @@ export default function DailyEveningClosingModal({
               </div>
             </div>
           </div>
+
+          {/* TODAY'S STORE BOQ MATERIAL CONSUMPTION SECTION */}
+          {overviewData?.todayBoqConsumption && overviewData.todayBoqConsumption.totalVouchersCount > 0 && (
+            <div className="p-4 rounded-xl bg-[#0B132B] border border-cyan-800/60 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-cyan-950/80 border border-cyan-600/40 text-cyan-300">
+                    <Package className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>Today&apos;s Store BOQ Material Consumption (ഇന്ന് ഫാക്ടറിയിൽ ഉപയോഗിച്ച മെറ്റീരിയലുകൾ)</span>
+                    </h4>
+                    <p className="text-[10.5px] text-slate-400">
+                      {overviewData.todayBoqConsumption.totalVouchersCount} Store Issue Voucher(s) • {overviewData.todayBoqConsumption.totalDoorsIssued} Door(s) • Total Value ₹{overviewData.todayBoqConsumption.totalMaterialValue.toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsEveningBoqModalOpen(true)}
+                  className="px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-bold shadow-sm flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <span>Full BOQ Report</span>
+                  <span className="text-[10px] opacity-80">(Day / Party / Batch)</span>
+                </button>
+              </div>
+
+              {/* Day Key Material Quantities Pill Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs font-mono">
+                <div className="p-2 rounded bg-slate-900/90 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-sans">Resin</span>
+                  <strong className="text-emerald-400 font-black text-xs">
+                    {overviewData.todayBoqConsumption.dayTotals.resinKg.toFixed(1)} Kg
+                  </strong>
+                </div>
+                <div className="p-2 rounded bg-slate-900/90 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-sans">Gelcoat</span>
+                  <strong className="text-cyan-400 font-black text-xs">
+                    {overviewData.todayBoqConsumption.dayTotals.gelKg.toFixed(1)} Kg
+                  </strong>
+                </div>
+                <div className="p-2 rounded bg-slate-900/90 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-sans">Catalyst</span>
+                  <strong className="text-amber-400 font-bold text-xs">
+                    {overviewData.todayBoqConsumption.dayTotals.catalystGrams.toFixed(0)} g
+                  </strong>
+                </div>
+                <div className="p-2 rounded bg-slate-900/90 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-sans">CSM 300</span>
+                  <strong className="text-slate-200 font-bold text-xs">
+                    {overviewData.todayBoqConsumption.dayTotals.csm300Kg.toFixed(1)} Kg
+                  </strong>
+                </div>
+                <div className="p-2 rounded bg-slate-900/90 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-sans">Wood</span>
+                  <strong className="text-amber-300 font-bold text-xs">
+                    {overviewData.todayBoqConsumption.dayTotals.woodCuFt.toFixed(2)} Cu.Ft
+                  </strong>
+                </div>
+                <div className="p-2 rounded bg-slate-900/90 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-sans">Lock Kits</span>
+                  <strong className="text-rose-300 font-bold text-xs">
+                    {overviewData.todayBoqConsumption.dayTotals.lockKitsCount} Kits
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Live Preview Intelligence Bar */}
           <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3">
@@ -586,6 +683,11 @@ export default function DailyEveningClosingModal({
           </div>
         </form>
       </div>
+      <DailyEveningBoqReportModal
+        isOpen={isEveningBoqModalOpen}
+        onClose={() => setIsEveningBoqModalOpen(false)}
+        initialDate={entryDate}
+      />
     </div>
   );
 }

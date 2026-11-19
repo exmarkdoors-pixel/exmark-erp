@@ -41,6 +41,14 @@ export type FloorGangScope =
   | 'PACKING_TEAM'
   | 'SITE_FITTING';
 
+export interface ContractorGangMember {
+  id: string;
+  name: string;
+  defaultRole?: 'DOOR_MOLDER' | 'FRAME_MOLDER' | 'ALL_ROUNDER';
+  phone?: string;
+  active?: boolean;
+}
+
 export interface Contractor {
   id: string; // CTR-001
   name: string;
@@ -50,6 +58,7 @@ export interface Contractor {
   isInHouseGang?: boolean;
   gangLeader?: string;
   memberNames?: string[];
+  teamMembers?: ContractorGangMember[];
   primaryStage?: string;
   teamScope?: FloorGangScope;
   upiId?: string;
@@ -99,6 +108,8 @@ export interface ContractorJobWorkRecord {
   date: string;
   timestamp: number;
   notes?: string;
+  workerName?: string; // Door molder / specific artisan
+  frameWorkerName?: string; // Frame molder
 }
 
 export type PaymentDisbursementMode = 'UPI' | 'BANK_NEFT' | 'CASH' | 'CHEQUE';
@@ -691,6 +702,8 @@ export function recordPieceRateCredit(input: {
   quantity?: number;
   customRate?: number;
   notes?: string;
+  workerName?: string;
+  frameWorkerName?: string;
   maxOrderDoorCount?: number;
 }): ContractorJobWorkRecord {
   const store = readStore();
@@ -727,6 +740,8 @@ export function recordPieceRateCredit(input: {
     date: new Date().toISOString().split('T')[0],
     timestamp: Date.now(),
     notes: input.notes,
+    workerName: input.workerName,
+    frameWorkerName: input.frameWorkerName,
   };
 
   store.workRecords.unshift(record);
@@ -753,6 +768,8 @@ export function recordPieceRateCreditIfUnpaid(input: {
   quantity?: number;
   customRate?: number;
   notes?: string;
+  workerName?: string;
+  frameWorkerName?: string;
   maxOrderDoorCount?: number;
 }): {
   created: boolean;

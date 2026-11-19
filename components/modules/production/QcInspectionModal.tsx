@@ -156,6 +156,24 @@ export function QcInspectionModal({
           </div>
         </div>
 
+        {/* Artisan Attribution Strip for Defect & Quality Accountability */}
+        <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/30 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-[10.5px] font-bold text-amber-400 uppercase">🔨 Molding Gang:</span>
+            <span className="font-bold text-white font-mono">{door.moldedByGangName || 'Floor Gang'}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <span className="text-[10.5px] font-bold text-emerald-400 uppercase">🚪 Door Molder:</span>
+              <span className="font-mono text-emerald-300 font-bold">{door.doorMolderName || 'N/A'}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10.5px] font-bold text-sky-400 uppercase">🖼️ Frame Molder:</span>
+              <span className="font-mono text-sky-300 font-bold">{door.frameMolderName || 'N/A'}</span>
+            </div>
+          </div>
+        </div>
+
         {/* Inspector Name */}
         <div>
           <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">

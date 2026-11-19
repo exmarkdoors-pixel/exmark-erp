@@ -46,6 +46,9 @@ export function ProgressiveMoldingSplitModal({
   const [selectedDoorIds, setSelectedDoorIds] = useState<string[]>([]);
   const [gangs, setGangs] = useState<Contractor[]>([]);
   const [selectedGangId, setSelectedGangId] = useState<string>('');
+  const [doorMolder, setDoorMolder] = useState<string>('');
+  const [frameMolder, setFrameMolder] = useState<string>('');
+  const [moldingShift, setMoldingShift] = useState<'SHIFT_1' | 'SHIFT_2' | 'NIGHT_SHIFT' | 'GENERAL'>('SHIFT_1');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -77,6 +80,21 @@ export function ProgressiveMoldingSplitModal({
       })
       .catch(() => {});
   }, [isOpen]);
+
+  // Pre-fill Door Molder & Frame Molder from gang roster
+  useEffect(() => {
+    const curGang = gangs.find((g) => g.id === selectedGangId);
+    if (curGang) {
+      const members = curGang.memberNames || [];
+      if (members.length > 0) {
+        setDoorMolder(members[0]);
+        setFrameMolder(members[1] || members[0]);
+      } else {
+        setDoorMolder(curGang.gangLeader || curGang.name);
+        setFrameMolder(curGang.gangLeader || curGang.name);
+      }
+    }
+  }, [selectedGangId, gangs]);
 
   if (!isOpen || !currentOrder) return null;
 
@@ -134,12 +152,18 @@ export function ProgressiveMoldingSplitModal({
     setStatusMessage(null);
 
     try {
-      const doorAssignments = selectedDoors.map((d) => ({
-        doorId: d.id || d.doorId,
-        gangId: selectedGang.id,
-        gangName: selectedGang.name,
-        moldingNotes: `Heat Batch ${new Date().toISOString().split('T')[0]}`,
-      }));
+      const doorAssignments = selectedDoors.map((d) => {
+        const isOnlyDoor = d.frameTypeName?.toLowerCase().includes('only door') || d.frameTypeId === 'NONE';
+        return {
+          doorId: d.id || d.doorId,
+          gangId: selectedGang.id,
+          gangName: selectedGang.name,
+          doorMolderName: (doorMolder || selectedGang.name).trim(),
+          frameMolderName: isOnlyDoor ? 'N/A (Only Door)' : (frameMolder || selectedGang.name).trim(),
+          moldingShift,
+          moldingNotes: `Heat Batch ${new Date().toISOString().split('T')[0]}`,
+        };
+      });
 
       const res = await fetch(`/api/production/${currentOrder.id}`, {
         method: 'PUT',
@@ -148,6 +172,10 @@ export function ProgressiveMoldingSplitModal({
           action: 'ASSIGN_MOLDING_GANG',
           doorAssignments,
           gangId: selectedGang.id,
+          gangName: selectedGang.name,
+          doorMolderName: (doorMolder || selectedGang.name).trim(),
+          frameMolderName: (frameMolder || selectedGang.name).trim(),
+          moldingShift,
           operation: 'MOLDING_DOOR_WITH_FRAME',
         }),
       });
@@ -394,7 +422,11 @@ export function ProgressiveMoldingSplitModal({
                       {isAlreadyMolded ? (
                         <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-600 text-emerald-300 text-[10px] font-bold flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          <span>Molded ({door.moldedByGangName || 'Gang'})</span>
+                          <span>
+                            Molded ({door.moldedByGangName || 'Gang'}
+                            {door.doorMolderName ? ` • D:${door.doorMolderName}` : ''}
+                            {door.frameMolderName ? ` F:${door.frameMolderName}` : ''})
+                          </span>
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-700/60 text-amber-300 text-[10px] font-bold">
@@ -456,7 +488,7 @@ export function ProgressiveMoldingSplitModal({
 
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
-                  Select Molding Gang Contractor:
+                  Select Molding Gang Contractor (Team Head):
                 </label>
                 <select
                   value={selectedGangId}
@@ -468,6 +500,59 @@ export function ProgressiveMoldingSplitModal({
                       {g.name} — ({g.tradeLabel})
                     </option>
                   ))}
+                </select>
+              </div>
+
+              {/* Individual Artisans (Door & Frame Molders) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-800">
+                <div>
+                  <label className="text-[10px] font-bold text-amber-300 uppercase block mb-1">
+                    🚪 Door Molder (ഡോർ അടിച്ചയാൾ):
+                  </label>
+                  <input
+                    type="text"
+                    value={doorMolder}
+                    onChange={(e) => setDoorMolder(e.target.value)}
+                    placeholder={selectedGang?.name || 'e.g. ANIL'}
+                    list="gang-members-list"
+                    className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-bold text-emerald-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-sky-300 uppercase block mb-1">
+                    🖼️ Frame Molder (ഫ്രെയിം അടിച്ചയാൾ):
+                  </label>
+                  <input
+                    type="text"
+                    value={frameMolder}
+                    onChange={(e) => setFrameMolder(e.target.value)}
+                    placeholder={selectedGang?.name || 'e.g. SALMAN'}
+                    list="gang-members-list"
+                    className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-bold text-sky-300"
+                  />
+                </div>
+                <datalist id="gang-members-list">
+                  {(selectedGang?.memberNames || []).map((m) => (
+                    <option key={m} value={m} />
+                  ))}
+                  {selectedGang?.name && <option value={selectedGang.name} />}
+                </datalist>
+              </div>
+
+              {/* Shift Selector */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                  Molding Shift:
+                </label>
+                <select
+                  value={moldingShift}
+                  onChange={(e) => setMoldingShift(e.target.value as any)}
+                  className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"
+                >
+                  <option value="SHIFT_1">Shift 1 (Morning Heat)</option>
+                  <option value="SHIFT_2">Shift 2 (Afternoon Heat)</option>
+                  <option value="NIGHT_SHIFT">Night Shift Heat</option>
+                  <option value="GENERAL">General Shift</option>
                 </select>
               </div>
 

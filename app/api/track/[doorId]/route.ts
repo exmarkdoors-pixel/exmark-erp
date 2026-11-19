@@ -50,6 +50,9 @@ export async function GET(
         stickerRemovalNotes: door.stickerRemovalNotes || null,
         moldedByGangId: door.moldedByGangId || null,
         moldedByGangName: door.moldedByGangName || null,
+        doorMolderName: door.doorMolderName || null,
+        frameMolderName: door.frameMolderName || null,
+        moldingShift: door.moldingShift || null,
         moldedAt: door.moldedAt || null,
         moldingNotes: door.moldingNotes || null,
         lifecycle: [

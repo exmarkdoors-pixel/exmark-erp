@@ -923,8 +923,17 @@ export function ProductionBoardHub() {
                                       ({(door.finishedHeightMm / 10).toFixed(1)}×{(door.finishedWidthMm / 10).toFixed(1)}cm)
                                     </span>
                                     {door.moldedByGangName && (
-                                      <span className="px-1.5 py-0.2 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-[8.5px] shrink-0" title={`Molded by ${door.moldedByGangName}`}>
-                                        🔨 {door.moldedByGangName}
+                                      <span
+                                        className="px-1.5 py-0.2 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-[8.5px] shrink-0 flex items-center gap-1"
+                                        title={`Molded by ${door.moldedByGangName}${door.doorMolderName ? ` • Door: ${door.doorMolderName}` : ''}${door.frameMolderName ? ` • Frame: ${door.frameMolderName}` : ''}`}
+                                      >
+                                        <span>🔨 {door.moldedByGangName}</span>
+                                        {door.doorMolderName && (
+                                          <span className="text-emerald-400 font-normal">🚪 {door.doorMolderName}</span>
+                                        )}
+                                        {door.frameMolderName && !door.frameMolderName.includes('Only Door') && (
+                                          <span className="text-sky-400 font-normal">🖼️ {door.frameMolderName}</span>
+                                        )}
                                       </span>
                                     )}
                                   </div>

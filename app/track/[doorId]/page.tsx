@@ -49,6 +49,9 @@ interface TrackingData {
   stickerRemovalNotes?: string | null;
   moldedByGangId?: string | null;
   moldedByGangName?: string | null;
+  doorMolderName?: string | null;
+  frameMolderName?: string | null;
+  moldingShift?: string | null;
   moldedAt?: string | null;
   moldingNotes?: string | null;
   lifecycle: Array<{
@@ -350,7 +353,7 @@ export default function DoorTrackingPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                  Molded By Gang / Team
+                  Molded By Gang / Team Head
                 </span>
                 <span className="text-sm font-black text-amber-400 block">
                   {data.moldedByGangName ? `🔨 ${data.moldedByGangName}` : '⚠️ Unassigned / Prior Batch'}
@@ -363,11 +366,44 @@ export default function DoorTrackingPage() {
               )}
             </div>
 
+            {/* Individual Artisans (Door & Frame Molders) */}
+            {(data.doorMolderName || data.frameMolderName) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🚪</span>
+                  <div>
+                    <span className="text-[9.5px] uppercase font-bold text-slate-400 block">
+                      Door Slab Caster (ഡോർ അടിച്ചയാൾ)
+                    </span>
+                    <strong className="text-xs text-emerald-400 font-mono">
+                      {data.doorMolderName || 'N/A'}
+                    </strong>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🖼️</span>
+                  <div>
+                    <span className="text-[9.5px] uppercase font-bold text-slate-400 block">
+                      Frame Caster (ഫ്രെയിം അടിച്ചയാൾ)
+                    </span>
+                    <strong className="text-xs text-sky-400 font-mono">
+                      {data.frameMolderName || 'N/A'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
                 <span className="text-[10px] text-slate-400 block">Molding Timestamp</span>
                 <span className="font-mono text-slate-200">
-                  {data.moldedAt ? new Date(data.moldedAt).toLocaleString() : 'N/A'}
+                  {data.moldedAt ? new Date(data.moldedAt).toLocaleString() : 'N/A'}{' '}
+                  {data.moldingShift && (
+                    <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 font-bold ml-1">
+                      {data.moldingShift.replace('_', ' ')}
+                    </span>
+                  )}
                 </span>
               </div>
               <div>

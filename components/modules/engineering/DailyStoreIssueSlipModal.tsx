@@ -11,7 +11,12 @@ import {
   Clock,
   ShieldCheck,
 } from 'lucide-react';
-import { BatchBoqCalculation, BoqDoorInput, BoqMaterialRatesConfig } from '@/lib/utils/boqFormulaEngine';
+import {
+  BatchBoqCalculation,
+  BoqDoorInput,
+  BoqMaterialRatesConfig,
+  calculateMultiTeamBoqBreakdown,
+} from '@/lib/utils/boqFormulaEngine';
 import { apiFetch } from '@/lib/api/apiClient';
 import type {
   BoqIssueShift,
@@ -247,6 +252,28 @@ export function DailyStoreIssueSlipModal({
     : isConsolidatedMode
     ? (consolidatedEntries || []).map((p) => p.customerName.split('(')[0].trim()).join(' + ')
     : previewVoucher?.customerName || order?.customerName || '';
+
+  const teamBreakdowns = useMemo(() => {
+    if (previewConsolidatedBatch?.teamBreakdowns && previewConsolidatedBatch.teamBreakdowns.length > 0) {
+      return previewConsolidatedBatch.teamBreakdowns;
+    }
+    if (isConsolidatedMode && selectedDoors.length > 0) {
+      const breakdown = calculateMultiTeamBoqBreakdown(selectedDoors, undefined, ratesConfig);
+      if (breakdown.teams.length > 0) {
+        return breakdown.teams.map((t) => ({
+          gangName: t.gangName,
+          doorsCount: t.doorsCount,
+          totalSqFt: Number(t.totalSqFt.toFixed(2)),
+          resinKg: Number(t.boq.resinKg.toFixed(2)),
+          gelKg: Number(t.boq.gelKg.toFixed(2)),
+          catalystGrams: Number(t.boq.catalystGrams.toFixed(0)),
+          csmKg: Number(t.boq.csm300Kg.toFixed(2)),
+          totalValue: Math.round(t.boq.grandTotalCost),
+        }));
+      }
+    }
+    return [];
+  }, [previewConsolidatedBatch, isConsolidatedMode, selectedDoors, ratesConfig]);
 
   const selectedCount = previewConsolidatedBatch
     ? previewConsolidatedBatch.totalDoors
@@ -728,6 +755,68 @@ export function DailyStoreIssueSlipModal({
             )}
           </div>
 
+          {/* Multi-Team Floor Dispensing Guide on Print Slip */}
+          {teamBreakdowns.length > 1 && (
+            <div className="py-2.5 border-t border-slate-300">
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className="text-xs font-black uppercase text-slate-900 tracking-wide">
+                  Floor Dispensing Guide by Molding Team (ടീം തിരിച്ചുള്ള അളവുകൾ)
+                </h3>
+                <span className="text-[10px] text-slate-500 font-mono font-bold">
+                  Exact bucket dispensing per gang
+                </span>
+              </div>
+              <table className="w-full text-left text-xs border border-slate-300 border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700 text-[9.5px] uppercase font-black border-b border-slate-300">
+                    <th className="p-1.5 border-r border-slate-300">Molding Team / Gang</th>
+                    <th className="p-1.5 border-r border-slate-300 text-center w-16">Doors</th>
+                    <th className="p-1.5 border-r border-slate-300 text-right w-20">Sq.Ft</th>
+                    <th className="p-1.5 border-r border-slate-300 text-right w-24">Resin (Kg)</th>
+                    <th className="p-1.5 border-r border-slate-300 text-right w-20">Gel (Kg)</th>
+                    <th className="p-1.5 border-r border-slate-300 text-right w-20">Catalyst (g)</th>
+                    <th className="p-1.5 border-r border-slate-300 text-right w-20">CSM 300</th>
+                    <th className="p-1.5 border-r border-slate-300 text-right w-24">Value (₹)</th>
+                    <th className="p-1.5 text-center w-28">Receiver Sign</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 font-mono text-[10.5px]">
+                  {teamBreakdowns.map((tb, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="p-1.5 border-r border-slate-200 font-sans font-bold text-slate-900">
+                        🔨 {tb.gangName}
+                      </td>
+                      <td className="p-1.5 text-center border-r border-slate-200 font-bold">
+                        {tb.doorsCount}
+                      </td>
+                      <td className="p-1.5 text-right border-r border-slate-200">
+                        {tb.totalSqFt.toFixed(1)}
+                      </td>
+                      <td className="p-1.5 text-right border-r border-slate-200 font-black text-slate-900">
+                        {tb.resinKg.toFixed(2)} Kg
+                      </td>
+                      <td className="p-1.5 text-right border-r border-slate-200 font-bold">
+                        {tb.gelKg.toFixed(2)} Kg
+                      </td>
+                      <td className="p-1.5 text-right border-r border-slate-200 font-bold">
+                        {tb.catalystGrams} g
+                      </td>
+                      <td className="p-1.5 text-right border-r border-slate-200">
+                        {tb.csmKg.toFixed(2)} Kg
+                      </td>
+                      <td className="p-1.5 text-right border-r border-slate-200 font-bold text-emerald-900">
+                        ₹{tb.totalValue.toLocaleString('en-IN')}
+                      </td>
+                      <td className="p-1.5 text-center text-slate-400 font-sans text-[10px]">
+                        _______________
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {/* Signatures & Approvals */}
           <div className="grid grid-cols-2 gap-8 pt-8 mt-4 border-t border-slate-300 text-xs">
             <div className="border-t border-slate-900 pt-2 text-center">
@@ -737,7 +826,11 @@ export function DailyStoreIssueSlipModal({
               </span>
             </div>
             <div className="border-t border-slate-900 pt-2 text-center">
-              <strong className="block text-slate-950">{gangName}</strong>
+              <strong className="block text-slate-950">
+                {teamBreakdowns.length > 1
+                  ? teamBreakdowns.map((t) => t.gangName).join(' / ')
+                  : gangName}
+              </strong>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
                 Contractor / Gang Receiver Signature
               </span>

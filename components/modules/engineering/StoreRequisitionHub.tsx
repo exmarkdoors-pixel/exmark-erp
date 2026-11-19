@@ -21,6 +21,8 @@ import {
   ShoppingBag,
   Clock,
   BarChart3,
+  Users,
+  Package,
 } from 'lucide-react';
 import { PurchaseOrderModal } from '@/components/modules/purchases/PurchaseOrderModal';
 import type { PurchaseLineItem } from '@/app/api/purchases/route';
@@ -30,11 +32,14 @@ import {
   BoqMaterialRatesConfig,
   buildCommonBasicKitItems,
   calculateDoorBatchBoq,
+  calculateMultiTeamBoqBreakdown,
   DEFAULT_BOQ_MATERIAL_RATES,
   DEFAULT_LOCK_BOX_PROFILES,
   FrameLengthMode,
   LockBoxProfile,
   mergeBoqMaterialRates,
+  MultiTeamBoqSummary,
+  TeamBoqBreakdown,
 } from '@/lib/utils/boqFormulaEngine';
 import type { BoqExtraItem, ExtraBoqItemCategory } from '@/lib/services/boqExtraItemsService';
 import type { LockReadinessRecord, LockReadinessStatus } from '@/lib/services/boqLockReadinessService';
@@ -52,6 +57,7 @@ import {
   DailyStoreIssueSlipModal,
 } from './DailyStoreIssueSlipModal';
 import { BoqIssuedReportPanel } from './BoqIssuedReportPanel';
+import { DailyEveningBoqReportModal } from './DailyEveningBoqReportModal';
 
 interface StoreRequisitionHubProps {
   initialOrderId?: string;
@@ -235,6 +241,8 @@ export default function StoreRequisitionHub({
   const [reversingBatchNumber, setReversingBatchNumber] = useState<string | null>(null);
   const [previewConsolidatedBatch, setPreviewConsolidatedBatch] =
     useState<ConsolidatedBoqBatchSummary | null>(null);
+  const [isEveningBoqModalOpen, setIsEveningBoqModalOpen] = useState<boolean>(false);
+  const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('ALL');
 
   const getDoorKey = (d: BoqDoorInput, fallbackIdx = 0): string =>
     d.id || d.doorId || d.doorNumber || `door-${fallbackIdx}`;
@@ -286,10 +294,14 @@ export default function StoreRequisitionHub({
                 handing: d.handing || 'RH',
                 quantity: 1,
                 stage: d.stage || p.status || 'QUEUED',
+                moldedByGangId: (d as any).moldedByGangId,
+                moldedByGangName: (d as any).moldedByGangName,
+                doorMolderName: (d as any).doorMolderName,
+                frameMolderName: (d as any).frameMolderName,
                 materialIssued: Boolean(d.materialIssued),
                 materialIssuedAt: d.materialIssuedAt,
                 materialIssueBatchId: d.materialIssueBatchId,
-                materialIssuedToGang: d.materialIssuedToGang,
+                materialIssuedToGang: d.materialIssuedToGang || (d as any).moldedByGangName,
                 materialIssuedValue: d.materialIssuedValue,
               };
             });
@@ -1030,9 +1042,28 @@ export default function StoreRequisitionHub({
     return customUsageBufferPercent > 0 || Object.keys(customUsageOverrides).length > 0;
   }, [customUsageBufferPercent, customUsageOverrides]);
 
-  const boq = useMemo(() => {
-    return calculateDoorBatchBoq(activeDoors, framesCatalog, ratesConfig);
+  const multiTeamSummary = useMemo<MultiTeamBoqSummary>(() => {
+    return calculateMultiTeamBoqBreakdown(activeDoors, framesCatalog, ratesConfig);
   }, [activeDoors, framesCatalog, ratesConfig]);
+
+  const effectiveActiveDoors = useMemo<BoqDoorInput[]>(() => {
+    if (isBatchBoqMode && selectedTeamFilter !== 'ALL') {
+      const match = activeDoors.filter((d) => {
+        const gang = (
+          d.moldedByGangName?.trim() ||
+          d.materialIssuedToGang?.trim() ||
+          'Floor Gang / Unassigned'
+        );
+        return gang.toLowerCase() === selectedTeamFilter.toLowerCase();
+      });
+      return match.length > 0 ? match : activeDoors;
+    }
+    return activeDoors;
+  }, [activeDoors, isBatchBoqMode, selectedTeamFilter]);
+
+  const boq = useMemo(() => {
+    return calculateDoorBatchBoq(effectiveActiveDoors, framesCatalog, ratesConfig);
+  }, [effectiveActiveDoors, framesCatalog, ratesConfig]);
 
   const applyItemGroupPreset = (preset: 'ALL' | 'CHEMICALS' | 'WOOD_FOAM' | 'HARDWARE') => {
     const chemicalKeys = [
@@ -1678,6 +1709,16 @@ export default function StoreRequisitionHub({
             doorNumbers: e.doorNumbers,
             selectedSqFt: e.selectedSqFt,
           })),
+          teamBreakdowns: multiTeamSummary.teams.map((t) => ({
+            gangName: t.gangName,
+            doorsCount: t.doorsCount,
+            totalSqFt: Number(t.totalSqFt.toFixed(2)),
+            resinKg: Number(t.boq.resinKg.toFixed(2)),
+            gelKg: Number(t.boq.gelKg.toFixed(2)),
+            catalystGrams: Number(t.boq.catalystGrams.toFixed(0)),
+            csmKg: Number(t.boq.csm300Kg.toFixed(2)),
+            totalValue: Number(t.boq.grandTotalCost.toFixed(2)),
+          })),
           items: markedIssueItems,
           shift: issueShift,
           gangName: issueGangName.trim() || 'Production Floor Team',
@@ -1989,6 +2030,16 @@ export default function StoreRequisitionHub({
           >
             <BarChart3 className="w-3.5 h-3.5" />
             <span>BOQ Report</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsEveningBoqModalOpen(true)}
+            className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-violet-600 hover:bg-violet-500 text-white shadow-sm transition inline-flex items-center gap-1.5 cursor-pointer ring-1 ring-violet-400/50"
+            title="Daily Evening Total BOQ Material Consumption Report (Day, Party, & Batch Breakdown)"
+          >
+            <Moon className="w-3.5 h-3.5 text-violet-200" />
+            <span>🌙 Evening BOQ</span>
           </button>
 
           <button
@@ -2964,6 +3015,138 @@ export default function StoreRequisitionHub({
                 </button>
               </div>
             </div>
+
+            {/* Multi-Team Molding Allocation & Floor Dispensing Guide */}
+            {multiTeamSummary.teams.length > 0 && (
+              <div className="p-3 rounded-xl bg-[#070D1E] border border-cyan-800/60 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Molding Team Allocation:</span>
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {multiTeamSummary.teams.length} Team{multiTeamSummary.teams.length === 1 ? '' : 's'} Assigned
+                    </span>
+                  </div>
+
+                  {/* Team Filter / Selector Option Pills */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTeamFilter('ALL')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-black cursor-pointer transition flex items-center gap-1 ${
+                        selectedTeamFilter === 'ALL'
+                          ? 'bg-cyan-500 text-slate-950 shadow-md ring-2 ring-cyan-300'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                      }`}
+                    >
+                      <span>🏢 All Teams Combined</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-black/30 font-bold">
+                        {multiTeamSummary.totalDoors} Doors
+                      </span>
+                    </button>
+
+                    {multiTeamSummary.teams.map((t) => {
+                      const isSel = selectedTeamFilter.toLowerCase() === t.gangName.toLowerCase();
+                      return (
+                        <button
+                          key={t.gangName}
+                          type="button"
+                          onClick={() => setSelectedTeamFilter(t.gangName)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1 ${
+                            isSel
+                              ? 'bg-emerald-500 text-slate-950 shadow-md ring-2 ring-emerald-300 font-black'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                          }`}
+                        >
+                          <span>🔨 {t.gangName}</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-black/30 font-mono">
+                            {t.doorsCount} Doors • {t.totalSqFt.toFixed(1)} Sq.Ft
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Team-by-Team Floor Dispensing Breakdown Cards (Buckets & Trolleys) */}
+                {multiTeamSummary.teams.length > 1 && (
+                  <div className="space-y-1.5 pt-1 border-t border-slate-800">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-bold text-amber-300 flex items-center gap-1">
+                        <Package className="w-3.5 h-3.5 text-amber-400" />
+                        Floor Dispensing Guide — Pour into Each Team&apos;s Bucket / Trolley:
+                      </span>
+                      <span className="text-slate-400 font-mono text-[10px]">
+                        Exact Formula Dispensing per Gang
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+                      {multiTeamSummary.teams.map((t) => (
+                        <div
+                          key={t.gangName}
+                          className={`p-2.5 rounded-lg border transition ${
+                            selectedTeamFilter.toLowerCase() === t.gangName.toLowerCase()
+                              ? 'bg-emerald-950/40 border-emerald-500 ring-1 ring-emerald-400'
+                              : 'bg-slate-900/80 border-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/80 mb-2">
+                            <span className="font-black text-emerald-400 flex items-center gap-1">
+                              <span>🔨 Team: {t.gangName}</span>
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-cyan-300">
+                              {t.doorsCount} Doors • {t.totalSqFt.toFixed(1)} Sq.Ft
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono">
+                            <div className="bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                              <span className="text-slate-400 block text-[9.5px]">Resin (Kg)</span>
+                              <strong className="text-emerald-300 font-black text-xs">
+                                {t.boq.resinKg.toFixed(2)} Kg
+                              </strong>
+                            </div>
+                            <div className="bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                              <span className="text-slate-400 block text-[9.5px]">Gelcoat (Kg)</span>
+                              <strong className="text-cyan-300 font-black text-xs">
+                                {t.boq.gelKg.toFixed(2)} Kg
+                              </strong>
+                            </div>
+                            <div className="bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                              <span className="text-slate-400 block text-[9.5px]">Catalyst (g)</span>
+                              <strong className="text-amber-300 font-bold">
+                                {t.boq.catalystGrams.toFixed(0)} g
+                              </strong>
+                            </div>
+                            <div className="bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                              <span className="text-slate-400 block text-[9.5px]">CSM 300 (Kg)</span>
+                              <strong className="text-slate-200 font-bold">
+                                {t.boq.csm300Kg.toFixed(2)} Kg
+                              </strong>
+                            </div>
+                            <div className="bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                              <span className="text-slate-400 block text-[9.5px]">Wood (Cu.Ft)</span>
+                              <strong className="text-amber-200 font-bold">
+                                {t.boq.totalWoodCuFt.toFixed(3)}
+                              </strong>
+                            </div>
+                            <div className="bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                              <span className="text-slate-400 block text-[9.5px]">Est. Cost (₹)</span>
+                              <strong className="text-rose-300 font-black">
+                                ₹{Math.round(t.boq.grandTotalCost).toLocaleString('en-IN')}
+                              </strong>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Per-Party Partial Door Cards */}
             {visibleBatchParties.length === 0 ? (
@@ -5861,6 +6044,10 @@ export default function StoreRequisitionHub({
         onConsolidatedIssued={(result, msg) => {
           applyBatchUpdateAfterIssue(result, msg);
         }}
+      />
+      <DailyEveningBoqReportModal
+        isOpen={isEveningBoqModalOpen}
+        onClose={() => setIsEveningBoqModalOpen(false)}
       />
     </div>
   );

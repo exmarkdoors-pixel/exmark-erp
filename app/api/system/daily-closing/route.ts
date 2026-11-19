@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
       const text = formatWhatsAppExecutiveReport(
         overview.todayEntry,
         overview.mtdBreakEven,
-        overview.healthScorecard
+        overview.healthScorecard,
+        overview.todayBoqConsumption
       );
       return NextResponse.json({ success: true, text });
     }
@@ -65,7 +66,8 @@ export async function POST(req: NextRequest) {
     const whatsappText = formatWhatsAppExecutiveReport(
       saved,
       overview.mtdBreakEven,
-      overview.healthScorecard
+      overview.healthScorecard,
+      overview.todayBoqConsumption
     );
 
     return NextResponse.json({

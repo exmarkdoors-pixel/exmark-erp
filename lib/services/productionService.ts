@@ -62,6 +62,8 @@ export interface DoorStageHistoryRecord {
   enteredAt: string;
   gangId?: string;
   gangName?: string;
+  doorMolderName?: string;
+  frameMolderName?: string;
   operation?: string;
   notes?: string;
 }
@@ -107,6 +109,9 @@ export interface ProductionDoorItem {
   stickerRemovalNotes?: string | null;
   moldedByGangId?: string;
   moldedByGangName?: string;
+  doorMolderName?: string; // ഡോർ അടിച്ചയാൾ (Door Slab Caster / Operator)
+  frameMolderName?: string; // ഫ്രെയിം അടിച്ചയാൾ (Frame Caster / Operator)
+  moldingShift?: 'SHIFT_1' | 'SHIFT_2' | 'NIGHT_SHIFT' | 'GENERAL';
   moldedAt?: string;
   moldingNotes?: string;
 }
@@ -762,6 +767,9 @@ export async function stampDoorsMoldingGang(
     doorId: string;
     gangId: string;
     gangName: string;
+    doorMolderName?: string;
+    frameMolderName?: string;
+    moldingShift?: 'SHIFT_1' | 'SHIFT_2' | 'NIGHT_SHIFT' | 'GENERAL';
     moldingNotes?: string;
   }>
 ): Promise<ProductionOrder> {
@@ -782,6 +790,9 @@ export async function stampDoorsMoldingGang(
         ...door,
         moldedByGangId: match.gangId,
         moldedByGangName: match.gangName,
+        doorMolderName: match.doorMolderName ?? door.doorMolderName,
+        frameMolderName: match.frameMolderName ?? door.frameMolderName,
+        moldingShift: match.moldingShift ?? door.moldingShift,
         moldedAt: nowIso,
         moldingNotes: match.moldingNotes ?? door.moldingNotes,
       };
@@ -820,6 +831,9 @@ export async function recallDoorsFromFloor(
         ...door,
         moldedByGangId: undefined,
         moldedByGangName: undefined,
+        doorMolderName: undefined,
+        frameMolderName: undefined,
+        moldingShift: undefined,
         moldedAt: undefined,
         moldingNotes: `Recalled from floor on ${nowIso.slice(0, 10)}`,
       };
@@ -845,6 +859,9 @@ export interface UpdateDoorStagesInput {
   targetStage: ProductionStage;
   gangId?: string;
   gangName?: string;
+  doorMolderName?: string;
+  frameMolderName?: string;
+  moldingShift?: 'SHIFT_1' | 'SHIFT_2' | 'NIGHT_SHIFT' | 'GENERAL';
   operation?: string;
   notes?: string;
 }
@@ -870,6 +887,8 @@ export async function updateDoorStages(
         enteredAt: nowIso,
         gangId: input.gangId,
         gangName: input.gangName,
+        doorMolderName: input.doorMolderName ?? door.doorMolderName,
+        frameMolderName: input.frameMolderName ?? door.frameMolderName,
         operation: input.operation,
         notes: input.notes,
       });
@@ -879,11 +898,14 @@ export async function updateDoorStages(
         stage: input.targetStage,
         stageHistory: history,
         stageUpdatedAt: nowIso,
-        ...(input.targetStage === 'MOLDING' && input.gangId
+        ...(input.targetStage === 'MOLDING'
           ? {
-              moldedByGangId: input.gangId,
-              moldedByGangName: input.gangName,
-              moldedAt: nowIso,
+              moldedByGangId: input.gangId ?? door.moldedByGangId,
+              moldedByGangName: input.gangName ?? door.moldedByGangName,
+              doorMolderName: input.doorMolderName ?? door.doorMolderName,
+              frameMolderName: input.frameMolderName ?? door.frameMolderName,
+              moldingShift: input.moldingShift ?? door.moldingShift,
+              moldedAt: door.moldedAt || nowIso,
               moldingNotes: input.notes ?? door.moldingNotes,
             }
           : {}),
@@ -921,6 +943,51 @@ export async function updateDoorStages(
   all[idx] = updatedOrder;
   writeStore(all);
   return updatedOrder;
+}
+
+export async function updateDoorArtisans(
+  orderId: string,
+  doorId: string,
+  artisans: {
+    doorMolderName?: string;
+    frameMolderName?: string;
+    moldingShift?: 'SHIFT_1' | 'SHIFT_2' | 'NIGHT_SHIFT' | 'GENERAL';
+    gangId?: string;
+    gangName?: string;
+    moldingNotes?: string;
+  }
+): Promise<ProductionOrder> {
+  await assertWriteAllowed('update door artisans');
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === orderId || o.jobCardNumber === orderId || o.prodOrderNumber === orderId);
+  if (idx === -1) throw new Error(`Production order ${orderId} not found`);
+
+  const order = all[idx];
+  const nowIso = new Date().toISOString();
+  const updatedDoors = order.doors.map((d) => {
+    if (d.id === doorId || d.doorId === doorId) {
+      return {
+        ...d,
+        ...(artisans.doorMolderName !== undefined ? { doorMolderName: artisans.doorMolderName } : {}),
+        ...(artisans.frameMolderName !== undefined ? { frameMolderName: artisans.frameMolderName } : {}),
+        ...(artisans.moldingShift !== undefined ? { moldingShift: artisans.moldingShift } : {}),
+        ...(artisans.gangId !== undefined ? { moldedByGangId: artisans.gangId } : {}),
+        ...(artisans.gangName !== undefined ? { moldedByGangName: artisans.gangName } : {}),
+        ...(artisans.moldingNotes !== undefined ? { moldingNotes: artisans.moldingNotes } : {}),
+        stageUpdatedAt: nowIso,
+      };
+    }
+    return d;
+  });
+
+  const updated: ProductionOrder = {
+    ...order,
+    doors: updatedDoors,
+    updatedAt: nowIso,
+  };
+  all[idx] = updated;
+  writeStore(all);
+  return updated;
 }
 
 export interface RecordDoorMaterialIssueInput {
