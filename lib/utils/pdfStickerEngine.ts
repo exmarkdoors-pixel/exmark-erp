@@ -370,27 +370,27 @@ export async function generate12LStickerPdf(
     const x = leftMargin + col * (labelWidth + colGap) + nudgeX;
     const y = topMargin + row * (labelHeight + rowGap) + nudgeY;
 
-    // Outer rounded border (Industrial format matching factory photo)
-    doc.setDrawColor(140, 150, 165);
+    // Outer rounded border (Industrial format matching factory photo & reference PDF)
+    doc.setDrawColor(71, 85, 105);
     doc.setLineWidth(0.35);
-    doc.roundedRect(x + 0.5, y + 0.5, labelWidth - 1, labelHeight - 1, 1.8, 1.8, 'S');
+    doc.roundedRect(x + 0.5, y + 0.5, labelWidth - 1, labelHeight - 1, 2.4, 2.4, 'S');
 
     // Line 1: PartyName & Customer (matching factory reference photo)
     const maxPartyChars = safeBuffer ? 26 : 32;
     const safeCustomer = (item.customerName || 'Client').toUpperCase().slice(0, maxPartyChars);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(70, 80, 95);
     doc.text('PartyName', x + 3.0, y + 4.8);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.8);
+    doc.setFontSize(9.0);
     doc.setTextColor(15, 23, 42);
     doc.text(safeCustomer, x + 18.0, y + 4.8);
 
     // Line 2: Model/Part & Capsule Pill Door Number (matching factory reference photo)
     const modelText = (item.modelCode || item.profile || 'EXM-A-101').slice(0, 24);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.2);
+    doc.setFontSize(7.0);
     doc.setTextColor(70, 80, 95);
     doc.text('Model/Part', x + 3.0, y + 10.2);
     doc.setFont('helvetica', 'bold');
@@ -398,18 +398,18 @@ export async function generate12LStickerPdf(
     doc.setTextColor(15, 23, 42);
     doc.text(modelText, x + 18.0, y + 10.2);
 
-    // Rounded Capsule Door Number on right (matching photo)
-    const pillW = 8.5;
-    const pillH = 4.8;
+    // Rounded Stadium Capsule Door Number on right (matching reference PDF)
+    const pillW = 10.5;
+    const pillH = 4.6;
     const pillX = x + labelWidth - pillW - 3.0;
     const pillY = y + 7.0;
-    doc.setDrawColor(100, 116, 139);
+    doc.setDrawColor(71, 85, 105);
     doc.setLineWidth(0.3);
-    doc.roundedRect(pillX, pillY, pillW, pillH, 2.4, 2.4, 'S');
+    doc.roundedRect(pillX, pillY, pillW, pillH, 2.3, 2.3, 'S');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.8);
     doc.setTextColor(15, 23, 42);
-    doc.text(String(item.doorNumber), pillX + pillW / 2, pillY + 3.4, { align: 'center' });
+    doc.text(String(item.doorNumber), pillX + pillW / 2, pillY + 3.3, { align: 'center' });
 
     // Optional ONLY DOOR badge pill if door has no frame
     if (item.isOnlyDoor) {
@@ -427,7 +427,7 @@ export async function generate12LStickerPdf(
       doc.text('ONLY DOOR', odX + odW / 2, odY + 3.1, { align: 'center' });
     }
 
-    // Line 3: Hinge circle, Lock, Colour (matching factory photo)
+    // Line 3: Hinge circle, LOCK Pill Box, COLOUR Pill Box (matching reference PDF)
     const hSide = (item.hingeSide || item.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R';
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.0);
@@ -435,44 +435,68 @@ export async function generate12LStickerPdf(
     doc.text('Hinge:', x + 3.0, y + 15.2);
 
     // Circle for (R) or (L)
-    doc.roundedRect(x + 11.5, y + 12.2, 4.8, 4.2, 2.1, 2.1, 'S');
+    doc.setDrawColor(71, 85, 105);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(x + 11.5, y + 12.0, 4.8, 4.2, 2.1, 2.1, 'S');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.0);
     doc.setTextColor(15, 23, 42);
-    doc.text(hSide, x + 13.9, y + 15.3, { align: 'center' });
+    doc.text(hSide, x + 13.9, y + 15.2, { align: 'center' });
 
-    // Lock label and value
+    // LOCK pill container
+    const lockPillX = x + 18.0;
+    const lockPillY = y + 12.0;
+    const lockPillW = 34.0;
+    const lockPillH = 4.3;
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.25);
+    doc.roundedRect(lockPillX, lockPillY, lockPillW, lockPillH, 1.2, 1.2, 'S');
+
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.8);
-    doc.setTextColor(70, 80, 95);
-    doc.text('LOCK:', x + 19.5, y + 15.2);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(15, 23, 42);
-    doc.text((item.lock || 'BABY LATCH').toUpperCase().slice(0, 16), x + 28.5, y + 15.2);
+    doc.setFontSize(5.8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('LOCK:', lockPillX + 1.8, lockPillY + 3.1);
 
-    // Colour label and value
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(15, 23, 42);
+    const lockName = (item.lock || 'BABY LATCH').toUpperCase().slice(0, 16);
+    doc.text(lockName, lockPillX + 9.2, lockPillY + 3.1);
+
+    // COLOUR pill container
+    const colPillX = lockPillX + lockPillW + 1.5;
+    const colPillY = y + 12.0;
+    const colPillW = labelWidth - (colPillX - x) - 3.0;
+    const colPillH = 4.3;
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.25);
+    doc.roundedRect(colPillX, colPillY, colPillW, colPillH, 1.2, 1.2, 'S');
+
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.8);
-    doc.setTextColor(70, 80, 95);
-    doc.text('COLOUR:', x + 53.0, y + 15.2);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(15, 23, 42);
-    doc.text((item.finish || 'ROSE WOOD').toUpperCase().slice(0, 22), x + 66.5, y + 15.2);
+    doc.setFontSize(5.8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('COLOUR:', colPillX + 1.8, colPillY + 3.1);
 
-    // Line 4: 2-Cell Industrial Cutting Box (Full width, matching factory photo)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(15, 23, 42);
+    const colourName = (item.finish || 'ROSE WOOD').toUpperCase().slice(0, 24);
+    doc.text(colourName, colPillX + 12.5, colPillY + 3.1);
+
+    // Line 4: 2-Cell Industrial Cutting Box (Full width, balanced 50/50 split)
     const hasRemark = Boolean(item.remark && item.remark.trim().length > 0);
     const boxX = x + 2.5;
-    const boxY = y + 17.0;
+    const boxY = y + 17.5;
     const boxW = labelWidth - 5.0; // 94.0mm
-    const boxH = hasRemark ? 19.0 : 25.0; // 19.0mm when remark is present to guarantee clean 41.3mm fit inside 44mm label
+    const boxH = hasRemark ? 19.5 : 24.5;
 
     // Outer box border
-    doc.setDrawColor(50, 60, 75);
+    doc.setDrawColor(30, 41, 59);
     doc.setLineWidth(0.4);
     doc.roundedRect(boxX, boxY, boxW, boxH, 1.0, 1.0, 'S');
 
-    // 1 Vertical divider dividing Height (~44%) and Width (~56%)
-    const c1W = Number((boxW * 0.44).toFixed(1)); // 41.4mm
+    // 1 Vertical divider dividing Height (50%) and Width (50%)
+    const c1W = Math.round(boxW * 0.50); // 47.0mm
     doc.line(boxX + c1W, boxY, boxX + c1W, boxY + boxH);
 
     // Heights and Widths formatted with minus sign as in factory photo
@@ -495,36 +519,36 @@ export async function generate12LStickerPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(hasRemark ? 6.8 : 7.2);
     doc.setTextColor(30, 41, 59);
-    doc.text(hSide === 'R' ? 'H-LEFT' : 'H-RIGHT', boxX + 2.5, boxY + (hasRemark ? 5.0 : 5.2));
+    doc.text(hSide === 'R' ? 'H-LEFT' : 'H-RIGHT', boxX + 2.5, boxY + (hasRemark ? 5.0 : 5.4));
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(hasRemark ? 11.0 : 12.0);
+    doc.setFontSize(hasRemark ? 11.5 : 13.0);
     doc.setTextColor(15, 23, 42);
     doc.text(hCut, boxX + c1W - 3.0, boxY + (hasRemark ? 13.5 : 15.5), { align: 'right' });
 
     // Cell 2: Stacked TOP and BOTTOM width rows with horizontal center divider
-    const dividerY = hasRemark ? boxY + 9.0 : boxY + boxH / 2;
+    const dividerY = hasRemark ? boxY + 9.5 : boxY + boxH / 2;
     doc.line(boxX + c1W, dividerY, boxX + boxW, dividerY);
 
     // Row 1: TOP
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(hasRemark ? 6.8 : 7.0);
+    doc.setFontSize(hasRemark ? 6.5 : 7.0);
     doc.setTextColor(30, 41, 59);
-    doc.text('TOP', boxX + c1W + 3.0, boxY + (hasRemark ? 5.0 : 7.2));
+    doc.text('TOP', boxX + c1W + 3.0, boxY + (hasRemark ? 5.0 : 5.8));
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(hasRemark ? 9.0 : 10.8);
+    doc.setFontSize(hasRemark ? 9.5 : 11.0);
     doc.setTextColor(15, 23, 42);
     doc.text(topCut, boxX + boxW - 3.0, boxY + (hasRemark ? 5.5 : 7.5), { align: 'right' });
 
-    // Row 2: BTM (Matching factory standard & studio preview)
+    // Row 2: BOTTOM (Exact match to reference PDF)
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(hasRemark ? 6.8 : 7.0);
+    doc.setFontSize(hasRemark ? 6.5 : 7.0);
     doc.setTextColor(30, 41, 59);
-    doc.text('BTM', boxX + c1W + 3.0, dividerY + (hasRemark ? 5.0 : 7.5));
+    doc.text('BOTTOM', boxX + c1W + 3.0, dividerY + (hasRemark ? 5.0 : 6.0));
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(hasRemark ? 9.0 : 10.8);
+    doc.setFontSize(hasRemark ? 9.5 : 11.0);
     doc.setTextColor(15, 23, 42);
     doc.text(btmCut, boxX + boxW - 3.0, dividerY + (hasRemark ? 5.5 : 7.8), { align: 'right' });
 
