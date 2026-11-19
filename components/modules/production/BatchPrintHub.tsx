@@ -452,6 +452,7 @@ export default function BatchPrintHub({
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   const [partyQuickRemarks, setPartyQuickRemarks] = useState<Record<string, string>>({});
+  const [useYellowPaper, setUseYellowPaper] = useState(false);
 
   const toggleOrderExpand = (orderId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -811,6 +812,11 @@ export default function BatchPrintHub({
       const printableItems = stickers.map((st, idx) => {
         const widths = extractTopBtmWidths(st);
         const hSide = (st.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R';
+        const isOnlyDoor = Boolean(
+          st.frameSize?.toLowerCase().includes('only door') ||
+          st.profile?.toLowerCase().includes('only door') ||
+          st.rebateLabel?.toLowerCase().includes('only door')
+        );
         return {
           id: st.id || `stk-${idx}`,
           orderNumber: st.orderNumber,
@@ -822,6 +828,8 @@ export default function BatchPrintHub({
           shutterSize: st.shutterSize,
           tape: st.tape,
           profile: st.profile,
+          modelCode: (st.profile || '').split(' ')[0],
+          isOnlyDoor,
           finish: st.finish,
           hand: st.hand,
           hingeSide: hSide,
@@ -1413,9 +1421,20 @@ export default function BatchPrintHub({
                 )}
 
                 {activePrintModal === 'STICKERS' && (stickerFormat === 'A4_12L' || stickerFormat === 'A4_12L_PACKING_PASS') && (
-                  <div className="flex items-center bg-slate-800 border border-emerald-500/40 rounded-lg px-2.5 py-1 text-xs mr-1 text-emerald-300 font-bold">
-                    <span>12L Standard (99×44mm)</span>
-                  </div>
+                  <>
+                    <div className="flex items-center bg-slate-800 border border-emerald-500/40 rounded-lg px-2.5 py-1 text-xs text-emerald-300 font-bold">
+                      <span>12L Standard (99×44mm)</span>
+                    </div>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-amber-300 font-semibold bg-amber-950/40 border border-amber-600/40 px-2 py-1 rounded-lg mr-1 hover:bg-amber-900/40">
+                      <input
+                        type="checkbox"
+                        checked={useYellowPaper}
+                        onChange={(e) => setUseYellowPaper(e.target.checked)}
+                        className="rounded text-amber-500 cursor-pointer"
+                      />
+                      <span>Yellow Tint</span>
+                    </label>
+                  </>
                 )}
 
                 {activePrintModal === 'STICKERS' && (
@@ -1468,6 +1487,15 @@ export default function BatchPrintHub({
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-amber-300 font-bold bg-amber-950/40 border border-amber-600/40 px-2.5 py-1 rounded">
+                            <input
+                              type="checkbox"
+                              checked={useYellowPaper}
+                              onChange={(e) => setUseYellowPaper(e.target.checked)}
+                              className="rounded text-amber-500 cursor-pointer"
+                            />
+                            <span>Yellow Label Stock Tint</span>
+                          </label>
                           <button
                             type="button"
                             onClick={() => setSafeMarginBuffer(!safeMarginBuffer)}
@@ -1604,6 +1632,11 @@ export default function BatchPrintHub({
                               const widths = extractTopBtmWidths(st);
                               const doorNumText = st.doorNumberInOrder || (idx + 1);
                               const totalDoorText = st.totalDoorsInOrder || stickers.length;
+                              const isOnlyDoor = Boolean(
+                                st.frameSize?.toLowerCase().includes('only door') ||
+                                st.profile?.toLowerCase().includes('only door') ||
+                                st.rebateLabel?.toLowerCase().includes('only door')
+                              );
 
                               // Formatted finished height for cutting box
                               const finHText = st.finHText || (st.finH ? `-${st.finH.toFixed(1)}` : '-205.5');
@@ -1611,90 +1644,98 @@ export default function BatchPrintHub({
                               return (
                                 <div
                                   key={idx}
-                                  className="sticker-card-12l border border-slate-700 font-sans bg-white rounded-lg flex flex-col justify-between overflow-hidden"
+                                  className={`sticker-card-12l ${hasRemark ? 'p-1.5 space-y-0.5' : 'p-2 space-y-1'} rounded-lg border border-slate-800 flex flex-col justify-between overflow-hidden font-sans ${
+                                    useYellowPaper ? 'bg-[#fef9c3]' : 'bg-white'
+                                  }`}
                                   style={{
                                     width: cardWidthMm,
                                     height: cardHeightMm,
                                     maxHeight: cardHeightMm,
                                     boxSizing: 'border-box',
-                                    padding: hasRemark ? '1.8mm 2.8mm' : safeMarginBuffer ? '2.5mm 3.5mm' : '1.5mm 2.5mm',
-                                    fontSize: '8px',
-                                    lineHeight: 1.15,
                                     pageBreakInside: 'avoid',
                                     breakInside: 'avoid',
                                   }}
                                 >
-                                  {/* Line 1: PartyName (Left) + Job Card Badge (Right) */}
-                                  <div className="flex justify-between items-center gap-1">
-                                    <div className="flex items-baseline gap-1 min-w-0 max-w-[130px]">
-                                      <span className="text-[8px] text-slate-500 font-normal shrink-0">PartyName</span>
-                                      <span className="font-black text-[10px] text-slate-950 uppercase truncate">
+                                  {/* Row 1: PartyName (Clean Left, matching factory photo) */}
+                                  <div className="flex justify-between items-center gap-1.5">
+                                    <div className="flex items-baseline gap-1.5 min-w-0">
+                                      <span className="text-[8px] text-slate-500 font-medium shrink-0">PartyName</span>
+                                      <span className="font-black text-[10.5px] text-slate-950 uppercase tracking-tight truncate">
                                         {st.customerName}
                                       </span>
                                     </div>
-                                    <span className="font-mono text-[8px] font-bold px-1.5 py-0.2 rounded border border-slate-700 bg-slate-50 text-slate-900 shrink-0">
-                                      {st.jobCardNumber || st.orderNumber}
-                                    </span>
                                   </div>
 
-                                  {/* Line 2: Model/Part (Left) + Capsule Pill Door Number (Right) */}
-                                  <div className="flex justify-between items-center gap-1">
-                                    <div className="flex items-baseline gap-1 min-w-0 max-w-[135px]">
-                                      <span className="text-[7.5px] text-slate-500 font-normal shrink-0">Model/Part</span>
-                                      <span className="font-bold text-[9.5px] text-slate-900 uppercase truncate">
+                                  {/* Row 2: Model/Part + Only Door pill + Capsule Door Number */}
+                                  <div className="flex justify-between items-center gap-1.5">
+                                    <div className="flex items-baseline gap-1.5 min-w-0">
+                                      <span className="text-[8px] text-slate-500 font-medium shrink-0">Model/Part</span>
+                                      <span className="font-black text-[10px] text-slate-950 uppercase truncate">
                                         {st.profile || st.tag || 'EXM-A-101'}
                                       </span>
                                     </div>
-                                    <span className="px-2 py-0.5 rounded-full border border-slate-800 flex items-center justify-center font-black text-[9px] text-slate-950 shrink-0 bg-slate-50" title={`Door ${doorNumText} of ${totalDoorText}`}>
-                                      {doorNumText}
-                                    </span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {isOnlyDoor && (
+                                        <span className="px-1 rounded bg-amber-300 border border-amber-700 text-[7px] font-black text-slate-950 uppercase">
+                                          ONLY DOOR
+                                        </span>
+                                      )}
+                                      <span className="px-2.5 rounded-full border border-slate-800 font-black text-[9.5px] text-slate-950 leading-tight bg-slate-50">
+                                        {doorNumText}
+                                      </span>
+                                    </div>
                                   </div>
 
-                                  {/* Line 3: Hinge (R) • LOCK: BABY LATCH • COLOUR: NATURAL TEAK */}
-                                  <div className="flex items-center gap-1 text-[7.5px]">
-                                    <div className="flex items-center gap-0.5 shrink-0">
-                                      <span className="text-slate-600 font-bold">Hinge:</span>
-                                      <span className="w-4 h-4 rounded-full border border-slate-700 flex items-center justify-center font-bold text-[8px] text-slate-950">
+                                  {/* Row 3: Hinge (R) • LOCK • COLOUR */}
+                                  <div className="flex items-center justify-between gap-1 text-[8px]">
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <span className="text-slate-600 font-medium">Hinge:</span>
+                                      <span className="px-1.5 rounded-full border border-slate-800 font-black text-[9px] text-slate-950">
                                         {hSide}
                                       </span>
                                     </div>
 
-                                    <div className="border border-slate-400 rounded px-1.5 py-0.2 flex items-center gap-0.5 bg-slate-50 min-w-0 flex-1 overflow-hidden">
-                                      <span className="text-slate-500 text-[6.5px] shrink-0 font-bold">LOCK:</span>
-                                      <span className="font-bold text-slate-900 truncate uppercase text-[7.5px]">{st.lock || 'Baby Latch'}</span>
+                                    <div className="flex items-center gap-0.5 min-w-0 border border-slate-300 rounded px-1.5 flex-1 bg-slate-50/70">
+                                      <span className="text-slate-500 text-[7px] font-semibold shrink-0">LOCK:</span>
+                                      <span className="font-black text-slate-950 uppercase truncate">{st.lock || 'Baby Latch'}</span>
                                     </div>
 
-                                    <div className="border border-slate-400 rounded px-1.5 py-0.2 flex items-center gap-0.5 bg-slate-50 min-w-0 flex-1 overflow-hidden">
-                                      <span className="text-slate-500 text-[6.5px] shrink-0 font-bold">COLOUR:</span>
-                                      <span className="font-bold text-slate-900 truncate uppercase text-[7.5px]">{st.finish || 'Teak'}</span>
+                                    <div className="flex items-center gap-0.5 min-w-0 border border-slate-300 rounded px-1.5 flex-1 bg-slate-50/70">
+                                      <span className="text-slate-500 text-[7px] font-semibold shrink-0">COLOUR:</span>
+                                      <span className="font-black text-slate-950 uppercase truncate">{st.finish || 'Teak'}</span>
                                     </div>
                                   </div>
 
-                                  {/* Line 4: 2-Cell Industrial Cutting Box (H-LEFT / H-RIGHT, TOP / BOTTOM) */}
+                                  {/* Row 4: Two-Column Boxed Cutting Size Grid (Full Width, matching factory reference photo) */}
                                   <div className="border border-slate-800 rounded grid grid-cols-12 overflow-hidden bg-slate-50/50">
-                                    {/* Cell 1: H-LEFT or H-RIGHT */}
-                                    <div className="col-span-6 border-r border-slate-800 p-1 flex items-center justify-between">
-                                      <span className="text-[7.5px] font-bold text-slate-700 uppercase">{hLabel}</span>
-                                      <span className="font-mono text-[12px] font-black text-slate-950 text-right">{finHText}</span>
+                                    <div className={`col-span-6 border-r border-slate-800 px-2 ${hasRemark ? 'py-0.5' : 'py-1'} flex items-center justify-between`}>
+                                      <span className="text-[9px] font-bold text-slate-700 uppercase">
+                                        {hLabel}
+                                      </span>
+                                      <span className="font-mono text-[11.5px] font-black text-slate-950">
+                                        {finHText}
+                                      </span>
                                     </div>
-
-                                    {/* Cell 2: Stacked TOP and BOTTOM */}
                                     <div className="col-span-6 divide-y divide-slate-800">
-                                      <div className="px-1.5 py-0.5 flex items-center justify-between">
-                                        <span className="text-[7px] font-bold text-slate-600 uppercase">TOP</span>
-                                        <span className="font-mono text-[10.5px] font-black text-slate-950">{widths.topText}</span>
+                                      <div className={`px-1.5 ${hasRemark ? 'py-0.2' : 'py-0.5'} flex items-center justify-between`}>
+                                        <span className="text-[7.5px] font-bold text-slate-600 uppercase">TOP</span>
+                                        <span className="font-mono text-[10.5px] font-black text-slate-950">
+                                          {widths.topText}
+                                        </span>
                                       </div>
-                                      <div className="px-1.5 py-0.5 flex items-center justify-between">
-                                        <span className="text-[7px] font-bold text-slate-600 uppercase">BOTTOM</span>
-                                        <span className="font-mono text-[10.5px] font-black text-slate-950">{widths.btmText}</span>
+                                      <div className={`px-1.5 ${hasRemark ? 'py-0.2' : 'py-0.5'} flex items-center justify-between`}>
+                                        <span className="text-[7.5px] font-bold text-slate-600 uppercase">BOTTOM</span>
+                                        <span className="font-mono text-[10.5px] font-black text-slate-950">
+                                          {widths.btmText}
+                                        </span>
                                       </div>
                                     </div>
                                   </div>
 
-                                  {/* Line 5: STRICT CONDITIONAL REMARK CONTAINER */}
+                                  {/* Row 5: STRICT CONDITIONAL BOTTOM REMARK */}
                                   {hasRemark && (
-                                    <div className="p-0.5 px-1 rounded bg-amber-50 border border-amber-400 text-amber-900 text-[7px] font-bold leading-tight flex items-center gap-1 max-w-full overflow-hidden">
-                                      <span className="text-amber-800 font-black shrink-0">REMARK:</span>
+                                    <div className="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-300 text-[8px] font-black text-slate-950 uppercase truncate leading-tight flex items-center gap-1">
+                                      <span className="text-amber-800 shrink-0 font-black">REMARK:</span>
                                       <span className="truncate">{st.remark!.trim()}</span>
                                     </div>
                                   )}

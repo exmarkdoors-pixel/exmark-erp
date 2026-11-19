@@ -411,6 +411,22 @@ export async function generate12LStickerPdf(
     doc.setTextColor(15, 23, 42);
     doc.text(String(item.doorNumber), pillX + pillW / 2, pillY + 3.4, { align: 'center' });
 
+    // Optional ONLY DOOR badge pill if door has no frame
+    if (item.isOnlyDoor) {
+      const odW = 16.5;
+      const odH = 4.4;
+      const odX = pillX - odW - 1.5;
+      const odY = y + 7.2;
+      doc.setFillColor(254, 243, 199);
+      doc.setDrawColor(180, 83, 9);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(odX, odY, odW, odH, 1.0, 1.0, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.0);
+      doc.setTextColor(146, 64, 14);
+      doc.text('ONLY DOOR', odX + odW / 2, odY + 3.1, { align: 'center' });
+    }
+
     // Line 3: Hinge circle, Lock, Colour (matching factory photo)
     const hSide = (item.hingeSide || item.hand || 'R').toUpperCase().startsWith('L') ? 'L' : 'R';
     doc.setFont('helvetica', 'normal');
@@ -501,11 +517,11 @@ export async function generate12LStickerPdf(
     doc.setTextColor(15, 23, 42);
     doc.text(topCut, boxX + boxW - 3.0, boxY + (hasRemark ? 5.5 : 7.5), { align: 'right' });
 
-    // Row 2: BOTTOM (Explicit full name matching factory photo)
+    // Row 2: BTM (Matching factory standard & studio preview)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(hasRemark ? 6.8 : 7.0);
     doc.setTextColor(30, 41, 59);
-    doc.text('BOTTOM', boxX + c1W + 3.0, dividerY + (hasRemark ? 5.0 : 7.5));
+    doc.text('BTM', boxX + c1W + 3.0, dividerY + (hasRemark ? 5.0 : 7.5));
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(hasRemark ? 9.0 : 10.8);

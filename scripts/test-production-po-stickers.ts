@@ -143,8 +143,16 @@ async function run() {
   console.log('✓ Test 2 passed: In-House Floor Gangs CRUD + Piece-Rate Ledger + stageHistory.');
 
   // ── 3. BOQ Mark Issued & Standalone Floor/Evening Consumables ─────────────
-  assert.strictEqual((await getProductionOrder(ordWithInstall.id))?.boqIssuedAt, null);
-  const issuedOrd = await markProductionBoqIssued(ordWithInstall.id);
+  const boqEligibleOrd = await createProductionOrder({
+    customerName: 'BOQ Eligible Client',
+    siteName: 'Edappal Site',
+    district: 'Malappuram',
+    includeInstallation: false,
+    orderDate: '2026-11-11',
+    doors: doorSpec,
+  });
+  assert.strictEqual((await getProductionOrder(boqEligibleOrd.id))?.boqIssuedAt, null);
+  const issuedOrd = await markProductionBoqIssued(boqEligibleOrd.id);
   assert.ok(issuedOrd.boqIssuedAt, 'boqIssuedAt should be stamped after marking BOQ issued');
 
   const eveningConsumable = await addBoqExtraItem({
