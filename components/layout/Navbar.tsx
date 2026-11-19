@@ -32,8 +32,15 @@ import {
   Target,
   FileSpreadsheet,
   Building2,
+  Boxes,
+  ShoppingCart,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/erp';
+import {
+  UniversalSearchEntry,
+  UniversalSearchResultType,
+  searchUniversalCatalog,
+} from '@/lib/utils/universalSearchIndex';
 import { ERP_ROLES, UserRole } from '@/lib/auth/roles';
 import { WhatsAppLoginModal } from '@/components/modules/crm/WhatsAppLoginModal';
 import { WhatsAppSession, DEFAULT_WHATSAPP_SESSION } from '@/lib/services/whatsappService';
@@ -58,14 +65,6 @@ interface NavbarProps {
   onCredentialsUpdated?: () => void;
   isSimpleMode?: boolean;
   onToggleSimpleMode?: () => void;
-}
-
-interface QuickSearchEntry {
-  id: string;
-  type: 'Quotation' | 'Lead' | 'Customer' | 'Page';
-  title: string;
-  subtitle: string;
-  targetTab: NavigationTab;
 }
 
 const RBAC_MODULE_LABELS: Array<{ id: string; name: string }> = [
@@ -186,85 +185,166 @@ export default function Navbar({
     }
   };
 
-  // Live Quick Search state
+  // Live Universal Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchEntries, setSearchEntries] = useState<QuickSearchEntry[]>([]);
+  const [dynamicEntries, setDynamicEntries] = useState<UniversalSearchEntry[]>([]);
   const [searchLoaded, setSearchLoaded] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const loadSearchIndex = useCallback(async () => {
-    if (searchLoaded || searchLoading) return;
+    if (searchLoading) return;
     setSearchLoading(true);
     try {
-      const [qRes, lRes, cRes] = await Promise.all([
+      const [prodRes, qRes, custRes, invRes, poRes, lRes] = await Promise.all([
+        apiFetch('/api/production').then((r) => (r.ok ? r.json() : null)).catch(() => null),
         apiFetch('/api/quotations').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-        apiFetch('/api/crm/leads').then((r) => (r.ok ? r.json() : null)).catch(() => null),
         apiFetch('/api/customers').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        apiFetch('/api/inventory').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        apiFetch('/api/purchases').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        apiFetch('/api/crm/leads').then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
 
-      const entries: QuickSearchEntry[] = [];
+      const entries: UniversalSearchEntry[] = [];
 
-      // Built-in quick module shortcuts
-      const shortcuts: Array<{ title: string; subtitle: string; tab: NavigationTab }> = [
-        { title: 'Quotations & Estimates', subtitle: 'Create or edit door quotations', tab: 'quotations' },
-        { title: 'CRM & Leads Pipeline', subtitle: 'Leads, follow-ups & bulk import', tab: 'crm' },
-        { title: 'Production Floor', subtitle: 'Kanban job cards & molding gangs', tab: 'production' },
-        { title: '12L & Thermal Stickers', subtitle: 'Batch door barcode sticker printing', tab: 'batch-print' },
-        { title: 'Packing & Dispatch', subtitle: 'Delivery challans & gate passes', tab: 'dispatch' },
-        { title: 'Mobile Field Ops & GPS', subtitle: 'Field measurements, floor QR & fleet GPS', tab: 'mobile-field' },
-        { title: 'Accounts, Financial & Evening Close', subtitle: 'Cashbook, BEP, AI Forecast & Daily Evening Close', tab: 'accounts' },
-        { title: 'Customers & Dealers', subtitle: 'Builder & architect directory', tab: 'customers' },
-        { title: 'Settings & Staff Access', subtitle: 'Company bank details, staff logins & RBAC', tab: 'settings' },
-      ];
-      shortcuts.forEach((s) =>
-        entries.push({ id: `page-${s.tab}`, type: 'Page', title: s.title, subtitle: s.subtitle, targetTab: s.tab })
-      );
+      // 1. Production Orders & Job Cards
+      if (prodRes?.data && Array.isArray(prodRes.data)) {
+        prodRes.data.slice(0, 80).forEach((order: any) => {
+          const jc = order.jobCardNumber || order.prodOrderNumber || order.id;
+          const cust = order.customerName || 'Client';
+          const doorsCount = order.doors?.length || order.quantity || 1;
+          const stage = order.status || 'QUEUED';
+          entries.push({
+            id: `prod-${order.id}`,
+            type: 'JOB_CARD',
+            title: `${jc} — ${cust}`,
+            subtitle: `${doorsCount} Door(s) • Stage: ${stage} • ${order.siteName || order.district || 'Factory Floor'}`,
+            targetTab: 'production',
+            categoryLabel: 'Job Cards & Production',
+            keywords: [jc.toLowerCase(), cust.toLowerCase(), stage.toLowerCase(), 'job card', 'order', 'door', 'ജോബ് കാർഡ്'],
+            code: jc,
+            badge: stage,
+          });
+        });
+      }
 
-      if (qRes && Array.isArray(qRes.data)) {
+      // 2. Quotations & Estimates
+      if (qRes?.data && Array.isArray(qRes.data)) {
         qRes.data.slice(0, 60).forEach((q: any) => {
+          const qNum = q.quotationNumber || q.id;
+          const cust = q.customerName || q.clientName || 'Client';
+          const amt = Number(q.grandTotal || q.totalAmount || 0);
           entries.push({
             id: `q-${q.id}`,
-            type: 'Quotation',
-            title: `${q.quotationNumber || q.id} — ${q.customerName || q.clientName || 'Client'}`,
-            subtitle: `${q.district || 'Kerala'} • ₹${Number(q.grandTotal || q.totalAmount || 0).toLocaleString('en-IN')}`,
+            type: 'QUOTATION',
+            title: `${qNum} — ${cust}`,
+            subtitle: `₹${amt.toLocaleString('en-IN')} • ${q.district || 'Kerala'} • Status: ${q.status || 'Draft'}`,
             targetTab: 'quotations',
+            categoryLabel: 'Quotations & Estimates',
+            keywords: [qNum.toLowerCase(), cust.toLowerCase(), 'quotation', 'estimate', 'കൊട്ടേഷൻ'],
+            code: qNum,
+            badge: `₹${amt.toLocaleString('en-IN')}`,
           });
         });
       }
 
-      if (lRes && Array.isArray(lRes.data)) {
-        lRes.data.slice(0, 60).forEach((l: any) => {
+      // 3. Customers & Parties
+      if (custRes?.data && Array.isArray(custRes.data)) {
+        custRes.data.slice(0, 80).forEach((c: any) => {
+          const name = c.name || 'Customer';
+          const town = c.district || c.town || 'Kerala';
+          const phone = c.phone || '';
           entries.push({
-            id: `l-${l.id}`,
-            type: 'Lead',
-            title: `${l.title || l.client || 'Lead'} (${l.leadCode || 'CRM'})`,
-            subtitle: `${l.client || l.contactPerson || ''} • ${l.phone || 'No Phone'} • ${l.district || ''}`,
-            targetTab: 'crm',
-          });
-        });
-      }
-
-      if (cRes && Array.isArray(cRes.data)) {
-        cRes.data.slice(0, 60).forEach((c: any) => {
-          entries.push({
-            id: `c-${c.id}`,
-            type: 'Customer',
-            title: c.name || 'Customer',
-            subtitle: `${c.phone || ''} • ${c.district || c.town || 'Kerala'}`,
+            id: `cust-${c.id}`,
+            type: 'CUSTOMER',
+            title: name,
+            subtitle: `${phone ? `${phone} • ` : ''}${town} • ${c.type || 'Customer'}`,
             targetTab: 'customers',
+            categoryLabel: 'Customers & Dealers',
+            keywords: [name.toLowerCase(), phone.toLowerCase(), town.toLowerCase(), 'party', 'dealer', 'client', 'പാർട്ടി'],
+            code: c.customerCode || c.id,
+            badge: c.type || 'Dealer',
           });
         });
       }
 
-      setSearchEntries(entries);
+      // 4. Raw Materials & Stock Items
+      if (invRes?.data && Array.isArray(invRes.data)) {
+        invRes.data.slice(0, 60).forEach((item: any) => {
+          const code = item.itemCode || item.id;
+          const name = item.name || 'Raw Material';
+          const stock = Number(item.currentStock) || 0;
+          const unit = item.unit || 'Units';
+          entries.push({
+            id: `inv-${item.id}`,
+            type: 'STOCK_MATERIAL',
+            title: `${name} (${code})`,
+            subtitle: `Stock: ${stock} ${unit} • Category: ${item.category || 'Store'} • Loc: ${item.warehouseLocation || 'Rack'}`,
+            targetTab: 'inventory',
+            categoryLabel: 'Raw Materials & Stock',
+            keywords: [name.toLowerCase(), code.toLowerCase(), (item.category || '').toLowerCase(), 'stock', 'store', 'material', 'റോ മെറ്റീരിയൽ'],
+            code,
+            badge: `${stock} ${unit}`,
+          });
+        });
+      }
+
+      // 5. Purchases & Suppliers
+      if (poRes?.data && Array.isArray(poRes.data)) {
+        poRes.data.slice(0, 50).forEach((po: any) => {
+          const poNum = po.poNumber || po.id;
+          const vendor = po.vendorName || 'Supplier';
+          const amt = Number(po.totalAmount || 0);
+          entries.push({
+            id: `po-${po.id}`,
+            type: 'PURCHASE_ORDER',
+            title: `${poNum} — ${vendor}`,
+            subtitle: `₹${amt.toLocaleString('en-IN')} • Status: ${po.status || 'Draft'} • ${po.items?.length || 0} item(s)`,
+            targetTab: 'purchases',
+            categoryLabel: 'Purchases & Suppliers',
+            keywords: [poNum.toLowerCase(), vendor.toLowerCase(), 'po', 'purchase', 'supplier', 'പർച്ചേസ്'],
+            code: poNum,
+            badge: po.status || 'PO',
+          });
+        });
+      }
+
+      // 6. CRM Leads
+      if (lRes?.data && Array.isArray(lRes.data)) {
+        lRes.data.slice(0, 50).forEach((l: any) => {
+          const title = l.title || l.client || 'Lead';
+          const phone = l.phone || '';
+          entries.push({
+            id: `lead-${l.id}`,
+            type: 'CRM_LEAD',
+            title: `${title} (${l.leadCode || 'CRM'})`,
+            subtitle: `${phone ? `${phone} • ` : ''}${l.district || 'Kerala'} • Stage: ${l.status || 'New'}`,
+            targetTab: 'crm',
+            categoryLabel: 'CRM & Leads',
+            keywords: [title.toLowerCase(), phone.toLowerCase(), 'lead', 'crm', 'ലീഡ്'],
+            code: l.leadCode || l.id,
+            badge: l.status || 'Lead',
+          });
+        });
+      }
+
+      setDynamicEntries(entries);
       setSearchLoaded(true);
+    } catch (err) {
+      console.warn('[Navbar] Search dynamic background preload non-fatal warning:', err);
     } finally {
       setSearchLoading(false);
     }
-  }, [searchLoaded, searchLoading]);
+  }, [searchLoading]);
+
+  // Eagerly preload dynamic entities on mount
+  useEffect(() => {
+    loadSearchIndex();
+  }, [loadSearchIndex]);
 
   // Ctrl+K shortcut & click outside handler
   useEffect(() => {
@@ -272,11 +352,13 @@ export default function Navbar({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         searchInputRef.current?.focus();
+        mobileSearchInputRef.current?.focus();
         setIsSearchOpen(true);
-        loadSearchIndex();
+        if (!searchLoaded) loadSearchIndex();
       } else if (e.key === 'Escape') {
         setIsSearchOpen(false);
         searchInputRef.current?.blur();
+        mobileSearchInputRef.current?.blur();
       }
     };
     const onMouseDown = (e: MouseEvent) => {
@@ -290,20 +372,23 @@ export default function Navbar({
       window.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('mousedown', onMouseDown);
     };
-  }, [loadSearchIndex]);
+  }, [loadSearchIndex, searchLoaded]);
 
+  // High-performance search ranking
   const filteredSearchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return searchEntries.filter((e) => e.type === 'Page').slice(0, 6);
-    return searchEntries
-      .filter(
-        (item) =>
-          item.title.toLowerCase().includes(q) ||
-          item.subtitle.toLowerCase().includes(q) ||
-          item.type.toLowerCase().includes(q)
-      )
-      .slice(0, 8);
-  }, [searchEntries, searchQuery]);
+    return searchUniversalCatalog(searchQuery, dynamicEntries);
+  }, [searchQuery, dynamicEntries]);
+
+  // Reset highlight index on query change
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchQuery]);
+
+  const handleSearchNavigate = (item: UniversalSearchEntry) => {
+    onNavigateTab(item.targetTab);
+    setIsSearchOpen(false);
+    setSearchQuery('');
+  };
   const isMounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -579,6 +664,22 @@ export default function Navbar({
           <Menu className="w-4 h-4" />
         </button>
 
+        {/* Mobile Search Trigger Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setIsSearchOpen(true);
+            setTimeout(() => {
+              mobileSearchInputRef.current?.focus();
+            }, 50);
+          }}
+          className="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800 md:hidden focus:outline-none cursor-pointer"
+          aria-label="Quick Search"
+          title="Search all modules & records (Ctrl+K)"
+        >
+          <Search className="w-4 h-4 text-slate-300" />
+        </button>
+
         <div className="flex items-center gap-2 whitespace-nowrap">
           {!isSimpleMode && (
             <div className="hidden sm:flex items-center gap-1 text-[11px] text-slate-400 font-medium">
@@ -680,8 +781,8 @@ export default function Navbar({
         </div>
       </div>
 
-      {/* Center: Interactive Live Quick Search Bar */}
-      <div ref={searchContainerRef} className="hidden md:flex items-center flex-1 max-w-md mx-6 relative">
+      {/* Center: Interactive Live Universal Search Bar */}
+      <div ref={searchContainerRef} className="hidden md:flex items-center flex-1 max-w-lg mx-6 relative">
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -690,15 +791,31 @@ export default function Navbar({
             value={searchQuery}
             onFocus={() => {
               setIsSearchOpen(true);
-              loadSearchIndex();
+              if (!searchLoaded) loadSearchIndex();
             }}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setIsSearchOpen(true);
               if (!searchLoaded) loadSearchIndex();
             }}
-            placeholder="Quick search: quotations, leads, clients, pages..."
-            className="w-full pl-9 pr-14 py-1.5 bg-slate-900/90 text-sm text-slate-200 placeholder-slate-400 rounded-lg border border-slate-700/80 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-all"
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setHighlightedIndex((prev) => (prev + 1 < filteredSearchResults.length ? prev + 1 : 0));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : Math.max(0, filteredSearchResults.length - 1)));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                const selected = filteredSearchResults[highlightedIndex];
+                if (selected) handleSearchNavigate(selected);
+              } else if (e.key === 'Escape') {
+                setIsSearchOpen(false);
+                searchInputRef.current?.blur();
+              }
+            }}
+            placeholder="Search all: Stock, Stickers, Job Cards, Quotes, Accounts (e.g. S, A, 12L)..."
+            className="w-full pl-9 pr-14 py-1.5 bg-slate-900/90 text-sm text-slate-200 placeholder-slate-400 rounded-lg border border-slate-700/80 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-all font-medium"
           />
           {searchQuery ? (
             <button
@@ -722,65 +839,195 @@ export default function Navbar({
         {/* Live Search Results Dropdown */}
         {isSearchOpen && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-[#0B132B] border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
-            <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400 bg-slate-900/60">
-              <span>{searchQuery.trim() ? `Matches for "${searchQuery}"` : 'Quick Jump'}</span>
-              {searchLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-red-400" />}
+            <div className="px-3.5 py-2 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400 bg-slate-900/80 font-medium">
+              <span className="flex items-center gap-1.5">
+                {searchQuery.trim() ? (
+                  <>
+                    <span>Matches for &quot;<strong className="text-white">{searchQuery}</strong>&quot;</span>
+                    <span className="px-1.5 py-0.2 rounded bg-slate-800 text-emerald-400 font-mono text-[10px]">
+                      {filteredSearchResults.length} found
+                    </span>
+                  </>
+                ) : (
+                  <span>Quick Navigation &amp; Common Shortcuts</span>
+                )}
+              </span>
+              {searchLoading && (
+                <span className="flex items-center gap-1 text-[10px] text-amber-400">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Indexing...</span>
+                </span>
+              )}
             </div>
 
             {filteredSearchResults.length === 0 ? (
-              <div className="p-4 text-center text-xs text-slate-400">
-                No matching quotations, leads, or customers found.
+              <div className="p-5 text-center text-xs text-slate-400 space-y-1">
+                <div className="font-bold text-slate-300">No matching modules, orders or materials found.</div>
+                <div className="text-[11px] text-slate-500">
+                  Try typing &quot;s&quot; for Stock/Stickers/Sales, &quot;a&quot; for Accounts, or customer names.
+                </div>
               </div>
             ) : (
-              <div className="max-h-72 overflow-y-auto divide-y divide-slate-800/70">
-                {filteredSearchResults.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      onNavigateTab(item.targetTab);
-                      setIsSearchOpen(false);
-                      setSearchQuery('');
-                    }}
-                    className="w-full px-3.5 py-2.5 text-left hover:bg-slate-800/80 transition flex items-center justify-between gap-2 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div
-                        className={`p-1.5 rounded-lg shrink-0 ${
-                          item.type === 'Quotation'
-                            ? 'bg-blue-500/15 text-blue-400'
-                            : item.type === 'Lead'
-                            ? 'bg-amber-500/15 text-amber-400'
-                            : item.type === 'Customer'
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : 'bg-slate-800 text-slate-300'
-                        }`}
-                      >
-                        {item.type === 'Quotation' ? (
-                          <FileSpreadsheet className="w-3.5 h-3.5" />
-                        ) : item.type === 'Lead' ? (
-                          <Target className="w-3.5 h-3.5" />
-                        ) : item.type === 'Customer' ? (
-                          <Users className="w-3.5 h-3.5" />
-                        ) : (
-                          <Sparkles className="w-3.5 h-3.5" />
-                        )}
+              <div className="max-h-96 overflow-y-auto divide-y divide-slate-800/60">
+                {filteredSearchResults.map((item, idx) => {
+                  const isHighlighted = highlightedIndex === idx;
+                  const renderIcon = () => {
+                    switch (item.type) {
+                      case 'MODULE':
+                        return <LayoutGrid className="w-4 h-4 text-cyan-400 shrink-0" />;
+                      case 'FEATURE':
+                        return <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />;
+                      case 'JOB_CARD':
+                        return <PackageCheck className="w-4 h-4 text-emerald-400 shrink-0" />;
+                      case 'QUOTATION':
+                        return <FileSpreadsheet className="w-4 h-4 text-blue-400 shrink-0" />;
+                      case 'CUSTOMER':
+                        return <Users className="w-4 h-4 text-indigo-400 shrink-0" />;
+                      case 'STOCK_MATERIAL':
+                        return <Boxes className="w-4 h-4 text-orange-400 shrink-0" />;
+                      case 'PURCHASE_ORDER':
+                        return <ShoppingCart className="w-4 h-4 text-rose-400 shrink-0" />;
+                      case 'CRM_LEAD':
+                        return <Target className="w-4 h-4 text-yellow-400 shrink-0" />;
+                      default:
+                        return <Sparkles className="w-4 h-4 text-slate-400 shrink-0" />;
+                    }
+                  };
+
+                  const getBadgeClass = () => {
+                    switch (item.type) {
+                      case 'MODULE':
+                        return 'bg-cyan-950/80 text-cyan-300 border-cyan-700/60';
+                      case 'FEATURE':
+                        return 'bg-amber-950/80 text-amber-300 border-amber-700/60';
+                      case 'JOB_CARD':
+                        return 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60';
+                      case 'QUOTATION':
+                        return 'bg-blue-950/80 text-blue-300 border-blue-700/60';
+                      case 'CUSTOMER':
+                        return 'bg-indigo-950/80 text-indigo-300 border-indigo-700/60';
+                      case 'STOCK_MATERIAL':
+                        return 'bg-orange-950/80 text-orange-300 border-orange-700/60';
+                      case 'PURCHASE_ORDER':
+                        return 'bg-rose-950/80 text-rose-300 border-rose-700/60';
+                      case 'CRM_LEAD':
+                        return 'bg-yellow-950/80 text-yellow-300 border-yellow-700/60';
+                      default:
+                        return 'bg-slate-900 text-slate-400 border-slate-700';
+                    }
+                  };
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      onClick={() => handleSearchNavigate(item)}
+                      className={`w-full px-3.5 py-2.5 text-left transition flex items-center justify-between gap-3 cursor-pointer ${
+                        isHighlighted
+                          ? 'bg-blue-600/25 border-l-2 border-blue-400'
+                          : 'hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 shrink-0">
+                          {renderIcon()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white truncate">{item.title}</span>
+                            {item.badge && (
+                              <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                                {item.badge}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate">{item.subtitle}</div>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-white truncate">{item.title}</div>
-                        <div className="text-[11px] text-slate-400 truncate">{item.subtitle}</div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded border uppercase ${getBadgeClass()}`}>
+                          {item.type.replace('_', ' ')}
+                        </span>
                       </div>
-                    </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 shrink-0">
-                      {item.type}
-                    </span>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
+
+            <div className="px-3 py-1.5 bg-[#070D1E] border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+              <span>↑↓ to navigate • ↵ to select • ESC to close</span>
+              <span>All 24 ERP Modules Indexed</span>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Mobile Search Overlay Modal */}
+      {isSearchOpen && (
+        <div className="md:hidden fixed inset-0 z-50 p-3 bg-black/85 backdrop-blur-sm flex flex-col justify-start">
+          <div className="bg-[#0B132B] border border-slate-700 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden mt-1">
+            <div className="flex items-center gap-2 p-3 border-b border-slate-800 bg-[#070D1E]">
+              <Search className="w-4 h-4 text-slate-400 shrink-0" />
+              <input
+                ref={mobileSearchInputRef}
+                autoFocus
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search modules, job cards, stock (S, A, 12L)..."
+                className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none font-medium"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSearchOpen(false);
+                  setSearchQuery('');
+                }}
+                className="px-2 py-1 bg-slate-800 text-slate-300 text-xs font-bold rounded-lg ml-1"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto divide-y divide-slate-800/60 p-1">
+              {filteredSearchResults.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-400">
+                  No matching modules, orders or materials found.
+                </div>
+              ) : (
+                filteredSearchResults.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleSearchNavigate(item)}
+                    className="w-full p-2.5 text-left hover:bg-slate-800/80 rounded-xl transition flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-white truncate">{item.title}</div>
+                      <div className="text-[11px] text-slate-400 truncate">{item.subtitle}</div>
+                    </div>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-700 shrink-0">
+                      {item.type.replace('_', ' ')}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Right: Mode Toggle, Cloud, WhatsApp, Admin Tools, Profile */}
       <div className="flex items-center gap-2 sm:gap-2.5">
