@@ -34,7 +34,10 @@ import {
   Building2,
   Boxes,
   ShoppingCart,
+  Sun,
+  Moon,
 } from 'lucide-react';
+import { useDisplayPreferences } from '@/lib/context/DisplayPreferencesContext';
 import { NavigationTab } from '@/types/erp';
 import {
   UniversalSearchEntry,
@@ -118,6 +121,8 @@ export default function Navbar({
 }: NavbarProps) {
   const router = useRouter();
   const isRealSuperAdmin = actualRole === 'Super Admin';
+  const { preferences, setTheme } = useDisplayPreferences();
+  const isWhiteTheme = preferences?.theme === 'light-corporate';
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -1060,6 +1065,34 @@ export default function Navbar({
             )}
           </button>
         )}
+
+        {/* 1-Click White UI / Dark Navy Theme Quick Switcher */}
+        <button
+          type="button"
+          onClick={() => setTheme(isWhiteTheme ? 'dark-navy' : 'light-corporate')}
+          title={
+            isWhiteTheme
+              ? 'Clean White & Black Theme is active. Click to switch to Factory Dark Navy.'
+              : 'Factory Dark Navy is active. Click to switch to Clean White & Black Theme (ലളിതമായ വൈറ്റ് തീം).'
+          }
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+            isWhiteTheme
+              ? 'bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-300 shadow-sm'
+              : 'bg-slate-800 hover:bg-slate-700 text-slate-100 border-slate-700 shadow-sm'
+          }`}
+        >
+          {isWhiteTheme ? (
+            <>
+              <Moon className="w-3.5 h-3.5 text-slate-700 shrink-0" />
+              <span className="hidden sm:inline">Dark UI</span>
+            </>
+          ) : (
+            <>
+              <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="hidden sm:inline">White UI</span>
+            </>
+          )}
+        </button>
 
         {/* SUPER ADMIN DIRECT ACCESS: Mobile Field App (Available in BOTH Simple Mode & Full Ops Mode) */}
         {isMounted && isRealSuperAdmin && (

@@ -265,45 +265,266 @@ body {
   --erp-accent-rgb: 59, 130, 246;
 }
 
+/* =============================================================
+ * CLEAN WHITE & DEEP BLACK THEME (OFFICE LIGHT MODE / ലളിതമായ വൈറ്റ് തീം)
+ * ============================================================= */
+html[data-theme="light-corporate"],
 body.theme-light-corporate {
-  background-color: #f1f5f9;
-  color: #0f172a;
-}
-
-body.theme-light-corporate .bg-slate-950,
-body.theme-light-corporate .bg-slate-900 {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #cbd5e1 !important;
-}
-
-body.theme-light-corporate .bg-slate-900\/90,
-body.theme-light-corporate .bg-slate-900\/80,
-body.theme-light-corporate .bg-slate-900\/50 {
   background-color: #f8fafc !important;
-  color: #0f172a !important;
+  color: #0a0a0a !important;
+}
+
+/* 1. Root & Base Layout Overrides */
+body.theme-light-corporate .min-h-screen,
+body.theme-light-corporate main {
+  background-color: #f8fafc !important;
+  color: #0a0a0a !important;
+}
+
+/* Sticky Navbar & Aside Sidebar */
+body.theme-light-corporate header {
+  background-color: #ffffff !important;
+  color: #0a0a0a !important;
+  border-bottom-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-light-corporate aside {
+  background-color: #ffffff !important;
+  color: #0a0a0a !important;
+  border-right-color: #e2e8f0 !important;
+  box-shadow: 1px 0 3px 0 rgba(0, 0, 0, 0.03) !important;
+}
+
+/* 2. Dark Navy Containers, Glass Panels & Slate Backgrounds */
+body.theme-light-corporate .bg-\[\#070D1E\],
+body.theme-light-corporate [class*="bg-[#070D1E]"],
+body.theme-light-corporate .bg-\[\#0B132B\],
+body.theme-light-corporate [class*="bg-[#0B132B]"],
+body.theme-light-corporate .bg-slate-950,
+body.theme-light-corporate [class*="bg-slate-950"],
+body.theme-light-corporate .bg-slate-900,
+body.theme-light-corporate [class*="bg-slate-900"],
+body.theme-light-corporate .bg-slate-850,
+body.theme-light-corporate [class*="bg-slate-850"] {
+  background-color: #ffffff !important;
+  color: #0a0a0a !important;
   border-color: #e2e8f0 !important;
 }
 
-body.theme-light-corporate .bg-slate-950\/60,
-body.theme-light-corporate .bg-slate-950\/80 {
-  background-color: #ffffff !important;
+/* Secondary Panels & Sub-Cards */
+body.theme-light-corporate .bg-slate-800,
+body.theme-light-corporate [class*="bg-slate-800"] {
+  background-color: #f1f5f9 !important;
+  color: #0a0a0a !important;
   border-color: #cbd5e1 !important;
 }
 
+/* Subtle Hover Transitions */
+body.theme-light-corporate .hover\:bg-slate-900:hover,
+body.theme-light-corporate .hover\:bg-slate-850:hover,
+body.theme-light-corporate .hover\:bg-slate-800:hover,
+body.theme-light-corporate .hover\:bg-slate-700:hover,
+body.theme-light-corporate [class*="hover:bg-slate-900"]:hover,
+body.theme-light-corporate [class*="hover:bg-slate-800"]:hover,
+body.theme-light-corporate [class*="hover:bg-slate-700"]:hover {
+  background-color: #e2e8f0 !important;
+  color: #0a0a0a !important;
+}
+
+/* 3. High-Contrast Typography (Crisp Black & Dark Charcoal) */
+body.theme-light-corporate .text-white,
 body.theme-light-corporate .text-slate-100,
-body.theme-light-corporate .text-white {
-  color: #0f172a !important;
+body.theme-light-corporate .text-slate-200,
+body.theme-light-corporate [class*="text-slate-100"],
+body.theme-light-corporate [class*="text-slate-200"] {
+  color: #0a0a0a !important;
 }
 
 body.theme-light-corporate .text-slate-300,
-body.theme-light-corporate .text-slate-400 {
+body.theme-light-corporate .text-slate-400,
+body.theme-light-corporate [class*="text-slate-300"],
+body.theme-light-corporate [class*="text-slate-400"] {
+  color: #334155 !important;
+}
+
+body.theme-light-corporate .text-slate-500,
+body.theme-light-corporate [class*="text-slate-500"] {
   color: #475569 !important;
 }
 
+/* 4. Crisp Borders & Dividers */
 body.theme-light-corporate .border-slate-800,
-body.theme-light-corporate .border-slate-700 {
+body.theme-light-corporate .border-slate-700,
+body.theme-light-corporate .border-slate-600,
+body.theme-light-corporate [class*="border-slate-800"],
+body.theme-light-corporate [class*="border-slate-700"],
+body.theme-light-corporate [class*="border-slate-600"] {
   border-color: #cbd5e1 !important;
+}
+
+body.theme-light-corporate .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
+body.theme-light-corporate .divide-slate-700 > :not([hidden]) ~ :not([hidden]),
+body.theme-light-corporate [class*="divide-slate-800"] > :not([hidden]) ~ :not([hidden]),
+body.theme-light-corporate [class*="divide-slate-700"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+/* 5. Tables & Data Grids */
+body.theme-light-corporate table {
+  background-color: #ffffff !important;
+  color: #0a0a0a !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.theme-light-corporate thead,
+body.theme-light-corporate thead tr,
+body.theme-light-corporate th {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  font-weight: 700 !important;
+}
+
+body.theme-light-corporate tbody tr {
+  background-color: #ffffff !important;
+  color: #0a0a0a !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.theme-light-corporate tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+
+body.theme-light-corporate td {
+  border-color: #e2e8f0 !important;
+  color: #0a0a0a !important;
+}
+
+/* 6. Form Controls: Inputs, Selects & Textareas */
+body.theme-light-corporate input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+body.theme-light-corporate select,
+body.theme-light-corporate textarea {
+  background-color: #ffffff !important;
+  color: #0a0a0a !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.theme-light-corporate input::placeholder,
+body.theme-light-corporate textarea::placeholder {
+  color: #64748b !important;
+}
+
+body.theme-light-corporate input:focus,
+body.theme-light-corporate select:focus,
+body.theme-light-corporate textarea:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 1.5px rgba(37, 99, 235, 0.3) !important;
+}
+
+/* 7. Primary Action Buttons Preservation (Maintain white text on solid color buttons) */
+body.theme-light-corporate .bg-red-600,
+body.theme-light-corporate .bg-red-700,
+body.theme-light-corporate .bg-blue-600,
+body.theme-light-corporate .bg-blue-700,
+body.theme-light-corporate .bg-emerald-600,
+body.theme-light-corporate .bg-emerald-700,
+body.theme-light-corporate .bg-rose-600,
+body.theme-light-corporate [class*="bg-red-600"],
+body.theme-light-corporate [class*="bg-red-700"],
+body.theme-light-corporate [class*="bg-blue-600"],
+body.theme-light-corporate [class*="bg-blue-700"],
+body.theme-light-corporate [class*="bg-emerald-600"],
+body.theme-light-corporate [class*="bg-emerald-700"],
+body.theme-light-corporate [class*="bg-rose-600"] {
+  color: #ffffff !important;
+}
+
+body.theme-light-corporate .bg-red-600 *,
+body.theme-light-corporate .bg-red-700 *,
+body.theme-light-corporate .bg-blue-600 *,
+body.theme-light-corporate .bg-blue-700 *,
+body.theme-light-corporate .bg-emerald-600 *,
+body.theme-light-corporate .bg-emerald-700 *,
+body.theme-light-corporate .bg-rose-600 * {
+  color: #ffffff !important;
+}
+
+body.theme-light-corporate .bg-amber-500,
+body.theme-light-corporate [class*="bg-amber-500"] {
+  color: #0f172a !important;
+}
+
+/* 8. Status Badges & Pills in Light Mode */
+body.theme-light-corporate [class*="bg-emerald-500/"],
+body.theme-light-corporate [class*="bg-emerald-950/"] {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
+}
+
+body.theme-light-corporate [class*="bg-amber-500/"],
+body.theme-light-corporate [class*="bg-amber-950/"] {
+  background-color: #fffbeb !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+}
+
+body.theme-light-corporate [class*="bg-blue-500/"],
+body.theme-light-corporate [class*="bg-blue-950/"] {
+  background-color: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border-color: #bfdbfe !important;
+}
+
+body.theme-light-corporate [class*="bg-rose-500/"],
+body.theme-light-corporate [class*="bg-rose-950/"],
+body.theme-light-corporate [class*="bg-red-500/"],
+body.theme-light-corporate [class*="bg-red-950/"] {
+  background-color: #fef2f2 !important;
+  color: #b91c1c !important;
+  border-color: #fecaca !important;
+}
+
+/* 9. Sidebar Navigation in Light Mode */
+body.theme-light-corporate aside button {
+  color: #334155 !important;
+}
+
+body.theme-light-corporate aside button:hover {
+  background-color: #f1f5f9 !important;
+  color: #0a0a0a !important;
+}
+
+body.theme-light-corporate aside [class*="bg-red-600/"] {
+  background-color: #fef2f2 !important;
+  color: #b91c1c !important;
+  border-color: #fca5a5 !important;
+}
+
+/* 10. Modals, Drawers & Dialog Cards */
+body.theme-light-corporate .fixed .bg-\[\#0B132B\],
+body.theme-light-corporate .fixed [class*="bg-[#0B132B]"],
+body.theme-light-corporate .fixed .bg-slate-900,
+body.theme-light-corporate .fixed [class*="bg-slate-900"] {
+  background-color: #ffffff !important;
+  color: #0a0a0a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Light Mode Custom Scrollbar */
+body.theme-light-corporate .custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+body.theme-light-corporate .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+body.theme-light-corporate .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 body.theme-tally-monochrome {

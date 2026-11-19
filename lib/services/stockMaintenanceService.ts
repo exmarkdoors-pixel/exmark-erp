@@ -684,7 +684,16 @@ export function getRawMaterialsInventory(): RawMaterialStockItem[] {
   // Note: We do NOT re-merge DEFAULT_RAW_MATERIALS so that user-deleted demo items stay deleted,
   // and user-edited names/rates are permanently preserved!
   let mutated = false;
-  const normalized = current.map((item) => {
+  const seenIds = new Set<string>();
+  const normalized = current.map((item, idx) => {
+    let itemId = item.id;
+    if (!itemId || seenIds.has(itemId)) {
+      mutated = true;
+      const codePart = (item.itemCode || `rm-${idx}`).toLowerCase().replace(/[^a-z0-9]/g, '-');
+      itemId = `inv-${codePart}-${idx + 1}`;
+    }
+    seenIds.add(itemId);
+
     const minBuffer = Number(item.minSafetyBuffer) || Number(item.reorderLevel) || 10;
     const stock = Math.max(0, Number(item.currentStock) || 0);
     const target = Number(item.targetStock) || minBuffer * 2;
@@ -696,6 +705,7 @@ export function getRawMaterialsInventory(): RawMaterialStockItem[] {
       nextStatus = 'LOW_STOCK';
     }
     if (
+      item.id !== itemId ||
       item.status !== nextStatus ||
       item.minSafetyBuffer !== minBuffer ||
       item.targetStock !== target ||
@@ -704,6 +714,7 @@ export function getRawMaterialsInventory(): RawMaterialStockItem[] {
       mutated = true;
       return {
         ...item,
+        id: itemId,
         minSafetyBuffer: minBuffer,
         targetStock: target,
         unitCost,

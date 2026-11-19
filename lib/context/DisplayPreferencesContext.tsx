@@ -22,9 +22,9 @@ export const THEME_OPTIONS: Array<{ id: StandardUiTheme; label: string; desc: st
   },
   {
     id: 'light-corporate',
-    label: 'Clean Light Corporate',
-    desc: 'Bright white & soft grey administrative theme ideal for well-lit office desk monitors & client presentations.',
-    previewBg: 'bg-slate-50 text-slate-900 border-slate-300',
+    label: 'Clean White & Black (Office Light Mode) / ലളിതമായ വൈറ്റ് തീം',
+    desc: 'High-contrast pure white background with sharp black letters, clean light borders, and zero glare for office desks and daytime operations.',
+    previewBg: 'bg-white text-black border-slate-300',
     previewAccent: '#2563eb',
   },
   {

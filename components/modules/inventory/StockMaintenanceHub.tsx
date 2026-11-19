@@ -764,9 +764,9 @@ export default function StockMaintenanceHub() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 text-xs">
-            {overview.reorderRecommendations.map((rec) => (
+            {overview.reorderRecommendations.map((rec, idx) => (
               <div
-                key={rec.itemId}
+                key={`${rec.itemId}-${rec.itemCode}-${idx}`}
                 className="p-2 rounded-lg bg-[#070D1E] border border-amber-500/30 flex flex-col justify-between gap-1"
               >
                 <div>
@@ -975,11 +975,11 @@ export default function StockMaintenanceHub() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-medium">
-                  {filteredRawMaterials.map((rm) => {
+                  {filteredRawMaterials.map((rm, idx) => {
                     const isLow = rm.status === 'LOW_STOCK' || rm.status === 'CRITICAL';
                     return (
                       <tr
-                        key={rm.id}
+                        key={`${rm.id}-${rm.itemCode || idx}`}
                         className={`hover:bg-slate-900/40 transition ${
                           isLow ? 'bg-amber-950/15' : ''
                         }`}
@@ -2198,8 +2198,8 @@ export default function StockMaintenanceHub() {
                     }}
                     className="w-full px-2.5 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-bold text-xs cursor-pointer"
                   >
-                    {rawMaterials.map((rm) => (
-                      <option key={rm.id} value={rm.name}>
+                    {rawMaterials.map((rm, idx) => (
+                      <option key={`${rm.id}-${rm.itemCode || idx}`} value={rm.name}>
                         {rm.name} ({rm.currentStock} {rm.unit} in store @ ₹{rm.unitCost}/{rm.unit})
                       </option>
                     ))}
