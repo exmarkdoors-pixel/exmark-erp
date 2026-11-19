@@ -632,6 +632,49 @@ export class DuplicateBoqIssueError extends Error {
   }
 }
 
+export class IneligibleBoqStageError extends Error {
+  statusCode = 400;
+  orderStage: string;
+
+  constructor(message: string, orderStage: string = '') {
+    super(message);
+    this.name = 'IneligibleBoqStageError';
+    this.orderStage = orderStage;
+  }
+}
+
+export const BOQ_ELIGIBLE_STAGES: ProductionStage[] = ['QUEUED', 'MOLDING'];
+
+export function isOrderEligibleForBoqIssue(order: ProductionOrder): {
+  eligible: boolean;
+  reason?: string;
+} {
+  const normalized = (order.status || 'QUEUED') as ProductionStage;
+  if (!BOQ_ELIGIBLE_STAGES.includes(normalized)) {
+    const stageLabel = STAGE_DISPLAY_LABELS[normalized] || normalized;
+    return {
+      eligible: false,
+      reason: `Order ${order.jobCardNumber || order.prodOrderNumber} is currently in stage "${stageLabel}". Raw material BOQ can only be issued for orders transitioning from Queue to Molding.`,
+    };
+  }
+  return { eligible: true };
+}
+
+export function isDoorEligibleForBoqIssue(
+  door: ProductionDoorItem,
+  orderStatus: ProductionStage = 'QUEUED'
+): { eligible: boolean; reason?: string } {
+  const stage = (door.stage || orderStatus || 'QUEUED') as ProductionStage;
+  if (!BOQ_ELIGIBLE_STAGES.includes(stage)) {
+    const stageLabel = STAGE_DISPLAY_LABELS[stage] || stage;
+    return {
+      eligible: false,
+      reason: `Door ${door.doorNumber} is in stage "${stageLabel}". Raw material BOQ is only permitted for doors in Queue or Molding.`,
+    };
+  }
+  return { eligible: true };
+}
+
 export async function markProductionBoqIssued(id: string): Promise<ProductionOrder> {
   await assertWriteAllowed('mark BOQ issued');
 
@@ -640,6 +683,13 @@ export async function markProductionBoqIssued(id: string): Promise<ProductionOrd
   if (idx === -1) throw new Error(`Production order ${id} not found`);
 
   const existing = all[idx];
+
+  // HARD STAGE GUARD: Only orders transitioning from Queue to Molding (or currently in Molding) can have BOQ issued!
+  const stageCheck = isOrderEligibleForBoqIssue(existing);
+  if (!stageCheck.eligible) {
+    throw new IneligibleBoqStageError(`BLOCKED: ${stageCheck.reason}`, existing.status);
+  }
+
   const existingDoors = existing.doors || [];
   if (existing.boqIssuedAt && existingDoors.length > 0 && existingDoors.every((d) => Boolean(d.materialIssued))) {
     throw new DuplicateBoqIssueError(
@@ -897,6 +947,13 @@ export async function recordDoorMaterialIssue(
   if (idx === -1) throw new Error(`Production order ${orderId} not found`);
 
   const order = all[idx];
+
+  // HARD STAGE GUARD: Only orders transitioning from Queue to Molding (or currently in Molding) can have BOQ issued!
+  const stageCheck = isOrderEligibleForBoqIssue(order);
+  if (!stageCheck.eligible) {
+    throw new IneligibleBoqStageError(`BLOCKED: ${stageCheck.reason}`, order.status);
+  }
+
   const nowIso = new Date().toISOString();
   const batchId = input.batchId || `ISSUE-${Date.now()}`;
   const doorIdSet = new Set((input.doorIds || []).filter(Boolean));
@@ -908,6 +965,20 @@ export async function recordDoorMaterialIssue(
       doorIdSet.has(door.doorId) ||
       doorIdSet.has(door.doorNumber)
   );
+
+  // HARD DOOR STAGE GUARD: Disallow doors already passed molding
+  const ineligibleDoors = matchedDoors.filter(
+    (d) => d.stage && !BOQ_ELIGIBLE_STAGES.includes(d.stage as ProductionStage)
+  );
+  if (ineligibleDoors.length > 0) {
+    const list = ineligibleDoors
+      .map((d) => `${d.doorNumber} (${STAGE_DISPLAY_LABELS[d.stage as ProductionStage] || d.stage})`)
+      .join(', ');
+    throw new IneligibleBoqStageError(
+      `BLOCKED: Door(s) ${list} in ${order.jobCardNumber} have already passed molding. Raw BOQ can only be issued for doors in Queue or Molding.`,
+      order.status
+    );
+  }
 
   // HARD ZERO-DUPLICATE GUARD: Never allow issuing BOQ twice for any door already marked issued!
   const alreadyIssuedDoors = matchedDoors.filter((door) => Boolean(door.materialIssued));

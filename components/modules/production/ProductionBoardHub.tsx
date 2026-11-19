@@ -749,6 +749,29 @@ export function ProductionBoardHub() {
                             )}
                           </div>
 
+                          {/* BOQ Readiness for Queue -> Molding */}
+                          {order.status === 'QUEUED' && (() => {
+                            const allIssued = order.doors && order.doors.length > 0 && order.doors.every((d) => d.materialIssued);
+                            const someIssued = order.doors && order.doors.some((d) => d.materialIssued);
+                            return (
+                              <div className="my-1">
+                                {allIssued || order.boqIssuedAt ? (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-950/70 border border-emerald-500/50 text-emerald-300">
+                                    ✓ BOQ Issued (മോൾഡിംഗിന് തയ്യാർ)
+                                  </span>
+                                ) : someIssued ? (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-950/70 border border-amber-500/50 text-amber-300">
+                                    ⚡ BOQ Partial Issued
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-950/70 border border-rose-500/50 text-rose-300 animate-pulse">
+                                    ⚠️ BOQ Needed for Molding
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
+
                           {/* Door Stage Distribution Summary */}
                           {order.doors && order.doors.length > 1 && (() => {
                             const stageCounts: Record<string, number> = {};
@@ -796,18 +819,22 @@ export function ProductionBoardHub() {
                               onClick={() =>
                                 setSelectedStageBoq({
                                   orderId: order.id,
-                                  stageType:
-                                    order.status === 'PAINT_SECTION' ||
-                                    order.status === 'PU_COATING' ||
-                                    order.status === 'FINISHING_GRAINS'
-                                      ? 'PAINTING'
-                                      : 'MANUFACTURING',
+                                  stageType: 'MANUFACTURING',
                                 })
                               }
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded text-[10px] font-bold cursor-pointer"
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold cursor-pointer transition ${
+                                order.status === 'QUEUED' || order.status === 'MOLDING'
+                                  ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700'
+                              }`}
+                              title={
+                                order.status === 'QUEUED' || order.status === 'MOLDING'
+                                  ? 'Issue raw chemicals & resin BOQ for molding bench'
+                                  : 'View BOQ Issued Slip & Material History'
+                              }
                             >
                               <Layers className="w-3 h-3" />
-                              <span>BOQ</span>
+                              <span>{order.status === 'QUEUED' || order.status === 'MOLDING' ? 'BOQ Issue' : 'BOQ Record'}</span>
                             </button>
                             <button
                               type="button"
@@ -1232,6 +1259,22 @@ export function ProductionBoardHub() {
                   <div className="space-y-2.5">
                     <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-[11px] text-blue-200">
                       <strong>Door Molding &amp; Layup:</strong> Assign a single gang for the entire order or split across <strong>Two Molding Teams (Gang 1 &amp; Gang 2)</strong> on the same work order.
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200">
+                      <div>
+                        <strong>Raw Material BOQ Requisition:</strong> Issue Store BOQ for the molding bench before pouring resin and catalyst.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const ordId = pendingAdvance.order.id;
+                          setSelectedStageBoq({ orderId: ordId, stageType: 'MANUFACTURING' });
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shrink-0 shadow cursor-pointer"
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>📦 Issue Store BOQ</span>
+                      </button>
                     </div>
                     <div className="flex items-center gap-2">
                       <button

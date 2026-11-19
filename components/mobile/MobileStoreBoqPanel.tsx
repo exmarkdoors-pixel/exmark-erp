@@ -47,6 +47,7 @@ interface MobileProdOrder {
   orderNumber: string;
   jobCardNumber: string;
   customerName: string;
+  status?: string;
   doors: MobileOrderDoor[];
   boqIssuedAt?: string | null;
 }
@@ -145,13 +146,19 @@ export function MobileStoreBoqPanel({ staffName }: MobileStoreBoqPanelProps) {
             orderNumber: p.salesOrderId || p.prodOrderNumber || p.id,
             jobCardNumber: p.jobCardNumber || p.prodOrderNumber,
             customerName: p.customerName || 'Party Order',
+            status: p.status || 'QUEUED',
             doors,
             boqIssuedAt: p.boqIssuedAt || null,
           };
         });
         setOrders(mapped);
 
-        const pendingList = mapped.filter((o) => o.doors.some((d) => !d.materialIssued));
+        const inMolding = (o: MobileProdOrder) => {
+          const s = (o.status || 'QUEUED').toUpperCase();
+          return s === 'QUEUED' || s === 'MOLDING';
+        };
+
+        const pendingList = mapped.filter((o) => inMolding(o) && o.doors.some((d) => !d.materialIssued));
         if (pendingList.length > 0 && !singleOrderId) {
           setSingleOrderId(pendingList[0].id);
         }
@@ -186,9 +193,13 @@ export function MobileStoreBoqPanel({ staffName }: MobileStoreBoqPanelProps) {
     loadLiveStoreData();
   }, [loadLiveStoreData]);
 
-  // Only pending / balance orders are selectable for issuing!
+  // Only orders transitioning from Queue to Molding (or in Molding) with unissued doors are selectable!
   const pendingOrders = useMemo(
-    () => orders.filter((o) => o.doors.some((d) => !d.materialIssued)),
+    () =>
+      orders.filter((o) => {
+        const s = (o.status || 'QUEUED').toUpperCase();
+        return (s === 'QUEUED' || s === 'MOLDING') && o.doors.some((d) => !d.materialIssued);
+      }),
     [orders]
   );
 
@@ -560,9 +571,10 @@ export function MobileStoreBoqPanel({ staffName }: MobileStoreBoqPanelProps) {
                 {pendingOrders.map((o) => {
                   const pend = o.doors.filter((d) => !d.materialIssued).length;
                   const iss = o.doors.length - pend;
+                  const stageTag = o.status === 'QUEUED' ? 'QUEUE ➜ MOLD' : 'MOLDING';
                   return (
                     <option key={o.id} value={o.id}>
-                      {iss > 0 ? `[BAL ${pend}/${o.doors.length}]` : `[PENDING ${pend}]`} {o.jobCardNumber} — {o.customerName}
+                      {iss > 0 ? `[${stageTag} • BAL ${pend}/${o.doors.length}]` : `[${stageTag} • PENDING ${pend}]`} {o.jobCardNumber} — {o.customerName}
                     </option>
                   );
                 })}
@@ -667,8 +679,11 @@ export function MobileStoreBoqPanel({ staffName }: MobileStoreBoqPanelProps) {
                           <div className="text-xs font-black text-white truncate">
                             {ord.customerName.split('(')[0].trim()}
                           </div>
-                          <div className="text-[10px] font-mono text-slate-400">
-                            {ord.jobCardNumber} • {ord.doors.length} Total
+                          <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
+                            <span>{ord.jobCardNumber} • {ord.doors.length} Total</span>
+                            <span className="text-[8.5px] font-bold px-1 py-0.2 rounded bg-amber-950/70 border border-amber-500/40 text-amber-300">
+                              {ord.status === 'QUEUED' ? 'QUEUE ➜ MOLD' : 'MOLDING'}
+                            </span>
                           </div>
                         </div>
                       </label>

@@ -9,6 +9,8 @@ import {
   deleteProductionOrder,
   ProductionOrder,
   ProductionStage,
+  DuplicateBoqIssueError,
+  IneligibleBoqStageError,
 } from '@/lib/services/productionService';
 import { generateManufacturingBoq, generatePaintBoq } from '@/lib/services/boqService';
 import {
@@ -229,8 +231,24 @@ export async function PUT(
     }
 
     if (body.action === 'MARK_BOQ_ISSUED') {
-      const updated = await markProductionBoqIssued(id);
-      return NextResponse.json({ success: true, data: updated });
+      try {
+        const updated = await markProductionBoqIssued(id);
+        return NextResponse.json({ success: true, data: updated });
+      } catch (err) {
+        if (err instanceof IneligibleBoqStageError) {
+          return NextResponse.json(
+            { success: false, code: 'STAGE_NOT_ELIGIBLE_FOR_BOQ', error: err.message },
+            { status: 400 }
+          );
+        }
+        if (err instanceof DuplicateBoqIssueError) {
+          return NextResponse.json(
+            { success: false, code: 'DUPLICATE_BOQ_ISSUE_BLOCKED', error: err.message, duplicates: err.duplicates },
+            { status: 409 }
+          );
+        }
+        throw err;
+      }
     }
 
     if (body.action === 'TOGGLE_INSTALLATION') {

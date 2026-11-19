@@ -18,8 +18,12 @@ import {
   listConsolidatedBatchSummaries,
 } from '@/lib/services/boqIssueService';
 import {
+  BOQ_ELIGIBLE_STAGES,
   DuplicateBoqIssueError,
   getProductionOrder,
+  IneligibleBoqStageError,
+  isDoorEligibleForBoqIssue,
+  isOrderEligibleForBoqIssue,
   ProductionOrder,
   recordDoorMaterialIssue,
   unmarkDoorMaterialIssue,
@@ -151,6 +155,28 @@ function checkOrderDuplicateDoors(
   return null;
 }
 
+function checkOrderStageEligibility(
+  order: ProductionOrder | null,
+  doorIds: string[]
+): string | null {
+  if (!order) return null;
+  const stageCheck = isOrderEligibleForBoqIssue(order);
+  if (!stageCheck.eligible) {
+    return stageCheck.reason || 'Order is not in Queue or Molding stage';
+  }
+  const idSet = new Set(doorIds);
+  const targetDoors = order.doors.filter(
+    (d) => idSet.has(d.id) || idSet.has(d.doorId) || idSet.has(d.doorNumber)
+  );
+  for (const door of targetDoors) {
+    const doorCheck = isDoorEligibleForBoqIssue(door, order.status);
+    if (!doorCheck.eligible) {
+      return doorCheck.reason || `Door ${door.doorNumber} is past molding`;
+    }
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await authorizeRequest(req, 'production');
@@ -233,6 +259,7 @@ export async function POST(req: NextRequest) {
       const resolvedEntries: ConsolidatedBatchPartyEntryInput[] = [];
       const allSelectedBoqDoors: BoqDoorInput[] = [];
       const duplicateErrors: string[] = [];
+      const stageErrors: string[] = [];
 
       for (const raw of rawEntries) {
         const pid = String(raw.prodOrderId || '').trim();
@@ -245,6 +272,14 @@ export async function POST(req: NextRequest) {
         const resolvedId = existingOrder?.id || pid;
         const jobCardLabel = raw.jobCardNumber || existingOrder?.jobCardNumber || resolvedId;
 
+        // 1. Stage eligibility check (Queue -> Molding only!)
+        const stageErr = checkOrderStageEligibility(existingOrder, doorIds);
+        if (stageErr) {
+          stageErrors.push(stageErr);
+          continue;
+        }
+
+        // 2. Duplicate check
         const dupErr = checkOrderDuplicateDoors(existingOrder, resolvedId, jobCardLabel, doorIds);
         if (dupErr) {
           duplicateErrors.push(dupErr);
@@ -267,6 +302,17 @@ export async function POST(req: NextRequest) {
           doorsMeta,
           selectedSqFt: Number(computedSqFt.toFixed(2)),
         });
+      }
+
+      if (stageErrors.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'STAGE_NOT_ELIGIBLE_FOR_BOQ',
+            error: `BLOCKED — Stage restriction: ${stageErrors.join(' | ')}. Raw chemical BOQ can only be issued for orders transitioning from Queue to Molding.`,
+          },
+          { status: 400 }
+        );
       }
 
       if (duplicateErrors.length > 0) {
@@ -406,6 +452,19 @@ export async function POST(req: NextRequest) {
     const existingOrder = await getProductionOrder(prodOrderId);
     const resolvedOrderId = existingOrder?.id || prodOrderId;
     const jobCardLabel = body.jobCardNumber || existingOrder?.jobCardNumber || resolvedOrderId;
+
+    // 1. Stage eligibility check (Queue -> Molding only!)
+    const stageErr = checkOrderStageEligibility(existingOrder, doorIds);
+    if (stageErr) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'STAGE_NOT_ELIGIBLE_FOR_BOQ',
+          error: `BLOCKED — ${stageErr}`,
+        },
+        { status: 400 }
+      );
+    }
 
     const dupErr = checkOrderDuplicateDoors(existingOrder, resolvedOrderId, jobCardLabel, doorIds);
     if (dupErr) {

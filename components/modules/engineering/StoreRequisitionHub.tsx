@@ -320,8 +320,15 @@ export default function StoreRequisitionHub({
 
         setOrders(liveOrders);
 
+        const inMoldingPipeline = (o: ProductionRequisitionOrder) => {
+          const s = (o.orderStatus || 'QUEUED').toUpperCase();
+          return s === 'QUEUED' || s === 'MOLDING';
+        };
+
         const firstPending =
-          liveOrders.find((o) => !getOrderIssueStats(o).isFullyIssued) || liveOrders[0];
+          liveOrders.find((o) => inMoldingPipeline(o) && !getOrderIssueStats(o).isFullyIssued) ||
+          liveOrders.find((o) => inMoldingPipeline(o)) ||
+          liveOrders[0];
         let initialSelected = firstPending?.id || '';
         if (initialOrderId) {
           const match = liveOrders.find(
@@ -335,7 +342,7 @@ export default function StoreRequisitionHub({
         setSelectedOrderId(initialSelected);
         setSelectedBatchOrderIds(
           liveOrders
-            .filter((o) => !getOrderIssueStats(o).isFullyIssued)
+            .filter((o) => inMoldingPipeline(o) && !getOrderIssueStats(o).isFullyIssued)
             .slice(0, 5)
             .map((o) => o.id)
         );
@@ -397,12 +404,21 @@ export default function StoreRequisitionHub({
     };
   }, [initialOrderId]);
 
+  const isOrderInMoldingPipeline = (o: ProductionRequisitionOrder) => {
+    const s = (o.orderStatus || 'QUEUED').toUpperCase();
+    return s === 'QUEUED' || s === 'MOLDING';
+  };
+
   const pendingBoqOrders = useMemo(
-    () => orders.filter((o) => !getOrderIssueStats(o).isFullyIssued),
+    () => orders.filter((o) => isOrderInMoldingPipeline(o) && !getOrderIssueStats(o).isFullyIssued),
     [orders]
   );
   const issuedBoqOrders = useMemo(
     () => orders.filter((o) => getOrderIssueStats(o).isFullyIssued),
+    [orders]
+  );
+  const pastMoldingOrders = useMemo(
+    () => orders.filter((o) => !isOrderInMoldingPipeline(o) && !getOrderIssueStats(o).isFullyIssued),
     [orders]
   );
 
@@ -1357,6 +1373,16 @@ export default function StoreRequisitionHub({
 
   const handleDirectIssueSelectedDoors = async () => {
     if (!selectedOrder?.prodOrderId) return;
+
+    // HARD STAGE GUARD: Only orders transitioning from Queue to Molding can issue raw BOQ
+    if (!isOrderInMoldingPipeline(selectedOrder)) {
+      setBoqIssueNotice({
+        type: 'error',
+        text: `BLOCKED: Order ${selectedOrder.jobCardNumber} has already passed molding (Current Stage: ${selectedOrder.orderStatus}). Raw material BOQ can only be issued for orders transitioning from Queue to Molding.`,
+      });
+      return;
+    }
+
     // STRICT ZERO-DUPLICATE GUARD: Filter out any already-issued doors before submission
     const unissuedTargetDoors = activeDoors.filter((d) => !d.materialIssued);
     if (unissuedTargetDoors.length === 0) {
@@ -1611,6 +1637,19 @@ export default function StoreRequisitionHub({
       setBoqIssueNotice({
         type: 'error',
         text: 'Select at least 1 party with pending doors in Consolidated BOQ before issuing.',
+      });
+      return;
+    }
+
+    // HARD STAGE GUARD: Exclude parties that have already passed molding
+    const ineligibleParties = consolidatedBatchEntries.filter((e) => {
+      const match = orders.find((o) => o.id === e.prodOrderId || o.prodOrderId === e.prodOrderId);
+      return match && !isOrderInMoldingPipeline(match);
+    });
+    if (ineligibleParties.length > 0) {
+      setBoqIssueNotice({
+        type: 'error',
+        text: `BLOCKED: Party ${ineligibleParties.map((p) => p.jobCardNumber).join(', ')} has already passed molding. Only orders in Queue or Molding can be included in the batch.`,
       });
       return;
     }
@@ -1982,9 +2021,9 @@ export default function StoreRequisitionHub({
                 className="bg-[#070D1E] border border-slate-700 text-slate-300 text-[11px] rounded-lg px-2 py-1.5 font-semibold cursor-pointer"
                 title="Filter between Pending BOQ Issue vs Already Issued BOQ History"
               >
-                <option value="ALL">All Orders ({orders.length})</option>
-                <option value="PENDING">Pending BOQ ({pendingBoqOrders.length})</option>
-                <option value="ISSUED">Already Issued ({issuedBoqOrders.length})</option>
+                <option value="ALL">All Active Orders ({pendingBoqOrders.length + issuedBoqOrders.length})</option>
+                <option value="PENDING">🔥 Queue ➔ Molding Pending ({pendingBoqOrders.length})</option>
+                <option value="ISSUED">✓ Already Issued History ({issuedBoqOrders.length})</option>
               </select>
 
               <select
@@ -1998,12 +2037,13 @@ export default function StoreRequisitionHub({
                   <>
                     {(orderHistoryFilter === 'ALL' || orderHistoryFilter === 'PENDING') &&
                       pendingBoqOrders.length > 0 && (
-                        <optgroup label="Pending / Partial BOQ Issue (പുതിയവ / ബാക്കിയുള്ളവ)">
+                        <optgroup label="🔥 Ready for Molding (ക്യൂവ് ➔ മോൾഡിംഗ് - PENDING BOQ)">
                           {pendingBoqOrders.map((o) => {
                             const stats = getOrderIssueStats(o);
+                            const stageTag = o.orderStatus === 'QUEUED' ? 'QUEUE ➔ MOLD' : 'MOLDING';
                             const tag = stats.isPartial
-                              ? `[PARTIAL ${stats.issued}/${stats.total} • ${stats.pending} Left]`
-                              : `[PENDING]`;
+                              ? `[${stageTag} • PARTIAL ${stats.issued}/${stats.total}]`
+                              : `[${stageTag} • PENDING]`;
                             return (
                               <option key={o.id} value={o.id}>
                                 {tag} {o.jobCardNumber} — {o.customerName} ({o.doorsCount} Doors)
@@ -2014,7 +2054,7 @@ export default function StoreRequisitionHub({
                       )}
                     {(orderHistoryFilter === 'ALL' || orderHistoryFilter === 'ISSUED') &&
                       issuedBoqOrders.length > 0 && (
-                        <optgroup label="Already Issued BOQ History (നൽകി കഴിഞ്ഞവ)">
+                        <optgroup label="✓ Already Issued BOQ History (നൽകി കഴിഞ്ഞവ)">
                           {issuedBoqOrders.map((o) => (
                             <option key={o.id} value={o.id}>
                               [ISSUED {o.boqIssuedAt ? o.boqIssuedAt.slice(0, 10) : ''}] {o.jobCardNumber} — {o.customerName} ({o.doorsCount} Doors)
@@ -2022,6 +2062,15 @@ export default function StoreRequisitionHub({
                           ))}
                         </optgroup>
                       )}
+                    {orderHistoryFilter === 'ALL' && pastMoldingOrders.length > 0 && (
+                      <optgroup label="📜 Past Molding / Floor Progress (മോൾഡിംഗ് കഴിഞ്ഞവ - VIEW ONLY)">
+                        {pastMoldingOrders.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            [PAST MOLDING: {o.orderStatus}] {o.jobCardNumber} — {o.customerName} ({o.doorsCount} Doors)
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </>
                 )}
               </select>
@@ -2145,6 +2194,19 @@ export default function StoreRequisitionHub({
                 <span className="text-[10px] text-amber-300 font-bold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-600/40">
                   Selected: {pendingSelectedCount} Pending of {selectedOrder.doors.length} Doors
                 </span>
+                {selectedOrder.orderStatus === 'QUEUED' ? (
+                  <span className="text-[10px] text-amber-300 font-bold px-2 py-0.5 rounded bg-amber-950/70 border border-amber-500/50">
+                    ⚡ Queue ➜ Molding
+                  </span>
+                ) : selectedOrder.orderStatus === 'MOLDING' ? (
+                  <span className="text-[10px] text-emerald-300 font-bold px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/50">
+                    🔨 In Molding
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-bold px-2 py-0.5 rounded bg-slate-900 border border-slate-700">
+                    📜 Past Molding ({selectedOrder.orderStatus})
+                  </span>
+                )}
                 <span className="text-[10px] text-emerald-300 font-bold px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-600/40">
                   🔒 Issued: {selStats.issued}/{selStats.total}
                 </span>
