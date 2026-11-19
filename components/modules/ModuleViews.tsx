@@ -110,6 +110,7 @@ import { WarrantyCertificateModal } from './fulfillment/WarrantyCertificateModal
 import { GeotaggedWarrantyHub } from './fulfillment/GeotaggedWarrantyHub';
 import { DriversAndVehiclesMasterTab } from './fulfillment/DriversAndVehiclesMasterTab';
 import { MarketingSalesExpansionHub } from './sales/MarketingSalesExpansionHub';
+import StockMaintenanceHub from './inventory/StockMaintenanceHub';
 import { DispatchRecord, InstallationRecord, WarrantyCertificate } from '@/types/fulfillment';
 import { Customer } from '@/lib/services/customerService';
 import { Lead } from '@/lib/services/crmService';
@@ -1224,127 +1225,10 @@ export function ProductionView() {
 }
 
 /* -------------------------------------------------------------
- * 7. INVENTORY VIEW
+ * 7. INVENTORY VIEW (Stock Maintenance & Buffer Management)
  * ------------------------------------------------------------- */
 export function InventoryView() {
-  const [inventory, setInventory] = useState<Array<{
-    id: string;
-    itemCode: string;
-    name: string;
-    category: string;
-    currentStock: number;
-    unit: string;
-    reorderLevel: number;
-    warehouseLocation: string;
-    status: string;
-  }>>([]);
-
-  const loadInventory = () => {
-    fetch('/api/inventory')
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success && Array.isArray(json.data)) {
-          setInventory(json.data);
-        }
-      })
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    loadInventory();
-  }, []);
-
-  const handleAdjustStock = async (id: string, adjustment: number) => {
-    try {
-      const res = await fetch('/api/inventory', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'ADJUST_STOCK', id, adjustment }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setInventory((prev) => prev.map((item) => (item.id === id ? json.data : item)));
-      }
-    } catch (err) {
-      console.error('Failed to adjust stock:', err);
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
-        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-          <Boxes className="w-4 h-4 text-red-500" />
-          <span>Raw Material &amp; Hardware Inventory</span>
-          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300">
-            {inventory.length} SKUs
-          </span>
-        </h2>
-      </div>
-
-      <div className="bg-white dark:bg-[#0B132B] rounded-xl border border-slate-200 dark:border-slate-800 p-3 shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
-            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400 uppercase text-[10px]">
-              <tr>
-                <th className="p-3">SKU Code</th>
-                <th className="p-3">Material Name</th>
-                <th className="p-3">Category</th>
-                <th className="p-3">Current Stock</th>
-                <th className="p-3">Reorder Point</th>
-                <th className="p-3">Warehouse Bay</th>
-                <th className="p-3">Status</th>
-                <th className="p-3 text-right">Quick Stock In / Out</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {inventory.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
-                  <td className="p-3 font-mono text-slate-400">{item.itemCode}</td>
-                  <td className="p-3 font-bold text-slate-900 dark:text-white">{item.name}</td>
-                  <td className="p-3">{item.category}</td>
-                  <td className="p-3 font-bold text-slate-900 dark:text-white">
-                    {item.currentStock} {item.unit}
-                  </td>
-                  <td className="p-3 text-slate-400">{item.reorderLevel} {item.unit}</td>
-                  <td className="p-3 text-slate-400">{item.warehouseLocation}</td>
-                  <td className="p-3">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        item.status === 'In Stock'
-                          ? 'bg-emerald-500/15 text-emerald-500'
-                          : 'bg-amber-500/15 text-amber-500'
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="p-3 text-right">
-                    <div className="inline-flex gap-1.5">
-                      <button
-                        onClick={() => handleAdjustStock(item.id, 50)}
-                        className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-bold hover:bg-emerald-500/20 text-[10px]"
-                        title="Add 50 units"
-                      >
-                        +50 In
-                      </button>
-                      <button
-                        onClick={() => handleAdjustStock(item.id, -25)}
-                        className="px-2 py-0.5 rounded bg-red-500/10 text-red-600 font-bold hover:bg-red-500/20 text-[10px]"
-                        title="Consume 25 units"
-                      >
-                        -25 Out
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+  return <StockMaintenanceHub />;
 }
 
 /* -------------------------------------------------------------

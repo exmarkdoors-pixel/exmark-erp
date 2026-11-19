@@ -103,7 +103,7 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: 'dispatch', label: 'Packing & Dispatch', icon: Truck, badge: 'Challan', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
   { id: 'gate-pass', label: 'Security Gate Pass', icon: Ticket, badge: 'NRGP / RGP', badgeColor: 'bg-emerald-500/20 text-emerald-300', category: 'Operations' },
   { id: 'installation', label: 'Site Installation', icon: ClipboardCheck, badge: 'Conditional', badgeColor: 'bg-cyan-500/20 text-cyan-300', category: 'Operations' },
-  { id: 'inventory', label: 'Raw Inventory Stock', icon: Boxes, badge: 'Live Stock', badgeColor: 'bg-orange-500/20 text-orange-300', category: 'Operations' },
+  { id: 'inventory', label: 'Stock Maintenance & Buffer', icon: Boxes, badge: 'Target Buffer', badgeColor: 'bg-amber-500/20 text-amber-300', category: 'Operations' },
   { id: 'purchases', label: 'Purchase Orders (PO)', icon: Layers, badge: 'Create PO', badgeColor: 'bg-purple-500/20 text-purple-300', category: 'Operations' },
   { id: 'mobile-field', label: 'Mobile Field Ops', icon: Smartphone, badge: 'Floor/GPS', badgeColor: 'bg-rose-500/20 text-rose-300', category: 'Operations' },
 

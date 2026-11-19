@@ -29,6 +29,10 @@ import {
   unmarkDoorMaterialIssue,
 } from '@/lib/services/productionService';
 import { getBoqMaterialRates } from '@/lib/services/boqRateService';
+import {
+  deductBoqMaterialsFromInventory,
+  restoreBoqMaterialsToInventory,
+} from '@/lib/services/stockMaintenanceService';
 import { getCustomFrames } from '@/lib/services/frameService';
 import type { BoqDoorInput } from '@/lib/utils/boqFormulaEngine';
 
@@ -365,6 +369,11 @@ export async function POST(req: NextRequest) {
         deviceInfo,
       });
 
+      // Automatically deduct raw materials from store ledger inventory
+      await deductBoqMaterialsFromInventory(authoritativeItems).catch((e) =>
+        console.warn('[boq:stock:deduct:batch] Non-fatal stock deduction warning:', e)
+      );
+
       const updatedOrders: ProductionOrder[] = [];
       let partiesClearedCount = 0;
       let partiesWithBalanceCount = 0;
@@ -520,6 +529,11 @@ export async function POST(req: NextRequest) {
       deviceInfo,
     });
 
+    // Automatically deduct raw materials from store ledger inventory
+    await deductBoqMaterialsFromInventory(authoritativeItems).catch((e) =>
+      console.warn('[boq:stock:deduct:single] Non-fatal stock deduction warning:', e)
+    );
+
     const updatedOrder = await recordDoorMaterialIssue(resolvedOrderId, {
       doorIds,
       batchId: voucher.voucherNumber,
@@ -604,6 +618,9 @@ export async function DELETE(req: NextRequest) {
       }
 
       const updatedOrders: ProductionOrder[] = [];
+      const allBatchItems = removedList.flatMap((v) => v.items || []);
+      await restoreBoqMaterialsToInventory(allBatchItems).catch(() => {});
+
       for (const removed of removedList) {
         try {
           const uo = await unmarkDoorMaterialIssue(
@@ -651,6 +668,9 @@ export async function DELETE(req: NextRequest) {
     }
 
     let updatedOrder = null;
+    if (Array.isArray(removed.items) && removed.items.length > 0) {
+      await restoreBoqMaterialsToInventory(removed.items).catch(() => {});
+    }
     try {
       updatedOrder = await unmarkDoorMaterialIssue(
         removed.prodOrderId,
