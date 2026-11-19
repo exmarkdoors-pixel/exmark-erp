@@ -34,8 +34,10 @@ export interface QuotationProfitRowInput {
   rate: number;
   frameTypeId?: string;
   frameTypeName?: string;
+  frameCostPrice?: number;
   lockId?: string;
   lockName?: string;
+  lockCostPrice?: number;
   colourId?: string;
   colourName?: string;
   withoutAccessories?: boolean;
@@ -161,9 +163,11 @@ export function calculateQuotationProfit(params: {
       heightCm: hCm,
       frameTypeId: noFrame ? 'FRM-005' : row.frameTypeId,
       frameTypeName: noFrame ? 'Without Frame (Shutter Only)' : row.frameTypeName,
+      frameCostPrice: row.frameCostPrice,
       finishColor: row.colourName || 'Standard',
       lockId: row.lockId,
       lockType: row.lockName,
+      lockCostPrice: row.lockCostPrice,
       quantity: Math.max(1, Number(row.qty) || 1),
     };
   });
@@ -197,9 +201,7 @@ export function calculateQuotationProfit(params: {
     const singleBatch = calculateDoorBatchBoq([boqInputs[idx]], frames, boqRates);
     const lineAccCredit = (row.supplyMode === 'NO_ACCESSORIES' || row.supplyMode === 'SHUTTER_ONLY' || row.withoutAccessories) ? Math.min(singleBatch.totalLockBoxCost, qty * 200) : 0;
     const lineMatCost = Math.round(
-      singleBatch.grandTotalCost +
-        Math.max(0, singleBatch.totalLockBoxCost - lineAccCredit) +
-        singleBatch.totalSqFt * 75
+      Math.max(0, singleBatch.grandTotalCost - lineAccCredit) + singleBatch.totalSqFt * 75
     );
 
     const lineMolding = qty * (noFrame ? rates.moldingOnlyDoor : rates.moldingDoorWithFrame);

@@ -78,6 +78,7 @@ export function FrpPricingSettingsModal({
   const [editingLockId, setEditingLockId] = useState<string | null>(null);
   const [lockName, setLockName] = useState('');
   const [lockPrice, setLockPrice] = useState('0');
+  const [lockCostPrice, setLockCostPrice] = useState('200');
   const [lockType, setLockType] = useState('Mortise');
   const [lockDesc, setLockDesc] = useState('');
 
@@ -91,6 +92,7 @@ export function FrpPricingSettingsModal({
   const [colourName, setColourName] = useState('');
   const [colourCode, setColourCode] = useState('#8B5A2B');
   const [colourExtraRate, setColourExtraRate] = useState('0');
+  const [colourPigmentRate, setColourPigmentRate] = useState('560');
   const [colourCategory, setColourCategory] = useState<'WOOD_GRAIN' | 'SOLID_COLOR' | 'METALLIC' | 'CUSTOM'>('WOOD_GRAIN');
 
   // Door Thickness CRUD State
@@ -146,6 +148,7 @@ export function FrpPricingSettingsModal({
     setEditingLockId('NEW');
     setLockName('');
     setLockPrice('450');
+    setLockCostPrice('200');
     setLockType('Mortise');
     setLockDesc('');
   };
@@ -154,6 +157,7 @@ export function FrpPricingSettingsModal({
     setEditingLockId(lock.id);
     setLockName(lock.name);
     setLockPrice(lock.price.toString());
+    setLockCostPrice((lock.costPrice !== undefined ? lock.costPrice : lock.price > 0 ? lock.price : 200).toString());
     setLockType(lock.type || 'Mortise');
     setLockDesc(lock.description || '');
   };
@@ -164,12 +168,14 @@ export function FrpPricingSettingsModal({
       return;
     }
     const price = parseFloat(lockPrice) || 0;
+    const costPrice = parseFloat(lockCostPrice) >= 0 ? parseFloat(lockCostPrice) : 0;
 
     if (editingLockId === 'NEW') {
       const newLock: LockOption = {
         id: `lock-${Date.now().toString(36)}`,
         name: lockName.trim(),
         price,
+        costPrice,
         type: lockType.trim() || 'General',
         description: lockDesc.trim() || undefined,
       };
@@ -179,7 +185,7 @@ export function FrpPricingSettingsModal({
       setLocks(
         locks.map((l) =>
           l.id === editingLockId
-            ? { ...l, name: lockName.trim(), price, type: lockType.trim(), description: lockDesc.trim() || undefined }
+            ? { ...l, name: lockName.trim(), price, costPrice, type: lockType.trim(), description: lockDesc.trim() || undefined }
             : l
         )
       );
@@ -207,6 +213,7 @@ export function FrpPricingSettingsModal({
     setColourName('');
     setColourCode('#3B82F6');
     setColourExtraRate('0');
+    setColourPigmentRate('560');
     setColourCategory('WOOD_GRAIN');
   };
 
@@ -215,6 +222,7 @@ export function FrpPricingSettingsModal({
     setColourName(colour.name);
     setColourCode(colour.code || '#8B5A2B');
     setColourExtraRate((colour.extraRate || 0).toString());
+    setColourPigmentRate((colour.pigmentRatePerKg !== undefined ? colour.pigmentRatePerKg : 560).toString());
     setColourCategory(colour.category || 'WOOD_GRAIN');
   };
 
@@ -224,6 +232,7 @@ export function FrpPricingSettingsModal({
       return;
     }
     const extraRate = parseFloat(colourExtraRate) || 0;
+    const pigmentRatePerKg = parseFloat(colourPigmentRate) >= 0 ? parseFloat(colourPigmentRate) : 560;
 
     if (editingColourId === 'NEW') {
       const newColour: ColourOption = {
@@ -231,6 +240,7 @@ export function FrpPricingSettingsModal({
         name: colourName.trim(),
         code: colourCode,
         extraRate,
+        pigmentRatePerKg,
         category: colourCategory,
       };
       setColours([...colours, newColour]);
@@ -239,7 +249,7 @@ export function FrpPricingSettingsModal({
       setColours(
         colours.map((c) =>
           c.id === editingColourId
-            ? { ...c, name: colourName.trim(), code: colourCode, extraRate, category: colourCategory }
+            ? { ...c, name: colourName.trim(), code: colourCode, extraRate, pigmentRatePerKg, category: colourCategory }
             : c
         )
       );
@@ -816,7 +826,7 @@ export function FrpPricingSettingsModal({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                     <div className="sm:col-span-2">
                       <label className="block text-slate-400 font-semibold mb-1">Lock Name</label>
                       <input
@@ -835,6 +845,18 @@ export function FrpPricingSettingsModal({
                         onChange={(e) => setLockPrice(e.target.value)}
                         placeholder="0"
                         className="w-full px-3 py-1.5 bg-[#0B132B] text-cyan-300 font-bold rounded-lg border border-slate-700 focus:outline-none focus:border-cyan-500"
+                        title="Quotation Selling Price add-on for this lock"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-amber-300 font-semibold mb-1">BOQ Cost Price (₹)</label>
+                      <input
+                        type="number"
+                        value={lockCostPrice}
+                        onChange={(e) => setLockCostPrice(e.target.value)}
+                        placeholder="200"
+                        className="w-full px-3 py-1.5 bg-[#0B132B] text-amber-300 font-bold rounded-lg border border-amber-500/50 focus:outline-none focus:border-amber-400"
+                        title="Factory BOQ Raw Material / Hardware Issue Cost Price"
                       />
                     </div>
                   </div>
@@ -891,6 +913,7 @@ export function FrpPricingSettingsModal({
                       <th className="p-2.5">Type</th>
                       <th className="p-2.5">Description</th>
                       <th className="p-2.5 text-right">Price Add-on</th>
+                      <th className="p-2.5 text-right text-amber-300">BOQ Cost</th>
                       <th className="p-2.5 text-center w-24">Actions</th>
                     </tr>
                   </thead>
@@ -905,6 +928,9 @@ export function FrpPricingSettingsModal({
                         <td className="p-2.5 text-slate-400 text-[11px] max-w-xs truncate">{l.description || '—'}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-cyan-300">
                           {l.price === 0 ? 'Free / Included' : `+₹${l.price.toLocaleString('en-IN')}`}
+                        </td>
+                        <td className="p-2.5 text-right font-mono font-bold text-amber-300">
+                          ₹{(l.costPrice !== undefined ? l.costPrice : l.price > 0 ? l.price : 200).toLocaleString('en-IN')}
                         </td>
                         <td className="p-2.5 text-center">
                           <div className="flex items-center justify-center gap-1.5">
@@ -973,7 +999,7 @@ export function FrpPricingSettingsModal({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-1">
                       <label className="block text-slate-400 font-semibold mb-1">Colour / Finish Name</label>
                       <input
                         type="text"
@@ -1004,6 +1030,18 @@ export function FrpPricingSettingsModal({
                         onChange={(e) => setColourExtraRate(e.target.value)}
                         placeholder="0"
                         className="w-full px-3 py-1.5 bg-[#0B132B] text-emerald-300 font-bold rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500"
+                        title="Quotation Selling Extra Surcharge"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-cyan-300 font-semibold mb-1">BOQ Pigment Rate (₹/Kg)</label>
+                      <input
+                        type="number"
+                        value={colourPigmentRate}
+                        onChange={(e) => setColourPigmentRate(e.target.value)}
+                        placeholder="560"
+                        className="w-full px-3 py-1.5 bg-[#0B132B] text-cyan-300 font-bold rounded-lg border border-cyan-500/50 focus:outline-none focus:border-cyan-400"
+                        title="Raw Material Pigment / Colour Paste Cost Price per Kg for BOQ Issue"
                       />
                     </div>
                   </div>
@@ -1053,6 +1091,7 @@ export function FrpPricingSettingsModal({
                       <th className="p-2.5">Category</th>
                       <th className="p-2.5">Swatch Code</th>
                       <th className="p-2.5 text-right">Extra Surcharge</th>
+                      <th className="p-2.5 text-right text-cyan-300">BOQ Pigment (₹/kg)</th>
                       <th className="p-2.5 text-center w-24">Actions</th>
                     </tr>
                   </thead>
@@ -1072,6 +1111,9 @@ export function FrpPricingSettingsModal({
                         <td className="p-2.5 font-mono text-slate-400">{c.code || '—'}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-emerald-400">
                           {c.extraRate && c.extraRate > 0 ? `+₹${c.extraRate.toLocaleString('en-IN')}` : 'Included (₹0)'}
+                        </td>
+                        <td className="p-2.5 text-right font-mono font-bold text-cyan-300">
+                          ₹{(c.pigmentRatePerKg !== undefined ? c.pigmentRatePerKg : 560).toLocaleString('en-IN')}/kg
                         </td>
                         <td className="p-2.5 text-center">
                           <div className="flex items-center justify-center gap-1.5">

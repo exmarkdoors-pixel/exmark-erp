@@ -10,6 +10,7 @@ export interface CustomFrameProfile {
   pieceRateCost?: number; // e.g. 125 (worker piece rate)
   sellingPrice?: number; // legacy standalone frame price
   quotationExtraRate?: number; // extra surcharge added per door in quotation (0 = Included)
+  materialCost?: number; // Base raw material / procurement cost for frame profile (₹)
   woodThicknessCm?: number; // BOQ frame wood reeper thickness in cm (Regular = 2)
   woodWidthCm?: number; // BOQ frame wood reeper width in cm (Regular = 7)
   woodLengthDeductionCm?: number; // Subtractive allowance from total frame perimeter/height cm (Regular = 35)
@@ -34,6 +35,7 @@ export const DEFAULT_FRAME_PROFILES: CustomFrameProfile[] = [
     pieceRateCost: 125,
     sellingPrice: 0,
     quotationExtraRate: 0,
+    materialCost: 0,
     woodThicknessCm: 2,
     woodWidthCm: 7,
     woodLengthDeductionCm: 35,
@@ -54,6 +56,7 @@ export const DEFAULT_FRAME_PROFILES: CustomFrameProfile[] = [
     pieceRateCost: 125,
     sellingPrice: 0,
     quotationExtraRate: 700,
+    materialCost: 350,
     woodThicknessCm: 2,
     woodWidthCm: 7,
     woodLengthDeductionCm: 35,
@@ -74,6 +77,7 @@ export const DEFAULT_FRAME_PROFILES: CustomFrameProfile[] = [
     pieceRateCost: 125,
     sellingPrice: 0,
     quotationExtraRate: 1300,
+    materialCost: 650,
     woodThicknessCm: 2,
     woodWidthCm: 7,
     woodLengthDeductionCm: 35,

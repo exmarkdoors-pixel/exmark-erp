@@ -273,14 +273,18 @@ export interface QuoteItemRow {
   lockId?: string;
   lockName?: string;
   lockPrice?: number;
+  lockCostPrice?: number;
   withoutAccessories?: boolean;
   supplyMode?: SupplyMode;
   colourId?: string;
   colourName?: string;
   colourExtraRate?: number;
+  colourPigmentRate?: number;
   frameTypeId?: string;
   frameTypeName?: string;
   framePrice?: number;
+  frameCostPrice?: number;
+  extraItemsCost?: number;
   thicknessId?: string;
   thicknessLabel?: string;
   thicknessExtraRate?: number;
@@ -512,12 +516,16 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       lockId: defaultLock?.id || 'lock-none',
       lockName: defaultLock?.name || 'BABY LATCH',
       lockPrice: defaultLock?.price || 0,
+      lockCostPrice: defaultLock?.costPrice ?? 200,
       colourId: defaultColour?.id || 'col-teak-matte',
       colourName: defaultColour?.name || 'Natural Teak',
       colourExtraRate: defaultColour?.extraRate || 0,
+      colourPigmentRate: defaultColour?.pigmentRatePerKg ?? 560,
       frameTypeId: defaultFrame.id,
       frameTypeName: formatFrameSectionLabel(defaultFrame),
       framePrice: defaultFrame.quotationExtraRate || 0,
+      frameCostPrice: defaultFrame.materialCost || 0,
+      extraItemsCost: 0,
       thicknessId: defaultThickness.id,
       thicknessLabel: defaultThickness.name,
       thicknessExtraRate: defaultThickness.extraRate || 0,
@@ -759,6 +767,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
               lockId: resolvedLockObj?.id,
               lockType: lockLabel,
               lockPrice: resolvedLockObj?.price ?? 0,
+              lockCostPrice: r.lockCostPrice ?? resolvedLockObj?.costPrice ?? (resolvedLockObj?.price && resolvedLockObj.price > 0 ? resolvedLockObj.price : 200),
+              frameCostPrice: r.frameCostPrice ?? rowFrame.materialCost ?? 0,
+              extraItemsCost: r.extraItemsCost || 0,
               finishColor: colourLabel,
               qcStatus: 'PENDING' as const,
               qrPayload: `EXM-DOOR-${q.id}-${doorSeq}`,
@@ -1320,7 +1331,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           rate: r.rate,
           frameTypeId: r.frameTypeId,
           frameTypeName: r.frameTypeName,
+          frameCostPrice: r.frameCostPrice,
           lockId: r.lockId,
+          lockCostPrice: r.lockCostPrice,
           colourId: r.colourId,
           withoutAccessories: r.withoutAccessories,
           withoutFrame:
@@ -1628,12 +1641,13 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       }
     }
 
-    // Auto-sync hardware lock price & name
+    // Auto-sync hardware lock price & name & cost price
     if (updates.lockId !== undefined) {
       const activeLocks = frpSettings.locks && frpSettings.locks.length > 0 ? frpSettings.locks : DEFAULT_LOCK_OPTIONS;
       const foundLock = activeLocks.find((l) => l.id === updates.lockId);
       updates.lockPrice = foundLock ? foundLock.price : 0;
       updates.lockName = foundLock ? foundLock.name : 'BABY LATCH';
+      updates.lockCostPrice = foundLock?.costPrice !== undefined ? foundLock.costPrice : (foundLock?.price && foundLock.price > 0 ? foundLock.price : 200);
     }
 
     // Auto-sync colour extra surcharge & name (always sync live colour name even if colourId matches default)
@@ -1642,13 +1656,15 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       const foundCol = activeColours.find((c) => c.id === updates.colourId);
       updates.colourExtraRate = foundCol ? (foundCol.extraRate || 0) : 0;
       updates.colourName = foundCol ? foundCol.name : 'Natural Teak';
+      updates.colourPigmentRate = foundCol?.pigmentRatePerKg || 560;
     }
 
-    // Auto-sync frame profile name & extra surcharge
+    // Auto-sync frame profile name & extra surcharge & material cost
     if (updates.frameTypeId !== undefined) {
       const foundFrame = framesList.find((f) => f.id === updates.frameTypeId);
       updates.frameTypeName = foundFrame ? formatFrameSectionLabel(foundFrame) : '';
       updates.framePrice = foundFrame ? (foundFrame.quotationExtraRate || 0) : 0;
+      updates.frameCostPrice = foundFrame?.materialCost || 0;
     }
 
     // Auto-sync door thickness label & extra surcharge
@@ -3654,6 +3670,25 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                                   <option value="SHUTTER_ONLY">Shutter Only (-₹1,500)</option>
                                 </select>
                               </div>
+
+                              {/* Live BOQ Material Cost Indicator */}
+                              {(() => {
+                                const rowEst = quotationProfitEstimate?.rowEstimates?.find(
+                                  (re) => re.rowId === String(row.id || idx)
+                                );
+                                const qtyNum = Math.max(1, Number(row.qty) || 1);
+                                if (!rowEst) return null;
+                                const unitMat = Math.round(rowEst.materialCost / qtyNum);
+                                return (
+                                  <div
+                                    className="mt-1 flex items-center justify-between text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-800/40 text-amber-300"
+                                    title="Auto-calculated Live BOQ Material Cost (Chemicals + Timber + Foam + Lock Box + Frame Profile)"
+                                  >
+                                    <span className="font-semibold text-amber-400">BOQ Cost:</span>
+                                    <span className="font-bold">₹{unitMat.toLocaleString('en-IN')}</span>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </td>
 

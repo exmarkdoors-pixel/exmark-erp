@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     const frame = createCustomFrame({
       name: body.name,
       material: body.material,
+      materialCost: body.materialCost !== undefined ? Number(body.materialCost) : undefined,
       wallThicknessMm: body.wallThicknessMm,
       sectionWidthMm: body.sectionWidthMm,
       rebateDepthMm: body.rebateDepthMm,

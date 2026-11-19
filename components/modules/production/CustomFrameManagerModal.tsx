@@ -30,6 +30,7 @@ export function CustomFrameManagerModal({
   const [hDeductionCm, setHDeductionCm] = useState<number>(4.5);
   const [wDeductionCm, setWDeductionCm] = useState<number>(7.6);
   const [pieceRateCost, setPieceRateCost] = useState<number>(125);
+  const [materialCost, setMaterialCost] = useState<number>(0);
   const [sellingPrice, setSellingPrice] = useState<number>(0);
   const [quotationExtraRate, setQuotationExtraRate] = useState<number>(0);
   const [woodThicknessCm, setWoodThicknessCm] = useState<number>(2);
@@ -76,6 +77,7 @@ export function CustomFrameManagerModal({
     setHDeductionCm(4.5);
     setWDeductionCm(7.6);
     setPieceRateCost(125);
+    setMaterialCost(0);
     setSellingPrice(0);
     setQuotationExtraRate(0);
     setWoodThicknessCm(2);
@@ -96,6 +98,7 @@ export function CustomFrameManagerModal({
     setHDeductionCm(frame.hDeductionCm ?? 4.5);
     setWDeductionCm(frame.wDeductionCm ?? 7.6);
     setPieceRateCost(frame.pieceRateCost ?? 125);
+    setMaterialCost(frame.materialCost ?? 0);
     setSellingPrice(frame.sellingPrice ?? 0);
     setQuotationExtraRate(frame.quotationExtraRate ?? 0);
     const isNone = frame.material === 'NONE' || frame.name.toLowerCase().includes('only door');
@@ -142,6 +145,7 @@ export function CustomFrameManagerModal({
         hDeductionCm: Number(hDeductionCm),
         wDeductionCm: Number(wDeductionCm),
         pieceRateCost: Number(pieceRateCost),
+        materialCost: Number(materialCost),
         sellingPrice: Number(sellingPrice),
         quotationExtraRate: Number(quotationExtraRate),
         woodThicknessCm: Number(woodThicknessCm),
@@ -281,7 +285,7 @@ export function CustomFrameManagerModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
               <div className="space-y-1">
                 <label className="text-slate-300 font-semibold">Wall Section (mm)</label>
                 <input
@@ -319,7 +323,7 @@ export function CustomFrameManagerModal({
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-300 font-semibold">Frame Piece Rate (₹)</label>
+                <label className="text-slate-300 font-semibold">Frame Labor (₹)</label>
                 <input
                   type="number"
                   min="0"
@@ -327,6 +331,20 @@ export function CustomFrameManagerModal({
                   onChange={(e) => setPieceRateCost(Number(e.target.value))}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-amber-400 font-mono font-bold"
                   placeholder="125"
+                  title="Worker piece-rate labor per frame"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-amber-300 font-semibold">BOQ Mat Cost (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={materialCost}
+                  onChange={(e) => setMaterialCost(Number(e.target.value))}
+                  className="w-full bg-slate-800 border border-amber-500/50 rounded-lg px-3 py-1.5 text-amber-300 font-mono font-bold"
+                  placeholder="0"
+                  title="Material raw purchase cost per frame in BOQ"
                 />
               </div>
 
@@ -490,7 +508,8 @@ export function CustomFrameManagerModal({
                         <span className="text-cyan-400 font-mono font-bold">
                           Formula: H -{frame.hDeductionCm ?? 4.5}cm / W -{frame.wDeductionCm ?? 7.6}cm
                         </span>
-                        <span className="text-amber-400 font-medium">Piece Rate: ₹{frame.pieceRateCost ?? 125}</span>
+                        <span className="text-amber-400 font-medium">Labor: ₹{frame.pieceRateCost ?? 125}</span>
+                        <span className="text-amber-300 font-medium">BOQ Mat: ₹{frame.materialCost ?? 0}</span>
                         <span className="text-emerald-400 font-medium">
                           {(frame.quotationExtraRate ?? 0) > 0
                             ? `Quote Extra: +₹${frame.quotationExtraRate}`

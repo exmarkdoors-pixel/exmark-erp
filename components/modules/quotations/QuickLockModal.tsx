@@ -20,6 +20,7 @@ export function QuickLockModal({
 }: QuickLockModalProps) {
   const [name, setName] = useState('');
   const [price, setPrice] = useState<number>(1000);
+  const [costPrice, setCostPrice] = useState<number>(600);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +40,7 @@ export function QuickLockModal({
       id: `lock-${Date.now().toString().slice(-4)}`,
       name: name.trim(),
       price: Math.max(0, price || 0),
+      costPrice: Math.max(0, costPrice !== undefined ? costPrice : price || 0),
     };
 
     const currentLocks = frpSettings.locks || [];
@@ -117,20 +119,37 @@ export function QuickLockModal({
             />
           </div>
 
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-300 block mb-1">
-              Lock Surcharge / Price (₹)
-            </label>
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(Number(e.target.value) || 0)}
-              placeholder="0"
-              className="w-full bg-[#131b2e] border border-slate-700 rounded-xl px-3.5 py-2 text-sm font-bold text-cyan-300 focus:outline-none focus:border-cyan-500 font-mono"
-            />
-            <p className="text-[10px] text-slate-400 mt-1">
-              Added to each door with this lock selected.
-            </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-300 block mb-1">
+                Selling Surcharge (₹)
+              </label>
+              <input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(Number(e.target.value) || 0)}
+                placeholder="0"
+                className="w-full bg-[#131b2e] border border-slate-700 rounded-xl px-3.5 py-2 text-sm font-bold text-cyan-300 focus:outline-none focus:border-cyan-500 font-mono"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Added to customer quotation.
+              </p>
+            </div>
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-amber-300 block mb-1">
+                BOQ Cost Price (₹)
+              </label>
+              <input
+                type="number"
+                value={costPrice}
+                onChange={(e) => setCostPrice(Number(e.target.value) || 0)}
+                placeholder="0"
+                className="w-full bg-[#131b2e] border border-amber-500/50 rounded-xl px-3.5 py-2 text-sm font-bold text-amber-300 focus:outline-none focus:border-amber-400 font-mono"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Store issue cost in BOQ.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">

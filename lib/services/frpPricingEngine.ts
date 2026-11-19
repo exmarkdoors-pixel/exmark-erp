@@ -48,7 +48,8 @@ export interface LockOption {
   id: string;
   name: string;
   type?: string;
-  price: number;
+  price: number; // Customer selling price / quotation surcharge
+  costPrice?: number; // Store raw material / purchase cost for BOQ
   description?: string;
 }
 
@@ -56,7 +57,8 @@ export interface ColourOption {
   id: string;
   name: string;
   code?: string;
-  extraRate?: number;
+  extraRate?: number; // Customer selling surcharge
+  pigmentRatePerKg?: number; // Store raw material pigment rate in ₹/Kg for BOQ
   category?: 'WOOD_GRAIN' | 'SOLID_COLOR' | 'METALLIC' | 'CUSTOM';
 }
 
@@ -124,28 +126,28 @@ export const SHUTTER_ONLY_DISCOUNT = -1500;
 export type SupplyMode = 'FULL_SET' | 'NO_ACCESSORIES' | 'SHUTTER_ONLY';
 
 export const DEFAULT_LOCK_OPTIONS: LockOption[] = [
-  { id: 'lock-none-discount', name: 'Without Lock (-₹300)', type: 'Discount', price: -300, description: 'Customer supplies own lock hardware — deducts ₹300 per door' },
-  { id: 'lock-none', name: 'BABY LATCH (Baby Latch Black)', type: 'Latch', price: 0, description: 'Includes 1 Baby Latch Black + Common Basic Kit (₹200 store box)' },
-  { id: 'lock-pluspoint-black', name: 'PlusPoint Black', type: 'PlusPoint', price: 600, description: 'PlusPoint Black Lock + Common Basic Kit (₹600 box)' },
-  { id: 'lock-black-latch-exmark', name: 'Black Latch Exmark', type: 'ExmarkLatch', price: 600, description: 'Black Latch Exmark + Common Basic Kit (₹600 box)' },
-  { id: 'lock-antique-exmark', name: 'Antique Exmark', type: 'Antique', price: 600, description: 'Antique Exmark Lock + Common Basic Kit (₹600 box)' },
-  { id: 'lock-mortise-60', name: 'Mortise Lock 60mm Brass Double Throw', type: 'Mortise', price: 850, description: 'Heavy brass mortise latch + 3 keys' },
-  { id: 'lock-cyl-privacy', name: 'Cylindrical Knob Lock (Bathroom Privacy)', type: 'Cylindrical', price: 450, description: 'Stainless steel cylindrical keyless privacy knob' },
-  { id: 'lock-baby-latch', name: 'Baby Latch / Tower Bolt Kit', type: 'Latch', price: 300, description: 'Dual brass baby latches + strike plate' },
-  { id: 'lock-magnetic', name: 'Heavy Duty Magnetic Roller Catch', type: 'Magnetic', price: 250, description: 'Silent magnetic closure mechanism' },
-  { id: 'lock-multipoint', name: 'Multipoint High Security Lock System', type: 'Security', price: 1450, description: '3-point master shootbolt lock' },
-  { id: 'lock-provision-only', name: 'Provision Only (No Hardware)', type: 'None', price: 0, description: 'Lock cutout provision only — 0 store lock box issued' },
+  { id: 'lock-none-discount', name: 'Without Lock (-₹300)', type: 'Discount', price: -300, costPrice: 0, description: 'Customer supplies own lock hardware — deducts ₹300 per door' },
+  { id: 'lock-none', name: 'BABY LATCH (Baby Latch Black)', type: 'Latch', price: 0, costPrice: 200, description: 'Includes 1 Baby Latch Black + Common Basic Kit (₹200 store box)' },
+  { id: 'lock-pluspoint-black', name: 'PlusPoint Black', type: 'PlusPoint', price: 600, costPrice: 600, description: 'PlusPoint Black Lock + Common Basic Kit (₹600 box)' },
+  { id: 'lock-black-latch-exmark', name: 'Black Latch Exmark', type: 'ExmarkLatch', price: 600, costPrice: 600, description: 'Black Latch Exmark + Common Basic Kit (₹600 box)' },
+  { id: 'lock-antique-exmark', name: 'Antique Exmark', type: 'Antique', price: 600, costPrice: 600, description: 'Antique Exmark Lock + Common Basic Kit (₹600 box)' },
+  { id: 'lock-mortise-60', name: 'Mortise Lock 60mm Brass Double Throw', type: 'Mortise', price: 850, costPrice: 500, description: 'Heavy brass mortise latch + 3 keys' },
+  { id: 'lock-cyl-privacy', name: 'Cylindrical Knob Lock (Bathroom Privacy)', type: 'Cylindrical', price: 450, costPrice: 450, description: 'Stainless steel cylindrical keyless privacy knob' },
+  { id: 'lock-baby-latch', name: 'Baby Latch / Tower Bolt Kit', type: 'Latch', price: 300, costPrice: 200, description: 'Dual brass baby latches + strike plate' },
+  { id: 'lock-magnetic', name: 'Heavy Duty Magnetic Roller Catch', type: 'Magnetic', price: 250, costPrice: 250, description: 'Silent magnetic closure mechanism' },
+  { id: 'lock-multipoint', name: 'Multipoint High Security Lock System', type: 'Security', price: 1450, costPrice: 1450, description: '3-point master shootbolt lock' },
+  { id: 'lock-provision-only', name: 'Provision Only (No Hardware)', type: 'None', price: 0, costPrice: 0, description: 'Lock cutout provision only — 0 store lock box issued' },
 ];
 
 export const DEFAULT_COLOUR_OPTIONS: ColourOption[] = [
-  { id: 'col-teak-matte', name: 'Natural Teak Matte', code: '#8B5A2B', extraRate: 0, category: 'WOOD_GRAIN' },
-  { id: 'col-rosewood-gloss', name: 'Rose Wood Glossy', code: '#58111A', extraRate: 0, category: 'WOOD_GRAIN' },
-  { id: 'col-white-gloss', name: 'Pure White Glossy', code: '#F8F9FA', extraRate: 0, category: 'SOLID_COLOR' },
-  { id: 'col-mahogany-dark', name: 'Mahogany Dark Grain', code: '#420D09', extraRate: 0, category: 'WOOD_GRAIN' },
-  { id: 'col-eeti-wood', name: 'Eeti Wood Deep Grain', code: '#3B2219', extraRate: 0, category: 'WOOD_GRAIN' },
-  { id: 'col-slate-grey', name: 'Slate Grey Solid', code: '#475569', extraRate: 0, category: 'SOLID_COLOR' },
-  { id: 'col-ivory-cream', name: 'Ivory Cream Solid', code: '#FFFDD0', extraRate: 0, category: 'SOLID_COLOR' },
-  { id: 'col-metallic-bronze', name: 'Metallic Bronze Luxury', code: '#A97142', extraRate: 350, category: 'METALLIC' },
+  { id: 'col-teak-matte', name: 'Natural Teak Matte', code: '#8B5A2B', extraRate: 0, pigmentRatePerKg: 560, category: 'WOOD_GRAIN' },
+  { id: 'col-rosewood-gloss', name: 'Rose Wood Glossy', code: '#58111A', extraRate: 0, pigmentRatePerKg: 580, category: 'WOOD_GRAIN' },
+  { id: 'col-white-gloss', name: 'Pure White Glossy', code: '#F8F9FA', extraRate: 0, pigmentRatePerKg: 420, category: 'SOLID_COLOR' },
+  { id: 'col-mahogany-dark', name: 'Mahogany Dark Grain', code: '#420D09', extraRate: 0, pigmentRatePerKg: 540, category: 'WOOD_GRAIN' },
+  { id: 'col-eeti-wood', name: 'Eeti Wood Deep Grain', code: '#3B2219', extraRate: 0, pigmentRatePerKg: 600, category: 'WOOD_GRAIN' },
+  { id: 'col-slate-grey', name: 'Slate Grey Solid', code: '#475569', extraRate: 0, pigmentRatePerKg: 450, category: 'SOLID_COLOR' },
+  { id: 'col-ivory-cream', name: 'Ivory Cream Solid', code: '#FFFDD0', extraRate: 0, pigmentRatePerKg: 440, category: 'SOLID_COLOR' },
+  { id: 'col-metallic-bronze', name: 'Metallic Bronze Luxury', code: '#A97142', extraRate: 350, pigmentRatePerKg: 650, category: 'METALLIC' },
 ];
 
 export const DEFAULT_FRP_RATE_CARD: FrpRateCardSettings = {
@@ -203,6 +205,23 @@ export function getFrpRateCardSettings(): FrpRateCardSettings {
     const mergedLocks = hasWithoutLockDiscount
       ? loadedLocks
       : [DEFAULT_LOCK_OPTIONS[0], ...loadedLocks];
+    const sanitizedLocks = mergedLocks.map((l) => ({
+      ...l,
+      costPrice:
+        l.costPrice !== undefined
+          ? l.costPrice
+          : (DEFAULT_LOCK_OPTIONS.find((d) => d.id === l.id)?.costPrice ?? (l.price > 0 ? l.price : 200)),
+    }));
+
+    const loadedColours: ColourOption[] =
+      Array.isArray(parsed.colours) && parsed.colours.length > 0 ? parsed.colours : DEFAULT_COLOUR_OPTIONS;
+    const sanitizedColours = loadedColours.map((c) => ({
+      ...c,
+      pigmentRatePerKg:
+        c.pigmentRatePerKg !== undefined
+          ? c.pigmentRatePerKg
+          : (DEFAULT_COLOUR_OPTIONS.find((d) => d.id === c.id)?.pigmentRatePerKg ?? 560),
+    }));
 
     return {
       ...DEFAULT_FRP_RATE_CARD,
@@ -211,8 +230,8 @@ export function getFrpRateCardSettings(): FrpRateCardSettings {
         ...DEFAULT_FRP_RATE_CARD.categoryPieceRates,
         ...(parsed.categoryPieceRates || {}),
       },
-      locks: mergedLocks,
-      colours: Array.isArray(parsed.colours) && parsed.colours.length > 0 ? parsed.colours : DEFAULT_COLOUR_OPTIONS,
+      locks: sanitizedLocks,
+      colours: sanitizedColours,
       doorThicknesses:
         Array.isArray(parsed.doorThicknesses) && parsed.doorThicknesses.length > 0
           ? parsed.doorThicknesses

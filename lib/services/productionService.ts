@@ -100,6 +100,9 @@ export interface ProductionDoorItem {
   lockId?: string;
   lockType: string;
   lockPrice?: number;
+  lockCostPrice?: number;
+  frameCostPrice?: number;
+  extraItemsCost?: number;
   finishColor: string;
   qcStatus: QcStatus;
   qrPayload: string;

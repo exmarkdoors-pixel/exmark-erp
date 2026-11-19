@@ -235,9 +235,12 @@ export interface BoqDoorInput {
   sqFtOverride?: number;
   frameTypeId?: string;
   frameTypeName?: string;
+  frameCostPrice?: number;
   finishColor?: string;
   lockId?: string;
   lockType?: string;
+  lockCostPrice?: number;
+  extraItemsCost?: number;
   handing?: 'LH' | 'RH';
   quantity?: number;
   stage?: string;
@@ -314,6 +317,11 @@ export interface DoorBoqLineCalculation {
   pigmentRatePerKg: number;
   frameId: string;
   frameName: string;
+  lockId?: string;
+  lockType?: string;
+  lockCost: number;
+  frameMaterialCost: number;
+  extraItemsCost: number;
   resinKg: number;
   gelKg: number;
   catalystGrams: number;
@@ -363,6 +371,7 @@ export interface BatchBoqCalculation {
   frameWoodRunningFt: number;
   frameWoodCuFt: number;
   frameWoodCost: number;
+  totalFrameMaterialCost: number;
   frameWoodBreakdown: FrameWoodBreakdown[];
 
   lockReeperCuFt: number;
@@ -381,6 +390,9 @@ export interface BatchBoqCalculation {
   foamSheetsExact: number;
   foamSheetsPurchaseCeil: number;
   foamCost: number;
+
+  // Group D: Extra Items & Consumables
+  totalExtraItemsCost: number;
 
   // Group E: Lock Boxes & Basic Hardware Packing Kits
   lockBoxBreakdown: LockBoxBreakdown[];
@@ -463,60 +475,79 @@ export function mergeBoqMaterialRates(
 export function resolveLockBoxForDoor(
   lockId: string | undefined,
   lockType: string | undefined,
-  profiles: LockBoxProfile[] = DEFAULT_LOCK_BOX_PROFILES
+  profiles: LockBoxProfile[] = DEFAULT_LOCK_BOX_PROFILES,
+  customCostPrice?: number
 ): LockBoxProfile {
   const catalog = profiles && profiles.length > 0 ? profiles : DEFAULT_LOCK_BOX_PROFILES;
   const cleanId = (lockId || '').trim().toLowerCase();
   const cleanType = (lockType || '').trim().toLowerCase();
 
+  let resolved: LockBoxProfile | null = null;
+
   // Check explicit ID first
   if (cleanId && cleanId !== 'lock-none') {
     if (cleanId === 'lock-none-discount' || cleanId.includes('without-lock') || cleanId.includes('without lock')) {
       const noLock = catalog.find((p) => p.id === 'box-no-lock');
-      if (noLock) return noLock;
+      if (noLock) resolved = noLock;
     }
-    const byId = catalog.find((p) => p.id.toLowerCase() === cleanId);
-    if (byId) return byId;
+    if (!resolved) {
+      const byId = catalog.find((p) => p.id.toLowerCase() === cleanId);
+      if (byId) resolved = byId;
+    }
   }
 
   // Exact profile name match
-  if (cleanType) {
+  if (!resolved && cleanType) {
     const byExactName = catalog.find((p) => p.name.trim().toLowerCase() === cleanType);
-    if (byExactName) return byExactName;
-
-    // Longest keyword match across all profiles (so 'black latch exmark' beats 'latch')
-    const keywordCandidates: Array<{ profile: LockBoxProfile; kwLen: number }> = [];
-    for (const profile of catalog) {
-      for (const kw of profile.matchKeywords || []) {
-        const cleanKw = kw.trim().toLowerCase();
-        if (cleanKw && cleanType.includes(cleanKw)) {
-          keywordCandidates.push({ profile, kwLen: cleanKw.length });
+    if (byExactName) {
+      resolved = byExactName;
+    } else {
+      // Longest keyword match across all profiles (so 'black latch exmark' beats 'latch')
+      const keywordCandidates: Array<{ profile: LockBoxProfile; kwLen: number }> = [];
+      for (const profile of catalog) {
+        for (const kw of profile.matchKeywords || []) {
+          const cleanKw = kw.trim().toLowerCase();
+          if (cleanKw && cleanType.includes(cleanKw)) {
+            keywordCandidates.push({ profile, kwLen: cleanKw.length });
+          }
+        }
+        const pNameLower = profile.name.trim().toLowerCase();
+        if (pNameLower && cleanType.includes(pNameLower)) {
+          keywordCandidates.push({ profile, kwLen: pNameLower.length });
         }
       }
-      const pNameLower = profile.name.trim().toLowerCase();
-      if (pNameLower && cleanType.includes(pNameLower)) {
-        keywordCandidates.push({ profile, kwLen: pNameLower.length });
+      if (keywordCandidates.length > 0) {
+        keywordCandidates.sort((a, b) => b.kwLen - a.kwLen);
+        resolved = keywordCandidates[0].profile;
+      } else if (cleanType !== 'baby latch' && !cleanType.includes('provision') && !cleanType.includes('no hardware')) {
+        // If user typed a brand-new lock name not yet in lockBoxProfiles, preserve it as an ad-hoc box with Common Basic Kit
+        resolved = {
+          id: `box-adhoc-${cleanType.replace(/[^a-z0-9]+/g, '-')}`,
+          name: (lockType || '').trim(),
+          matchKeywords: [cleanType],
+          boxCost: customCostPrice !== undefined && Number.isFinite(Number(customCostPrice)) ? Math.max(0, Number(customCostPrice)) : 600,
+          isNoHardware: false,
+          items: buildCommonBasicKitItems((lockType || '').trim()),
+        };
       }
-    }
-    if (keywordCandidates.length > 0) {
-      keywordCandidates.sort((a, b) => b.kwLen - a.kwLen);
-      return keywordCandidates[0].profile;
-    }
-
-    // If user typed a brand-new lock name not yet in lockBoxProfiles, preserve it as an ad-hoc box with Common Basic Kit
-    if (cleanType !== 'baby latch' && !cleanType.includes('provision') && !cleanType.includes('no hardware')) {
-      return {
-        id: `box-adhoc-${cleanType.replace(/[^a-z0-9]+/g, '-')}`,
-        name: (lockType || '').trim(),
-        matchKeywords: [cleanType],
-        boxCost: 600,
-        isNoHardware: false,
-        items: buildCommonBasicKitItems((lockType || '').trim()),
-      };
     }
   }
 
-  return catalog.find((p) => p.id === 'box-baby-latch-black') || catalog[0];
+  if (!resolved) {
+    resolved = catalog.find((p) => p.id === 'box-baby-latch-black') || catalog[0];
+  }
+
+  // If door provides an explicit customCostPrice (from Quotation or Master Rate Card), apply it directly
+  if (customCostPrice !== undefined && customCostPrice !== null && Number.isFinite(Number(customCostPrice))) {
+    const cost = Math.max(0, Number(customCostPrice));
+    return {
+      ...resolved,
+      boxCost: cost,
+      isNoHardware: cost === 0 && (resolved.isNoHardware || cleanType.includes('without') || cleanType.includes('provision')),
+    };
+  }
+
+  return resolved;
 }
 
 export function resolvePigmentRateForColour(
@@ -636,6 +667,8 @@ export function calculateDoorBatchBoq(
   let frameWoodTotalLengthCm = 0;
   let frameWoodRunningFt = 0;
   let frameWoodCuFt = 0;
+  let totalFrameMaterialCost = 0;
+  let totalExtraItemsCost = 0;
   let lockReeperCuFt = 0;
   let lockReeperVolumeCm3 = 0;
   let hingeReeperCuFt = 0;
@@ -798,7 +831,13 @@ export function calculateDoorBatchBoq(
     }
 
     // Lock Box Kit bucket (Group E)
-    const lockProfile = resolveLockBoxForDoor(door.lockId, door.lockType, rates.lockBoxProfiles);
+    const lockProfile = resolveLockBoxForDoor(door.lockId, door.lockType, rates.lockBoxProfiles, door.lockCostPrice);
+    const lineLockCost = (lockProfile.boxCost || 0) * qty;
+    const lineFrameMatCost = (door.frameCostPrice ?? frame.materialCost ?? 0) * qty;
+    const lineExtraCost = (door.extraItemsCost || 0) * qty;
+    totalFrameMaterialCost += lineFrameMatCost;
+    totalExtraItemsCost += lineExtraCost;
+
     const handing = (door.handing || 'RH').toUpperCase() === 'LH' ? 'LH' : 'RH';
     const isLh = handing === 'LH';
     const existingLock = lockMap.get(lockProfile.id);
@@ -866,6 +905,11 @@ export function calculateDoorBatchBoq(
       pigmentRatePerKg: ratePerKg,
       frameId: frame.id,
       frameName: frame.name,
+      lockId: door.lockId || lockProfile.id,
+      lockType: door.lockType || lockProfile.name,
+      lockCost: lineLockCost,
+      frameMaterialCost: lineFrameMatCost,
+      extraItemsCost: lineExtraCost,
       resinKg: lineResinKg,
       gelKg: lineGelKg,
       catalystGrams: lineCatalystG,
@@ -883,7 +927,7 @@ export function calculateDoorBatchBoq(
       foamSheetsExact: lineFoamSheets,
       foamCost: lineFoamCost,
       chemicalCost: lineChemicalCost,
-      totalDoorCost: lineChemicalCost + lineWoodCost + lineFoamCost,
+      totalDoorCost: lineChemicalCost + lineWoodCost + lineFoamCost + lineLockCost + lineFrameMatCost + lineExtraCost,
     });
   });
 
@@ -911,14 +955,15 @@ export function calculateDoorBatchBoq(
 
   const totalChemicalCost =
     resinCost + gelCost + catalystCost + acceleratorCost + csm300Cost + pigmentCost;
-  const grandTotalCost = totalChemicalCost + totalWoodCost + foamCost;
 
   const lockBoxBreakdown = Array.from(lockMap.values());
   const totalLockBoxes = lockBoxBreakdown
     .filter((b) => !b.isNoHardware)
     .reduce((sum, b) => sum + b.doorsCount, 0);
   const totalLockBoxCost = lockBoxBreakdown.reduce((sum, b) => sum + b.totalBoxCost, 0);
-  const combinedWithLockTotalCost = grandTotalCost + totalLockBoxCost;
+  const grandTotalCost =
+    totalChemicalCost + totalWoodCost + foamCost + totalLockBoxCost + totalFrameMaterialCost + totalExtraItemsCost;
+  const combinedWithLockTotalCost = grandTotalCost;
 
   return {
     totalDoors,
@@ -947,6 +992,7 @@ export function calculateDoorBatchBoq(
     frameWoodRunningFt,
     frameWoodCuFt,
     frameWoodCost,
+    totalFrameMaterialCost,
     frameWoodBreakdown: Array.from(frameMap.values()),
 
     lockReeperCuFt,
@@ -964,6 +1010,8 @@ export function calculateDoorBatchBoq(
     foamSheetsExact,
     foamSheetsPurchaseCeil,
     foamCost,
+
+    totalExtraItemsCost,
 
     lockBoxBreakdown,
     consolidatedLockKitHardware: Array.from(consolidatedHardwareMap.values()),

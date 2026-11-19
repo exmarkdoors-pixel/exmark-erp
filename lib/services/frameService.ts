@@ -23,6 +23,10 @@ function normalizeFrame(frame: Partial<CustomFrameProfile> & { id: string; name:
     id: frame.id,
     name: isNone && !frame.name.toLowerCase().includes('without frame') ? 'Without Frame (Shutter Only)' : frame.name,
     material: frame.material || (isNone ? 'NONE' : 'FRP_WRAP'),
+    materialCost:
+      frame.materialCost !== undefined
+        ? Number(frame.materialCost)
+        : (DEFAULT_FRAMES.find((d) => d.id === frame.id)?.materialCost ?? (isNone ? 0 : 0)),
     wallThicknessMm: Number(frame.wallThicknessMm ?? 72),
     sectionWidthMm: Number(frame.sectionWidthMm ?? 50),
     rebateDepthMm: Number(frame.rebateDepthMm ?? 35),
@@ -98,6 +102,7 @@ export function getCustomFrameById(id: string): CustomFrameProfile | null {
 export function createCustomFrame(input: {
   name: string;
   material?: 'FRP_WRAP' | 'WPC_SOLID' | 'COMPOSITE' | 'HARDWOOD' | 'NONE';
+  materialCost?: number;
   wallThicknessMm?: number;
   sectionWidthMm?: number;
   rebateDepthMm?: number;
@@ -125,6 +130,7 @@ export function createCustomFrame(input: {
     id,
     name: input.name.trim(),
     material: input.material || 'FRP_WRAP',
+    materialCost: input.materialCost !== undefined ? Number(input.materialCost) : 0,
     wallThicknessMm: Number(input.wallThicknessMm ?? 72),
     sectionWidthMm: Number(input.sectionWidthMm ?? 50),
     rebateDepthMm: Number(input.rebateDepthMm ?? 35),
