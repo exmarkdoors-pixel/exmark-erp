@@ -24,6 +24,7 @@ import {
   Share2,
   Flame,
   GitBranch,
+  FileText,
 } from 'lucide-react';
 import { MultiStageDoorBatchModal } from './MultiStageDoorBatchModal';
 import type {
@@ -51,6 +52,7 @@ import { LogContractorWorkModal } from './LogContractorWorkModal';
 import { ProductionFloorGangsModal } from './ProductionFloorGangsModal';
 import { LockSettingBoqModal, LockSettingOrderData } from './LockSettingBoqModal';
 import { ProgressiveMoldingSplitModal } from './ProgressiveMoldingSplitModal';
+import { QueueMeasurementSheetModal } from './QueueMeasurementSheetModal';
 import { OrderProfitDetailModal } from '../finance/OrderProfitPanel';
 import type { OrderProfitBreakdown } from '@/lib/services/orderProfitService';
 import {
@@ -150,6 +152,7 @@ export function ProductionBoardHub() {
   const [selectedContractorWork, setSelectedContractorWork] = useState<{ order: ProductionOrder; door?: ProductionDoorItem } | null>(null);
   const [selectedLockSettingOrder, setSelectedLockSettingOrder] = useState<LockSettingOrderData | null>(null);
   const [selectedSplitBatchOrder, setSelectedSplitBatchOrder] = useState<ProductionOrder | null>(null);
+  const [selectedMeasurementOrder, setSelectedMeasurementOrder] = useState<ProductionOrder | null>(null);
   const [batchStageModalOrder, setBatchStageModalOrder] = useState<ProductionOrder | null>(null);
   const [profitInspectOrder, setProfitInspectOrder] = useState<OrderProfitBreakdown | null>(null);
   const [isLoadingProfitModal, setIsLoadingProfitModal] = useState(false);
@@ -797,6 +800,19 @@ export function ProductionBoardHub() {
 
                           {/* Quick Tool Strip */}
                           <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-800/70">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedMeasurementOrder(order)}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold cursor-pointer transition ${
+                                normalizeActiveStage(order.status) === 'QUEUED'
+                                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 shadow-xs'
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                              }`}
+                              title="Print A4 Landscape Measurement Form & Door/Frame Schedule in Queue Stage"
+                            >
+                              <FileText className="w-3 h-3 text-amber-400" />
+                              <span>{normalizeActiveStage(order.status) === 'QUEUED' ? '📐 Meas. Form' : '📐 Form'}</span>
+                            </button>
                             <button
                               type="button"
                               onClick={() => setBatchStageModalOrder(order)}
@@ -1983,6 +1999,12 @@ export function ProductionBoardHub() {
           setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
           setSelectedSplitBatchOrder(updated);
         }}
+      />
+
+      <QueueMeasurementSheetModal
+        isOpen={Boolean(selectedMeasurementOrder)}
+        onClose={() => setSelectedMeasurementOrder(null)}
+        order={selectedMeasurementOrder}
       />
     </div>
   );
