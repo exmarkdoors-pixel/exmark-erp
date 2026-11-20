@@ -12,8 +12,6 @@ export async function GET(req: NextRequest) {
       'Super Admin',
       'Management',
       'Plant Supervisor',
-      'Supervisor',
-      'Admin',
     ]);
     if (auth.errorResponse) return auth.errorResponse;
 

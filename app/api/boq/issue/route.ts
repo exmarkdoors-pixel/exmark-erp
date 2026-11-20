@@ -718,7 +718,6 @@ export async function PATCH(req: NextRequest) {
       'Super Admin',
       'Management',
       'Plant Supervisor',
-      'Supervisor',
     ]);
     if (auth.errorResponse) return auth.errorResponse;
 
@@ -775,10 +774,10 @@ export async function PATCH(req: NextRequest) {
 
         const updatedDoors = existingOrder.doors.map((d) => {
           const matchedVal =
-            (d.id && allocMap.get(d.id)) ||
-            (d.doorId && allocMap.get(d.doorId)) ||
-            (d.doorNumber && allocMap.get(d.doorNumber));
-          if (matchedVal !== undefined) {
+            (d.id ? allocMap.get(d.id) : undefined) ??
+            (d.doorId ? allocMap.get(d.doorId) : undefined) ??
+            (d.doorNumber ? allocMap.get(d.doorNumber) : undefined);
+          if (typeof matchedVal === 'number') {
             return { ...d, materialIssuedValue: matchedVal };
           }
           return d;

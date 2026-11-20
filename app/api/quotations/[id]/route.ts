@@ -44,10 +44,10 @@ export async function PUT(
       userName: auth.user?.name || null,
       action: 'UPDATE',
       entityType: 'QUOTATION',
-      entityId: updated.quotationNumber || id,
-      summary: `Updated Quotation ${updated.quotationNumber || id} (₹${updated.totalAmount.toLocaleString('en-IN')})`,
+      entityId: updated.quoteNumber || id,
+      summary: `Updated Quotation ${updated.quoteNumber || id} (₹${updated.totalAmount.toLocaleString('en-IN')})`,
       details: {
-        quotationNumber: updated.quotationNumber,
+        quoteNumber: updated.quoteNumber,
         customerName: updated.customerName,
         status: updated.status,
         totalAmount: updated.totalAmount,

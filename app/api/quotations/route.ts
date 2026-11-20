@@ -110,10 +110,10 @@ export async function POST(req: NextRequest) {
       userName: auth.user?.name || null,
       action: 'CREATE',
       entityType: 'QUOTATION',
-      entityId: quotation.quotationNumber || quotation.id,
-      summary: `Created Quotation ${quotation.quotationNumber || quotation.id} for ${quotation.customerName || customerId} (₹${quotation.totalAmount.toLocaleString('en-IN')})`,
+      entityId: quotation.quoteNumber || quotation.id,
+      summary: `Created Quotation ${quotation.quoteNumber || quotation.id} for ${quotation.customerName || customerId} (₹${quotation.totalAmount.toLocaleString('en-IN')})`,
       details: {
-        quotationNumber: quotation.quotationNumber,
+        quoteNumber: quotation.quoteNumber,
         customerName: quotation.customerName,
         itemsCount: quotation.items.length,
         totalAmount: quotation.totalAmount,
