@@ -21,6 +21,7 @@ import {
 import { apiFetch } from '@/lib/api/apiClient';
 import { CloudServerAccessModal } from '@/components/modules/cloud/CloudServerAccessModal';
 import { LocalPostgresCard } from './LocalPostgresCard';
+import { HybridCloudGatewayCard } from './HybridCloudGatewayCard';
 
 interface CloudSyncLogEntry {
   id: string;
@@ -420,7 +421,10 @@ export default function CloudSyncSettingsTab() {
         </div>
       )}
 
-      {/* 0. Local PostgreSQL Server (Primary Offline SQL Database) */}
+      {/* 0. Hybrid Cloud & Zero-Data-Loss Gateway */}
+      <HybridCloudGatewayCard />
+
+      {/* 1. Local PostgreSQL Server (Primary Offline SQL Database) */}
       <LocalPostgresCard />
 
       {/* 1. Overview KPI Header */}

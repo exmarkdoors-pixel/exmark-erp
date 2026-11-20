@@ -1,7 +1,9 @@
 {
-  "active": false,
-  "tunnelUrl": null,
-  "staffMobileUrl": null,
-  "pid": null,
-  "stoppedAt": "2026-11-17T16:16:15.105Z"
+  "active": true,
+  "pid": 20236,
+  "tunnelUrl": "https://keith-amanda-ballet-invisible.trycloudflare.com",
+  "staffMobileUrl": "https://keith-amanda-ballet-invisible.trycloudflare.com/mobile",
+  "localPort": 4000,
+  "mode": "TRYCLOUDFLARE",
+  "connectedAt": "2026-11-20T08:57:18.389Z"
 }
