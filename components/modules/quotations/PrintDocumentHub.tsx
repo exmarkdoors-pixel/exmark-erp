@@ -875,6 +875,38 @@ function renderTallyItemTable(
             </td>
           </tr>
         )}
+        {quotation.includeTransportation && (quotation.transportationAmount || 0) > 0 && (
+          <tr className="text-[11px] bg-sky-50/40">
+            <td className="p-1.5 border-r border-slate-300 text-center font-mono">
+              {rows.length + (quotation.includeInstallation && (quotation.installationAmount || 0) > 0 ? 2 : 1)}
+            </td>
+            <td className="p-1.5 border-r border-slate-300">
+              <span className="font-bold">Transportation &amp; Delivery Freight (ചരക്കുകൂലി / ട്രാൻസ്പോർട്ടേഷൻ)</span>
+              <span className="text-[10px] text-slate-600 block">
+                {quotation.transportationNotes || 'Site Delivery & Logistics Freight'} •{' '}
+                {quotation.transportationMode === 'FIXED_LUMP_SUM'
+                  ? 'Fixed Freight'
+                  : quotation.transportationMode === 'PER_KM'
+                  ? `${quotation.transportationDistanceKm || 0} KM Rate`
+                  : 'Per Door Freight'}
+              </span>
+            </td>
+            <td className="p-1.5 border-r border-slate-300 font-mono">Road Freight (SAC 9965)</td>
+            <td className="p-1.5 border-r border-slate-300 text-center font-bold">
+              {quotation.transportationMode === 'FIXED_LUMP_SUM'
+                ? '1 Trip'
+                : quotation.transportationMode === 'PER_KM'
+                ? `${quotation.transportationDistanceKm || 1} KM`
+                : `${rows.reduce((sum, r) => sum + (Number(r.qty) || 1), 0)} Doors`}
+            </td>
+            <td className="p-1.5 border-r border-slate-300 text-right font-mono">
+              ₹{(quotation.transportationRate || quotation.transportationAmount || 0).toLocaleString('en-IN')}
+            </td>
+            <td className="p-1.5 text-right font-mono font-bold">
+              ₹{(quotation.transportationAmount || 0).toLocaleString('en-IN')}
+            </td>
+          </tr>
+        )}
       </tbody>
     </table>
   );
@@ -1003,6 +1035,39 @@ function renderVyaparItemTable(
             </td>
             <td className="p-2 text-right font-mono font-bold text-slate-900">
               ₹{(quotation.installationAmount || 0).toLocaleString('en-IN')}
+            </td>
+          </tr>
+        )}
+        {quotation.includeTransportation && (quotation.transportationAmount || 0) > 0 && (
+          <tr className="bg-sky-50/60">
+            <td className="p-2 text-center font-mono text-sky-700">
+              {rows.length + (quotation.includeInstallation && (quotation.installationAmount || 0) > 0 ? 2 : 1)}
+            </td>
+            <td className="p-2">
+              <span className="font-bold text-slate-900">Transportation &amp; Delivery Freight (ചരക്കുകൂലി)</span>
+              <span className="text-[10px] text-slate-600 block">
+                {quotation.transportationNotes || 'Site Delivery & Logistics Freight (SAC 9965)'}
+              </span>
+            </td>
+            <td className="p-2 font-mono text-slate-700">
+              {quotation.transportationMode === 'FIXED_LUMP_SUM'
+                ? 'Fixed Freight'
+                : quotation.transportationMode === 'PER_KM'
+                ? `${quotation.transportationDistanceKm || 0} KM Road Freight`
+                : 'Per Door Freight'}
+            </td>
+            <td className="p-2 text-center font-bold text-slate-800">
+              {quotation.transportationMode === 'FIXED_LUMP_SUM'
+                ? '1 Trip'
+                : quotation.transportationMode === 'PER_KM'
+                ? `${quotation.transportationDistanceKm || 1} KM`
+                : `${rows.reduce((sum, r) => sum + (Number(r.qty) || 1), 0)} Doors`}
+            </td>
+            <td className="p-2 text-right font-mono text-slate-700">
+              ₹{(quotation.transportationRate || quotation.transportationAmount || 0).toLocaleString('en-IN')}
+            </td>
+            <td className="p-2 text-right font-mono font-bold text-slate-900">
+              ₹{(quotation.transportationAmount || 0).toLocaleString('en-IN')}
             </td>
           </tr>
         )}

@@ -321,6 +321,13 @@ export interface HubQuotation {
   installationQty?: number;
   installationNotes?: string;
   installationAmount?: number;
+  includeTransportation?: boolean;
+  transportationMode?: 'FIXED_LUMP_SUM' | 'PER_KM' | 'PER_DOOR';
+  transportationRate?: number;
+  transportationDistanceKm?: number;
+  transportationVehicleType?: string;
+  transportationNotes?: string;
+  transportationAmount?: number;
   isConfirmed?: boolean;
   jobCardNumber?: string;
   advancePaid?: number;
@@ -583,6 +590,12 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
   const [installationNotes, setInstallationNotes] = useState<string>(
     'Site Door & Frame Installation (Hardware & Fitting)'
   );
+  const [includeTransportation, setIncludeTransportation] = useState<boolean>(false);
+  const [transportationMode, setTransportationMode] = useState<'FIXED_LUMP_SUM' | 'PER_KM' | 'PER_DOOR'>('FIXED_LUMP_SUM');
+  const [transportationRate, setTransportationRate] = useState<number>(1500);
+  const [transportationDistanceKm, setTransportationDistanceKm] = useState<number>(25);
+  const [transportationVehicleType, setTransportationVehicleType] = useState<string>('Pickup / Tata Ace');
+  const [transportationNotes, setTransportationNotes] = useState<string>('Site Delivery & Freight Charges');
   const [quoteItemRows, setQuoteItemRows] = useState<QuoteItemRow[]>([
     {
       id: 1,
@@ -1283,7 +1296,17 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           : resolvedInstallQty * (Number(installationRate) || 0)
       )
     : 0;
-  const subtotal = doorsSubtotal + installationAmount;
+  const transportationAmount = includeTransportation
+    ? Math.max(
+        0,
+        transportationMode === 'FIXED_LUMP_SUM'
+          ? Number(transportationRate) || 0
+          : transportationMode === 'PER_KM'
+          ? (Number(transportationDistanceKm) || 0) * (Number(transportationRate) || 0)
+          : totalQuoteDoorsQty * (Number(transportationRate) || 0)
+      )
+    : 0;
+  const subtotal = doorsSubtotal + installationAmount + transportationAmount;
   const itemsSubtotal = subtotal;
   const discountedTotal = Math.max(0, subtotal - (Number(additionalDiscount) || 0));
   const grandTotal = Math.max(0, discountedTotal + (Number(roundOffAmount) || 0));
@@ -1727,6 +1750,9 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     setQuoteItemRows([createZeroRow(1, doorModels[0]?.id)]);
     setIncludeInstallation(false);
     setInstallationCustomQty(null);
+    setIncludeTransportation(false);
+    setTransportationRate(1500);
+    setTransportationDistanceKm(25);
     setAdditionalDiscount(0);
     setRoundOffAmount(0);
     setSelectedSalespersonId('');
@@ -1772,6 +1798,20 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       q.installationNotes ||
         frpSettings.defaultInstallationLabel ||
         'Site Door & Frame Installation (Hardware & Fitting)'
+    );
+    setIncludeTransportation(Boolean(q.includeTransportation));
+    setTransportationMode(q.transportationMode || 'FIXED_LUMP_SUM');
+    setTransportationRate(
+      q.transportationRate !== undefined ? Number(q.transportationRate) : 1500
+    );
+    setTransportationDistanceKm(
+      q.transportationDistanceKm !== undefined ? Number(q.transportationDistanceKm) : 25
+    );
+    setTransportationVehicleType(
+      q.transportationVehicleType || 'Pickup / Tata Ace'
+    );
+    setTransportationNotes(
+      q.transportationNotes || 'Site Delivery & Freight Charges'
     );
     setAdditionalDiscount(q.discount || 0);
     setRoundOffAmount(q.roundOff || 0);
@@ -1870,6 +1910,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     setEditingQuoteId(null);
     setIncludeInstallation(false);
     setInstallationCustomQty(null);
+    setIncludeTransportation(false);
     setAdditionalDiscount(0);
     setRoundOffAmount(0);
     setSelectedSalespersonId('');
@@ -2030,8 +2071,20 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
         installationNotes.trim() || 'Site Door & Frame Installation (Hardware & Fitting)',
       installationAmount: Math.round(installationAmount),
     };
+    const transportPayload = {
+      includeTransportation,
+      transportationMode,
+      transportationRate: Number(transportationRate) || 0,
+      transportationDistanceKm: Number(transportationDistanceKm) || 0,
+      transportationVehicleType: transportationVehicleType.trim() || 'Pickup / Delivery Vehicle',
+      transportationNotes:
+        transportationNotes.trim() || 'Site Delivery & Freight Charges',
+      transportationAmount: Math.round(transportationAmount),
+    };
     const itemsLabel = `${totalDoors} FRP Doors (${quoteItemRows.length} Sizes${
       includeInstallation ? ' + Installation' : ''
+    }${
+      includeTransportation ? ' + Transportation' : ''
     })`;
 
     const selectedStaff = salesStaff.find((s) => s.id === selectedSalespersonId);
@@ -2149,6 +2202,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
         deliveryDistrict,
         itemRows: [...normalizedQuoteRows],
         ...installPayload,
+        ...transportPayload,
         ...salespersonPayload,
       };
 
@@ -2172,6 +2226,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             advancePercent: resolvedAdvancePercent,
             advanceAmount: Math.round(advanceAmount),
             ...installPayload,
+            ...transportPayload,
             ...salespersonPayload,
           }),
         });
@@ -2189,6 +2244,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       setQuoteItemRows([createZeroRow(1, doorModels[0]?.id)]);
       setIncludeInstallation(false);
       setInstallationCustomQty(null);
+      setIncludeTransportation(false);
       setAdditionalDiscount(0);
       setRoundOffAmount(0);
       setAdvanceInputMode('PRESET');
@@ -2229,6 +2285,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
           siteMeasurementId: activeDraftSiteId || undefined,
           measuringStaffName: activeDraftMeasuringStaff || undefined,
           ...installPayload,
+          ...transportPayload,
           ...salespersonPayload,
         }),
       });
@@ -2267,6 +2324,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
       siteMeasurementId: activeDraftSiteId || undefined,
       measuringStaffName: activeDraftMeasuringStaff || undefined,
       ...installPayload,
+      ...transportPayload,
       ...salespersonPayload,
     };
 
@@ -2279,6 +2337,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
     setQuoteItemRows([createZeroRow(1, doorModels[0]?.id)]);
     setIncludeInstallation(false);
     setInstallationCustomQty(null);
+    setIncludeTransportation(false);
     setAdditionalDiscount(0);
     setRoundOffAmount(0);
     setAdvanceInputMode('PRESET');
@@ -4124,6 +4183,124 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                     </div>
                   )}
                 </div>
+
+                {/* ADDITIONAL OPTION: TRANSPORTATION & FREIGHT CHARGES */}
+                <div className="pt-2 border-t border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={includeTransportation}
+                        onChange={(e) => setIncludeTransportation(e.target.checked)}
+                        className="w-4 h-4 rounded accent-sky-500 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-sky-300">
+                        Include Transportation &amp; Delivery Freight (ചരക്കുകൂലി / ട്രാൻസ്പോർട്ടേഷൻ)
+                      </span>
+                    </label>
+                    {includeTransportation && (
+                      <span className="text-[11px] font-mono font-bold text-sky-400">
+                        +₹{Math.round(transportationAmount).toLocaleString('en-IN')}
+                      </span>
+                    )}
+                  </div>
+
+                  {includeTransportation && (
+                    <div className="p-3 rounded-xl bg-sky-950/20 border border-sky-700/40 space-y-2.5 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTransportationMode('FIXED_LUMP_SUM')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer border ${
+                            transportationMode === 'FIXED_LUMP_SUM'
+                              ? 'bg-sky-600 text-white border-sky-400'
+                              : 'bg-slate-900 text-slate-300 border-slate-700'
+                          }`}
+                        >
+                          Fixed Lump-Sum (₹)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTransportationMode('PER_KM')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer border ${
+                            transportationMode === 'PER_KM'
+                              ? 'bg-sky-600 text-white border-sky-400'
+                              : 'bg-slate-900 text-slate-300 border-slate-700'
+                          }`}
+                        >
+                          Distance Per KM (₹/km)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTransportationMode('PER_DOOR')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer border ${
+                            transportationMode === 'PER_DOOR'
+                              ? 'bg-sky-600 text-white border-sky-400'
+                              : 'bg-slate-900 text-slate-300 border-slate-700'
+                          }`}
+                        >
+                          Per Door (₹/Door)
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {transportationMode === 'PER_KM' && (
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">
+                              Distance (KM)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={transportationDistanceKm}
+                              onChange={(e) => setTransportationDistanceKm(Math.max(0, parseFloat(e.target.value) || 0))}
+                              className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-1.5 text-xs font-mono text-white"
+                            />
+                          </div>
+                        )}
+                        {transportationMode === 'PER_DOOR' && (
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">
+                              Doors Quantity
+                            </label>
+                            <input
+                              type="number"
+                              disabled
+                              value={totalQuoteDoorsQty}
+                              className="w-full bg-[#131b2e] border border-slate-700/50 rounded-lg p-1.5 text-xs font-mono text-slate-400"
+                            />
+                          </div>
+                        )}
+                        <div className={transportationMode === 'FIXED_LUMP_SUM' ? 'sm:col-span-1' : ''}>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">
+                            {transportationMode === 'FIXED_LUMP_SUM'
+                              ? 'Freight Charge (₹)'
+                              : transportationMode === 'PER_KM'
+                              ? 'Rate per KM (₹)'
+                              : 'Rate per Door (₹)'}
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={transportationRate}
+                            onChange={(e) => setTransportationRate(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-1.5 text-xs font-mono text-sky-300 font-bold"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-[10px] text-slate-400 mb-0.5">Vehicle Type &amp; Delivery Notes</label>
+                          <input
+                            type="text"
+                            value={transportationNotes}
+                            placeholder="e.g. Site Delivery via Tata Ace / Bolero Pickup"
+                            onChange={(e) => setTransportationNotes(e.target.value)}
+                            className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-1.5 text-xs text-slate-200"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Total Calculation Card */}
@@ -4141,6 +4318,22 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                     </span>
                     <span className="font-mono font-bold">
                       +₹{Math.round(installationAmount).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
+                {includeTransportation && (
+                  <div className="flex justify-between text-sky-300">
+                    <span>
+                      Transportation &amp; Freight (
+                      {transportationMode === 'FIXED_LUMP_SUM'
+                        ? 'Fixed'
+                        : transportationMode === 'PER_KM'
+                        ? `${transportationDistanceKm} km × ₹${transportationRate}`
+                        : `${totalQuoteDoorsQty} Doors × ₹${transportationRate}`}
+                      ):
+                    </span>
+                    <span className="font-mono font-bold">
+                      +₹{Math.round(transportationAmount).toLocaleString('en-IN')}
                     </span>
                   </div>
                 )}

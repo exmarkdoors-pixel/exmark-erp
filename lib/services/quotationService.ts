@@ -49,6 +49,13 @@ export interface Quotation {
   installationQty?: number;
   installationNotes?: string;
   installationAmount?: number;
+  includeTransportation?: boolean;
+  transportationMode?: 'FIXED_LUMP_SUM' | 'PER_KM' | 'PER_DOOR';
+  transportationRate?: number;
+  transportationDistanceKm?: number;
+  transportationVehicleType?: string;
+  transportationNotes?: string;
+  transportationAmount?: number;
   isConfirmed?: boolean;
   jobCardNumber?: string | null;
   status: QuotationStatus;
@@ -93,6 +100,13 @@ export type QuotationCreateInput = {
   installationQty?: number;
   installationNotes?: string;
   installationAmount?: number;
+  includeTransportation?: boolean;
+  transportationMode?: 'FIXED_LUMP_SUM' | 'PER_KM' | 'PER_DOOR';
+  transportationRate?: number;
+  transportationDistanceKm?: number;
+  transportationVehicleType?: string;
+  transportationNotes?: string;
+  transportationAmount?: number;
   source?: 'DESKTOP' | 'MOBILE_FIELD_APP';
   quotationCategory?: 'SITE_MEASUREMENT' | 'SHOWROOM_DIRECT' | 'CONTRACTOR_BULK';
   siteMeasurementId?: string;
@@ -284,6 +298,13 @@ export async function createQuotation(data: QuotationCreateInput): Promise<Quota
     installationQty: data.installationQty,
     installationNotes: data.installationNotes,
     installationAmount: data.installationAmount,
+    includeTransportation: data.includeTransportation,
+    transportationMode: data.transportationMode,
+    transportationRate: data.transportationRate,
+    transportationDistanceKm: data.transportationDistanceKm,
+    transportationVehicleType: data.transportationVehicleType,
+    transportationNotes: data.transportationNotes,
+    transportationAmount: data.transportationAmount,
     isConfirmed: Boolean(data.isConfirmed),
     jobCardNumber: data.jobCardNumber || null,
     status: data.isConfirmed ? 'APPROVED' : 'DRAFT',
