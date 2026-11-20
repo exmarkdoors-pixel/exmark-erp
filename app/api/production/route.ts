@@ -7,6 +7,7 @@ import {
   ProductionPriority,
 } from '@/lib/services/productionService';
 import { authorizeRequest } from '@/lib/auth/authorization';
+import { logAuditEvent } from '@/lib/audit/auditLogger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -70,6 +71,23 @@ export async function POST(req: NextRequest) {
       tolerances: body.tolerances,
       doors: body.doors,
     });
+
+    await logAuditEvent({
+      userId: auth.user?.id || null,
+      userName: auth.user?.name || null,
+      action: 'CREATE',
+      entityType: 'ORDER',
+      entityId: order.jobCardNumber || order.id,
+      summary: `Created Production Job Card ${order.jobCardNumber} for ${order.customerName} (${order.doors.length} doors)`,
+      details: {
+        jobCardNumber: order.jobCardNumber,
+        customerName: order.customerName,
+        siteName: order.siteName,
+        district: order.district,
+        doorsCount: order.doors.length,
+        priority: order.priority,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, data: order }, { status: 201 });
   } catch (error: unknown) {

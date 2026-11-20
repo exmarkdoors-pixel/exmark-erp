@@ -1022,6 +1022,65 @@ export async function restoreBoqMaterialsToInventory(
   return { restoredCount };
 }
 
+export interface BoqMaterialStockDeltaItem {
+  key?: string;
+  name: string;
+  unit: string;
+  deltaQty: number; // Positive = extra issued (deduct from stock), Negative = returned (restore to stock)
+  rate?: number;
+}
+
+export async function adjustBoqMaterialsStockDelta(
+  deltaItems: BoqMaterialStockDeltaItem[],
+  voucherNumber?: string,
+  prodOrderId?: string
+): Promise<{ deductedCount: number; restoredCount: number; summary: string[] }> {
+  await assertWriteAllowed('adjust BOQ materials stock delta');
+  const config = getStockMaintenanceConfig();
+  if (!config.autoDeductBoqMaterials) {
+    return { deductedCount: 0, restoredCount: 0, summary: ['Auto-deduction disabled in stock config'] };
+  }
+
+  const itemsToDeduct: DeductibleBoqMaterialInput[] = [];
+  const itemsToRestore: DeductibleBoqMaterialInput[] = [];
+  const summary: string[] = [];
+
+  for (const item of deltaItems) {
+    if (!item.name || Math.abs(item.deltaQty) < 0.0001) continue;
+    if (item.deltaQty > 0) {
+      itemsToDeduct.push({
+        name: item.name,
+        issuedQty: item.deltaQty,
+        unit: item.unit,
+        rawMaterialKey: item.key,
+      });
+      summary.push(`Deducted extra ${item.deltaQty} ${item.unit} of ${item.name}`);
+    } else {
+      itemsToRestore.push({
+        name: item.name,
+        issuedQty: Math.abs(item.deltaQty),
+        unit: item.unit,
+        rawMaterialKey: item.key,
+      });
+      summary.push(`Restored ${Math.abs(item.deltaQty)} ${item.unit} of ${item.name} to stock`);
+    }
+  }
+
+  let deductedCount = 0;
+  let restoredCount = 0;
+
+  if (itemsToDeduct.length > 0) {
+    const res = await deductBoqMaterialsFromInventory(itemsToDeduct, voucherNumber, prodOrderId);
+    deductedCount = res.deductedCount;
+  }
+  if (itemsToRestore.length > 0) {
+    const res = await restoreBoqMaterialsToInventory(itemsToRestore, voucherNumber, prodOrderId);
+    restoredCount = res.restoredCount;
+  }
+
+  return { deductedCount, restoredCount, summary };
+}
+
 // ── WIP Stage-Wise Factory Floor Stock Tracker ───────────────────────────────
 
 export function getWipStageStockSummary(): {

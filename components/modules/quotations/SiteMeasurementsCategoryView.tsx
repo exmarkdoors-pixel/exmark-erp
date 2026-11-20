@@ -25,6 +25,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { SiteMeasurementRecord, DoorItemInput } from '@/types/measurements';
+import { SiteMeasurementLandscapePrintModal } from '../measurements/SiteMeasurementLandscapePrintModal';
 
 interface SiteMeasurementsCategoryViewProps {
   measurements: SiteMeasurementRecord[];
@@ -50,6 +51,7 @@ export function SiteMeasurementsCategoryView({
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'QUOTED'>('ALL');
   const [displayUnit, setDisplayUnit] = useState<'CM' | 'INCH' | 'MM'>('CM');
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [printModalRecord, setPrintModalRecord] = useState<SiteMeasurementRecord | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -480,6 +482,17 @@ export function SiteMeasurementsCategoryView({
                         <span>Cutting</span>
                       </button>
                     )}
+
+                    {/* Action 4: A4 Landscape Measurement Form Print */}
+                    <button
+                      type="button"
+                      onClick={() => setPrintModalRecord(m)}
+                      className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-md text-xs font-black transition flex items-center gap-1 cursor-pointer shadow-sm"
+                      title="Print A4 Landscape Site Measurement Sheet & Door Schedule"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-950" />
+                      <span>🖨️ A4 Form</span>
+                    </button>
                   </div>
                 </div>
 
@@ -557,6 +570,13 @@ export function SiteMeasurementsCategoryView({
           })}
         </div>
       )}
+
+      {/* A4 Landscape Site Measurement Sheet Print Modal */}
+      <SiteMeasurementLandscapePrintModal
+        isOpen={Boolean(printModalRecord)}
+        onClose={() => setPrintModalRecord(null)}
+        record={printModalRecord}
+      />
     </div>
   );
 }

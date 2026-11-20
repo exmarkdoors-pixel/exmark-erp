@@ -39,6 +39,7 @@ import { parseCsvRows, parseOpeningsCsv, getSampleCsvTemplate } from '@/lib/util
 import { CatalogManagerModal } from './catalog/CatalogManagerModal';
 import { AutoQuotationModal } from './measurements/AutoQuotationModal';
 import { CuttingSchedulePrintHubModal } from './measurements/CuttingSchedulePrintHubModal';
+import { SiteMeasurementLandscapePrintModal } from './measurements/SiteMeasurementLandscapePrintModal';
 import { useProductCategories } from '@/lib/context/ProductCategoryContext';
 
 interface DoorMeasurementModalProps {
@@ -390,6 +391,8 @@ function DoorMeasurementModalContent({
   const [isAutoQuotationOpen, setIsAutoQuotationOpen] = useState(false);
   const [isBulkOpeningsOpen, setIsBulkOpeningsOpen] = useState(false);
   const [isCuttingScheduleOpen, setIsCuttingScheduleOpen] = useState(false);
+  const [isLandscapePrintOpen, setIsLandscapePrintOpen] = useState(false);
+  const [savedSuccessRecord, setSavedSuccessRecord] = useState<SiteMeasurementRecord | null>(null);
   const [bulkOpeningsText, setBulkOpeningsText] = useState('');
   const [bulkPreviewDoors, setBulkPreviewDoors] = useState<DoorItemInput[]>([]);
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
@@ -623,8 +626,11 @@ function DoorMeasurementModalContent({
         throw new Error(data.error || 'Failed to save site measurement.');
       }
 
-      onSaved(data.data || { ...payload, id: initialRecord?.id || `dm-${Date.now()}` });
-      onClose();
+      const savedRecord: SiteMeasurementRecord =
+        data.data || { ...payload, id: initialRecord?.id || `dm-${Date.now()}` };
+      onSaved(savedRecord);
+      setSavedSuccessRecord(savedRecord);
+      setIsLandscapePrintOpen(true);
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Error saving record.');
     } finally {
@@ -775,14 +781,39 @@ function DoorMeasurementModalContent({
                 <span>APK Studio</span>
               </button>
 
-              {/* WA PDF */}
+              {/* Printable A4 Landscape Measurement Sheet */}
               <button
                 type="button"
-                onClick={() => alert(`Generating WhatsApp PDF for ${customerName} (${refNumber})...`)}
-                className="px-2 py-1 rounded-md bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                onClick={() => {
+                  const currentSnapshot: SiteMeasurementRecord = {
+                    id: initialRecord?.id || `dm-${Date.now()}`,
+                    refNumber,
+                    customerId: initialRecord?.customerId,
+                    customerName,
+                    orderRef,
+                    siteName,
+                    siteAddress,
+                    district,
+                    totalOpenings: doors.length,
+                    measuredById: initialRecord?.measuredById,
+                    engineerName,
+                    date,
+                    rebateDepthMm,
+                    wallThicknessMm,
+                    notes,
+                    status: status || 'DRAFT',
+                    createdAt: initialRecord?.createdAt || new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    doors,
+                  };
+                  setSavedSuccessRecord(currentSnapshot);
+                  setIsLandscapePrintOpen(true);
+                }}
+                className="px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] inline-flex items-center gap-1 cursor-pointer transition shadow-xs"
+                title="Print A4 Landscape Site Measurement Sheet & Door Schedule"
               >
-                <Share2 className="w-3 h-3 text-emerald-400" />
-                <span>WA PDF</span>
+                <Printer className="w-3.5 h-3.5 text-slate-950" />
+                <span>🖨️ A4 Form</span>
               </button>
 
               {/* Cutting Schedule & Print Hub */}
@@ -1859,6 +1890,40 @@ function DoorMeasurementModalContent({
           </div>
         </div>
       )}
+
+      {/* A4 Landscape Printable Site Measurement Sheet Modal */}
+      <SiteMeasurementLandscapePrintModal
+        isOpen={isLandscapePrintOpen}
+        onClose={() => {
+          setIsLandscapePrintOpen(false);
+          if (savedSuccessRecord) {
+            onClose();
+          }
+        }}
+        record={
+          savedSuccessRecord || {
+            id: initialRecord?.id || `dm-${Date.now()}`,
+            refNumber,
+            customerId: initialRecord?.customerId,
+            customerName,
+            orderRef,
+            siteName,
+            siteAddress,
+            district,
+            totalOpenings: doors.length,
+            measuredById: initialRecord?.measuredById,
+            engineerName,
+            date,
+            rebateDepthMm,
+            wallThicknessMm,
+            notes,
+            status: status || 'DRAFT',
+            createdAt: initialRecord?.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            doors,
+          }
+        }
+      />
     </div>
   );
 }

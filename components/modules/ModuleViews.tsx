@@ -28,6 +28,7 @@ import {
   Filter,
   Edit2,
   Printer,
+  History,
   TrendingUp,
   Share2,
   Award,
@@ -58,6 +59,7 @@ import InbuiltUpdateTab from '@/components/settings/InbuiltUpdateTab';
 import CloudSyncSettingsTab from '@/components/settings/CloudSyncSettingsTab';
 import StaffAccessManagementTab from '@/components/settings/StaffAccessManagementTab';
 import { DisplayAppearanceSettings } from '@/components/settings/DisplayAppearanceSettings';
+import AuditActivityLogsTab from '@/components/settings/AuditActivityLogsTab';
 import { ERP_ROLES, UserRole } from '@/lib/auth/roles';
 import { CustomerFormModal } from './customers/CustomerFormModal';
 import { apiFetch } from '@/lib/api/apiClient';
@@ -3838,6 +3840,7 @@ export function SettingsView({
   initialTab?:
     | 'customization'
     | 'display_appearance'
+    | 'audit_logs'
     | 'frames_boq_wood'
     | 'categories'
     | 'profile'
@@ -3850,6 +3853,7 @@ export function SettingsView({
   const [activeTab, setActiveTab] = useState<
     | 'customization'
     | 'display_appearance'
+    | 'audit_logs'
     | 'frames_boq_wood'
     | 'categories'
     | 'profile'
@@ -3889,6 +3893,17 @@ export function SettingsView({
           }`}
         >
           Display, Themes &amp; Screen Fit
+        </button>
+        <button
+          onClick={() => setActiveTab('audit_logs')}
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'audit_logs'
+              ? 'bg-black text-white dark:bg-amber-500 dark:text-slate-950'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-amber-400 hover:text-black dark:hover:text-white'
+          }`}
+        >
+          <History className="w-3.5 h-3.5" />
+          <span>Activity &amp; Audit Log</span>
         </button>
         {isSuperAdmin && (
           <button
@@ -3968,6 +3983,8 @@ export function SettingsView({
       {activeTab === 'customization' && <AdminCustomizationSettings />}
 
       {activeTab === 'display_appearance' && <DisplayAppearanceSettings />}
+
+      {activeTab === 'audit_logs' && <AuditActivityLogsTab />}
 
       {activeTab === 'staff_access' && isSuperAdmin && (
         <StaffAccessManagementTab currentUserId={currentUserId} />

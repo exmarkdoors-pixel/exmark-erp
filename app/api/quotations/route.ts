@@ -6,6 +6,7 @@ import {
   QuotationStatus,
 } from '@/lib/services/quotationService';
 import { authorizeRequest } from '@/lib/auth/authorization';
+import { logAuditEvent } from '@/lib/audit/auditLogger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -103,6 +104,22 @@ export async function POST(req: NextRequest) {
         };
       }),
     });
+
+    await logAuditEvent({
+      userId: auth.user?.id || null,
+      userName: auth.user?.name || null,
+      action: 'CREATE',
+      entityType: 'QUOTATION',
+      entityId: quotation.quotationNumber || quotation.id,
+      summary: `Created Quotation ${quotation.quotationNumber || quotation.id} for ${quotation.customerName || customerId} (₹${quotation.totalAmount.toLocaleString('en-IN')})`,
+      details: {
+        quotationNumber: quotation.quotationNumber,
+        customerName: quotation.customerName,
+        itemsCount: quotation.items.length,
+        totalAmount: quotation.totalAmount,
+        discount: quotation.discount,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, data: quotation }, { status: 201 });
   } catch (error: unknown) {

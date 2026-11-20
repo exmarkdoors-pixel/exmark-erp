@@ -16,6 +16,7 @@ import {
   getOrderIssuedValueSummary,
   listBoqIssueVouchers,
   listConsolidatedBatchSummaries,
+  updateBoqIssueVoucher,
 } from '@/lib/services/boqIssueService';
 import {
   BOQ_ELIGIBLE_STAGES,
@@ -27,9 +28,11 @@ import {
   ProductionOrder,
   recordDoorMaterialIssue,
   unmarkDoorMaterialIssue,
+  updateProductionOrderDoors,
 } from '@/lib/services/productionService';
 import { getBoqMaterialRates } from '@/lib/services/boqRateService';
 import {
+  adjustBoqMaterialsStockDelta,
   deductBoqMaterialsFromInventory,
   restoreBoqMaterialsToInventory,
 } from '@/lib/services/stockMaintenanceService';
@@ -705,6 +708,123 @@ export async function DELETE(req: NextRequest) {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to reverse BOQ issue voucher';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const auth = await authorizeRequest(req, 'production', [
+      'Super Admin',
+      'Management',
+      'Plant Supervisor',
+      'Supervisor',
+    ]);
+    if (auth.errorResponse) return auth.errorResponse;
+
+    const body = await req.json();
+    const voucherId = body.id || body.voucherId;
+    if (!voucherId) {
+      return NextResponse.json({ success: false, error: 'Voucher ID is required.' }, { status: 400 });
+    }
+    if (!Array.isArray(body.items) || body.items.length === 0) {
+      return NextResponse.json({ success: false, error: 'At least one material item is required.' }, { status: 400 });
+    }
+    const editReason = (body.editReason || body.reason || '').trim();
+    if (!editReason || editReason.length < 3) {
+      return NextResponse.json(
+        { success: false, error: 'A valid modification reason (minimum 3 characters) is required.' },
+        { status: 400 }
+      );
+    }
+
+    const { updatedVoucher, deltaItems, previousVoucher, totalOrderIssuedValue } = updateBoqIssueVoucher({
+      voucherId,
+      items: body.items,
+      gangName: body.gangName,
+      shift: body.shift,
+      notes: body.notes,
+      editReason,
+      editedBy: auth.user?.name || 'Authorized Staff',
+      editedByUserId: auth.user?.id,
+    });
+
+    // Reconcile inventory stock with delta
+    let stockAdjustment = null;
+    if (deltaItems.length > 0) {
+      stockAdjustment = await adjustBoqMaterialsStockDelta(
+        deltaItems,
+        updatedVoucher.voucherNumber,
+        updatedVoucher.prodOrderId
+      ).catch((e) => {
+        console.warn('[boq:stock:delta] Non-fatal stock adjustment warning:', e);
+        return null;
+      });
+    }
+
+    // Update door allocations value on the production order if it exists
+    let updatedOrder = null;
+    try {
+      const existingOrder = await getProductionOrder(updatedVoucher.prodOrderId);
+      if (existingOrder && Array.isArray(existingOrder.doors)) {
+        const allocMap = new Map<string, number>();
+        (updatedVoucher.doorAllocations || []).forEach((da) => {
+          if (da.doorId) allocMap.set(da.doorId, da.allocatedValue);
+          if (da.doorNumber) allocMap.set(da.doorNumber, da.allocatedValue);
+        });
+
+        const updatedDoors = existingOrder.doors.map((d) => {
+          const matchedVal =
+            (d.id && allocMap.get(d.id)) ||
+            (d.doorId && allocMap.get(d.doorId)) ||
+            (d.doorNumber && allocMap.get(d.doorNumber));
+          if (matchedVal !== undefined) {
+            return { ...d, materialIssuedValue: matchedVal };
+          }
+          return d;
+        });
+
+        updatedOrder = await updateProductionOrderDoors(existingOrder.id, updatedDoors);
+      }
+    } catch {
+      // Order door value sync non-fatal
+    }
+
+    // Log comprehensive audit event
+    await logAuditEvent({
+      userId: auth.user?.id || null,
+      userName: auth.user?.name || null,
+      action: 'BOQ_VOUCHER_EDITED',
+      entityType: 'BOQ',
+      entityId: updatedVoucher.voucherNumber,
+      summary: `Edited BOQ Voucher ${updatedVoucher.voucherNumber} (Reason: ${editReason})`,
+      details: {
+        voucherNumber: updatedVoucher.voucherNumber,
+        jobCardNumber: updatedVoucher.jobCardNumber,
+        editReason,
+        previousTotalValue: previousVoucher.totalIssuedValue,
+        newTotalValue: updatedVoucher.totalIssuedValue,
+        valueDelta: updatedVoucher.totalIssuedValue - previousVoucher.totalIssuedValue,
+        deltaItemsCount: deltaItems.length,
+        deltaSummary: deltaItems.map((d) => `${d.name}: ${d.deltaQty > 0 ? '+' : ''}${d.deltaQty} ${d.unit}`).join(', '),
+        stockSummary: stockAdjustment?.summary || [],
+        editedBy: auth.user?.name,
+      },
+    }).catch(() => {});
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        updatedVoucher,
+        deltaItems,
+        stockAdjustment,
+        updatedOrder,
+        totalOrderIssuedValue,
+      },
+      message: `Updated ${updatedVoucher.voucherNumber} (₹${updatedVoucher.totalIssuedValue.toLocaleString('en-IN')}) — Inventory stock adjusted.`,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update BOQ voucher';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

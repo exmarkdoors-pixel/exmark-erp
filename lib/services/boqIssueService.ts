@@ -50,6 +50,27 @@ export interface BoqDoorAllocation {
   items: BoqDoorAllocationItem[];
 }
 
+export interface VoucherEditRevisionItem {
+  itemKey: string;
+  name: string;
+  unit: string;
+  previousQty: number;
+  newQty: number;
+  deltaQty: number;
+  rate: number;
+}
+
+export interface VoucherEditHistoryEntry {
+  editedAt: string;
+  editedBy: string;
+  editedByUserId?: string;
+  reason: string;
+  previousTotalValue: number;
+  newTotalValue: number;
+  changedItems: VoucherEditRevisionItem[];
+  notes?: string;
+}
+
 export interface BoqIssueVoucherRecord {
   id: string;
   voucherNumber: string;
@@ -66,6 +87,7 @@ export interface BoqIssueVoucherRecord {
   customerName: string;
   doorIds: string[];
   doorNumbers: string[];
+  doorsMeta?: BoqDoorInputMeta[];
   doorsCount: number;
   items: BoqIssueVoucherItem[];
   doorAllocations?: BoqDoorAllocation[];
@@ -79,6 +101,11 @@ export interface BoqIssueVoucherRecord {
   receiverName?: string;
   receiverSignatureDataUrl?: string;
   deviceInfo?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+  editReason?: string;
+  revisionCount?: number;
+  editHistory?: VoucherEditHistoryEntry[];
 }
 
 export interface CreateBoqIssueVoucherInput {
@@ -715,6 +742,151 @@ export function createConsolidatedBoqBatchVouchers(
     consolidatedBatchNumber,
     vouchers: createdVouchers,
     totalBatchValue,
+  };
+}
+
+export interface UpdateBoqIssueVoucherInput {
+  voucherId: string;
+  items: BoqIssueVoucherItem[];
+  gangName?: string;
+  shift?: BoqIssueShift;
+  notes?: string;
+  editReason: string;
+  editedBy?: string;
+  editedByUserId?: string;
+}
+
+export function updateBoqIssueVoucher(input: UpdateBoqIssueVoucherInput): {
+  updatedVoucher: BoqIssueVoucherRecord;
+  deltaItems: Array<{ key: string; name: string; unit: string; deltaQty: number; rate: number }>;
+  previousVoucher: BoqIssueVoucherRecord;
+  totalOrderIssuedValue: number;
+} {
+  const all = readStore();
+  const idx = all.findIndex((v) => v.id === input.voucherId || v.voucherNumber === input.voucherId);
+  if (idx === -1) {
+    throw new Error(`BOQ Issue Voucher '${input.voucherId}' not found.`);
+  }
+
+  const existing = all[idx];
+  const previousVoucher: BoqIssueVoucherRecord = JSON.parse(JSON.stringify(existing));
+
+  // Sanitize new items
+  const cleanNewItems = sanitizeItems(input.items);
+  const newTotalValue = Math.round(
+    cleanNewItems.reduce((sum, item) => sum + (Number(item.value) || 0), 0)
+  );
+
+  // Compute delta per item
+  const oldItemsMap = new Map<string, BoqIssueVoucherItem>();
+  for (const it of existing.items || []) {
+    const k = (it.key || it.name || '').toLowerCase().trim();
+    if (k) oldItemsMap.set(k, it);
+  }
+
+  const deltaItems: Array<{ key: string; name: string; unit: string; deltaQty: number; rate: number }> = [];
+  const changedItems: VoucherEditRevisionItem[] = [];
+
+  for (const newItem of cleanNewItems) {
+    const k = (newItem.key || newItem.name || '').toLowerCase().trim();
+    const oldItem = oldItemsMap.get(k);
+    const oldQty = oldItem ? Number(oldItem.issuedQty || oldItem.formulaQty || 0) : 0;
+    const newQty = Number(newItem.issuedQty || 0);
+    const diff = Number((newQty - oldQty).toFixed(3));
+
+    if (Math.abs(diff) >= 0.001) {
+      deltaItems.push({
+        key: newItem.key,
+        name: newItem.name,
+        unit: newItem.unit,
+        deltaQty: diff,
+        rate: newItem.rate,
+      });
+      changedItems.push({
+        itemKey: newItem.key,
+        name: newItem.name,
+        unit: newItem.unit,
+        previousQty: oldQty,
+        newQty,
+        deltaQty: diff,
+        rate: newItem.rate,
+      });
+    }
+    oldItemsMap.delete(k);
+  }
+
+  // Any items that were completely removed in the edit
+  for (const [, oldItem] of oldItemsMap) {
+    const oldQty = Number(oldItem.issuedQty || oldItem.formulaQty || 0);
+    if (oldQty > 0) {
+      deltaItems.push({
+        key: oldItem.key,
+        name: oldItem.name,
+        unit: oldItem.unit,
+        deltaQty: -oldQty,
+        rate: oldItem.rate,
+      });
+      changedItems.push({
+        itemKey: oldItem.key,
+        name: oldItem.name,
+        unit: oldItem.unit,
+        previousQty: oldQty,
+        newQty: 0,
+        deltaQty: -oldQty,
+        rate: oldItem.rate,
+      });
+    }
+  }
+
+  // Re-allocate doors
+  const doorsMeta: BoqDoorInputMeta[] =
+    Array.isArray(existing.doorsMeta) && existing.doorsMeta.length > 0
+      ? existing.doorsMeta
+      : (existing.doorIds || []).map((did, dIdx) => ({
+          doorId: did,
+          doorNumber: existing.doorNumbers?.[dIdx] || did,
+          widthCm: 80,
+          heightCm: 210,
+        }));
+
+  const doorAllocations = allocateItemsToDoors(doorsMeta, cleanNewItems);
+
+  const historyEntry: VoucherEditHistoryEntry = {
+    editedAt: new Date().toISOString(),
+    editedBy: (input.editedBy || '').trim() || 'Storekeeper / Management',
+    editedByUserId: input.editedByUserId,
+    reason: input.editReason.trim(),
+    previousTotalValue: existing.totalIssuedValue,
+    newTotalValue,
+    changedItems,
+    notes: input.notes?.trim(),
+  };
+
+  const updatedRecord: BoqIssueVoucherRecord = {
+    ...existing,
+    items: cleanNewItems,
+    doorAllocations,
+    totalIssuedValue: newTotalValue,
+    gangName: input.gangName ? input.gangName.trim() : existing.gangName,
+    shift: input.shift ? normalizeShift(input.shift) : existing.shift,
+    notes: input.notes !== undefined ? input.notes.trim() || undefined : existing.notes,
+    updatedAt: new Date().toISOString(),
+    updatedBy: (input.editedBy || '').trim() || 'Management',
+    editReason: input.editReason.trim(),
+    revisionCount: (existing.revisionCount || 0) + 1,
+    editHistory: [...(existing.editHistory || []), historyEntry],
+  };
+
+  all[idx] = updatedRecord;
+  writeStore(all);
+
+  const orderSummary = getOrderIssuedValueSummary(existing.prodOrderId);
+
+  return {
+    updatedVoucher: updatedRecord,
+    deltaItems,
+    previousVoucher,
+    totalOrderIssuedValue: orderSummary.totalIssuedValue,
   };
 }
 

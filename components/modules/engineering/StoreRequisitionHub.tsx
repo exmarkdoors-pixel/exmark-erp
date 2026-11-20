@@ -16,6 +16,7 @@ import {
   Palette,
   Calculator,
   Edit2,
+  Edit3,
   Lock,
   Moon,
   ShoppingBag,
@@ -58,6 +59,7 @@ import {
 } from './DailyStoreIssueSlipModal';
 import { BoqIssuedReportPanel } from './BoqIssuedReportPanel';
 import { DailyEveningBoqReportModal } from './DailyEveningBoqReportModal';
+import { EditIssuedBoqModal } from './EditIssuedBoqModal';
 
 interface StoreRequisitionHubProps {
   initialOrderId?: string;
@@ -232,6 +234,7 @@ export default function StoreRequisitionHub({
   const [orderTotalIssuedValue, setOrderTotalIssuedValue] = useState<number>(0);
   const [reversingVoucherId, setReversingVoucherId] = useState<string | null>(null);
   const [previewIssueVoucher, setPreviewIssueVoucher] = useState<BoqIssueVoucherRecord | null>(null);
+  const [editingVoucher, setEditingVoucher] = useState<BoqIssueVoucherRecord | null>(null);
 
   // Consolidated Multi-Party BOQ — Per-Party Partial Door & Balance Carry-Forward state
   const [batchDoorIdsByOrder, setBatchDoorIdsByOrder] = useState<Record<string, string[]>>({});
@@ -2507,6 +2510,15 @@ export default function StoreRequisitionHub({
                               className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-[10px] font-bold cursor-pointer"
                             >
                               Print Slip
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingVoucher(v)}
+                              className="px-2 py-0.5 rounded bg-blue-900/60 hover:bg-blue-800 text-blue-200 border border-blue-500/50 text-[10px] font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                              title="Edit materials and quantities in this issued voucher"
+                            >
+                              <Edit3 className="w-2.5 h-2.5" />
+                              <span>Edit</span>
                             </button>
                             <button
                               type="button"
@@ -6051,6 +6063,21 @@ export default function StoreRequisitionHub({
       <DailyEveningBoqReportModal
         isOpen={isEveningBoqModalOpen}
         onClose={() => setIsEveningBoqModalOpen(false)}
+      />
+      <EditIssuedBoqModal
+        voucher={editingVoucher}
+        isOpen={Boolean(editingVoucher)}
+        onClose={() => setEditingVoucher(null)}
+        onVoucherUpdated={(updatedVoucher) => {
+          setOrderIssueVouchers((prev) =>
+            prev.map((v) => (v.id === updatedVoucher.id ? updatedVoucher : v))
+          );
+          setBoqIssueNotice({
+            type: 'success',
+            text: `Updated ${updatedVoucher.voucherNumber} (₹${Math.round(updatedVoucher.totalIssuedValue).toLocaleString('en-IN')}) — Inventory stock updated.`,
+          });
+          setEditingVoucher(null);
+        }}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeRequest } from '@/lib/auth/authorization';
+import { logAuditEvent } from '@/lib/audit/auditLogger';
 import {
   getProductionOrder,
   updateProductionStage,
@@ -631,6 +632,20 @@ export async function PUT(
       }
     }
 
+    await logAuditEvent({
+      userId: auth.user?.id || null,
+      userName: auth.user?.name || null,
+      action: 'STATUS_CHANGE',
+      entityType: 'ORDER',
+      entityId: updated.jobCardNumber || updated.id,
+      summary: `Transitioned Job Card ${updated.jobCardNumber} to stage ${updated.status}`,
+      details: {
+        jobCardNumber: updated.jobCardNumber,
+        newStage: updated.status,
+        customerName: updated.customerName,
+      },
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       data: updated,
@@ -661,6 +676,17 @@ export async function DELETE(
     if (!success) {
       return NextResponse.json({ success: false, error: 'Production order not found' }, { status: 404 });
     }
+
+    await logAuditEvent({
+      userId: auth.user?.id || null,
+      userName: auth.user?.name || null,
+      action: 'DELETE',
+      entityType: 'ORDER',
+      entityId: id,
+      summary: `Deleted Production Order #${id}`,
+      details: { orderId: id, deletedBy: auth.user?.name },
+    }).catch(() => {});
+
     return NextResponse.json({ success: true, message: 'Production order deleted' });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to delete production order';
