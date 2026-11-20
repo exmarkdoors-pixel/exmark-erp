@@ -158,6 +158,19 @@ export function getSystemVersionInfo(): SystemVersionInfo {
           'Live Typography Scaling (90% to 140%) and Darkness/Boldness (Normal, Bold, Extra Bold) Controls',
         ],
       },
+      {
+        phase: 'Release v1.4.0',
+        version: '1.4.0',
+        title: 'BOQ Post-Issuance Edit, Activity Audit Log & A4 Landscape Form',
+        features: [
+          'Post-Issuance BOQ Editing with real-time stock delta reconciliation (extra deduction / return to inventory)',
+          'Comprehensive System Activity & Audit Log in Settings tracking all CREATE, EDIT, and DELETE operations',
+          'Persistent atomic audit logging (audit-logs-store.json) with search, filters, diff inspector & CSV export',
+          'A4 Landscape Printable Measurement Form & PDF with complete door openings schedule and 3-part sign-off box',
+          'Post-save measurement prompt with direct 1-click A4 Landscape print & PDF generation',
+          'Pure White UI (#FFFFFF) with solid black text and custom live typography scaling engine',
+        ],
+      },
     ],
   };
 }

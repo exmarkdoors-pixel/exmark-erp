@@ -257,7 +257,7 @@ export default function InbuiltUpdateTab() {
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Installed Version</div>
             <div className="text-base font-black text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
-              v{updateData?.currentVersion || '1.3.0'}
+              v{updateData?.currentVersion || '1.4.0'}
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
                 ACTIVE
               </span>
@@ -267,7 +267,7 @@ export default function InbuiltUpdateTab() {
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Latest Available</div>
             <div className="text-base font-black text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
-              v{updateData?.latestVersion || '1.3.0'}
+              v{updateData?.latestVersion || '1.4.0'}
               {updateData?.updateAvailable ? (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20 animate-pulse">
                   READY
@@ -383,7 +383,7 @@ export default function InbuiltUpdateTab() {
                 System Is Up to Date
               </div>
               <h3 className="text-sm font-bold text-white">
-                EXMARK ERP v{updateData?.currentVersion || '1.3.0'} is currently the latest production release
+                EXMARK ERP v{updateData?.currentVersion || '1.4.0'} is currently the latest production release
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 All 34 factory business data stores are verified healthy and secured in {updateData?.activeDataDir || 'C:\\EXMARK-ERP-DATA'}.
