@@ -41,6 +41,7 @@ import { AutoQuotationModal } from './measurements/AutoQuotationModal';
 import { CuttingSchedulePrintHubModal } from './measurements/CuttingSchedulePrintHubModal';
 import { SiteMeasurementLandscapePrintModal } from './measurements/SiteMeasurementLandscapePrintModal';
 import { useProductCategories } from '@/lib/context/ProductCategoryContext';
+import { StockDoorMatchReminder } from './inventory/StockDoorMatchReminder';
 
 interface DoorMeasurementModalProps {
   isOpen: boolean;
@@ -1248,6 +1249,35 @@ function DoorMeasurementModalContent({
                   <div className="h-4" />
                 </div>
               </div>
+
+              {/* Live Stock Door Matching Reminder */}
+              {(() => {
+                const hMm = toMmCalc(currentDoor.heightLeft, currentDoor.fractionHeightLeft);
+                const wMm = toMmCalc(currentDoor.widthTop, currentDoor.fractionWidthTop);
+                if (!hMm || !wMm || hMm < 1000 || wMm < 400) return null;
+
+                return (
+                  <div className="pt-2">
+                    <StockDoorMatchReminder
+                      targetDoorHeightMm={hMm}
+                      targetDoorWidthMm={wMm}
+                      targetColor={currentDoor.colour}
+                      targetModel={currentDoor.model}
+                      onSelectStockItem={(item, mode) => {
+                        handleDoorChange(
+                          'remarks',
+                          currentDoor.remarks
+                            ? `${currentDoor.remarks} [Stock: ${item.stockCode}]`
+                            : `[From Stock: ${item.stockCode} (${mode.replace('_', ' ')})]`
+                        );
+                        if (item.doorFinishColor) {
+                          handleDoorChange('colour', item.doorFinishColor);
+                        }
+                      }}
+                    />
+                  </div>
+                );
+              })()}
             </div>
 
             {/* FRAME REBATE & SHUTTER TOLERANCE DEDUCTIONS ENGINE */}

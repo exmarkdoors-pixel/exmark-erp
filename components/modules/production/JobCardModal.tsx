@@ -5,6 +5,7 @@ import { X, Factory, Plus, Trash2, CheckCircle2, AlertCircle, FileText } from 'l
 import { ProductionOrder, ProductionPriority } from '@/lib/services/productionService';
 import { SiteMeasurementRecord } from '@/types/measurements';
 import { QueueMeasurementSheetModal } from './QueueMeasurementSheetModal';
+import { StockDoorMatchReminder } from '../inventory/StockDoorMatchReminder';
 
 interface JobCardModalProps {
   isOpen: boolean;
@@ -503,6 +504,27 @@ export function JobCardModal({ isOpen, onClose, onSaved, prefillParentOrder }: J
                 </tbody>
               </table>
             </div>
+
+            {/* Live Stock Door Reminders for Doors in this Job Card */}
+            {doors.map((d, idx) => {
+              if (!d.rawHeightMm || !d.rawWidthMm || d.rawHeightMm < 1000 || d.rawWidthMm < 400) return null;
+              return (
+                <div key={`stk-rem-${idx}`} className="mt-2">
+                  <StockDoorMatchReminder
+                    targetDoorHeightMm={d.rawHeightMm}
+                    targetDoorWidthMm={d.rawWidthMm}
+                    targetColor={d.finishColor}
+                    targetModel={d.model}
+                    onSelectStockItem={(item, mode) => {
+                      handleDoorChange(idx, 'doorNumber', `${d.doorNumber} [Stock: ${item.stockCode} (${mode.replace('_', ' ')})]`);
+                      if (item.doorFinishColor) {
+                        handleDoorChange(idx, 'finishColor', item.doorFinishColor);
+                      }
+                    }}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">

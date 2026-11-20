@@ -37,9 +37,10 @@ import {
   StockMaintenanceConfig,
   WipStageStockItem,
 } from '@/lib/services/stockMaintenanceService';
+import { ReadyStockDoorsTab } from './ReadyStockDoorsTab';
 
 export default function StockMaintenanceHub() {
-  const [activeTab, setActiveTab] = useState<'RM' | 'WIP' | 'FG' | 'CONFIG'>('RM');
+  const [activeTab, setActiveTab] = useState<'RM' | 'WIP' | 'FG' | 'READY_STOCK' | 'CONFIG'>('RM');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -873,6 +874,19 @@ export default function StockMaintenanceHub() {
 
           <button
             type="button"
+            onClick={() => setActiveTab('READY_STOCK')}
+            className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition cursor-pointer ${
+              activeTab === 'READY_STOCK'
+                ? 'bg-emerald-600 text-white shadow ring-1 ring-emerald-400'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            <Boxes className="w-3.5 h-3.5 text-amber-300" />
+            <span>4. Ready &amp; Old Stock Doors (പഴയ / റെഡി ഡോർ ബാങ്ക്)</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('CONFIG')}
             className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition cursor-pointer ${
               activeTab === 'CONFIG'
@@ -881,7 +895,7 @@ export default function StockMaintenanceHub() {
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>4. Target Settings</span>
+            <span>5. Target Settings</span>
           </button>
         </div>
       </div>
@@ -1396,6 +1410,9 @@ export default function StockMaintenanceHub() {
           </div>
         </div>
       )}
+
+      {/* ── TAB: READY & OLD STOCK DOORS (പഴയ / റെഡി ഡോർ ബാങ്ക്) ─────────── */}
+      {activeTab === 'READY_STOCK' && <ReadyStockDoorsTab />}
 
       {/* ── TAB 4: CONFIGURATION & BUFFER SETTINGS ─────────────────────── */}
       {activeTab === 'CONFIG' && (

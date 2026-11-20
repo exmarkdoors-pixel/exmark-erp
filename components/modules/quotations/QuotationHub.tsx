@@ -78,6 +78,7 @@ import {
 import { FrpPricingSettingsModal } from './FrpPricingSettingsModal';
 import { StickerPrintModal } from '../production/StickerPrintModal';
 import { CustomFrameManagerModal } from '../production/CustomFrameManagerModal';
+import { StockDoorMatchReminder } from '../inventory/StockDoorMatchReminder';
 import { CustomerSearchCombobox } from '../customers/CustomerSearchCombobox';
 import { DeliveryRouteOptimizerModal } from '../fulfillment/DeliveryRouteOptimizerModal';
 import { ProductionOrder } from '@/lib/services/productionService';
@@ -3969,6 +3970,32 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                                 </div>
                               </div>
                             )}
+
+                            {/* Live Stock Door Matching Reminder */}
+                            {(() => {
+                              const hMm = row.unit === 'cm' ? row.height * 10 : row.unit === 'mm' ? row.height : row.height * 25.4;
+                              const wVal = wTop || row.width || 0;
+                              const wMm = row.unit === 'cm' ? wVal * 10 : row.unit === 'mm' ? wVal : wVal * 25.4;
+                              if (!hMm || !wMm || hMm < 1000 || wMm < 400) return null;
+
+                              return (
+                                <div className="mt-1.5">
+                                  <StockDoorMatchReminder
+                                    targetDoorHeightMm={hMm}
+                                    targetDoorWidthMm={wMm}
+                                    targetColor={row.colourName}
+                                    targetModel={row.modelTitle}
+                                    onSelectStockItem={(item, mode) => {
+                                      handleUpdateRow(idx, {
+                                        autoPriceBreakdown: `⚡ From Stock: ${item.stockCode} (${mode.replace('_', ' ')})`,
+                                        roomTag: row.roomTag ? `${row.roomTag} [${item.stockCode}]` : `[${item.stockCode}]`,
+                                        colourName: item.doorFinishColor || row.colourName,
+                                      });
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* 5. Qty & Price / Rate Stacked */}
