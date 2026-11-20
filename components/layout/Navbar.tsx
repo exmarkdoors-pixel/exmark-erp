@@ -36,6 +36,7 @@ import {
   ShoppingCart,
   Sun,
   Moon,
+  Type,
 } from 'lucide-react';
 import { useDisplayPreferences } from '@/lib/context/DisplayPreferencesContext';
 import { NavigationTab } from '@/types/erp';
@@ -121,11 +122,13 @@ export default function Navbar({
 }: NavbarProps) {
   const router = useRouter();
   const isRealSuperAdmin = actualRole === 'Super Admin';
-  const { preferences, setTheme } = useDisplayPreferences();
+  const { preferences, setTheme, setFontScale, setFontWeight } = useDisplayPreferences();
   const isWhiteTheme = preferences?.theme === 'light-corporate';
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showTypographyMenu, setShowTypographyMenu] = useState(false);
+  const typographyMenuRef = useRef<HTMLDivElement>(null);
   const [notificationsRead, setNotificationsRead] = useState(false);
 
   // Multi-Company Switcher state
@@ -158,6 +161,9 @@ export default function Navbar({
     const onDocClick = (e: MouseEvent) => {
       if (companyMenuRef.current && !companyMenuRef.current.contains(e.target as Node)) {
         setShowCompanyMenu(false);
+      }
+      if (typographyMenuRef.current && !typographyMenuRef.current.contains(e.target as Node)) {
+        setShowTypographyMenu(false);
       }
     };
     document.addEventListener('mousedown', onDocClick);
@@ -1077,13 +1083,13 @@ export default function Navbar({
           }
           className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
             isWhiteTheme
-              ? 'bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-300 shadow-sm'
+              ? 'bg-white hover:bg-slate-100 text-black border-black shadow-sm'
               : 'bg-slate-800 hover:bg-slate-700 text-slate-100 border-slate-700 shadow-sm'
           }`}
         >
           {isWhiteTheme ? (
             <>
-              <Moon className="w-3.5 h-3.5 text-slate-700 shrink-0" />
+              <Moon className="w-3.5 h-3.5 text-black shrink-0" />
               <span className="hidden sm:inline">Dark UI</span>
             </>
           ) : (
@@ -1093,6 +1099,141 @@ export default function Navbar({
             </>
           )}
         </button>
+
+        {/* 1-Click Font Size & Darkness Popover Toolbar */}
+        <div ref={typographyMenuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setShowTypographyMenu((v) => !v)}
+            title="Adjust Letter Size & Boldness / Darkness (അക്ഷരങ്ങളുടെ വലിപ്പവും ബോൾഡ്‌നെസ്സും)"
+            className={`inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+              showTypographyMenu
+                ? 'bg-black text-white border-black shadow-md'
+                : isWhiteTheme
+                ? 'bg-white hover:bg-slate-100 text-black border-black shadow-sm'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-100 border-slate-700 shadow-sm'
+            }`}
+          >
+            <Type className="w-3.5 h-3.5 shrink-0" />
+            <span className="font-extrabold text-[11px]">
+              {Math.round((preferences.fontScale || 1.0) * 100)}%
+            </span>
+            <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />
+          </button>
+
+          {showTypographyMenu && (
+            <div
+              className={`absolute right-0 mt-2 w-72 rounded-xl p-3.5 shadow-2xl z-50 border ${
+                isWhiteTheme
+                  ? 'bg-white border-black text-black'
+                  : 'bg-[#0B132B] border-slate-700 text-white'
+              }`}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-inherit">
+                <div className="flex items-center gap-1.5 font-bold text-xs">
+                  <Type className="w-4 h-4 text-blue-500 shrink-0" />
+                  <span>Typography &amp; Letter Size</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold border border-inherit">
+                  {Math.round((preferences.fontScale || 1.0) * 100)}%
+                </span>
+              </div>
+
+              {/* 1. Font Size / Scale Presets */}
+              <div className="space-y-1.5 mb-3">
+                <div className="flex items-center justify-between text-[11px] font-bold">
+                  <span>Font Size (വലിപ്പം)</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setFontScale(Math.max(0.85, Number(((preferences.fontScale || 1.0) - 0.05).toFixed(2))))}
+                      className="w-5 h-5 rounded border border-inherit flex items-center justify-center font-bold hover:bg-slate-200 cursor-pointer"
+                      title="Decrease font size (-5%)"
+                    >
+                      -
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFontScale(Math.min(1.5, Number(((preferences.fontScale || 1.0) + 0.05).toFixed(2))))}
+                      className="w-5 h-5 rounded border border-inherit flex items-center justify-center font-bold hover:bg-slate-200 cursor-pointer"
+                      title="Increase font size (+5%)"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-5 gap-1 pt-1">
+                  {[
+                    { scale: 0.90, label: '90%' },
+                    { scale: 1.00, label: '100%' },
+                    { scale: 1.10, label: '110%' },
+                    { scale: 1.25, label: '125%' },
+                    { scale: 1.40, label: '140%' },
+                  ].map((preset) => {
+                    const isSelected = Math.abs((preferences.fontScale || 1.0) - preset.scale) < 0.02;
+                    return (
+                      <button
+                        key={preset.scale}
+                        type="button"
+                        onClick={() => setFontScale(preset.scale)}
+                        className={`py-1 rounded text-[11px] font-bold border transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-black text-white border-black font-black'
+                            : 'border-inherit hover:bg-slate-100 hover:text-black'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Font Darkness / Boldness */}
+              <div className="space-y-1.5 mb-3">
+                <span className="text-[11px] font-bold block">
+                  Text Darkness / Boldness (ഡാർക്ക്‌നെസ്സ്)
+                </span>
+                <div className="grid grid-cols-3 gap-1 pt-0.5">
+                  {[
+                    { id: 'normal' as const, label: 'Normal' },
+                    { id: 'bold' as const, label: 'Bold' },
+                    { id: 'extra-bold' as const, label: 'Extra Bold' },
+                  ].map((w) => {
+                    const isSelected = (preferences.fontWeight || 'normal') === w.id;
+                    return (
+                      <button
+                        key={w.id}
+                        type="button"
+                        onClick={() => setFontWeight(w.id)}
+                        className={`py-1 px-1 rounded text-[10px] font-extrabold border transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-black text-white border-black ring-1 ring-black'
+                            : 'border-inherit hover:bg-slate-100 hover:text-black'
+                        }`}
+                      >
+                        {w.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Reset to 100% button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setFontScale(1.0);
+                  setFontWeight('normal');
+                }}
+                className="w-full py-1 text-center text-[10px] font-bold underline opacity-70 hover:opacity-100 cursor-pointer"
+              >
+                Reset to Standard (100% • Normal)
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* SUPER ADMIN DIRECT ACCESS: Mobile Field App (Available in BOTH Simple Mode & Full Ops Mode) */}
         {isMounted && isRealSuperAdmin && (

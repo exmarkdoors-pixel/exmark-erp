@@ -145,6 +145,19 @@ export function getSystemVersionInfo(): SystemVersionInfo {
           'Safe update runner script with zero data loss guarantee',
         ],
       },
+      {
+        phase: 'Release v1.3.0',
+        version: '1.3.0',
+        title: 'Universal Search, Stock CRUD & High-Contrast White UI',
+        features: [
+          'Real-time Universal Catalog Search across all 24 ERP modules from navbar (Ctrl+K)',
+          'Stock Maintenance CRUD (Inward register, manual deductions, buffer editing & WIP Floor Rework station)',
+          '12L Multi-Opening Universal Format & Unslashed Normal Zero (0) Thermal Sticker Print Parity',
+          'Quotation Frame Color Lock & real-time BOQ synchronization',
+          '100% Pure White Background (#FFFFFF) & Solid Deep Black Letters (#000000) with Sharp Black Borders',
+          'Live Typography Scaling (90% to 140%) and Darkness/Boldness (Normal, Bold, Extra Bold) Controls',
+        ],
+      },
     ],
   };
 }

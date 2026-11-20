@@ -6,9 +6,11 @@ import {
   THEME_OPTIONS,
   ACCENT_PRESETS,
   FONT_SCALE_PRESETS,
+  FONT_WEIGHT_PRESETS,
   SCREEN_FIT_OPTIONS,
   StandardUiTheme,
   ScreenResolutionFit,
+  FontWeightPreference,
 } from '@/lib/context/DisplayPreferencesContext';
 import {
   Sun,
@@ -31,6 +33,7 @@ export function DisplayAppearanceSettings() {
     setTheme,
     setAccentColor,
     setFontScale,
+    setFontWeight,
     setScreenFit,
     resetToDefaults,
   } = useDisplayPreferences();
@@ -184,13 +187,79 @@ export function DisplayAppearanceSettings() {
             <input
               type="range"
               min="0.90"
-              max="1.30"
+              max="1.40"
               step="0.02"
               value={preferences.fontScale}
               onChange={(e) => setFontScale(parseFloat(e.target.value))}
               className="w-full accent-cyan-500 cursor-pointer h-2 bg-slate-800 rounded-lg appearance-none"
             />
-            <span className="text-xs text-slate-400">130%</span>
+            <span className="text-xs text-slate-400">140%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2.5. Font Darkness & Boldness (അക്ഷരങ്ങളുടെ ഡാർക്ക്‌നെസ്സ് / ബോൾഡ്നെസ്സ്) */}
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Type className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
+              Letter Darkness &amp; Boldness (അക്ഷരങ്ങളുടെ ഡാർക്ക്‌നെസ്സ് / ബോൾഡ്നെസ്സ്)
+            </h3>
+          </div>
+          <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 capitalize">
+            {preferences.fontWeight || 'normal'}
+          </span>
+        </div>
+        <p className="text-xs text-slate-400">
+          Make letters thicker and darker for maximum readability on white backgrounds without eye strain.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+          {FONT_WEIGHT_PRESETS.map((weightOption) => {
+            const isSelected = (preferences.fontWeight || 'normal') === weightOption.id;
+            return (
+              <button
+                key={weightOption.id}
+                type="button"
+                onClick={() => setFontWeight(weightOption.id)}
+                className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                  isSelected
+                    ? 'border-emerald-500 bg-emerald-500/10 shadow-md ring-1 ring-emerald-500'
+                    : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-sm ${
+                    weightOption.id === 'extra-bold'
+                      ? 'font-black'
+                      : weightOption.id === 'bold'
+                      ? 'font-bold'
+                      : 'font-medium'
+                  }`}>
+                    {weightOption.label}
+                  </span>
+                  {isSelected && <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />}
+                </div>
+                <p className="text-[11px] text-slate-400">{weightOption.desc}</p>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Live Typography Preview Card */}
+        <div className="mt-4 p-4 rounded-xl border border-slate-700 bg-white text-black space-y-2">
+          <div className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+            Live Typography Preview (തത്സമയ പ്രിവ്യൂ)
+          </div>
+          <div className="text-base font-bold">
+            EXMARK DOORS • കൊട്ടേഷൻ ക്ലീൻ വ്യൂ
+          </div>
+          <div className="text-xs">
+            ഓർഡർ #ORD-2026-089 • ₹ 48,500.00 • 12L സ്റ്റിക്കർ വെരിഫൈഡ്
+          </div>
+          <div className="text-[11px]">
+            The quick brown fox jumps over the lazy dog. 100% Waterproof FRP Doors.
           </div>
         </div>
       </div>

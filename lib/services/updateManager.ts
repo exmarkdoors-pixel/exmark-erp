@@ -57,7 +57,7 @@ export function getAuthoritativeAppVersion(): string {
   } catch {
     // Non-fatal fallback
   }
-  return '1.2.8';
+  return '1.3.0';
 }
 
 export function parseSemVer(v: string): number[] {

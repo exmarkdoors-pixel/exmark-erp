@@ -4,12 +4,14 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from '
 
 export type StandardUiTheme = 'dark-navy' | 'light-corporate' | 'tally-monochrome';
 export type ScreenResolutionFit = 'auto' | 'laptop-1366' | 'hd-1600' | 'fhd-1920';
+export type FontWeightPreference = 'normal' | 'bold' | 'extra-bold';
 
 export interface DisplayPreferences {
   theme: StandardUiTheme;
   accentColor: string;
-  fontScale: number; // e.g. 0.90, 1.0, 1.08, 1.16, 1.25
+  fontScale: number; // e.g. 0.90, 1.0, 1.10, 1.25, 1.40
   screenFit: ScreenResolutionFit;
+  fontWeight: FontWeightPreference;
 }
 
 export const THEME_OPTIONS: Array<{ id: StandardUiTheme; label: string; desc: string; previewBg: string; previewAccent: string }> = [
@@ -23,8 +25,8 @@ export const THEME_OPTIONS: Array<{ id: StandardUiTheme; label: string; desc: st
   {
     id: 'light-corporate',
     label: 'Clean White & Black (Office Light Mode) / ലളിതമായ വൈറ്റ് തീം',
-    desc: 'High-contrast pure white background with sharp black letters, clean light borders, and zero glare for office desks and daytime operations.',
-    previewBg: 'bg-white text-black border-slate-300',
+    desc: 'High-contrast 100% pure white background with sharp black letters, black borders, and zero glare for office desks and daytime operations.',
+    previewBg: 'bg-white text-black border-black',
     previewAccent: '#2563eb',
   },
   {
@@ -46,11 +48,17 @@ export const ACCENT_PRESETS = [
 ];
 
 export const FONT_SCALE_PRESETS = [
-  { scale: 0.92, label: 'Compact (92%)', desc: 'Fits maximum rows per screen' },
+  { scale: 0.90, label: 'Compact (90%)', desc: 'Fits maximum rows per screen' },
   { scale: 1.0, label: 'Standard (100%)', desc: 'Default EXMARK ERP balance' },
-  { scale: 1.08, label: 'Readable (108%)', desc: 'Recommended for Quotations & Order desks' },
-  { scale: 1.16, label: 'Large (116%)', desc: 'Clear visibility across desk distance' },
-  { scale: 1.25, label: 'Extra Large (125%)', desc: 'High legibility for touchscreens / wall displays' },
+  { scale: 1.10, label: 'Medium (110%)', desc: 'Recommended for Quotations & Orders' },
+  { scale: 1.25, label: 'Large (125%)', desc: 'Clear visibility across desk distance' },
+  { scale: 1.40, label: 'Extra Large (140%)', desc: 'High legibility for touchscreens / wall displays' },
+];
+
+export const FONT_WEIGHT_PRESETS: Array<{ id: FontWeightPreference; label: string; desc: string }> = [
+  { id: 'normal', label: 'Normal (സാധാരണ)', desc: 'Standard crisp black letters' },
+  { id: 'bold', label: 'Bold (ബോൾഡ്)', desc: 'Sharper, thicker high-contrast letters' },
+  { id: 'extra-bold', label: 'Extra Bold (കടും കറുപ്പ്)', desc: 'Maximum darkness & heavy solid black' },
 ];
 
 export const SCREEN_FIT_OPTIONS: Array<{ id: ScreenResolutionFit; label: string; resolution: string; desc: string }> = [
@@ -65,6 +73,7 @@ const DEFAULT_PREFERENCES: DisplayPreferences = {
   accentColor: '#3b82f6',
   fontScale: 1.0,
   screenFit: 'auto',
+  fontWeight: 'normal',
 };
 
 const STORAGE_KEY = 'exmark_display_preferences_v1';
@@ -91,6 +100,7 @@ interface DisplayPreferencesContextType {
   setTheme: (theme: StandardUiTheme) => void;
   setAccentColor: (color: string) => void;
   setFontScale: (scale: number) => void;
+  setFontWeight: (weight: FontWeightPreference) => void;
   setScreenFit: (fit: ScreenResolutionFit) => void;
   resetToDefaults: () => void;
   screenFitContainerClass: string;
@@ -113,6 +123,7 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
           accentColor: parsed.accentColor || DEFAULT_PREFERENCES.accentColor,
           fontScale: typeof parsed.fontScale === 'number' ? parsed.fontScale : DEFAULT_PREFERENCES.fontScale,
           screenFit: parsed.screenFit || DEFAULT_PREFERENCES.screenFit,
+          fontWeight: parsed.fontWeight || DEFAULT_PREFERENCES.fontWeight,
         });
       }
     } catch {
@@ -135,9 +146,16 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
     const root = document.documentElement;
     root.setAttribute('data-theme', preferences.theme);
     root.setAttribute('data-screen-fit', preferences.screenFit);
+    root.setAttribute('data-font-weight', preferences.fontWeight || 'normal');
     root.style.setProperty('--erp-accent', preferences.accentColor);
     root.style.setProperty('--erp-accent-rgb', hexToRgb(preferences.accentColor));
     root.style.setProperty('--erp-font-scale', `${preferences.fontScale}`);
+
+    // Live reactive font scaling across both rem-based and pixel-based elements
+    root.style.fontSize = `${preferences.fontScale * 16}px`;
+    if (document.body) {
+      document.body.style.zoom = `${preferences.fontScale}`;
+    }
 
     // Update body class list for smooth theme switching
     document.body.classList.remove('theme-dark-navy', 'theme-light-corporate', 'theme-tally-monochrome');
@@ -154,6 +172,10 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
 
   const setFontScale = (fontScale: number) => {
     setPreferences(prev => ({ ...prev, fontScale }));
+  };
+
+  const setFontWeight = (fontWeight: FontWeightPreference) => {
+    setPreferences(prev => ({ ...prev, fontWeight }));
   };
 
   const setScreenFit = (screenFit: ScreenResolutionFit) => {
@@ -185,6 +207,7 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
         setTheme,
         setAccentColor,
         setFontScale,
+        setFontWeight,
         setScreenFit,
         resetToDefaults,
         screenFitContainerClass,
@@ -213,6 +236,7 @@ export function useDisplayPreferences() {
       setTheme: () => {},
       setAccentColor: () => {},
       setFontScale: () => {},
+      setFontWeight: () => {},
       setScreenFit: () => {},
       resetToDefaults: () => {},
       screenFitContainerClass: 'w-full',
