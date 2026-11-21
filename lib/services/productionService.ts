@@ -754,12 +754,177 @@ export async function toggleProductionInstallation(
   return updated;
 }
 
-export async function deleteProductionOrder(id: string): Promise<boolean> {
+export interface CancelledJobCardRecord {
+  id: string;
+  jobCardNumber: string;
+  prodOrderNumber: string;
+  salesOrderId?: string | null;
+  customerName: string;
+  siteName: string;
+  quantity: number;
+  doorCategory?: string;
+  stageAtCancellation: ProductionStage;
+  cancelledAt: string;
+  cancelledBy: string;
+  reasonCode: string;
+  reasonNotes: string;
+  reverseBoq: boolean;
+  termsAccepted: boolean;
+  snapshot: ProductionOrder;
+}
+
+export interface CancelQueuedOrderInput {
+  reasonCode: string;
+  reasonNotes?: string;
+  reverseBoq?: boolean;
+  termsAccepted?: boolean;
+  cancelledBy?: string;
+}
+
+const getCancelledStorePath = () => getDataFilePath('cancelled-job-cards.json');
+
+function readCancelledStore(): CancelledJobCardRecord[] {
+  try {
+    const storePath = getCancelledStorePath();
+    const dir = path.dirname(storePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(storePath)) {
+      fs.writeFileSync(storePath, '[]', 'utf8');
+      return [];
+    }
+    const raw = fs.readFileSync(storePath, 'utf8');
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as CancelledJobCardRecord[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCancelledStore(records: CancelledJobCardRecord[]): void {
+  try {
+    const storePath = getCancelledStorePath();
+    const dir = path.dirname(storePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(storePath, JSON.stringify(records, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Failed to write cancelled job cards store:', err);
+  }
+}
+
+export function getCancelledJobCards(): CancelledJobCardRecord[] {
+  return readCancelledStore();
+}
+
+export async function cancelQueuedProductionOrder(
+  id: string,
+  input: CancelQueuedOrderInput
+): Promise<{ success: boolean; cancelledRecord: CancelledJobCardRecord }> {
+  await assertWriteAllowed('cancel queued production order');
+
+  if (!input.reasonCode || !input.reasonCode.trim()) {
+    throw new Error('A cancellation reason code is required to delete a queued job card.');
+  }
+
+  if (input.reasonCode === 'OTHER' && (!input.reasonNotes || input.reasonNotes.trim().length < 10)) {
+    throw new Error('Please provide a detailed explanation (minimum 10 characters) when selecting "Other" reason.');
+  }
+
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === id || o.jobCardNumber === id || o.prodOrderNumber === id);
+  if (idx === -1) throw new Error(`Production order ${id} not found`);
+
+  const order = all[idx];
+
+  // Hard Stage Guard: Strictly allowed only in QUEUED stage!
+  if (order.status !== 'QUEUED') {
+    throw new Error(
+      `Cannot delete job card #${order.jobCardNumber}. It has already progressed to "${order.status}". Deletion is strictly reserved for Queue stage prior to physical floor molding. For orders in molding or beyond, use the WIP Scrap / Salvage protocol.`
+    );
+  }
+
+  // Handle BOQ Reversal if requested and BOQ was issued
+  let boqReversed = false;
+  if (input.reverseBoq && (order.boqIssuedAt || order.doors?.some((d) => d.materialIssued))) {
+    boqReversed = true;
+    order.doors = (order.doors || []).map((d) => ({
+      ...d,
+      materialIssued: false,
+      materialIssuedAt: null,
+      boqVoucherNo: undefined,
+    }));
+    order.boqIssuedAt = null;
+  }
+
+  const cancelledRecord: CancelledJobCardRecord = {
+    id: order.id,
+    jobCardNumber: order.jobCardNumber,
+    prodOrderNumber: order.prodOrderNumber,
+    salesOrderId: order.salesOrderId || null,
+    customerName: order.customerName,
+    siteName: order.siteName,
+    quantity: order.quantity,
+    doorCategory: order.doorCategory,
+    stageAtCancellation: order.status,
+    cancelledAt: new Date().toISOString(),
+    cancelledBy: input.cancelledBy || 'Authorized Operator',
+    reasonCode: input.reasonCode.trim(),
+    reasonNotes: input.reasonNotes?.trim() || '',
+    reverseBoq: boqReversed,
+    termsAccepted: Boolean(input.termsAccepted),
+    snapshot: { ...order },
+  };
+
+  // Archive to Zero-Data-Loss cancelled store
+  const cancelledAll = readCancelledStore();
+  cancelledAll.unshift(cancelledRecord);
+  writeCancelledStore(cancelledAll);
+
+  // Remove from active production orders
+  all.splice(idx, 1);
+  writeStore(all);
+
+  return { success: true, cancelledRecord };
+}
+
+export async function deleteProductionOrder(
+  id: string,
+  cancellationInput?: CancelQueuedOrderInput
+): Promise<boolean> {
   await assertWriteAllowed('delete production order');
 
   const all = readStore();
-  const filtered = all.filter((o) => o.id !== id);
-  if (filtered.length === all.length) return false;
+  const order = all.find((o) => o.id === id || o.jobCardNumber === id || o.prodOrderNumber === id);
+  if (!order) return false;
+
+  if (order.status === 'QUEUED' && cancellationInput) {
+    await cancelQueuedProductionOrder(id, cancellationInput);
+    return true;
+  }
+
+  // Fallback archive to preserve zero data loss
+  const cancelledRecord: CancelledJobCardRecord = {
+    id: order.id,
+    jobCardNumber: order.jobCardNumber,
+    prodOrderNumber: order.prodOrderNumber,
+    salesOrderId: order.salesOrderId || null,
+    customerName: order.customerName,
+    siteName: order.siteName,
+    quantity: order.quantity,
+    doorCategory: order.doorCategory,
+    stageAtCancellation: order.status,
+    cancelledAt: new Date().toISOString(),
+    cancelledBy: cancellationInput?.cancelledBy || 'System Admin',
+    reasonCode: cancellationInput?.reasonCode || 'ADMIN_DELETE',
+    reasonNotes: cancellationInput?.reasonNotes || 'Deleted via management action',
+    reverseBoq: Boolean(cancellationInput?.reverseBoq),
+    termsAccepted: Boolean(cancellationInput?.termsAccepted),
+    snapshot: order,
+  };
+  const cancelledAll = readCancelledStore();
+  cancelledAll.unshift(cancelledRecord);
+  writeCancelledStore(cancelledAll);
+
+  const filtered = all.filter((o) => o.id !== order.id);
   writeStore(filtered);
   return true;
 }

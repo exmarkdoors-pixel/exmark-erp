@@ -8,6 +8,7 @@ import {
   markProductionBoqIssued,
   toggleProductionInstallation,
   deleteProductionOrder,
+  cancelQueuedProductionOrder,
   ProductionOrder,
   ProductionStage,
   DuplicateBoqIssueError,
@@ -668,26 +669,82 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await authorizeRequest(req, 'production', ['Super Admin', 'Management']);
+    const auth = await authorizeRequest(req, 'production', ['Super Admin', 'Management', 'Production', 'Admin']);
     if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await params;
-    const success = await deleteProductionOrder(id);
-    if (!success) {
+    const body = await req.json().catch(() => ({}));
+
+    const order = await getProductionOrder(id);
+    if (!order) {
       return NextResponse.json({ success: false, error: 'Production order not found' }, { status: 404 });
     }
 
-    await logAuditEvent({
-      userId: auth.user?.id || null,
-      userName: auth.user?.name || null,
-      action: 'DELETE',
-      entityType: 'ORDER',
-      entityId: id,
-      summary: `Deleted Production Order #${id}`,
-      details: { orderId: id, deletedBy: auth.user?.name },
-    }).catch(() => {});
+    const reasonCode = (body.reasonCode || '').trim();
+    const reasonNotes = (body.reasonNotes || '').trim();
+    const reverseBoq = Boolean(body.reverseBoq);
+    const termsAccepted = Boolean(body.termsAccepted);
 
-    return NextResponse.json({ success: true, message: 'Production order deleted' });
+    // If order is in QUEUED stage, enforce cancellation validation
+    if (order.status === 'QUEUED') {
+      if (!reasonCode) {
+        return NextResponse.json(
+          { success: false, error: 'A cancellation reason code is required to delete a queued job card.' },
+          { status: 400 }
+        );
+      }
+      if (reasonCode === 'OTHER' && reasonNotes.length < 10) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Please provide a detailed explanation (minimum 10 characters) when choosing "Other" reason.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const result = await cancelQueuedProductionOrder(id, {
+        reasonCode,
+        reasonNotes,
+        reverseBoq,
+        termsAccepted,
+        cancelledBy: auth.user?.name || 'Authorized Operator',
+      });
+
+      await logAuditEvent({
+        userId: auth.user?.id || null,
+        userName: auth.user?.name || null,
+        action: 'CANCEL_JOB_CARD',
+        entityType: 'ORDER',
+        entityId: id,
+        summary: `Cancelled Job Card #${order.jobCardNumber} in QUEUED stage (${reasonCode})`,
+        details: {
+          orderId: id,
+          jobCardNumber: order.jobCardNumber,
+          customerName: order.customerName,
+          reasonCode,
+          reasonNotes,
+          reverseBoq,
+          deletedBy: auth.user?.name,
+          cancelledAt: result.cancelledRecord.cancelledAt,
+        },
+      }).catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        message: `Job Card #${order.jobCardNumber} cancelled & archived successfully.`,
+        archived: result.cancelledRecord,
+      });
+    }
+
+    // If order has already passed QUEUED stage, reject deletion
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Job Card #${order.jobCardNumber} has already progressed to "${order.status}". Deletion is strictly reserved for the Queue stage before physical floor molding. For orders in molding or beyond, use the WIP Scrap / Salvage protocol.`,
+      },
+      { status: 400 }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to delete production order';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
