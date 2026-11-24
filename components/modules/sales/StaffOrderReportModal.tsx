@@ -193,7 +193,7 @@ export function StaffOrderReportModal({
                         : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    {f === 'DAILY' ? 'Daily (ദിവസം)' : f === 'WEEKLY' ? 'Weekly (ആഴ്ച)' : 'Monthly (മാസം)'}
+                    {f === 'DAILY' ? 'Daily' : f === 'WEEKLY' ? 'Weekly' : 'Monthly'}
                   </button>
                 ))}
               </div>

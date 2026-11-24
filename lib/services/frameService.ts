@@ -169,6 +169,11 @@ export function updateCustomFrame(
   const updated: CustomFrameProfile = {
     ...all[idx],
     ...updates,
+    hDeductionCm: updates.hDeductionCm !== undefined ? Number(updates.hDeductionCm) : all[idx].hDeductionCm,
+    wDeductionCm: updates.wDeductionCm !== undefined ? Number(updates.wDeductionCm) : all[idx].wDeductionCm,
+    rebateDepthMm: updates.rebateDepthMm !== undefined ? Number(updates.rebateDepthMm) : all[idx].rebateDepthMm,
+    wallThicknessMm: updates.wallThicknessMm !== undefined ? Number(updates.wallThicknessMm) : all[idx].wallThicknessMm,
+    sectionWidthMm: updates.sectionWidthMm !== undefined ? Number(updates.sectionWidthMm) : all[idx].sectionWidthMm,
     updatedAt: new Date().toISOString(),
   };
 

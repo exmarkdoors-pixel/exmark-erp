@@ -199,7 +199,7 @@ export function ProgressiveMoldingSplitModal({
     }
   };
 
-  // 2. Recall / Roll Back Doors from Floor (ഫ്ലോറിൽ നിന്ന് ഓർഡർ തിരികെ വലിക്കുക)
+  // 2. Recall / Roll Back Doors from Floor
   const handleRecallFromFloor = async () => {
     if (selectedDoors.length === 0) {
       setStatusMessage({ text: 'Select which doors to pull back from the floor.', type: 'error' });
@@ -507,7 +507,7 @@ export function ProgressiveMoldingSplitModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-800">
                 <div>
                   <label className="text-[10px] font-bold text-amber-300 uppercase block mb-1">
-                    🚪 Door Molder (ഡോർ അടിച്ചയാൾ):
+                    🚪 Door Molder / Artisan:
                   </label>
                   <input
                     type="text"
@@ -520,7 +520,7 @@ export function ProgressiveMoldingSplitModal({
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-sky-300 uppercase block mb-1">
-                    🖼️ Frame Molder (ഫ്രെയിം അടിച്ചയാൾ):
+                    🖼️ Frame Molder / Artisan:
                   </label>
                   <input
                     type="text"

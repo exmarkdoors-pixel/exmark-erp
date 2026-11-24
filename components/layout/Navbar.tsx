@@ -37,6 +37,9 @@ import {
   Sun,
   Moon,
   Type,
+  Maximize2,
+  Minimize2,
+  Factory,
 } from 'lucide-react';
 import { useDisplayPreferences } from '@/lib/context/DisplayPreferencesContext';
 import { NavigationTab } from '@/types/erp';
@@ -51,12 +54,22 @@ import { WhatsAppSession, DEFAULT_WHATSAPP_SESSION } from '@/lib/services/whatsa
 import { CloudServerAccessModal } from '@/components/modules/cloud/CloudServerAccessModal';
 import { CreateCompanyModal } from '@/components/company/CreateCompanyModal';
 import type { CompanySummary } from '@/types/companyRegistry';
+import {
+  CORPORATE_ERP_DOMAINS,
+  getCorporateBreadcrumb,
+  CorporateSubCategory,
+} from '@/types/corporateNavigation';
 
 interface NavbarProps {
   onOpenMobileSidebar: () => void;
   onNavigateTab: (tab: NavigationTab) => void;
   onOpenQuickAction: () => void;
   currentTabName: string;
+  currentTab?: NavigationTab;
+  activeSubViewId?: string;
+  onNavigateSubCategory?: (tab: NavigationTab, subViewId?: string) => void;
+  isModuleExpanded?: boolean;
+  onToggleModuleExpanded?: () => void;
   userRole?: UserRole;
   actualRole?: UserRole;
   userName?: string;
@@ -107,6 +120,11 @@ export default function Navbar({
   onNavigateTab,
   onOpenQuickAction,
   currentTabName,
+  currentTab,
+  activeSubViewId,
+  onNavigateSubCategory,
+  isModuleExpanded = false,
+  onToggleModuleExpanded,
   userRole = 'Super Admin',
   actualRole,
   userName = 'Factory Staff',
@@ -122,7 +140,7 @@ export default function Navbar({
 }: NavbarProps) {
   const router = useRouter();
   const isRealSuperAdmin = actualRole === 'Super Admin';
-  const { preferences, setTheme, setFontScale, setFontWeight } = useDisplayPreferences();
+  const { preferences, setTheme, setFontScale, setFontWeight, setScreenFit, toggleBackgroundSlideshow } = useDisplayPreferences();
   const isWhiteTheme = preferences?.theme === 'light-corporate';
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -137,6 +155,12 @@ export default function Navbar({
   const [showCompanyMenu, setShowCompanyMenu] = useState(false);
   const [isCreateCompanyOpen, setIsCreateCompanyOpen] = useState(false);
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null);
+
+  // Corporate ERP Modules Mega-Menu Launcher state
+  const [isAppLauncherOpen, setIsAppLauncherOpen] = useState(false);
+  const breadcrumb = useMemo(() => {
+    return currentTab ? getCorporateBreadcrumb(currentTab, activeSubViewId) : { category: null, subCategory: null };
+  }, [currentTab, activeSubViewId]);
   const companyMenuRef = useRef<HTMLDivElement>(null);
 
   const loadCompanies = useCallback(async () => {
@@ -236,7 +260,7 @@ export default function Navbar({
             subtitle: `${doorsCount} Door(s) • Stage: ${stage} • ${order.siteName || order.district || 'Factory Floor'}`,
             targetTab: 'production',
             categoryLabel: 'Job Cards & Production',
-            keywords: [jc.toLowerCase(), cust.toLowerCase(), stage.toLowerCase(), 'job card', 'order', 'door', 'ജോബ് കാർഡ്'],
+            keywords: [jc.toLowerCase(), cust.toLowerCase(), stage.toLowerCase(), 'job card', 'order', 'door'],
             code: jc,
             badge: stage,
           });
@@ -256,7 +280,7 @@ export default function Navbar({
             subtitle: `₹${amt.toLocaleString('en-IN')} • ${q.district || 'Kerala'} • Status: ${q.status || 'Draft'}`,
             targetTab: 'quotations',
             categoryLabel: 'Quotations & Estimates',
-            keywords: [qNum.toLowerCase(), cust.toLowerCase(), 'quotation', 'estimate', 'കൊട്ടേഷൻ'],
+            keywords: [qNum.toLowerCase(), cust.toLowerCase(), 'quotation', 'estimate'],
             code: qNum,
             badge: `₹${amt.toLocaleString('en-IN')}`,
           });
@@ -276,7 +300,7 @@ export default function Navbar({
             subtitle: `${phone ? `${phone} • ` : ''}${town} • ${c.type || 'Customer'}`,
             targetTab: 'customers',
             categoryLabel: 'Customers & Dealers',
-            keywords: [name.toLowerCase(), phone.toLowerCase(), town.toLowerCase(), 'party', 'dealer', 'client', 'പാർട്ടി'],
+            keywords: [name.toLowerCase(), phone.toLowerCase(), town.toLowerCase(), 'party', 'dealer', 'client'],
             code: c.customerCode || c.id,
             badge: c.type || 'Dealer',
           });
@@ -297,7 +321,7 @@ export default function Navbar({
             subtitle: `Stock: ${stock} ${unit} • Category: ${item.category || 'Store'} • Loc: ${item.warehouseLocation || 'Rack'}`,
             targetTab: 'inventory',
             categoryLabel: 'Raw Materials & Stock',
-            keywords: [name.toLowerCase(), code.toLowerCase(), (item.category || '').toLowerCase(), 'stock', 'store', 'material', 'റോ മെറ്റീരിയൽ'],
+            keywords: [name.toLowerCase(), code.toLowerCase(), (item.category || '').toLowerCase(), 'stock', 'store', 'material'],
             code,
             badge: `${stock} ${unit}`,
           });
@@ -317,7 +341,7 @@ export default function Navbar({
             subtitle: `₹${amt.toLocaleString('en-IN')} • Status: ${po.status || 'Draft'} • ${po.items?.length || 0} item(s)`,
             targetTab: 'purchases',
             categoryLabel: 'Purchases & Suppliers',
-            keywords: [poNum.toLowerCase(), vendor.toLowerCase(), 'po', 'purchase', 'supplier', 'പർച്ചേസ്'],
+            keywords: [poNum.toLowerCase(), vendor.toLowerCase(), 'po', 'purchase', 'supplier'],
             code: poNum,
             badge: po.status || 'PO',
           });
@@ -336,7 +360,7 @@ export default function Navbar({
             subtitle: `${phone ? `${phone} • ` : ''}${l.district || 'Kerala'} • Stage: ${l.status || 'New'}`,
             targetTab: 'crm',
             categoryLabel: 'CRM & Leads',
-            keywords: [title.toLowerCase(), phone.toLowerCase(), 'lead', 'crm', 'ലീഡ്'],
+            keywords: [title.toLowerCase(), phone.toLowerCase(), 'lead', 'crm'],
             code: l.leadCode || l.id,
             badge: l.status || 'Lead',
           });
@@ -692,15 +716,56 @@ export default function Navbar({
         </button>
 
         <div className="flex items-center gap-2 whitespace-nowrap">
-          {!isSimpleMode && (
-            <div className="hidden sm:flex items-center gap-1 text-[11px] text-slate-400 font-medium">
-              <span>EXMARK</span>
-              <span>/</span>
+          {/* Corporate ERP Modules Mega-Menu Launcher Button */}
+          <button
+            type="button"
+            onClick={() => setIsAppLauncherOpen(true)}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-[11px] font-bold text-amber-300 hover:text-white transition cursor-pointer shadow-xs"
+            title="Corporate ERP Modules & Categories Launcher"
+          >
+            <LayoutGrid className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="hidden sm:inline">Modules</span>
+          </button>
+
+          {!isSimpleMode && breadcrumb.category && (
+            <div className="hidden md:flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+              <span className={`font-black uppercase tracking-wider ${breadcrumb.category.accentColor}`}>
+                {breadcrumb.category.code}
+              </span>
+              <span className="text-slate-600">/</span>
             </div>
           )}
+
           <h1 className="text-sm sm:text-base font-bold text-white capitalize tracking-tight flex items-center gap-1.5 whitespace-nowrap">
-            {currentTabName}
+            {breadcrumb.subCategory ? breadcrumb.subCategory.label : currentTabName}
           </h1>
+
+          {/* 1-Click Expand Module to Full-Width Screen Fit Toggle */}
+          {onToggleModuleExpanded && (
+            <button
+              type="button"
+              onClick={onToggleModuleExpanded}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                isModuleExpanded
+                  ? 'bg-red-600 text-white border-red-500 shadow-red-950/50'
+                  : 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 border-slate-700/80 hover:text-white'
+              }`}
+              title={
+                isModuleExpanded
+                  ? 'Exit Full Screen Fit (Esc to restore standard view)'
+                  : 'Expand Module to Full Screen Fit (Hides sidebar for maximum workspace)'
+              }
+            >
+              {isModuleExpanded ? (
+                <Minimize2 className="w-3.5 h-3.5 text-white shrink-0" />
+              ) : (
+                <Maximize2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              )}
+              <span className="hidden xl:inline text-[11px]">
+                {isModuleExpanded ? 'Fit Standard' : 'Fit Screen'}
+              </span>
+            </button>
+          )}
 
           {/* Multi-Company Switcher + Create New Company Dropdown */}
           <div ref={companyMenuRef} className="relative ml-0.5">
@@ -1079,7 +1144,7 @@ export default function Navbar({
           title={
             isWhiteTheme
               ? 'Clean White & Black Theme is active. Click to switch to Factory Dark Navy.'
-              : 'Factory Dark Navy is active. Click to switch to Clean White & Black Theme (ലളിതമായ വൈറ്റ് തീം).'
+              : 'Factory Dark Navy is active. Click to switch to Clean White & Black Theme.'
           }
           className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
             isWhiteTheme
@@ -1105,7 +1170,7 @@ export default function Navbar({
           <button
             type="button"
             onClick={() => setShowTypographyMenu((v) => !v)}
-            title="Adjust Letter Size & Boldness / Darkness (അക്ഷരങ്ങളുടെ വലിപ്പവും ബോൾഡ്‌നെസ്സും)"
+            title="Adjust Letter Size & Boldness / Darkness"
             className={`inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
               showTypographyMenu
                 ? 'bg-black text-white border-black shadow-md'
@@ -1143,7 +1208,7 @@ export default function Navbar({
               {/* 1. Font Size / Scale Presets */}
               <div className="space-y-1.5 mb-3">
                 <div className="flex items-center justify-between text-[11px] font-bold">
-                  <span>Font Size (വലിപ്പം)</span>
+                  <span>Font Size</span>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -1193,7 +1258,7 @@ export default function Navbar({
               {/* 2. Font Darkness / Boldness */}
               <div className="space-y-1.5 mb-3">
                 <span className="text-[11px] font-bold block">
-                  Text Darkness / Boldness (ഡാർക്ക്‌നെസ്സ്)
+                  Text Darkness / Boldness
                 </span>
                 <div className="grid grid-cols-3 gap-1 pt-0.5">
                   {[
@@ -1234,6 +1299,44 @@ export default function Navbar({
             </div>
           )}
         </div>
+
+        {/* Screen Resolution Fit Dropdown */}
+        <div className="relative hidden xl:block">
+          <select
+            value={preferences.screenFit || 'auto'}
+            onChange={(e) => setScreenFit(e.target.value as any)}
+            title="Screen Resolution Fit (Auto Full Width / Laptop / HD / FHD)"
+            className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+              isWhiteTheme
+                ? 'bg-white text-black border-black shadow-sm'
+                : 'bg-slate-800 text-slate-100 border-slate-700 shadow-sm'
+            }`}
+          >
+            <option value="auto">Auto 100% Fit</option>
+            <option value="laptop-1366">1366px Laptop</option>
+            <option value="hd-1600">1600px HD</option>
+            <option value="fhd-1920">1920px FHD</option>
+          </select>
+        </div>
+
+        {/* Factory Background Slideshow Quick Toggle */}
+        <button
+          type="button"
+          onClick={toggleBackgroundSlideshow}
+          title={
+            preferences.backgroundSlideshowEnabled
+              ? 'Ambient Factory Slideshow is ON (60% Transparency). Click to turn off.'
+              : 'Ambient Factory Slideshow is OFF. Click to turn on.'
+          }
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+            preferences.backgroundSlideshowEnabled
+              ? 'bg-sky-950/70 text-sky-300 border-sky-600/50 hover:bg-sky-900'
+              : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-white'
+          }`}
+        >
+          <Factory className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+          <span className="hidden 2xl:inline text-[11px]">Factory BG</span>
+        </button>
 
         {/* SUPER ADMIN DIRECT ACCESS: Mobile Field App (Available in BOTH Simple Mode & Full Ops Mode) */}
         {isMounted && isRealSuperAdmin && (
@@ -1770,6 +1873,111 @@ export default function Navbar({
           loadCompanies();
         }}
       />
+
+      {/* Corporate ERP Modules & Categories Mega-Launcher Modal */}
+      {isAppLauncherOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-xs overflow-y-auto print:hidden">
+          <div className="bg-[#0B132B] border border-slate-700 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-[#070D1E]/95">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center">
+                  <LayoutGrid className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    EXMARK Corporate ERP Modules Directory
+                    <span className="text-[10px] bg-red-600/30 text-red-300 border border-red-500/30 px-2 py-0.5 rounded-full font-mono">
+                      7 Enterprise Domains
+                    </span>
+                  </h2>
+                  <p className="text-[11px] text-slate-400">
+                    Direct access to all commercial, manufacturing, accounting, stock and logistics sub-modules
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAppLauncherOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body - 7 Domains Grid */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 custom-scrollbar text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {CORPORATE_ERP_DOMAINS.map((domain) => {
+                  const DomainIcon = domain.icon;
+                  return (
+                    <div
+                      key={domain.id}
+                      className={`p-3.5 rounded-2xl bg-gradient-to-br ${domain.bgGradient} border ${domain.borderColor} bg-[#070D1E]/80 shadow-md space-y-2.5 flex flex-col justify-between`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg border ${domain.borderColor} ${domain.badgeColor}`}>
+                              <DomainIcon className={`w-4 h-4 ${domain.accentColor}`} />
+                            </div>
+                            <div>
+                              <div className="font-black text-white text-xs uppercase tracking-wider">{domain.label}</div>
+                              <div className="text-[9.5px] text-slate-400 font-mono">{domain.code}</div>
+                            </div>
+                          </div>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${domain.borderColor} ${domain.badgeColor}`}>
+                            {domain.subCategories.length}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                          {domain.description}
+                        </p>
+                      </div>
+
+                      <div className="space-y-1 pt-1">
+                        {domain.subCategories.map((sub) => {
+                          const SubIcon = sub.icon;
+                          const isSubActive = currentTab === sub.tabId && (!sub.subViewId || sub.subViewId === activeSubViewId);
+                          return (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              onClick={() => {
+                                if (onNavigateSubCategory) {
+                                  onNavigateSubCategory(sub.tabId, sub.subViewId);
+                                } else {
+                                  onNavigateTab(sub.tabId);
+                                }
+                                setIsAppLauncherOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] transition cursor-pointer ${
+                                isSubActive
+                                  ? 'bg-red-600/25 text-white font-bold border border-red-500/50'
+                                  : 'bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <SubIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span className="truncate">{sub.label}</span>
+                              </div>
+                              {sub.badge && (
+                                <span className={`text-[8.5px] font-bold px-1 rounded-full border shrink-0 ${sub.badgeColor || 'bg-slate-800 text-slate-400 border-slate-700'}`}>
+                                  {sub.badge}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

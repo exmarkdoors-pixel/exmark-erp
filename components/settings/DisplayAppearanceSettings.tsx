@@ -25,6 +25,7 @@ import {
   Layers,
   Laptop,
   Tv,
+  Factory,
 } from 'lucide-react';
 
 export function DisplayAppearanceSettings() {
@@ -35,6 +36,8 @@ export function DisplayAppearanceSettings() {
     setFontScale,
     setFontWeight,
     setScreenFit,
+    toggleBackgroundSlideshow,
+    setBackgroundOpacity,
     resetToDefaults,
   } = useDisplayPreferences();
 
@@ -198,13 +201,13 @@ export function DisplayAppearanceSettings() {
         </div>
       </div>
 
-      {/* 2.5. Font Darkness & Boldness (അക്ഷരങ്ങളുടെ ഡാർക്ക്‌നെസ്സ് / ബോൾഡ്നെസ്സ്) */}
+      {/* 2.5. Font Darkness & Boldness */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Type className="w-4 h-4 text-emerald-400" />
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
-              Letter Darkness &amp; Boldness (അക്ഷരങ്ങളുടെ ഡാർക്ക്‌നെസ്സ് / ബോൾഡ്നെസ്സ്)
+              Letter Darkness &amp; Boldness
             </h3>
           </div>
           <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 capitalize">
@@ -250,13 +253,13 @@ export function DisplayAppearanceSettings() {
         {/* Live Typography Preview Card */}
         <div className="mt-4 p-4 rounded-xl border border-slate-700 bg-white text-black space-y-2">
           <div className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-            Live Typography Preview (തത്സമയ പ്രിവ്യൂ)
+            Live Typography Preview
           </div>
           <div className="text-base font-bold">
-            EXMARK DOORS • കൊട്ടേഷൻ ക്ലീൻ വ്യൂ
+            EXMARK DOORS • Clean Quotation View
           </div>
           <div className="text-xs">
-            ഓർഡർ #ORD-2026-089 • ₹ 48,500.00 • 12L സ്റ്റിക്കർ വെരിഫൈഡ്
+            Order #ORD-2026-089 • ₹ 48,500.00 • 12L Sticker Verified
           </div>
           <div className="text-[11px]">
             The quick brown fox jumps over the lazy dog. 100% Waterproof FRP Doors.
@@ -364,7 +367,76 @@ export function DisplayAppearanceSettings() {
         </div>
       </div>
 
-      {/* 5. Live Component Preview */}
+      {/* 5. Factory Floor Ambient Background Slideshow */}
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <Factory className="w-4 h-4 text-sky-400" />
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
+                Factory Floor Ambient Background Slideshow
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Displays a subtle 60% transparent ambient slideshow behind the software featuring real FRP door manufacturing: Hand Layup &amp; 300T Press, UV Flatbed Printing, PU Paint Booth, and Site Installation.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={toggleBackgroundSlideshow}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              preferences.backgroundSlideshowEnabled
+                ? 'bg-sky-500 text-slate-950 border-sky-400 shadow-md font-extrabold'
+                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+            }`}
+          >
+            {preferences.backgroundSlideshowEnabled ? 'Enabled' : 'Disabled'}
+          </button>
+        </div>
+
+        {preferences.backgroundSlideshowEnabled && (
+          <div className="space-y-4 pt-2 border-t border-slate-800/80">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-300">
+                Background Opacity / Transparency
+              </span>
+              <span className="text-xs font-mono font-bold text-sky-400 bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800/60">
+                {Math.round((preferences.backgroundOpacity ?? 0.40) * 100)}% Opacity (
+                {100 - Math.round((preferences.backgroundOpacity ?? 0.40) * 100)}% Transparent)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5">
+              {[
+                { opacity: 0.25, label: 'Subtle (75% Transparent)' },
+                { opacity: 0.40, label: 'Standard (60% Transparent • Recommended)' },
+                { opacity: 0.60, label: 'Vivid (40% Transparent)' },
+              ].map((opt) => {
+                const isSelected = Math.abs((preferences.backgroundOpacity ?? 0.40) - opt.opacity) < 0.05;
+                return (
+                  <button
+                    key={opt.opacity}
+                    type="button"
+                    onClick={() => setBackgroundOpacity(opt.opacity)}
+                    className={`p-3 rounded-xl border text-left text-xs font-bold transition cursor-pointer ${
+                      isSelected
+                        ? 'border-sky-500 bg-sky-500/10 text-white shadow-sm'
+                        : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>{opt.label}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-400" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 6. Live Component Preview */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
           Live Real-Time UI Preview

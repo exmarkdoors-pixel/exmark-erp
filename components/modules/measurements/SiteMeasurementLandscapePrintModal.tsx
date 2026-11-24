@@ -106,7 +106,7 @@ export function SiteMeasurementLandscapePrintModal({
             <Printer className="w-5 h-5 text-amber-400" />
             <div>
               <h2 className="text-sm font-black uppercase tracking-wider text-white">
-                A4 Landscape Site Measurement Sheet (സൈറ്റ് മെഷർമെന്റ് ഫോം)
+                A4 Landscape Site Measurement Sheet
               </h2>
               <p className="text-[11px] text-slate-300">
                 Ref: <span className="font-bold text-white">{record.refNumber}</span> | Customer:{' '}
@@ -217,7 +217,7 @@ export function SiteMeasurementLandscapePrintModal({
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-[10px] font-black uppercase text-slate-500 w-28">Queue Stage:</span>
-                <span className="font-bold text-black">Early Stage / In Queue (മൊൾഡിംഗ് ക്യൂ)</span>
+                <span className="font-bold text-black">Early Stage / In Queue</span>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-[10px] font-black uppercase text-slate-500 w-28">Total Openings:</span>

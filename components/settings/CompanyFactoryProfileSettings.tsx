@@ -490,7 +490,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
           }`}
         >
           <Landmark className="w-3.5 h-3.5" />
-          Bank &amp; Payment Accounts (ബാങ്ക് വിവരങ്ങൾ)
+          Bank &amp; Payment Accounts
         </button>
         <button
           onClick={() => setActiveSubTab('addresses')}
@@ -638,14 +638,14 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
         </div>
       )}
 
-      {/* TAB: Bank & Payment Accounts (ബാങ്ക് വിവരങ്ങൾ & UPI) */}
+      {/* TAB: Bank & Payment Accounts */}
       {activeSubTab === 'banking' && (
         <div className="bg-white dark:bg-[#0B132B] p-6 rounded-xl border border-slate-200 dark:border-slate-800 space-y-6">
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Landmark className="w-5 h-5 text-red-600" />
-                <span>Primary Bank &amp; Electronic Payment Particulars (ബാങ്ക് വിവരങ്ങൾ)</span>
+                <span>Primary Bank &amp; Electronic Payment Particulars</span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 These banking details and UPI QR coordinates are printed on Quotations, Proforma Invoices, Sales Bills, and Order Worksheets.
@@ -661,7 +661,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
             {/* Bank Name */}
             <div>
               <label className="block text-slate-500 font-semibold mb-1">
-                Bank Name (ബാങ്കിന്റെ പേര്) *
+                Bank Name *
               </label>
               <input
                 type="text"
@@ -675,7 +675,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
             {/* Branch Name */}
             <div>
               <label className="block text-slate-500 font-semibold mb-1">
-                Branch Name &amp; District (ബ്രാഞ്ച്) *
+                Branch Name &amp; District *
               </label>
               <input
                 type="text"
@@ -689,7 +689,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
             {/* Account Holder Name */}
             <div className="md:col-span-2">
               <label className="block text-slate-500 font-semibold mb-1">
-                Beneficiary / Account Name (അക്കൗണ്ട് ഉടമയുടെ പേര്) *
+                Beneficiary / Account Name *
               </label>
               <input
                 type="text"
@@ -703,7 +703,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
             {/* Account Number */}
             <div>
               <label className="block text-slate-500 font-semibold mb-1">
-                Account Number (അക്കൗണ്ട് നമ്പർ) *
+                Account Number *
               </label>
               <input
                 type="text"
@@ -717,7 +717,7 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
             {/* IFSC Code */}
             <div>
               <label className="block text-slate-500 font-semibold mb-1">
-                IFSC Code (ഐ.എഫ്.എസ്.സി കോഡ്) *
+                IFSC Code *
               </label>
               <input
                 type="text"
@@ -732,23 +732,23 @@ export default function CompanyFactoryProfileSettings({ onSettingsUpdated }: { o
             {/* Account Type */}
             <div>
               <label className="block text-slate-500 font-semibold mb-1">
-                Account Type (അക്കൗണ്ട് തരം)
+                Account Type
               </label>
               <select
                 value={profile.bankDetails?.accountType ?? 'Current Account'}
                 onChange={(e) => updateBankField('accountType', e.target.value as any)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-900 dark:text-white font-medium focus:ring-1 focus:ring-red-500 cursor-pointer"
               >
-                <option value="Current Account">Current Account (കറന്റ് അക്കൗണ്ട്)</option>
-                <option value="Cash Credit / OD">Cash Credit / OD (ക്യാഷ് ക്രെഡിറ്റ്)</option>
-                <option value="Savings Account">Savings Account (സേവിംഗ്സ് അക്കൗണ്ട്)</option>
+                <option value="Current Account">Current Account</option>
+                <option value="Cash Credit / OD">Cash Credit / OD</option>
+                <option value="Savings Account">Savings Account</option>
               </select>
             </div>
 
             {/* UPI ID / VPA */}
             <div>
               <label className="block text-slate-500 font-semibold mb-1">
-                UPI ID / VPA (യു.പി.ഐ ഐഡി - GPay, PhonePe, Paytm QR)
+                UPI ID / VPA (GPay, PhonePe, Paytm QR)
               </label>
               <input
                 type="text"

@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'EXMARK Staff',
   webDir: 'public',
   server: {
-    url: 'http://192.168.1.10:4000/mobile',
+    url: 'http://192.168.220.22:4000/mobile',
     cleartext: true,
     errorPath: 'index.html',
     allowNavigation: ['*'],

@@ -114,6 +114,13 @@ export function QuotationBuilder({ isOpen, onClose, onSaved }: QuotationBuilderP
       return;
     }
 
+    // Validate Base Piece Minimum Price Lock (₹7,000 floor for FRP doors)
+    const belowMinItem = items.find((i) => i.unitPrice < 7000);
+    if (belowMinItem) {
+      setError(`Base piece minimum price is locked: Door rate for "${belowMinItem.doorModel}" cannot be lower than ₹7,000.`);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/quotations', {
@@ -303,6 +310,11 @@ export function QuotationBuilder({ isOpen, onClose, onSaved }: QuotationBuilderP
                             onChange={(e) => handleItemChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
                             className="w-24 px-1.5 py-1 text-right bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono"
                           />
+                          {item.unitPrice < 7000 ? (
+                            <span className="block text-[9px] text-red-500 font-bold mt-0.5">🔒 Min ₹7,000</span>
+                          ) : (
+                            <span className="block text-[9px] text-slate-400 mt-0.5">🔒 Min ₹7,000</span>
+                          )}
                         </td>
                         <td className="p-2.5 text-right font-bold text-slate-900 dark:text-white font-mono">
                           ₹{lineTotal.toLocaleString('en-IN')}

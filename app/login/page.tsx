@@ -14,7 +14,6 @@ import {
   Lock,
   Search,
   ShieldCheck,
-  ShieldAlert,
   UserCheck,
   Users,
   X,
@@ -50,65 +49,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Host Emergency Super Admin Reset state
-  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
-  const [resetPass, setResetPass] = useState('');
-  const [resetPassConfirm, setResetPassConfirm] = useState('');
-  const [resetPin, setResetPin] = useState('');
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetError, setResetError] = useState('');
-  const [resetSuccess, setResetSuccess] = useState('');
-
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const pinInputRef = useRef<HTMLInputElement>(null);
-
-  const handleEmergencyReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setResetError('');
-    setResetSuccess('');
-    if (!resetPass || resetPass.length < 6) {
-      setResetError('New password must be at least 6 characters long.');
-      return;
-    }
-    if (resetPass !== resetPassConfirm) {
-      setResetError('Passwords do not match.');
-      return;
-    }
-    if (resetPin && !/^\d{4,6}$/.test(resetPin.trim())) {
-      setResetError('Quick PIN must be 4 to 6 numeric digits.');
-      return;
-    }
-    setResetLoading(true);
-    try {
-      const res = await fetch('/api/auth/emergency-reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          newPassword: resetPass.trim(),
-          newPin: resetPin.trim() || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setResetError(data.error || 'Failed to reset password.');
-        return;
-      }
-      setResetSuccess('Super Admin password reset successfully! You can now log in.');
-      setIdentifier('director@exmarkdoors.com');
-      setPassword(resetPass.trim());
-      if (resetPin.trim()) setPin(resetPin.trim());
-      setTimeout(() => {
-        setShowEmergencyModal(false);
-        setResetPass('');
-        setResetPassConfirm('');
-        setResetPin('');
-      }, 1500);
-    } catch {
-      setResetError('Network error connecting to reset service.');
-    } finally {
-      setResetLoading(false);
-    }
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -591,7 +533,7 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-900 text-[11px]">
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-900 text-[11px]">
                 <a
                   href="/mobile"
                   className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1.5 transition"
@@ -599,127 +541,11 @@ export default function LoginPage() {
                   <Smartphone className="w-3.5 h-3.5" />
                   <span>Switch to Mobile Field App (/mobile)</span>
                 </a>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setResetError('');
-                    setResetSuccess('');
-                    setShowEmergencyModal(true);
-                  }}
-                  className="text-amber-400/80 hover:text-amber-300 underline font-medium cursor-pointer"
-                >
-                  Forgot Super Admin password? Host Emergency Reset
-                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* EMERGENCY SUPER ADMIN RESET MODAL (Localhost Only) */}
-      {showEmergencyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-[#0c1222] border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
-            <button
-              type="button"
-              onClick={() => setShowEmergencyModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <span className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                <ShieldAlert className="w-5 h-5" />
-              </span>
-              <div>
-                <h3 className="text-base font-bold text-white">Host Emergency Admin Reset</h3>
-                <p className="text-xs text-slate-400">
-                  Directly reset root Super Admin (<span className="text-amber-300">EXM-EMP-001</span>)
-                </p>
-              </div>
-            </div>
-
-            {resetError && (
-              <div className="mb-4 p-3 rounded-lg bg-red-500/15 border border-red-500/30 text-xs text-red-300">
-                {resetError}
-              </div>
-            )}
-
-            {resetSuccess && (
-              <div className="mb-4 p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300">
-                {resetSuccess}
-              </div>
-            )}
-
-            <form onSubmit={handleEmergencyReset} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
-                  New Super Admin Password * (min 6 chars)
-                </label>
-                <input
-                  type="password"
-                  value={resetPass}
-                  onChange={(e) => setResetPass(e.target.value)}
-                  placeholder="Enter new password (e.g. Exmark@2026)"
-                  className="w-full bg-[#131b2e] border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
-                  Confirm New Password *
-                </label>
-                <input
-                  type="password"
-                  value={resetPassConfirm}
-                  onChange={(e) => setResetPassConfirm(e.target.value)}
-                  placeholder="Re-enter new password"
-                  className="w-full bg-[#131b2e] border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
-                  New Quick PIN (Optional, 4–6 digits)
-                </label>
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  value={resetPin}
-                  onChange={(e) => setResetPin(e.target.value.replace(/\D/g, ''))}
-                  placeholder="e.g. 2026"
-                  className="w-full bg-[#131b2e] border border-slate-700 rounded-xl px-3.5 py-2 text-sm font-mono tracking-widest text-amber-300 focus:outline-none focus:border-amber-500"
-                />
-                <span className="text-[10px] text-slate-500 mt-1 block">
-                  Enables rapid touch tap login on factory floor terminals.
-                </span>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowEmergencyModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-xl transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={resetLoading}
-                  className="px-5 py-2 text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl transition shadow-md disabled:opacity-50"
-                >
-                  {resetLoading ? 'Resetting...' : 'Reset Super Admin Credentials'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

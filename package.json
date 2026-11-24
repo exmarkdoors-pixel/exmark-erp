@@ -1,6 +1,6 @@
 {
   "name": "exmark-erp",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "description": "EXMARK ERP — Enterprise FRP Architectural Doors Manufacturing Platform",
   "author": "EXMARK DOORS PRIVATE LIMITED",
@@ -9,9 +9,13 @@
   },
   "main": "electron/main.js",
   "scripts": {
+    "predev": "node scripts/ensure-local-services.mjs",
     "dev": "next dev -H 0.0.0.0 -p 4000",
+    "localhost:fix": "node scripts/ensure-local-services.mjs",
+    "localhost:forwarder": "node scripts/localhost-port-forwarder.mjs",
     "build": "node scripts/deploy-migrate.mjs && next build",
     "start": "node scripts/start-production.mjs",
+    "export:cloud-gpu": "node scripts/export-cloud-gpu-zip.mjs",
     "lint": "eslint",
     "desktop:dev": "electron electron/main.js",
     "desktop:prepare": "node scripts/prepare-electron-standalone.mjs",

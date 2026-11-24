@@ -12,6 +12,7 @@ import {
   Megaphone,
   BarChart3,
   Settings,
+  ShoppingCart,
   ChevronDown,
   ChevronRight,
   Search,
@@ -25,11 +26,21 @@ import { UserRole, canAccessModule } from '@/lib/auth/roles';
 
 export type CardStatus = 'Operational' | 'Setup Required' | 'In Development' | 'Not Available';
 
+export type EnterpriseDomainCategory =
+  | 'SALES'
+  | 'PURCHASES'
+  | 'MANUFACTURING'
+  | 'ACCOUNTING'
+  | 'STOCK'
+  | 'LOGISTICS'
+  | 'SETTINGS';
+
 export interface ControlCard {
   id: string;
   name: string;
   description: string;
   targetTab: NavigationTab;
+  targetSubViewId?: string;
   status: CardStatus;
   badge?: string;
   isQuickAction?: boolean;
@@ -39,7 +50,7 @@ export interface ControlFolder {
   id: string;
   number: number;
   name: string;
-  category: 'COMMERCIAL' | 'PRODUCTION' | 'FINANCE' | 'SYSTEM';
+  category: EnterpriseDomainCategory;
   accentColor: string; // Tailwind border/badge color class
   bgGradient: string;
   icon: React.ElementType;
@@ -48,249 +59,170 @@ export interface ControlFolder {
 
 interface CorporateControlCenterProps {
   onNavigateTab: (tab: NavigationTab) => void;
+  onSelectSubCategory?: (tab: NavigationTab, subViewId?: string) => void;
   userRole?: UserRole;
   allowedModules?: string[];
 }
 
 const CONTROL_FOLDERS: ControlFolder[] = [
-  // FOLDER 1 — CUSTOMERS & CRM
+  // 1. SALES & COMMERCIAL
   {
-    id: 'folder-1',
+    id: 'folder-sales',
     number: 1,
-    name: 'CUSTOMERS & CRM',
-    category: 'COMMERCIAL',
+    name: 'SALES & COMMERCIAL',
+    category: 'SALES',
     accentColor: 'text-blue-400 border-blue-500/30 bg-blue-500/10',
     bgGradient: 'from-blue-600/15 via-blue-900/5 to-transparent',
-    icon: Users,
-    cards: [
-      { id: 'c1-1', name: 'Customer Register', description: 'Verified Kerala builders & wholesale dealers registry', targetTab: 'customers', status: 'Operational', badge: 'Live' },
-      { id: 'c1-2', name: 'New Customer', description: 'Register builder, architect partner or direct client', targetTab: 'customers', status: 'Operational', isQuickAction: true },
-      { id: 'c1-3', name: 'Customer Sites', description: 'Kerala project sites & multi-tower locations', targetTab: 'customers', status: 'Operational' },
-      { id: 'c1-4', name: 'Leads', description: 'District sales inquiries across 14 Kerala districts', targetTab: 'crm', status: 'Operational', badge: 'Live' },
-      { id: 'c1-5', name: 'Follow-ups', description: 'Client appointment reminders & site visit scheduling', targetTab: 'crm', status: 'Operational' },
-      { id: 'c1-6', name: 'Sales Pipeline', description: 'Opportunity tracking from New to Quotation Issued', targetTab: 'crm', status: 'Operational' },
-      { id: 'c1-7', name: 'Customer Communication', description: 'Interaction logs, phone notes & WhatsApp timeline', targetTab: 'crm', status: 'Operational' },
-      { id: 'c1-8', name: 'Customer Documents', description: 'Customer profiles, site drawings & agreement files', targetTab: 'customers', status: 'Operational' },
-    ],
-  },
-
-  // FOLDER 2 — BOQ & ESTIMATES
-  {
-    id: 'folder-2',
-    number: 2,
-    name: 'BOQ & ESTIMATES',
-    category: 'COMMERCIAL',
-    accentColor: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
-    bgGradient: 'from-emerald-600/15 via-emerald-900/5 to-transparent',
-    icon: FileSpreadsheet,
-    cards: [
-      { id: 'c2-5', name: 'Site Measurements (4-Point)', description: 'Field door opening verification, tolerances & auto-quotation', targetTab: 'measurements', status: 'Operational', badge: 'Live Grid' },
-      { id: 'c2-6', name: 'BOQ Management', description: 'Itemized door schedule, square foot area & rate builder', targetTab: 'quotations', status: 'Operational', badge: 'Live BOQ', isQuickAction: true },
-      { id: 'c2-7', name: 'BOQ Import', description: 'Import architect door schedules from Excel/CSV', targetTab: 'quotations', status: 'Operational' },
-      { id: 'c2-8', name: 'BOQ Comparison', description: 'Tender vs measured opening variance analysis', targetTab: 'quotations', status: 'Operational' },
-      { id: 'c2-9', name: 'BOQ Reports', description: 'Material breakdown & hardware estimation sheets', targetTab: 'reports', status: 'Operational' },
-    ],
-  },
-
-  // FOLDER 3 — SALES & ORDERS
-  {
-    id: 'folder-3',
-    number: 3,
-    name: 'SALES & ORDERS',
-    category: 'COMMERCIAL',
-    accentColor: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10',
-    bgGradient: 'from-indigo-600/15 via-indigo-900/5 to-transparent',
     icon: ShoppingBag,
     cards: [
-      { id: 'c3-1', name: 'New Quotation', description: 'Build Kerala direct ex-factory door estimate', targetTab: 'quotations', status: 'Operational', isQuickAction: true },
-      { id: 'c3-2', name: 'Quotation Register', description: 'Active quotes and itemized FRP schedules', targetTab: 'quotations', status: 'Operational', badge: 'Live' },
-      { id: 'c3-3', name: 'Proforma Invoice', description: 'Formal advance proforma with Kerala bank account details', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c3-4', name: 'New Sales Order', description: 'Accept quotation with required advance verification', targetTab: 'sales-orders', status: 'Operational' },
-      { id: 'c3-5', name: 'Order Approval', description: 'Manager sign-off gate before plant floor job release', targetTab: 'sales-orders', status: 'Operational' },
-      { id: 'c3-6', name: 'Advance Verification', description: 'Accounts audit: minimum 40% advance payment rule', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c3-7', name: 'Order Register', description: 'Confirmed work orders in manufacturing', targetTab: 'sales-orders', status: 'Operational', badge: 'Live' },
-      { id: 'c3-8', name: 'Customer Statements', description: 'Billing history, advance receipts & pending balance', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c3-9', name: 'Project Risk & Profit Calculator', description: '5-pillar risk scoring, BOM cost stack & geotagged warranty', targetTab: 'quotations', status: 'Operational', badge: 'Risk & Profit' },
-      { id: 'c3-10', name: 'Staff Order Reports (PDF)', description: 'Daily, weekly & monthly staff order register with A4 PDF export', targetTab: 'quotations', status: 'Operational', badge: 'Daily/Monthly' },
-      { id: 'c3-11', name: 'Staff Commission & Target Expansion', description: 'Percentage vs per-door commission rates & Kerala district growth plan', targetTab: 'marketing', status: 'Operational', badge: 'Piece Rate' },
+      { id: 'c1-1', name: 'Quotations & Estimates', description: 'Direct factory pricing, area calculations, profit & 5-pillar risk scores', targetTab: 'quotations', status: 'Operational', badge: 'Estimates', isQuickAction: true },
+      { id: 'c1-2', name: 'Site Measurements (4-Point Grid)', description: 'Field opening verification, laser levels, rebate depths & auto-quote generation', targetTab: 'measurements', status: 'Operational', badge: '4-Pt Grid' },
+      { id: 'c1-3', name: 'Sales Orders & Advance Lock', description: 'Confirmed order registry, advance audit verification & release to factory floor', targetTab: 'sales-orders', status: 'Operational', badge: 'Advance Lock' },
+      { id: 'c1-4', name: 'Customers & Wholesale Dealers', description: 'Verified Kerala builders, wholesale dealers, architects & contact ledger', targetTab: 'customers', status: 'Operational', badge: 'Directory' },
+      { id: 'c1-5', name: 'CRM & Leads Pipeline', description: 'District sales inquiries across 14 Kerala districts with follow-up scheduler', targetTab: 'crm', status: 'Operational', badge: '14 Districts' },
+      { id: 'c1-6', name: 'Project Risk & Profit Calculator', description: 'BOM cost stack breakdown, margin safety & geotagged warranty validation', targetTab: 'quotations', status: 'Operational', badge: 'Risk & Profit' },
+      { id: 'c1-7', name: 'Sales Leaderboard & Performance', description: 'Door volume & financial revenue leaderboard with Kerala district ranking', targetTab: 'reports', status: 'Operational', badge: 'Leaderboard' },
+      { id: 'c1-8', name: 'Customer Statements & Ledger', description: 'Billing history, advance receipts, pending balances & payment aging', targetTab: 'accounts', status: 'Operational', badge: 'Statements' },
+      { id: 'c1-9', name: 'Vyapar Parties & Customer Sync', description: 'Bulk 1-click import of customer directories & opening balances from Vyapar App or Excel', targetTab: 'customers', status: 'Operational', badge: 'Vyapar Sync' },
     ],
   },
 
-  // FOLDER 4 — FRP PRODUCTION
+  // 2. PURCHASES & PROCUREMENT
   {
-    id: 'folder-4',
-    number: 4,
-    name: 'FRP PRODUCTION',
-    category: 'PRODUCTION',
-    accentColor: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
-    bgGradient: 'from-cyan-600/15 via-cyan-900/5 to-transparent',
+    id: 'folder-purchases',
+    number: 2,
+    name: 'PURCHASES & PROCUREMENT',
+    category: 'PURCHASES',
+    accentColor: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+    bgGradient: 'from-emerald-600/15 via-emerald-900/5 to-transparent',
+    icon: ShoppingCart,
+    cards: [
+      { id: 'c2-1', name: 'Approved Suppliers & Vendors', description: 'Approved chemical, resin, fiberglass roving & hardware vendor master', targetTab: 'purchases', status: 'Operational', badge: 'Vendor Master' },
+      { id: 'c2-2', name: 'Purchase Order Requisitions', description: 'Formal supplier purchase requisitions, chemical PO approvals & GST terms', targetTab: 'purchases', status: 'Operational', badge: 'Live POs', isQuickAction: true },
+      { id: 'c2-3', name: 'Vendor Bills & Goods Inward GRN', description: 'Vendor delivery challans, bills upload & warehouse inward verification', targetTab: 'purchases', status: 'Operational', badge: 'GRN Inward' },
+      { id: 'c2-4', name: 'Chemical & Hardware Procurement', description: 'Direct purchase records for catalyst, resin barrels, hinges & mortise locks', targetTab: 'purchases', status: 'Operational', badge: 'Chemical PO' },
+      { id: 'c2-5', name: 'Vendor Ledger & Statements', description: 'Supplier payable balances, debit notes & payment transaction registry', targetTab: 'purchases', status: 'Operational', badge: 'Ledger' },
+      { id: 'c2-6', name: 'Purchase Audit & Reconciliation', description: 'Physical vs ERP GRN reconciliation and delivery variance checks', targetTab: 'purchases', status: 'Operational', badge: 'Recon' },
+    ],
+  },
+
+  // 3. MANUFACTURING & PRODUCTION
+  {
+    id: 'folder-manufacturing',
+    number: 3,
+    name: 'MANUFACTURING & PRODUCTION',
+    category: 'MANUFACTURING',
+    accentColor: 'text-purple-400 border-purple-500/30 bg-purple-500/10',
+    bgGradient: 'from-purple-600/15 via-purple-900/5 to-transparent',
     icon: Factory,
     cards: [
-      { id: 'c4-1', name: 'Production Dashboard', description: 'Central workshop status: Artisan hand-layup mold benches', targetTab: 'production', status: 'Operational', badge: 'Active Plant' },
-      { id: 'c4-2', name: 'Job Cards', description: 'Hand craft job cards with manual resin & CSM layup specs', targetTab: 'production', status: 'Operational' },
-      { id: 'c4-3', name: 'Door ID Tracking', description: 'Sequential serial numbering EXM-DR-2026-XXXX', targetTab: 'production', status: 'Operational' },
-      { id: 'c4-4', name: 'Cutting Calculator', description: 'Finished = Raw - (Rebate & Floor Clearances)', targetTab: 'production', status: 'Operational' },
-      { id: 'c4-5', name: 'Cutting Sheet', description: 'Artisan hand cutting & edge grinding measurement sheets', targetTab: 'production', status: 'Operational' },
-      { id: 'c4-6', name: 'Manufacturing Kanban Board', description: 'Multi-column floor lanes: Molding, Cutting, Finishing/Grains, Painting, Delivery', targetTab: 'production', status: 'Operational' },
-      { id: 'c4-7', name: 'In-House Floor Gangs', description: 'Manage floor teams & per-stage piece-rate credits inside the plant', targetTab: 'production', status: 'Operational' },
-      { id: 'c4-8', name: 'Rework', description: 'Defect logging & surface refinish tracking (<0.8%)', targetTab: 'production', status: 'Operational' },
-      { id: 'c4-9', name: 'Packing', description: 'Corner foam protection & waterproof stretch wrapping', targetTab: 'production', status: 'Operational' },
-      { id: 'c4-10', name: 'Quality Control (IQC / FQC)', description: 'Inward material, floor press & final pre-dispatch QA inspections', targetTab: 'quality', status: 'Operational', badge: 'Live QA' },
-      { id: 'c4-11', name: 'Plant Maintenance & OEE', description: 'FRP master molds, spray guns, saws & breakdown work orders', targetTab: 'maintenance', status: 'Operational', badge: 'OEE Live' },
-      { id: 'c4-12', name: 'Job Work Challans', description: 'Subcontracting glass inserts, brass inlays & vendor return tracking', targetTab: 'job-work', status: 'Operational', badge: 'Outwork' },
+      { id: 'c3-1', name: 'Manufacturing Kanban Board', description: 'Multi-stage floor lanes: Molding, Cutting, Finishing/Grains, Painting & Delivery', targetTab: 'production', status: 'Operational', badge: 'Live Floor', isQuickAction: true },
+      { id: 'c3-2', name: 'Job Cards & Layup Specs', description: 'Artisan craft job cards with manual resin, pigment & CSM layup specifications', targetTab: 'production', status: 'Operational', badge: 'Job Cards' },
+      { id: 'c3-3', name: '12L & 4"×2" Stickers Studio', description: 'CNC trimming measurement labels, chowkhat frame tolerances & shop floor QR passes', targetTab: 'batch-print', status: 'Operational', badge: '12L Thermal' },
+      { id: 'c3-4', name: 'Auto-BOQ & Chemical Recipes', description: 'Resin, Catalyst, GEL & CSM layup formulation with timber reeper wood deductions', targetTab: 'bom', status: 'Operational', badge: 'Shift BOQ' },
+      { id: 'c3-5', name: 'Quality Control (IQC / FQC)', description: 'Inward raw material testing, curing hardness inspection & pre-dispatch checklist', targetTab: 'quality', status: 'Operational', badge: 'Live QA' },
+      { id: 'c3-6', name: 'Plant Maintenance & Molds', description: 'FRP master molds conditioning, spray gun service, circular saws & breakdown work orders', targetTab: 'maintenance', status: 'Operational', badge: 'OEE / Molds' },
+      { id: 'c3-7', name: 'Subcontracting & Job Work', description: 'Glass inserts, brass inlay outwork challans & subcontractor piece-rate settlement', targetTab: 'job-work', status: 'Operational', badge: 'Outwork' },
+      { id: 'c3-8', name: 'In-House Floor Gangs Tracking', description: 'Manage floor mold teams & per-stage piece-rate credits inside the factory', targetTab: 'production', status: 'Operational', badge: 'Piece Rate' },
+      { id: 'c3-9', name: 'Rework & Defect Log', description: 'Surface refinish tracking, bubble corrections & scrap rate monitoring (<0.8%)', targetTab: 'production', status: 'Operational', badge: 'Defects' },
+      { id: 'c3-10', name: 'Plant Staff Attendance & Payroll', description: 'Daily technician presence, OT hours, biometric sync & salary slips', targetTab: 'employees', status: 'Operational', badge: 'Staff Payroll' },
     ],
   },
 
-  // FOLDER 5 — INVENTORY & PURCHASE
+  // 4. ACCOUNTING & FINANCE
   {
-    id: 'folder-5',
-    number: 5,
-    name: 'INVENTORY & PURCHASE',
-    category: 'PRODUCTION',
+    id: 'folder-accounting',
+    number: 4,
+    name: 'ACCOUNTING & FINANCE',
+    category: 'ACCOUNTING',
     accentColor: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
     bgGradient: 'from-amber-600/15 via-amber-900/5 to-transparent',
-    icon: Boxes,
-    cards: [
-      { id: 'c5-1', name: 'Raw Material Stock', description: 'Resin, woven roving, pigments & catalyst inventory', targetTab: 'inventory', status: 'Operational', badge: 'Live Stock' },
-      { id: 'c5-2', name: 'Frame Material Calculator', description: 'WPC extruded frame & FRP wrap stock estimator', targetTab: 'inventory', status: 'Operational' },
-      { id: 'c5-3', name: 'Hardware BOQ', description: 'SS 304 hinges, mortise locks & tower bolt stock', targetTab: 'inventory', status: 'Operational' },
-      { id: 'c5-4', name: 'Suppliers', description: 'Approved chemical, resin & hardware vendor master', targetTab: 'purchases', status: 'Operational' },
-      { id: 'c5-5', name: 'Purchase Orders', description: 'Formal supplier purchase requisitions & chemical POs', targetTab: 'purchases', status: 'Operational', badge: 'Live POs' },
-      { id: 'c5-6', name: 'Purchase Bill Upload', description: 'Vendor bills & goods inward delivery notes', targetTab: 'purchases', status: 'Operational' },
-      { id: 'c5-7', name: 'Material Issues', description: 'FIFO inventory issue to artisan hand-layup benches', targetTab: 'inventory', status: 'Operational' },
-      { id: 'c5-8', name: 'Stock Audit', description: 'Physical vs ERP ledger reconciliation ledger', targetTab: 'inventory', status: 'Operational' },
-      { id: 'c5-9', name: 'Low Stock Alerts', description: 'Automated reorder triggers for resin & hardener', targetTab: 'inventory', status: 'Operational' },
-    ],
-  },
-
-  // FOLDER 6 — ACCOUNTS & FINANCE
-  {
-    id: 'folder-6',
-    number: 6,
-    name: 'ACCOUNTS & FINANCE',
-    category: 'FINANCE',
-    accentColor: 'text-teal-400 border-teal-500/30 bg-teal-500/10',
-    bgGradient: 'from-teal-600/15 via-teal-900/5 to-transparent',
     icon: ReceiptIndianRupee,
     cards: [
-      { id: 'c6-contractors', name: 'Floor Gang Piece-Rate Payouts', description: 'Weekly gang earnings, vouchers & PDF payment statements', targetTab: 'accounts', status: 'Operational', badge: 'Active' },
-      { id: 'c6-1', name: 'Accounts Dashboard', description: 'Executive revenue, billing & collection overview', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c6-2', name: 'Receipts', description: 'Advance & balance receipts tracked live in ledger', targetTab: 'accounts', status: 'Operational', badge: 'Receipts' },
-      { id: 'c6-3', name: 'Customer Advances', description: 'Advance deposit validation for sales order release', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c6-4', name: 'Direct Sales & Returns (Non-GST)', description: 'Direct factory sales entries, receipts & return credit notes (No GST billing)', targetTab: 'sales', status: 'Operational', badge: 'Direct Sales' },
-      { id: 'c6-coa', name: 'Chart of Accounts & Journals', description: 'Double-entry COA (Create/Edit/Delete), Journal Entries & Account Statements', targetTab: 'accounts', status: 'Operational', badge: 'Double Entry' },
-      { id: 'c6-5', name: 'Payments', description: 'Cheque, NEFT & cash payment registry with UTR', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c6-6', name: 'Expenses', description: 'Factory diesel, freight & plant operational expenses', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c6-7', name: 'Bank/Cash', description: 'Current account bank reconciliation & cash voucher log', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c6-8', name: 'Outstanding', description: 'Pending customer receivables tracked live across Kerala', targetTab: 'accounts', status: 'Operational', badge: 'Receivables' },
-      { id: 'c6-9', name: 'Financial Strategist', description: 'AI cash runway & profitability scenario simulator', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c6-10', name: 'Break-even Analysis', description: 'Fixed vs variable cost break-even door volume', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c6-11', name: 'Monthly Targets', description: 'Executive sales goals & run rate tracker', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c6-12', name: 'Cash Flow Forecast', description: '30/60/90-day cash flow projection model', targetTab: 'accounts', status: 'Operational' },
-      { id: 'c6-13', name: 'Project Cost & Margin Engine', description: 'Itemized resin/glass BOM, gang piece-rate & district logistics', targetTab: 'quotations', status: 'Operational', badge: 'Cost Stack' },
+      { id: 'c4-1', name: 'Accounting Master Hub', description: 'Executive revenue, billing status, quick vouchers & financial KPI balance cards', targetTab: 'accounts', targetSubViewId: 'OVERVIEW', status: 'Operational', badge: 'Master Suite', isQuickAction: true },
+      { id: 'c4-2', name: 'Cash & Bank Book / Day Book', description: 'Multi-account Cash, Bank & UPI accounts with daily receipt and payment entries', targetTab: 'accounts', targetSubViewId: 'CASH_BANK', status: 'Operational', badge: 'Multi-Bank' },
+      { id: 'c4-3', name: 'Party-to-Party Settlement', description: 'Cross-party settlement: transfer credits/balances between customers, suppliers & contractors', targetTab: 'accounts', targetSubViewId: 'PARTY_TO_PARTY', status: 'Operational', badge: 'Direct Transfer' },
+      { id: 'c4-4', name: 'Chart of Accounts (COA)', description: 'Complete double-entry ledger tree: Assets, Liabilities, Equity, Revenue & Expenses', targetTab: 'accounts', targetSubViewId: 'COA', status: 'Operational', badge: 'Ledger Tree' },
+      { id: 'c4-5', name: 'Direct Sales & Receipts', description: 'Direct factory sales invoices, advance receipts allocations & return credit notes', targetTab: 'sales', status: 'Operational', badge: 'Non-GST' },
+      { id: 'c4-6', name: 'Floor Gang Piece-Rate Payouts', description: 'Weekly artisan mold gang earnings, debit advance deductions & A4 PDF payment slips', targetTab: 'accounts', targetSubViewId: 'CONTRACTORS', status: 'Operational', badge: 'Piece Rate' },
+      { id: 'c4-7', name: 'Financial Reports & P&L', description: 'Profit & Loss, Balance Sheet, Party Aging Statements & Financial Year-End Closing', targetTab: 'reports', status: 'Operational', badge: 'P&L / Balance' },
+      { id: 'c4-8', name: 'Financial Strategist & Runway', description: 'AI cash runway & profitability scenario simulator with cash flow projections', targetTab: 'accounts', status: 'Operational', badge: 'AI Forecast' },
+      { id: 'c4-9', name: 'Break-Even Door Volume Analysis', description: 'Fixed vs variable cost break-even door volume model for plant efficiency', targetTab: 'accounts', status: 'Operational', badge: 'Break-Even' },
+      { id: 'c4-10', name: 'Cost-Cutting & Expense Monitor', description: 'Real-time audit of Food, Diesel, Overtime & Chemical waste with What-If simulator', targetTab: 'accounts', targetSubViewId: 'EXPENSE_INTELLIGENCE', status: 'Operational', badge: 'Cost-Cutting' },
     ],
   },
 
-  // FOLDER 7 — REPORTS & DOCUMENTS
+  // 5. STORE OR STOCK
   {
-    id: 'folder-7',
-    number: 7,
-    name: 'REPORTS & DOCUMENTS',
-    category: 'FINANCE',
-    accentColor: 'text-violet-400 border-violet-500/30 bg-violet-500/10',
-    bgGradient: 'from-violet-600/15 via-violet-900/5 to-transparent',
-    icon: BarChart3,
+    id: 'folder-stock',
+    number: 5,
+    name: 'STORE OR STOCK',
+    category: 'STOCK',
+    accentColor: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
+    bgGradient: 'from-cyan-600/15 via-cyan-900/5 to-transparent',
+    icon: Boxes,
     cards: [
-      { id: 'c7-1', name: 'Customer Reports', description: 'Dealer sales contribution & district volume breakdown', targetTab: 'reports', status: 'Operational' },
-      { id: 'c7-2', name: 'BOQ Reports', description: 'Tender material schedules vs actual door counts', targetTab: 'reports', status: 'Operational' },
-      { id: 'c7-3', name: 'Measurement Reports', description: 'Site openings verified across all 14 districts', targetTab: 'reports', status: 'Operational' },
-      { id: 'c7-4', name: 'Sales Reports', description: 'Monthly district sales penetration & order margins', targetTab: 'reports', status: 'Operational' },
-      { id: 'c7-5', name: 'Production Reports', description: 'Press yield, daily door output & defect metrics', targetTab: 'reports', status: 'Operational' },
-      { id: 'c7-6', name: 'Inventory Reports', description: 'Raw material stock valuation & turnover ratio', targetTab: 'reports', status: 'Operational' },
-      { id: 'c7-7', name: 'Finance Reports', description: 'Gross profit margins, billing summaries & collections', targetTab: 'reports', status: 'Operational' },
-      { id: 'c7-8', name: 'A4 Cutting PDFs', description: '12 stickers per A4 page (2x6 layout) print preview', targetTab: 'production', status: 'Operational', badge: '12/Page A4' },
-      { id: 'c7-9', name: 'Thermal Stickers', description: '203/300 DPI single/batch thermal label printing', targetTab: 'production', status: 'Operational' },
-      { id: 'c7-10', name: 'Video Reports', description: 'Animated executive snapshot summary with voiceover', targetTab: 'reports', status: 'Operational' },
-      { id: 'c7-11', name: 'Export Center', description: 'One-click Excel (.xlsx) and CSV ledger exports', targetTab: 'reports', status: 'Operational' },
+      { id: 'c5-1', name: 'Ready Stock Doors Hub', description: 'Finished doors buffer inventory, old stock storage, location bins & clearance management', targetTab: 'inventory', targetSubViewId: 'READY_STOCK', status: 'Operational', badge: 'Finished Stock', isQuickAction: true },
+      { id: 'c5-2', name: 'Old Stock Matching Engine', description: 'Automated dimensional match reminder when new job cards match existing warehouse stock', targetTab: 'inventory', targetSubViewId: 'READY_STOCK', status: 'Operational', badge: 'Auto-Match' },
+      { id: 'c5-3', name: 'Frame-to-Door Auto Calculator', description: 'Auto-calculate finished door cutting size directly from raw frame opening measurements', targetTab: 'inventory', targetSubViewId: 'READY_STOCK', status: 'Operational', badge: 'Auto Ded' },
+      { id: 'c5-4', name: 'Delivered Door Return to Stock', description: 'Accept customer post-delivery door returns back into stock with inspection notes', targetTab: 'inventory', targetSubViewId: 'READY_STOCK', status: 'Operational', badge: 'Returns' },
+      { id: 'c5-5', name: 'Old Stock 12L Stickers', description: 'Generate vector 12L thermal stickers specifically for warehouse ready stock doors', targetTab: 'inventory', targetSubViewId: 'READY_STOCK', status: 'Operational', badge: '12L QR' },
+      { id: 'c5-6', name: 'Raw Materials & Chemical Stock', description: 'Resin, roving, pigment drums, WPC frames & SS lock inventory with min-stock alert triggers', targetTab: 'inventory', targetSubViewId: 'RM', status: 'Operational', badge: 'Chemical Stock' },
+      { id: 'c5-7', name: 'Buffer Configuration & Alerts', description: 'Set minimum stock thresholds, buffer alerts and automated procurement triggers', targetTab: 'inventory', targetSubViewId: 'CONFIG', status: 'Operational', badge: 'Min Alerts' },
     ],
   },
 
-  // FOLDER 8 — COMMUNICATION
+  // 6. LOGISTICS & DISPATCH
   {
-    id: 'folder-8',
-    number: 8,
-    name: 'COMMUNICATION',
-    category: 'COMMERCIAL',
-    accentColor: 'text-rose-400 border-rose-500/30 bg-rose-500/10',
-    bgGradient: 'from-rose-600/15 via-rose-900/5 to-transparent',
-    icon: Megaphone,
-    cards: [
-      { id: 'c8-1', name: 'WhatsApp Business API', description: 'Meta Cloud API credentials, webhook & phone ID settings', targetTab: 'settings', status: 'Setup Required', badge: 'Needs Token' },
-      { id: 'c8-2', name: 'WhatsApp Communication Center', description: 'Authorized WhatsApp messaging console & templates', targetTab: 'marketing', status: 'Setup Required' },
-      { id: 'c8-3', name: 'Send Quotation', description: 'Send finalized quotation directly to client WhatsApp', targetTab: 'quotations', status: 'Setup Required' },
-      { id: 'c8-4', name: 'Send Invoice', description: 'Dispatch sales bill & payment receipt PDF', targetTab: 'accounts', status: 'Setup Required' },
-      { id: 'c8-5', name: 'Send Quotation PDF', description: 'Transmit quotation PDF directly for architect sign-off', targetTab: 'quotations', status: 'Operational' },
-      { id: 'c8-6', name: 'Customer Confirmation Links', description: 'Expiring 7-day token link for one-touch client approval', targetTab: 'quotations', status: 'Operational', badge: 'Live Adapter' },
-      { id: 'c8-7', name: 'Reminder Templates', description: 'Follow-up message templates with Malayalam/English text', targetTab: 'settings', status: 'Operational' },
-      { id: 'c8-8', name: 'Delivery Status Tracking', description: 'Dispatch departure & vehicle driver ETA notices', targetTab: 'dispatch', status: 'Operational' },
-    ],
-  },
-
-  // FOLDER 9 — DISPATCH & WARRANTY
-  {
-    id: 'folder-9',
-    number: 9,
-    name: 'DISPATCH & WARRANTY',
-    category: 'PRODUCTION',
-    accentColor: 'text-lime-400 border-lime-500/30 bg-lime-500/10',
-    bgGradient: 'from-lime-600/15 via-lime-900/5 to-transparent',
+    id: 'folder-logistics',
+    number: 6,
+    name: 'LOGISTICS & DISPATCH',
+    category: 'LOGISTICS',
+    accentColor: 'text-orange-400 border-orange-500/30 bg-orange-500/10',
+    bgGradient: 'from-orange-600/15 via-orange-900/5 to-transparent',
     icon: Truck,
     cards: [
-      { id: 'c9-1', name: 'Packing List', description: 'Batch delivery manifests itemized by door opening number', targetTab: 'dispatch', status: 'Operational' },
-      { id: 'c9-gp', name: 'Security Gate Pass (NRGP / RGP)', description: 'Outward dispatch passes, returnable racks & inward lorry verification', targetTab: 'gate-pass', status: 'Operational', badge: 'Gate Pass' },
-      { id: 'c9-2', name: 'Dispatch Register', description: 'Kerala delivery fleet (KL-09 trucks) & driver logbook', targetTab: 'dispatch', status: 'Operational', badge: 'KL-09 Fleet' },
-      { id: 'c9-3', name: 'Door QR Tracking', description: 'Removable door label QR scanning for delivery check', targetTab: 'dispatch', status: 'Operational' },
-      { id: 'c9-4', name: 'Delivery Confirmation', description: 'Client physical delivery acknowledgement on site', targetTab: 'dispatch', status: 'Operational' },
-      { id: 'c9-5', name: 'Installation', description: '5-star site handover, plumb verification & photo upload', targetTab: 'dispatch', status: 'Operational' },
-      { id: 'c9-6', name: 'Warranty Certificates', description: 'Official 15-Year FRP Material Warranty (Excludes Hardware)', targetTab: 'dispatch', status: 'Operational', badge: '15-Year FRP' },
-      { id: 'c9-7', name: 'Warranty Claims', description: 'Material claim verification & inspection history', targetTab: 'dispatch', status: 'Operational' },
-      { id: 'c9-8', name: 'Service History', description: 'After-sales alignment adjustments & maintenance logs', targetTab: 'dispatch', status: 'Operational' },
-      { id: 'c9-9', name: 'Location-Based Future Warranty', description: 'GPS coordinates, 500m geofence validation & public scan portal', targetTab: 'dispatch', status: 'Operational', badge: 'GPS Geofence' },
+      { id: 'c6-1', name: 'Packing & Dispatch Challans', description: 'Waterproof stretch-wrap QA verification, delivery challans & driver vehicle allocation', targetTab: 'dispatch', status: 'Operational', badge: 'Challans', isQuickAction: true },
+      { id: 'c6-2', name: 'Security Gate Pass (NRGP / RGP)', description: 'Outward non-returnable delivery gate passes & returnable steel rack tracking', targetTab: 'gate-pass', status: 'Operational', badge: 'NRGP/RGP' },
+      { id: 'c6-3', name: 'Driver & Delivery Fleet (KL-09)', description: 'Kerala delivery fleet logistics, lorry driver logbook & multi-site route drops', targetTab: 'dispatch', status: 'Operational', badge: 'KL-09 Fleet' },
+      { id: 'c6-4', name: 'Site Installation & Handover', description: '5-star site handover, plumb verification, client signature & completion photo upload', targetTab: 'installation', status: 'Operational', badge: 'Site Ops' },
+      { id: 'c6-5', name: 'Mobile Field Operations (GPS)', description: 'Driver and technician field application with geofence validation and proof of delivery', targetTab: 'mobile-field', status: 'Operational', badge: 'Field App' },
+      { id: 'c6-6', name: '15-Year FRP Warranty Registry', description: 'Official 15-Year FRP door structural warranty issuance with customer QR lookup', targetTab: 'dispatch', status: 'Operational', badge: '15-Yr Warranty' },
+      { id: 'c6-7', name: 'Geofenced Future Warranty Portal', description: 'GPS coordinates, 500m geofence validation & public scan portal', targetTab: 'dispatch', status: 'Operational', badge: 'GPS Geofence' },
     ],
   },
 
-  // FOLDER 10 — ADMIN & SYSTEM
+  // 7. SETTINGS & SYSTEM
   {
-    id: 'folder-10',
-    number: 10,
-    name: 'ADMIN & SYSTEM',
-    category: 'SYSTEM',
-    accentColor: 'text-red-400 border-red-500/30 bg-red-500/10',
-    bgGradient: 'from-red-600/15 via-red-900/5 to-transparent',
+    id: 'folder-settings',
+    number: 7,
+    name: 'SETTINGS & SYSTEM',
+    category: 'SETTINGS',
+    accentColor: 'text-rose-400 border-rose-500/30 bg-rose-500/10',
+    bgGradient: 'from-rose-600/15 via-rose-900/5 to-transparent',
     icon: Settings,
     cards: [
-      { id: 'c10-1', name: 'Employees', description: 'Factory operators, shift rosters & field technicians', targetTab: 'employees', status: 'Operational', badge: 'Staff' },
-      { id: 'c10-2', name: 'Roles and Permissions', description: 'Super Admin, Sales, Accounts, Production, Installation', targetTab: 'settings', status: 'Operational' },
-      { id: 'c10-3', name: 'Admin Customization', description: '17 Customization domains, revisions & 1-click rollback', targetTab: 'settings', status: 'Operational', badge: 'v14 Active' },
-      { id: 'c10-4', name: 'Product Categories', description: 'FRP Doors Primary (Mandatory) & WPC Doors (Optional OFF)', targetTab: 'settings', status: 'Operational', badge: 'FRP First' },
-      { id: 'c10-5', name: 'Cloud Database', description: 'Managed PostgreSQL connection & dual-write JSON engine', targetTab: 'settings', status: 'Setup Required', badge: 'PG Ready' },
-      { id: 'c10-6', name: 'Backup Management', description: 'Point-in-time snapshots with cryptographic SHA-256 hash', targetTab: 'settings', status: 'Operational', badge: 'SHA-256' },
-      { id: 'c10-7', name: 'Windows Desktop', description: 'Electron runtime packaging (EXMARK-ERP-Setup.exe)', targetTab: 'settings', status: 'Operational', badge: 'Electron' },
-      { id: 'c10-8', name: 'Android/iPhone PWA', description: 'Progressive Web App with service worker offline caching', targetTab: 'settings', status: 'Operational', badge: 'PWA Ready' },
-      { id: 'c10-9', name: 'System Health', description: 'Multi-user concurrency lock, process load & server uptime', targetTab: 'settings', status: 'Operational' },
-      { id: 'c10-10', name: 'Audit Logs', description: 'Tamper-evident system activity log with actor IP & timestamp', targetTab: 'settings', status: 'Operational' },
-      { id: 'c10-11', name: 'Updates', description: 'Production release channel status & phase version changelog', targetTab: 'settings', status: 'Operational' },
+      { id: 'c7-1', name: 'Staff Access & Employee Master', description: 'Factory operators, shift rosters, sales staff & field installation technicians', targetTab: 'employees', status: 'Operational', badge: 'Staff Master' },
+      { id: 'c7-2', name: 'Enterprise RBAC Roles & Permissions', description: 'Multi-role permission matrix: Super Admin, Sales, Production, Accounts, Driver & Floor', targetTab: 'settings', targetSubViewId: 'staff_access', status: 'Operational', badge: 'RBAC Security' },
+      { id: 'c7-3', name: 'Chowkhat & Frame Deductions', description: 'Top, bottom, lock-side & hinge-side tolerances for Wood, Concrete, WPC & Granite frames', targetTab: 'settings', targetSubViewId: 'customization', status: 'Operational', badge: 'Tolerances' },
+      { id: 'c7-4', name: 'Product Categories & Models', description: 'FRP Doors Primary (Mandatory) & WPC Doors configurations, surface textures & colors', targetTab: 'settings', targetSubViewId: 'customization', status: 'Operational', badge: 'Categories' },
+      { id: 'c7-5', name: 'Automated Backup & Snapshots', description: 'Point-in-time database snapshots with cryptographic SHA-256 verification hash', targetTab: 'settings', targetSubViewId: 'customization', status: 'Operational', badge: 'SHA-256' },
+      { id: 'c7-6', name: 'Cloud Sync & Offline SQLite', description: 'Dual-write offline fallback and PostgreSQL production cloud replication', targetTab: 'settings', targetSubViewId: 'customization', status: 'Operational', badge: 'PG / SQLite' },
+      { id: 'c7-7', name: 'Tamper-Evident System Audit Logs', description: 'Immutable activity log with actor IP, timestamp, role changes & financial edits', targetTab: 'settings', targetSubViewId: 'customization', status: 'Operational', badge: 'Audit Trail' },
+      { id: 'c7-8', name: 'Inbuilt Software Updates', description: 'Production release channel status, git hash verification & 1-click update deployment', targetTab: 'settings', targetSubViewId: 'customization', status: 'Operational', badge: 'Version Updates' },
+      { id: 'c7-9', name: 'Factory Attendance & Payroll Hub', description: '31-day visual attendance grid, monthly salary slip generator & Bank NEFT batch', targetTab: 'employees', status: 'Operational', badge: 'Payroll' },
     ],
   },
 ];
 
 export default function CorporateControlCenter({
   onNavigateTab,
+  onSelectSubCategory,
   userRole = 'Super Admin',
   allowedModules,
 }: CorporateControlCenterProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<'ALL' | 'COMMERCIAL' | 'PRODUCTION' | 'FINANCE' | 'SYSTEM'>('ALL');
+  const [activeCategory, setActiveCategory] = useState<'ALL' | EnterpriseDomainCategory>('ALL');
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [favoriteCardIds, setFavoriteCardIds] = useState<string[]>([]);
   const [recentlyUsedIds, setRecentlyUsedIds] = useState<string[]>([]);
@@ -342,7 +274,11 @@ export default function CorporateControlCenter({
       return updated;
     });
 
-    onNavigateTab(card.targetTab);
+    if (card.targetSubViewId && onSelectSubCategory) {
+      onSelectSubCategory(card.targetTab, card.targetSubViewId);
+    } else {
+      onNavigateTab(card.targetTab);
+    }
   };
 
   const toggleFolderCollapse = (folderId: string) => {
@@ -445,10 +381,10 @@ export default function CorporateControlCenter({
               </span>
               <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                10 Enterprise Folders Connected
+                7 Enterprise Domains Connected
               </span>
               <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-800/80 text-slate-300 border border-slate-700">
-                {totalCardsCount} Working Modules
+                {totalCardsCount} Enterprise Modules
               </span>
             </div>
 
@@ -456,7 +392,7 @@ export default function CorporateControlCenter({
               Enterprise Operations Directory &amp; Navigation Switchboard
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Complete folder-and-card control center inspired by DoorCraft Pro specifications. Unified access to Commercial, FRP Press Manufacturing, Accounting, Logistics and Admin Governance.
+              Complete 7-domain enterprise control center inspired by SAP S/4HANA &amp; Odoo specifications. Unified access to Sales, Purchases, Manufacturing, Accounting, Store/Stock, Logistics and System Governance.
             </p>
           </div>
 
@@ -489,47 +425,77 @@ export default function CorporateControlCenter({
                   : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              All 10 Folders ({CONTROL_FOLDERS.length})
+              All 7 Domains ({CONTROL_FOLDERS.length})
             </button>
             <button
-              onClick={() => setActiveCategory('COMMERCIAL')}
+              onClick={() => setActiveCategory('SALES')}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                activeCategory === 'COMMERCIAL'
+                activeCategory === 'SALES'
                   ? 'bg-red-600 text-white shadow-xs'
                   : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              📁 Commercial &amp; Sales (3)
+              💼 Sales
             </button>
             <button
-              onClick={() => setActiveCategory('PRODUCTION')}
+              onClick={() => setActiveCategory('PURCHASES')}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                activeCategory === 'PRODUCTION'
+                activeCategory === 'PURCHASES'
                   ? 'bg-red-600 text-white shadow-xs'
                   : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              📁 Factory &amp; Logistics (3)
+              🛒 Purchases
             </button>
             <button
-              onClick={() => setActiveCategory('FINANCE')}
+              onClick={() => setActiveCategory('MANUFACTURING')}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                activeCategory === 'FINANCE'
+                activeCategory === 'MANUFACTURING'
                   ? 'bg-red-600 text-white shadow-xs'
                   : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              📁 Accounts &amp; Reports (2)
+              🏭 Manufacturing
             </button>
             <button
-              onClick={() => setActiveCategory('SYSTEM')}
+              onClick={() => setActiveCategory('ACCOUNTING')}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                activeCategory === 'SYSTEM'
+                activeCategory === 'ACCOUNTING'
                   ? 'bg-red-600 text-white shadow-xs'
                   : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
             >
-              📁 Admin &amp; Platform (2)
+              💰 Accounting
+            </button>
+            <button
+              onClick={() => setActiveCategory('STOCK')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                activeCategory === 'STOCK'
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+              }`}
+            >
+              📦 Store / Stock
+            </button>
+            <button
+              onClick={() => setActiveCategory('LOGISTICS')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                activeCategory === 'LOGISTICS'
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+              }`}
+            >
+              🚚 Logistics
+            </button>
+            <button
+              onClick={() => setActiveCategory('SETTINGS')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                activeCategory === 'SETTINGS'
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+              }`}
+            >
+              ⚙️ Settings
             </button>
           </div>
 
@@ -603,7 +569,7 @@ export default function CorporateControlCenter({
         </div>
       )}
 
-      {/* 3. The 10 Folders Grid */}
+      {/* 3. The 7 Enterprise Domains Grid */}
       <div className="space-y-5">
         {filteredFolders.map((folder) => {
           const isCollapsed = collapsedFolders[folder.id];
@@ -629,7 +595,7 @@ export default function CorporateControlCenter({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 uppercase tracking-wider">
-                        FOLDER {folder.number}
+                        DOMAIN {folder.number}
                       </span>
                       <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
                         {folder.name}

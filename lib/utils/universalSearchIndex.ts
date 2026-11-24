@@ -29,7 +29,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-inventory',
     type: 'MODULE',
     title: 'Stock Maintenance & Buffer Planning',
-    subtitle: 'റോ മെറ്റീരിയൽ സ്റ്റോർ, ഫ്ലോർ സ്റ്റേജ് ഇൻവെന്ററി, ബഫർ പ്ലാനിംഗ്',
+    subtitle: 'Raw material store, floor stage inventory, buffer planning',
     targetTab: 'inventory',
     categoryLabel: 'Modules & Navigation',
     keywords: [
@@ -45,9 +45,6 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
       'locks',
       'foam',
       'batten',
-      'സ്റ്റോക്ക്',
-      'ഇൻവെന്ററി',
-      'റോ മെറ്റീരിയൽ',
     ],
     badge: 'Live Stock',
   },
@@ -58,7 +55,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     subtitle: 'Chemicals, Resins, Fiberglass, Timber, Hardware store ledger',
     targetTab: 'inventory',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['s', 'store', 'raw materials', 'chemicals', 'resin', 'fiberglass', 'സ്റ്റോർ'],
+    keywords: ['s', 'store', 'raw materials', 'chemicals', 'resin', 'fiberglass'],
   },
   {
     id: 'feat-fg-buffer',
@@ -67,7 +64,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     subtitle: 'Physical door balance, reservations & deficit replenishment',
     targetTab: 'inventory',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['finished goods', 'buffer', 'door stock', 'replenish', 'ഫിനിഷ്ഡ് ഗുഡ്സ്'],
+    keywords: ['finished goods', 'buffer', 'door stock', 'replenish'],
   },
 
   // ── 2. Store Requisition & BOM
@@ -75,7 +72,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-bom',
     type: 'MODULE',
     title: 'Store Requisition Hub & Daily BOQ',
-    subtitle: 'ഡെയിലി BOQ ഇഷ്യൂ, സ്റ്റോർ സ്ലിപ്പ്, മെറ്റീരിയൽ ഡിഡക്ഷൻ',
+    subtitle: 'Daily BOQ issuance, store issue slip, material deduction',
     targetTab: 'bom',
     categoryLabel: 'Modules & Navigation',
     keywords: [
@@ -87,8 +84,6 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
       'material issue',
       'evening boq',
       'daily boq report',
-      'സ്റ്റോർ സ്ലിപ്പ്',
-      'മെറ്റീരിയൽ ഇഷ്യൂ',
     ],
     badge: 'Daily BOQ',
   },
@@ -99,7 +94,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     subtitle: 'Real-time resin, mat, catalyst & hardware formula builder',
     targetTab: 'bom',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['a', 'auto boq', 'formula', 'material calculation', 'ഓട്ടോ boq'],
+    keywords: ['a', 'auto boq', 'formula', 'material calculation'],
   },
   {
     id: 'feat-evening-boq-report',
@@ -108,7 +103,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     subtitle: 'Today consumed raw materials summary by party, batch or day',
     targetTab: 'bom',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['evening boq', 'daily boq report', 'consumption', 'ഈവനിംഗ് റിപ്പോർട്ട്', 'മെറ്റീരിയൽ ഉപയോഗം'],
+    keywords: ['evening boq', 'daily boq report', 'consumption'],
   },
 
   // ── 3. Stickers & Batch Printing
@@ -116,7 +111,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-batch-print',
     type: 'MODULE',
     title: 'Stickers & Batch Print Hub (12L Universal)',
-    subtitle: 'ടോവൽ സ്റ്റിക്കർ സ്റ്റുഡിയോ, 12L മൾട്ടി-പാർട്ടി ബാച്ച് പ്രിന്റിംഗ്',
+    subtitle: 'Towel sticker studio, 12L multi-party batch printing',
     targetTab: 'batch-print',
     categoryLabel: 'Modules & Navigation',
     keywords: [
@@ -130,9 +125,6 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
       'thermal print',
       'label',
       'cutting size',
-      'സ്റ്റിക്കർ',
-      'ടോവൽ സ്റ്റിക്കർ',
-      'ബാച്ച് പ്രിന്റ്',
     ],
     badge: '12L Universal',
   },
@@ -143,7 +135,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     subtitle: 'Individual and batch 12L door cutting dimension labels',
     targetTab: 'batch-print',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['towel sticker', 'studio', 'qr', '12l', 'cutting label', 'ടോവൽ'],
+    keywords: ['towel sticker', 'studio', 'qr', '12l', 'cutting label'],
   },
 
   // ── 4. Sales Orders
@@ -151,10 +143,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-sales-orders',
     type: 'MODULE',
     title: 'Sales Orders Registry',
-    subtitle: 'കൺഫേംഡ് ഓർഡർ ബുക്കിംഗ്, അഡ്വാൻസ് വെരിഫിക്കേഷൻ',
+    subtitle: 'Confirmed order booking, advance verification',
     targetTab: 'sales-orders',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['s', 'sales orders', 'orders', 'booking', 'advance verification', 'approval', 'സെയിൽസ് ഓർഡറുകൾ'],
+    keywords: ['s', 'sales orders', 'orders', 'booking', 'advance verification', 'approval'],
     badge: 'Live Orders',
   },
 
@@ -163,10 +155,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-measurements',
     type: 'MODULE',
     title: 'Site Measurements & Door Schedules',
-    subtitle: 'ഫീൽഡ് സർവേ, 4-പോയിന്റ് അളവുകൾ, ഡോർ ഷെഡ്യൂൾ',
+    subtitle: 'Field survey, 4-point measurements, door schedule',
     targetTab: 'measurements',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['s', 'site measurements', 'measurements', 'dimensions', 'door survey', 'field survey', 'സൈറ്റ് അളവുകൾ'],
+    keywords: ['s', 'site measurements', 'measurements', 'dimensions', 'door survey', 'field survey'],
     badge: '4-Point',
   },
 
@@ -175,10 +167,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-sales',
     type: 'MODULE',
     title: 'Sales Invoicing & Billing',
-    subtitle: 'ടാക്സ് ഇൻവോയ്സ്, ഇ-വേ ബില്ലിംഗ്, സെയിൽസ് റിട്ടേൺസ്',
+    subtitle: 'Tax invoice, e-way billing, sales returns',
     targetTab: 'sales',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['s', 'sales', 'invoice', 'billing', 'tax invoice', 'gst', 'returns', 'സെയിൽസ്', 'ഇൻവോയ്സ്'],
+    keywords: ['s', 'sales', 'invoice', 'billing', 'tax invoice', 'gst', 'returns'],
   },
 
   // ── 7. Settings & Staff Access
@@ -186,10 +178,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-settings',
     type: 'MODULE',
     title: 'System Settings & Security',
-    subtitle: 'കമ്പനി പ്രൊഫൈൽ, സ്റ്റാഫ് ലോഗിൻ RBAC, ടോളറൻസുകൾ',
+    subtitle: 'Company profile, staff login RBAC, tolerances',
     targetTab: 'settings',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['s', 'settings', 'system settings', 'staff access', 'rbac', 'security', 'tolerances', 'frames', 'സെറ്റിംഗ്സ്'],
+    keywords: ['s', 'settings', 'system settings', 'staff access', 'rbac', 'security', 'tolerances', 'frames'],
   },
   {
     id: 'feat-staff-rbac',
@@ -198,7 +190,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     subtitle: 'Role-based access matrix for Super Admin, Sales, Production, Accounts',
     targetTab: 'settings',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['s', 'staff access', 'rbac', 'roles', 'permissions', 'ജീവനക്കാരുടെ അനുമതികൾ'],
+    keywords: ['s', 'staff access', 'rbac', 'roles', 'permissions'],
   },
   {
     id: 'feat-tolerances',
@@ -207,7 +199,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     subtitle: 'Configure Mini, Regular, Double Rebate frame deductions (-4.5cm / -7.6cm)',
     targetTab: 'settings',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['frame types', 'tolerances', 'deductions', 'rebate', 'ഫ്രെയിം ടോളറൻസ്'],
+    keywords: ['frame types', 'tolerances', 'deductions', 'rebate'],
   },
 
   // ── 8. Purchases & Suppliers
@@ -215,7 +207,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-purchases',
     type: 'MODULE',
     title: 'Suppliers & Purchase Orders',
-    subtitle: 'കെമിക്കൽ പർച്ചേസ്, സപ്ലയർമാർ, നോൺ-GST PO',
+    subtitle: 'Chemical purchases, suppliers, non-GST PO',
     targetTab: 'purchases',
     categoryLabel: 'Modules & Navigation',
     keywords: [
@@ -227,8 +219,6 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
       'po',
       'chemical purchase',
       'raw material inward',
-      'പർച്ചേസ്',
-      'സപ്ലയർമാർ',
     ],
     badge: 'Live POs',
   },
@@ -238,10 +228,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-installation',
     type: 'MODULE',
     title: 'Site Installation & Handover',
-    subtitle: 'സൈറ്റ് ഇൻസ്റ്റാളേഷൻ, ഫിറ്റിംഗ്, കീ ഹാൻഡ്ഓവർ സർട്ടിഫിക്കറ്റ്',
+    subtitle: 'Site installation, fitting, key handover certificate',
     targetTab: 'installation',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['s', 'site installation', 'installation', 'fitting', 'handover', 'key handover', 'ഇൻസ്റ്റാളേഷൻ'],
+    keywords: ['s', 'site installation', 'installation', 'fitting', 'handover', 'key handover'],
   },
 
   // ── 10. Accounts & Vouchers
@@ -249,7 +239,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-accounts',
     type: 'MODULE',
     title: 'Accounts, Vouchers & Cashbook',
-    subtitle: 'ക്യാഷ് ബുക്ക്, ഡേ ബുക്ക്, ലെഡ്ജർ, BEP ബ്രേക്ക്-ഈവൻ',
+    subtitle: 'Cash book, day book, ledger, BEP break-even analysis',
     targetTab: 'accounts',
     categoryLabel: 'Modules & Navigation',
     keywords: [
@@ -263,9 +253,6 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
       'bep',
       'bank',
       'payments',
-      'അക്കൗണ്ട്സ്',
-      'ക്യാഷ് ബുക്ക്',
-      'പെയ്‌മെന്റുകൾ',
     ],
     badge: 'Cashbook',
   },
@@ -276,7 +263,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     subtitle: 'Daily cash reconcile, sales summary & manager sign-off register',
     targetTab: 'accounts',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['evening close', 'daily closing', 'cash reconcile', 'ഡെയിലി ക്ലോസിംഗ്'],
+    keywords: ['evening close', 'daily closing', 'cash reconcile'],
   },
 
   // ── 11. Analytics & Reports
@@ -284,7 +271,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-reports',
     type: 'MODULE',
     title: 'Analytics & Performance Reports',
-    subtitle: 'എക്‌സിക്യൂട്ടീവ് അനലിറ്റിക്സ്, പ്രോഫിറ്റ് & ലോസ്, BOQ റിപ്പോർട്ട്',
+    subtitle: 'Executive analytics, profit & loss, BOQ report',
     targetTab: 'reports',
     categoryLabel: 'Modules & Navigation',
     keywords: [
@@ -295,8 +282,6 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
       'performance',
       'evening report',
       'boq reports',
-      'അനലിറ്റിക്സ്',
-      'റിപ്പോർട്ടുകൾ',
     ],
     badge: 'BI Analytics',
   },
@@ -309,7 +294,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     subtitle: 'Site inspection pass, QR verify and packaged door clearance',
     targetTab: 'batch-print',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['a', 'after packing', 'verification pass', 'qc sticker', 'പാക്കിംഗ് പാസ്സ്'],
+    keywords: ['a', 'after packing', 'verification pass', 'qc sticker'],
   },
 
   // ── 13. Employees & Roster
@@ -317,10 +302,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-employees',
     type: 'MODULE',
     title: 'Attendance & Employees Roster',
-    subtitle: 'ഫാക്ടറി ജീവനക്കാരുടെ ഹാജർ, ഷിഫ്റ്റ് റോസ്റ്റർ, പേറോൾ',
+    subtitle: 'Factory employee attendance, shift roster, payroll',
     targetTab: 'employees',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['a', 'attendance', 'employees', 'staff', 'shift roster', 'payroll', 'hr', 'ജീവനക്കാർ', 'ഹാജർ'],
+    keywords: ['a', 'attendance', 'employees', 'staff', 'shift roster', 'payroll', 'hr'],
   },
 
   // ── 14. Quotations
@@ -328,7 +313,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-quotations',
     type: 'MODULE',
     title: 'Quotations & Estimates',
-    subtitle: 'ഡോർ കൊട്ടേഷൻ തയ്യാറാക്കൽ, പ്രൈസിംഗ്, BOQ കോസ്റ്റ് സിങ്ക്',
+    subtitle: 'Door quotation creation, pricing, BOQ cost sync',
     targetTab: 'quotations',
     categoryLabel: 'Modules & Navigation',
     keywords: [
@@ -339,8 +324,6 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
       'door pricing',
       'boq cost',
       'rates',
-      'കൊട്ടേഷൻ',
-      'എസ്റ്റിമേറ്റ്',
     ],
     badge: 'Estimates',
   },
@@ -350,7 +333,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-production',
     type: 'MODULE',
     title: 'Production Floor & Kanban',
-    subtitle: 'ജോബ് കാർഡുകൾ, മോൾഡിംഗ്, കട്ടിംഗ്, പെയിന്റിംഗ്, പാക്കിംഗ്',
+    subtitle: 'Job cards, molding, cutting, painting, packing',
     targetTab: 'production',
     categoryLabel: 'Modules & Navigation',
     keywords: [
@@ -364,9 +347,6 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
       'paint',
       'packing',
       'heat batch',
-      'പ്രൊഡക്ഷൻ',
-      'ജോബ് കാർഡ്',
-      'മോൾഡിംഗ് ഗ്യാങ്ങ്',
     ],
     badge: 'Kanban Live',
   },
@@ -377,7 +357,7 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     subtitle: 'QC defect recovery, surface rework & extra material tracking',
     targetTab: 'production',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['rework', 'defects', 'qc rework', 'rectification', 'റീവർക്ക്'],
+    keywords: ['rework', 'defects', 'qc rework', 'rectification'],
   },
 
   // ── 16. Quality Control
@@ -385,10 +365,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-quality',
     type: 'MODULE',
     title: 'Quality Control (QC) & Inspection',
-    subtitle: '6-പോയിന്റ് ടെക്നിക്കൽ ഇൻസ്പെക്ഷൻ, ഡിഫക്റ്റ് ട്രാക്കിംഗ്',
+    subtitle: '6-point technical inspection, defect tracking',
     targetTab: 'quality',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['q', 'quality', 'qc', 'inspection', 'defects', 'tolerance check', 'ക്വാളിറ്റി'],
+    keywords: ['q', 'quality', 'qc', 'inspection', 'defects', 'tolerance check'],
   },
 
   // ── 17. CRM & Leads
@@ -396,10 +376,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-crm',
     type: 'MODULE',
     title: 'CRM & Leads Pipeline',
-    subtitle: 'കസ്റ്റമർ ലീഡ്സ്, ഫോളോ-അപ്പുകൾ, സെയിൽസ് പൈപ്പ്‌ലൈൻ',
+    subtitle: 'Customer leads, follow-ups, sales pipeline',
     targetTab: 'crm',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['c', 'crm', 'leads', 'inquiries', 'follow-ups', 'sales pipeline', 'deals', 'ലീഡ്സ്'],
+    keywords: ['c', 'crm', 'leads', 'inquiries', 'follow-ups', 'sales pipeline', 'deals'],
   },
 
   // ── 18. Customers & Dealers
@@ -407,10 +387,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-customers',
     type: 'MODULE',
     title: 'Customers & Dealers Directory',
-    subtitle: 'ബിൽഡർമാർ, ആർക്കിടെക്റ്റുകൾ, ഹോൾസെയിൽ ഡീലർമാർ',
+    subtitle: 'Builders, architects, wholesale dealers directory',
     targetTab: 'customers',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['c', 'customers', 'dealers', 'clients', 'parties', 'architects', 'builders', 'പാർട്ടികൾ', 'ഡീലർമാർ'],
+    keywords: ['c', 'customers', 'dealers', 'clients', 'parties', 'architects', 'builders'],
     badge: 'Directory',
   },
 
@@ -419,10 +399,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-job-work',
     type: 'MODULE',
     title: 'Job Work & Floor Gangs (Contractors)',
-    subtitle: 'പീസ്-റേറ്റ് ലെഡ്ജർ, ഫ്ലോർ ഗ്യാങ് അസൈൻമെന്റ്, കൂലി കണക്കുകൾ',
+    subtitle: 'Piece-rate ledger, floor gang assignment, wage records',
     targetTab: 'job-work',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['j', 'job work', 'contractors', 'floor gangs', 'piece-rate', 'labor payouts', 'കരാറുകാർ', 'കൂലി'],
+    keywords: ['j', 'job work', 'contractors', 'floor gangs', 'piece-rate', 'labor payouts'],
     badge: 'Piece-Rate',
   },
 
@@ -431,10 +411,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-gate-pass',
     type: 'MODULE',
     title: 'Gate Pass Management',
-    subtitle: 'വെഹിക്കിൾ ഔട്ട്‌വേർഡ്, മെറ്റീരിയൽ ഗേറ്റ് പാസ്സ് (റിട്ടേണബിൾ / നോൺ-റിട്ടേണബിൾ)',
+    subtitle: 'Vehicle outward, material gate pass (returnable / non-returnable)',
     targetTab: 'gate-pass',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['g', 'gate pass', 'vehicle pass', 'outward', 'dispatch pass', 'security', 'ഗേറ്റ് പാസ്സ്'],
+    keywords: ['g', 'gate pass', 'vehicle pass', 'outward', 'dispatch pass', 'security'],
   },
 
   // ── 21. Dispatch & Delivery Challan
@@ -442,10 +422,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-dispatch',
     type: 'MODULE',
     title: 'Dispatch & Delivery Challan',
-    subtitle: 'ഡെലിവറി ചെല്ലാൻ, ക്രേറ്റിംഗ്, കെഎൽ-09 ട്രക്ക് ഡിസ്പാച്ച്',
+    subtitle: 'Delivery challan, crating, KL-09 truck dispatch',
     targetTab: 'dispatch',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['d', 'dispatch', 'delivery challan', 'transport', 'shipping', 'crating', 'warranty', 'ഡെലിവറി'],
+    keywords: ['d', 'dispatch', 'delivery challan', 'transport', 'shipping', 'crating', 'warranty'],
     badge: 'Delivery Challan',
   },
 
@@ -454,10 +434,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-maintenance',
     type: 'MODULE',
     title: 'Plant Maintenance & Machinery',
-    subtitle: 'ഹൈഡ്രോളിക് പ്രസ്സ്, കംപ്രസ്സർ, മെഷീൻ ലോഗ് ബുക്ക്',
+    subtitle: 'Hydraulic press, compressor, machine log book',
     targetTab: 'maintenance',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['m', 'maintenance', 'machinery', 'hydraulic press', 'preventive maintenance', 'പ്ലാന്റ് മെയിന്റനൻസ്'],
+    keywords: ['m', 'maintenance', 'machinery', 'hydraulic press', 'preventive maintenance'],
   },
 
   // ── 23. Mobile Field Ops
@@ -465,10 +445,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-mobile-field',
     type: 'MODULE',
     title: 'Mobile Field Ops & Floor QR',
-    subtitle: 'മൊബൈൽ ഫീൽഡ് മെഷർമെന്റ്, ഫ്ലോർ ക്യുആർ സ്കാനർ, ഫ്ലീറ്റ് GPS',
+    subtitle: 'Mobile field measurement, floor QR scanner, fleet GPS',
     targetTab: 'mobile-field',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['m', 'mobile', 'field ops', 'gps', 'mobile qr', 'scanner', 'android app', 'മൊബൈൽ'],
+    keywords: ['m', 'mobile', 'field ops', 'gps', 'mobile qr', 'scanner', 'android app'],
   },
 
   // ── 24. Marketing
@@ -476,10 +456,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-marketing',
     type: 'MODULE',
     title: 'Marketing Campaigns & WhatsApp',
-    subtitle: 'ബ്രോഷർ ബ്രോഡ്കാസ്റ്റ്, കാറ്റലോഗ്, കസ്റ്റമർ മെസ്സേജിംഗ്',
+    subtitle: 'Brochure broadcast, catalog, customer messaging',
     targetTab: 'marketing',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['m', 'marketing', 'whatsapp', 'campaigns', 'broadcast', 'മാർക്കറ്റിംഗ്'],
+    keywords: ['m', 'marketing', 'whatsapp', 'campaigns', 'broadcast'],
   },
 
   // ── 25. Executive Dashboard
@@ -487,10 +467,10 @@ export const STATIC_ERP_CATALOG: UniversalSearchEntry[] = [
     id: 'mod-dashboard',
     type: 'MODULE',
     title: 'Executive Dashboard & Control Center',
-    subtitle: 'ഫാക്ടറി ലൈവ് സ്റ്റാറ്റസ്, ഓപ്പറേഷണൽ കെപിഐ, ബിസിനസ്സ് അവലോകനം',
+    subtitle: 'Factory live status, operational KPIs, business overview',
     targetTab: 'dashboard',
     categoryLabel: 'Modules & Navigation',
-    keywords: ['d', 'dashboard', 'control center', 'executive', 'kpi', 'overview', 'ഡാഷ്‌ബോർഡ്'],
+    keywords: ['d', 'dashboard', 'control center', 'executive', 'kpi', 'overview'],
   },
 ];
 

@@ -1,9 +1,9 @@
 {
   "active": true,
-  "pid": 20236,
-  "tunnelUrl": "https://keith-amanda-ballet-invisible.trycloudflare.com",
-  "staffMobileUrl": "https://keith-amanda-ballet-invisible.trycloudflare.com/mobile",
+  "pid": 12884,
+  "tunnelUrl": "https://erp.exmarerp.com",
+  "staffMobileUrl": "https://erp.exmarerp.com/mobile",
   "localPort": 4000,
-  "mode": "TRYCLOUDFLARE",
-  "connectedAt": "2026-11-20T08:57:18.389Z"
+  "mode": "PERMANENT_NAMED_TUNNEL",
+  "connectedAt": "2026-11-24T17:22:38.769Z"
 }

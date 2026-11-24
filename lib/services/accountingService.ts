@@ -24,6 +24,9 @@ import type {
   OpeningBalanceEntryInput,
   OpeningBalancesSnapshot,
   OtherIncomeRecord,
+  PartyToPartyPaymentMode,
+  PartyToPartyPaymentRecord,
+  PartyType,
   PaymentInRecord,
   PaymentOutRecord,
   PurchaseBillRecord,
@@ -202,6 +205,7 @@ function createInitialStore(): AccountingLedgerStore {
     paymentsOut: [],
     expenses: [],
     contraTransfers: [],
+    partyToPartyPayments: [],
     journals: [],
     settings: { gstEnabled: false },
     updatedAt: now,
@@ -253,6 +257,7 @@ export function readAccountingStore(): AccountingLedgerStore {
       paymentsOut: Array.isArray(parsed.paymentsOut) ? parsed.paymentsOut : [],
       expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
       contraTransfers: Array.isArray(parsed.contraTransfers) ? parsed.contraTransfers : [],
+      partyToPartyPayments: Array.isArray(parsed.partyToPartyPayments) ? parsed.partyToPartyPayments : [],
       journals: Array.isArray(parsed.journals) ? parsed.journals : [],
       updatedAt: parsed.updatedAt || new Date().toISOString(),
     };
@@ -333,7 +338,7 @@ function upsertSourceJournal(
     date: string;
     reference?: string;
     partyName?: string;
-    partyType?: 'CUSTOMER' | 'SUPPLIER' | 'OTHER';
+    partyType?: PartyType;
     narration: string;
     lines: Array<{ accountId: string; debit: number; credit: number; lineNote?: string }>;
     createdBy?: string;
@@ -461,6 +466,25 @@ export function computeAccountsWithBalances(
     const closingSigned = round2(openSigned + st.dr - st.cr);
     const closingType: BalanceSide =
       closingSigned > 0 ? 'DEBIT' : closingSigned < 0 ? 'CREDIT' : isDebitNormalGroup(acc.group) ? 'DEBIT' : 'CREDIT';
+
+    const childCount = store.accounts.filter((a) => a.parentId === acc.id).length;
+    let isDeletable = true;
+    let deleteBlockReason: string | undefined = undefined;
+
+    if (acc.isSystem) {
+      isDeletable = false;
+      deleteBlockReason = 'Core system control account';
+    } else if (childCount > 0) {
+      isDeletable = false;
+      deleteBlockReason = `Has ${childCount} child sub-account(s)`;
+    } else if (st.count > 0) {
+      isDeletable = false;
+      deleteBlockReason = `${st.count} posted voucher transaction(s)`;
+    } else if (acc.openingBalance > 0) {
+      isDeletable = false;
+      deleteBlockReason = `Has opening balance of ₹${acc.openingBalance.toLocaleString('en-IN')}`;
+    }
+
     return {
       ...acc,
       totalDebit: st.dr,
@@ -468,6 +492,9 @@ export function computeAccountsWithBalances(
       closingBalance: round2(Math.abs(closingSigned)),
       closingType,
       transactionCount: st.count,
+      isDeletable,
+      deleteBlockReason,
+      childCount,
     };
   });
 }
@@ -492,6 +519,96 @@ export function computeCashBankWithBalances(store: AccountingLedgerStore): CashB
 
 // ── 1. CHART OF ACCOUNTS (CREATE / EDIT / DELETE) ─────────────────────────────
 
+export interface AccountDeletabilityCheck {
+  canDelete: boolean;
+  reason?: string;
+  isSystem: boolean;
+  transactionCount: number;
+  openingBalance: number;
+  childCount: number;
+}
+
+export function checkAccountDeletability(
+  id: string,
+  store: AccountingLedgerStore = readAccountingStore()
+): AccountDeletabilityCheck {
+  const target = store.accounts.find((a) => a.id === id);
+  if (!target) {
+    return {
+      canDelete: false,
+      reason: 'Account not found in Chart of Accounts.',
+      isSystem: false,
+      transactionCount: 0,
+      openingBalance: 0,
+      childCount: 0,
+    };
+  }
+
+  const isSystem = Boolean(target.isSystem);
+  const childCount = store.accounts.filter((a) => a.parentId === id).length;
+
+  let journalCount = 0;
+  for (const j of store.journals) {
+    for (const l of j.lines) {
+      if (l.accountId === id) journalCount++;
+    }
+  }
+
+  const openingBalance = Number(target.openingBalance) || 0;
+
+  if (isSystem) {
+    return {
+      canDelete: false,
+      reason: `"${target.name}" (${target.code}) is a core system control account and cannot be deleted.`,
+      isSystem: true,
+      transactionCount: journalCount,
+      openingBalance,
+      childCount,
+    };
+  }
+
+  if (childCount > 0) {
+    return {
+      canDelete: false,
+      reason: `Cannot delete "${target.name}" because it has ${childCount} child sub-account(s). Reassign or delete sub-accounts first.`,
+      isSystem: false,
+      transactionCount: journalCount,
+      openingBalance,
+      childCount,
+    };
+  }
+
+  if (journalCount > 0) {
+    return {
+      canDelete: false,
+      reason: `Cannot delete "${target.name}": ${journalCount} posted journal voucher(s) exist in the ledger. Under double-entry accounting standards, accounts with transaction history cannot be deleted to preserve financial audit integrity. Please deactivate this account instead.`,
+      isSystem: false,
+      transactionCount: journalCount,
+      openingBalance,
+      childCount,
+    };
+  }
+
+  if (openingBalance > 0) {
+    return {
+      canDelete: false,
+      reason: `Cannot delete "${target.name}" because it has an opening balance of ₹${openingBalance.toLocaleString('en-IN')}. Set opening balance to zero first or deactivate the account.`,
+      isSystem: false,
+      transactionCount: 0,
+      openingBalance,
+      childCount,
+    };
+  }
+
+  return {
+    canDelete: true,
+    isSystem: false,
+    transactionCount: 0,
+    openingBalance: 0,
+    childCount: 0,
+  };
+}
+
 export function listChartOfAccounts(): ChartOfAccountWithBalance[] {
   const store = readAccountingStore();
   return computeAccountsWithBalances(store).sort((a, b) => a.code.localeCompare(b.code));
@@ -502,6 +619,7 @@ export function createChartAccount(input: {
   name: string;
   group: AccountGroup;
   subType?: AccountSubType;
+  parentId?: string;
   openingBalance?: number;
   openingType?: BalanceSide;
   description?: string;
@@ -509,6 +627,8 @@ export function createChartAccount(input: {
   const store = readAccountingStore();
   const code = String(input.code || '').trim().toUpperCase();
   const name = String(input.name || '').trim();
+  const parentId = input.parentId ? String(input.parentId).trim() : undefined;
+
   if (!code) throw new Error('Account code is required (e.g. 5310).');
   if (!name) throw new Error('Account name is required.');
   if (store.accounts.some((a) => a.code.toLowerCase() === code.toLowerCase())) {
@@ -516,6 +636,13 @@ export function createChartAccount(input: {
   }
   if (store.accounts.some((a) => a.name.toLowerCase() === name.toLowerCase())) {
     throw new Error(`Account name "${name}" already exists.`);
+  }
+
+  let group = input.group;
+  if (parentId) {
+    const parent = store.accounts.find((a) => a.id === parentId);
+    if (!parent) throw new Error('Selected parent account does not exist.');
+    group = parent.group;
   }
 
   const defaultSubType: Record<AccountGroup, AccountSubType> = {
@@ -531,10 +658,11 @@ export function createChartAccount(input: {
     id: genId('coa'),
     code,
     name,
-    group: input.group,
-    subType: input.subType || defaultSubType[input.group],
+    group,
+    subType: input.subType || defaultSubType[group],
+    parentId,
     openingBalance: Math.max(0, round2(Number(input.openingBalance) || 0)),
-    openingType: input.openingType || (isDebitNormalGroup(input.group) ? 'DEBIT' : 'CREDIT'),
+    openingType: input.openingType || (isDebitNormalGroup(group) ? 'DEBIT' : 'CREDIT'),
     isSystem: false,
     isActive: true,
     description: input.description?.trim() || '',
@@ -569,6 +697,7 @@ export function updateChartAccount(
     name?: string;
     group?: AccountGroup;
     subType?: AccountSubType;
+    parentId?: string | null;
     openingBalance?: number;
     openingType?: BalanceSide;
     description?: string;
@@ -591,6 +720,26 @@ export function updateChartAccount(
     throw new Error(`Account name "${nextName}" is already used by another account.`);
   }
 
+  let nextParentId = existing.parentId;
+  if (input.parentId !== undefined) {
+    if (input.parentId === null || input.parentId === '') {
+      nextParentId = undefined;
+    } else {
+      if (input.parentId === id) {
+        throw new Error('An account cannot be its own parent.');
+      }
+      // Check for cyclic loops
+      let currParent = store.accounts.find((a) => a.id === input.parentId);
+      while (currParent) {
+        if (currParent.id === id) {
+          throw new Error('Circular parent-child account reference detected.');
+        }
+        currParent = currParent.parentId ? store.accounts.find((a) => a.id === currParent?.parentId) : undefined;
+      }
+      nextParentId = input.parentId;
+    }
+  }
+
   const nextGroup = existing.isSystem ? existing.group : input.group || existing.group;
   const nextOpening =
     input.openingBalance !== undefined ? Math.max(0, round2(Number(input.openingBalance) || 0)) : existing.openingBalance;
@@ -601,6 +750,7 @@ export function updateChartAccount(
     name: nextName,
     group: nextGroup,
     subType: existing.isSystem ? existing.subType : input.subType || existing.subType,
+    parentId: nextParentId,
     openingBalance: nextOpening,
     openingType: input.openingType || existing.openingType,
     description: input.description !== undefined ? input.description.trim() : existing.description,
@@ -633,15 +783,10 @@ export function deleteChartAccount(id: string): { deletedId: string; name: strin
   const store = readAccountingStore();
   const target = store.accounts.find((a) => a.id === id);
   if (!target) throw new Error('Account not found.');
-  if (target.isSystem) {
-    throw new Error(`"${target.name}" is a core system control account and cannot be deleted.`);
-  }
 
-  const hasJournals = store.journals.some((j) => j.lines.some((l) => l.accountId === id));
-  if (hasJournals) {
-    throw new Error(
-      `Cannot delete "${target.name}" because it has posted ledger transactions. Delete or edit its vouchers first.`
-    );
+  const check = checkAccountDeletability(id, store);
+  if (!check.canDelete) {
+    throw new Error(check.reason || `Cannot delete "${target.name}": account has recorded transactions.`);
   }
 
   // Detach any expense category pointing to this account -> fallback to Office & Misc
@@ -917,6 +1062,163 @@ export function deleteContraTransfer(id: string): void {
   saveAccountingStore(store);
 }
 
+// ── 3.5 PARTY TO PARTY PAYMENTS & SETTLEMENTS ─────────────────────────────────
+
+export function listPartyToPartyPayments(filter?: {
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
+}): PartyToPartyPaymentRecord[] {
+  const store = readAccountingStore();
+  let list = store.partyToPartyPayments || [];
+  if (filter?.fromDate) {
+    list = list.filter((p) => p.date >= filter.fromDate!);
+  }
+  if (filter?.toDate) {
+    list = list.filter((p) => p.date <= filter.toDate!);
+  }
+  if (filter?.search) {
+    const q = filter.search.toLowerCase().trim();
+    list = list.filter(
+      (p) =>
+        p.voucherNumber.toLowerCase().includes(q) ||
+        p.fromPartyName.toLowerCase().includes(q) ||
+        p.toPartyName.toLowerCase().includes(q) ||
+        (p.referenceNumber && p.referenceNumber.toLowerCase().includes(q)) ||
+        (p.narration && p.narration.toLowerCase().includes(q))
+    );
+  }
+  return [...list].sort((a, b) =>
+    a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : b.date.localeCompare(a.date)
+  );
+}
+
+export function createPartyToPartyPayment(input: {
+  date?: string;
+  fromPartyId?: string;
+  fromPartyName: string;
+  fromPartyType?: PartyType;
+  fromAccountId?: string;
+  toPartyId?: string;
+  toPartyName: string;
+  toPartyType?: PartyType;
+  toAccountId?: string;
+  amount: number;
+  paymentMode?: PartyToPartyPaymentMode;
+  referenceNumber?: string;
+  narration?: string;
+  createdBy?: string;
+}): PartyToPartyPaymentRecord {
+  const store = readAccountingStore();
+  const amount = round2(Number(input.amount) || 0);
+  if (amount <= 0) throw new Error('Payment amount must be greater than zero.');
+
+  const fromPartyName = String(input.fromPartyName || '').trim();
+  const toPartyName = String(input.toPartyName || '').trim();
+  if (!fromPartyName) throw new Error('From Party (paying party) name is required.');
+  if (!toPartyName) throw new Error('To Party (receiving party) name is required.');
+  if (fromPartyName.toLowerCase() === toPartyName.toLowerCase()) {
+    throw new Error('From Party and To Party cannot be the same entity.');
+  }
+
+  const fromPartyType: PartyType = input.fromPartyType || 'CUSTOMER';
+  const toPartyType: PartyType = input.toPartyType || 'SUPPLIER';
+  const paymentMode: PartyToPartyPaymentMode = input.paymentMode || 'BOOK_ADJUSTMENT';
+
+  // Resolve COA Account for From Party (Credit side: liability increases or asset/receivable decreases)
+  let fromAcc = input.fromAccountId ? store.accounts.find((a) => a.id === input.fromAccountId) : undefined;
+  if (!fromAcc) {
+    if (fromPartyType === 'CUSTOMER') {
+      fromAcc = store.accounts.find((a) => a.id === SYSTEM_ACCOUNT_IDS.ACCOUNTS_RECEIVABLE) || store.accounts[0];
+    } else {
+      fromAcc = store.accounts.find((a) => a.id === SYSTEM_ACCOUNT_IDS.ACCOUNTS_PAYABLE) || store.accounts[0];
+    }
+  }
+
+  // Resolve COA Account for To Party (Debit side: asset increases or liability/payable decreases)
+  let toAcc = input.toAccountId ? store.accounts.find((a) => a.id === input.toAccountId) : undefined;
+  if (!toAcc) {
+    if (toPartyType === 'SUPPLIER' || toPartyType === 'CONTRACTOR') {
+      toAcc = store.accounts.find((a) => a.id === SYSTEM_ACCOUNT_IDS.ACCOUNTS_PAYABLE) || store.accounts[0];
+    } else {
+      toAcc = store.accounts.find((a) => a.id === SYSTEM_ACCOUNT_IDS.ACCOUNTS_RECEIVABLE) || store.accounts[0];
+    }
+  }
+
+  const date = input.date || todayIso();
+  const id = genId('p2p');
+  const existingVouchers = (store.partyToPartyPayments || []).map((p) => p.voucherNumber);
+  const voucherNumber = nextVoucherNumber('P2P', existingVouchers);
+
+  const narration =
+    input.narration?.trim() ||
+    `Party-to-Party Payment ${voucherNumber}: ${fromPartyName} (${fromPartyType}) settled ₹${amount.toLocaleString('en-IN')} directly to ${toPartyName} (${toPartyType}) via ${paymentMode.replace(/_/g, ' ')}`;
+
+  const journal = upsertSourceJournal(store, {
+    sourceType: 'PARTY_TO_PARTY',
+    sourceId: id,
+    date,
+    reference: input.referenceNumber || voucherNumber,
+    partyName: `${fromPartyName} → ${toPartyName}`,
+    partyType: fromPartyType,
+    narration,
+    lines: [
+      {
+        accountId: toAcc.id,
+        debit: amount,
+        credit: 0,
+        lineNote: `Settlement received from ${fromPartyName} (${paymentMode.replace(/_/g, ' ')})`,
+      },
+      {
+        accountId: fromAcc.id,
+        debit: 0,
+        credit: amount,
+        lineNote: `Settlement paid to ${toPartyName} (${paymentMode.replace(/_/g, ' ')})`,
+      },
+    ],
+    createdBy: input.createdBy,
+  });
+
+  const record: PartyToPartyPaymentRecord = {
+    id,
+    voucherNumber,
+    date,
+    fromPartyId: input.fromPartyId?.trim() || undefined,
+    fromPartyName,
+    fromPartyType,
+    fromAccountId: fromAcc.id,
+    fromAccountName: fromAcc.name,
+    toPartyId: input.toPartyId?.trim() || undefined,
+    toPartyName,
+    toPartyType,
+    toAccountId: toAcc.id,
+    toAccountName: toAcc.name,
+    amount,
+    paymentMode,
+    referenceNumber: input.referenceNumber?.trim() || undefined,
+    narration,
+    journalEntryId: journal.id,
+    createdBy: input.createdBy?.trim() || undefined,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!store.partyToPartyPayments) {
+    store.partyToPartyPayments = [];
+  }
+  store.partyToPartyPayments.unshift(record);
+  saveAccountingStore(store);
+  return record;
+}
+
+export function deletePartyToPartyPayment(id: string): void {
+  const store = readAccountingStore();
+  const exists = (store.partyToPartyPayments || []).some((p) => p.id === id);
+  if (!exists) throw new Error('Party to Party payment record not found.');
+  store.partyToPartyPayments = (store.partyToPartyPayments || []).filter((p) => p.id !== id);
+  removeSourceJournal(store, 'PARTY_TO_PARTY', id);
+  saveAccountingStore(store);
+}
+
 // ── 4. SALES MODULE (INVOICE, PAYMENT IN, CREDIT NOTE, OTHER INCOME) ──────────
 
 export function createSalesInvoice(input: {
@@ -1048,6 +1350,10 @@ export function createPaymentIn(input: {
   amount: number;
   referenceNumber?: string;
   notes?: string;
+  salespersonId?: string;
+  salespersonName?: string;
+  salespersonCode?: string;
+  collectionType?: 'DIRECT_BANK' | 'CASH_IN_HAND' | 'UPI_QR';
   createdBy?: string;
 }): PaymentInRecord {
   const store = readAccountingStore();
@@ -1071,7 +1377,7 @@ export function createPaymentIn(input: {
     reference: input.referenceNumber || receiptNumber,
     partyName: customerName,
     partyType: 'CUSTOMER',
-    narration: `Payment In ${receiptNumber} from ${customerName}${linkedInv ? ` against ${linkedInv.invoiceNumber}` : ''}`,
+    narration: `Payment In ${receiptNumber} from ${customerName}${linkedInv ? ` against ${linkedInv.invoiceNumber}` : ''}${input.salespersonName ? ` (Collected by: ${input.salespersonName})` : ''}`,
     lines: [
       { accountId: cb.coaAccountId, debit: amount, credit: 0, lineNote: `${input.paymentMode} receipt into ${cb.name}` },
       { accountId: SYSTEM_ACCOUNT_IDS.ACCOUNTS_RECEIVABLE, debit: 0, credit: amount, lineNote: `Received from ${customerName}` },
@@ -1093,6 +1399,10 @@ export function createPaymentIn(input: {
     amount,
     referenceNumber: input.referenceNumber?.trim() || undefined,
     notes: input.notes?.trim() || undefined,
+    salespersonId: input.salespersonId?.trim() || undefined,
+    salespersonName: input.salespersonName?.trim() || undefined,
+    salespersonCode: input.salespersonCode?.trim() || undefined,
+    collectionType: input.collectionType || (input.paymentMode === 'CASH' ? 'CASH_IN_HAND' : 'DIRECT_BANK'),
     journalEntryId: journal.id,
     createdAt: new Date().toISOString(),
   };
@@ -1676,7 +1986,14 @@ export function getAccountStatement(params: {
     }> = [];
 
     for (const j of sortedJournals) {
-      if ((j.partyName || '').trim().toLowerCase() !== partyLower) continue;
+      const jParty = (j.partyName || '').trim().toLowerCase();
+      const isMatch =
+        jParty === partyLower ||
+        (j.sourceType === 'PARTY_TO_PARTY' &&
+          (jParty.includes(partyLower) ||
+            j.narration.toLowerCase().includes(partyLower) ||
+            j.lines.some((l) => (l.lineNote || '').toLowerCase().includes(partyLower))));
+      if (!isMatch) continue;
       for (const l of j.lines) {
         if (l.accountId !== controlAccId) continue;
         if (j.date < fromDate) {
@@ -2091,6 +2408,174 @@ export function generateAccountingReport(
     };
   }
 
+  if (type === 'PARTY_TO_PARTY') {
+    const list = (store.partyToPartyPayments || []).filter((p) => inRange(p.date));
+    const sorted = [...list].sort((a, b) =>
+      a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : b.date.localeCompare(a.date)
+    );
+    const totalAmount = round2(sorted.reduce((s, p) => s + p.amount, 0));
+
+    const modeCounts: Record<string, { count: number; total: number }> = {};
+    for (const p of sorted) {
+      const mode = p.paymentMode || 'BOOK_ADJUSTMENT';
+      if (!modeCounts[mode]) modeCounts[mode] = { count: 0, total: 0 };
+      modeCounts[mode].count += 1;
+      modeCounts[mode].total = round2(modeCounts[mode].total + p.amount);
+    }
+
+    return {
+      reportType: 'PARTY_TO_PARTY',
+      title: 'Party to Party Payment & Settlement Register',
+      fromDate,
+      toDate,
+      payments: sorted,
+      summary: {
+        totalSettlements: sorted.length,
+        totalAmount,
+        modeBreakdown: modeCounts,
+      },
+    };
+  }
+
+  if (type === 'SALESMAN_COLLECTION') {
+    const list = store.paymentsIn.filter((p) => inRange(p.date));
+    const smMap = new Map<string, {
+      salespersonId?: string;
+      salespersonName: string;
+      salespersonCode?: string;
+      receiptCount: number;
+      totalCollected: number;
+      cashAmount: number;
+      bankAmount: number;
+      upiAmount: number;
+      otherAmount: number;
+      receipts: PaymentInRecord[];
+    }>();
+
+    for (const p of list) {
+      const smName = (p.salespersonName || '').trim() || 'Direct / House';
+      const curr = smMap.get(smName) || {
+        salespersonId: p.salespersonId,
+        salespersonName: smName,
+        salespersonCode: p.salespersonCode,
+        receiptCount: 0,
+        totalCollected: 0,
+        cashAmount: 0,
+        bankAmount: 0,
+        upiAmount: 0,
+        otherAmount: 0,
+        receipts: [],
+      };
+      curr.receiptCount += 1;
+      curr.totalCollected = round2(curr.totalCollected + p.amount);
+      if (p.paymentMode === 'CASH') curr.cashAmount = round2(curr.cashAmount + p.amount);
+      else if (p.paymentMode === 'UPI') curr.upiAmount = round2(curr.upiAmount + p.amount);
+      else if (p.paymentMode === 'NEFT' || p.paymentMode === 'RTGS' || p.paymentMode === 'CHEQUE' || p.paymentMode === 'CARD') curr.bankAmount = round2(curr.bankAmount + p.amount);
+      else curr.otherAmount = round2(curr.otherAmount + p.amount);
+      curr.receipts.push(p);
+      smMap.set(smName, curr);
+    }
+
+    const salesmen = Array.from(smMap.values()).sort((a, b) => b.totalCollected - a.totalCollected);
+    const totalCollected = round2(list.reduce((s, p) => s + p.amount, 0));
+    const cashTotal = round2(list.filter((p) => p.paymentMode === 'CASH').reduce((s, p) => s + p.amount, 0));
+    const bankTotal = round2(list.filter((p) => ['NEFT', 'RTGS', 'CHEQUE', 'CARD'].includes(p.paymentMode)).reduce((s, p) => s + p.amount, 0));
+    const upiTotal = round2(list.filter((p) => p.paymentMode === 'UPI').reduce((s, p) => s + p.amount, 0));
+
+    return {
+      reportType: 'SALESMAN_COLLECTION',
+      title: 'Salesman-Wise Payment In & Collection Recovery',
+      fromDate,
+      toDate,
+      salesmen,
+      summary: {
+        totalCollections: totalCollected,
+        totalReceipts: list.length,
+        cashTotal,
+        bankTotal,
+        upiTotal,
+        activeSalesmenCount: salesmen.length,
+      },
+    };
+  }
+
+  if (type === 'CUSTOMER_CREDIT_SUMMARY') {
+    const custMap = new Map<string, {
+      customerId?: string;
+      customerName: string;
+      salespersonName?: string;
+      salespersonCode?: string;
+      creditLimit: number;
+      totalInvoiced: number;
+      totalPaid: number;
+      creditNoteAmount: number;
+      outstandingBalance: number;
+      unpaidInvoicesCount: number;
+    }>();
+
+    for (const inv of store.salesInvoices) {
+      const cName = inv.customerName.trim();
+      const curr = custMap.get(cName) || {
+        customerId: inv.customerId,
+        customerName: cName,
+        creditLimit: 0,
+        totalInvoiced: 0,
+        totalPaid: 0,
+        creditNoteAmount: 0,
+        outstandingBalance: 0,
+        unpaidInvoicesCount: 0,
+      };
+      curr.totalInvoiced = round2(curr.totalInvoiced + inv.totalAmount);
+      curr.totalPaid = round2(curr.totalPaid + inv.paidAmount);
+      curr.creditNoteAmount = round2(curr.creditNoteAmount + inv.creditNoteAmount);
+      curr.outstandingBalance = round2(curr.outstandingBalance + inv.balanceAmount);
+      if (inv.balanceAmount > 0.01) curr.unpaidInvoicesCount += 1;
+      custMap.set(cName, curr);
+    }
+
+    for (const p of store.paymentsIn) {
+      if (!p.invoiceId) {
+        const cName = p.customerName.trim();
+        const curr = custMap.get(cName) || {
+          customerId: p.customerId,
+          customerName: cName,
+          creditLimit: 0,
+          totalInvoiced: 0,
+          totalPaid: 0,
+          creditNoteAmount: 0,
+          outstandingBalance: 0,
+          unpaidInvoicesCount: 0,
+        };
+        curr.totalPaid = round2(curr.totalPaid + p.amount);
+        curr.outstandingBalance = round2(curr.outstandingBalance - p.amount);
+        if (p.salespersonName && !curr.salespersonName) {
+          curr.salespersonName = p.salespersonName;
+          curr.salespersonCode = p.salespersonCode;
+        }
+        custMap.set(cName, curr);
+      }
+    }
+
+    const customers = Array.from(custMap.values()).sort((a, b) => b.outstandingBalance - a.outstandingBalance);
+    const totalOutstanding = round2(customers.reduce((s, c) => s + Math.max(0, c.outstandingBalance), 0));
+    const totalInvoiced = round2(customers.reduce((s, c) => s + c.totalInvoiced, 0));
+    const totalPaid = round2(customers.reduce((s, c) => s + c.totalPaid, 0));
+
+    return {
+      reportType: 'CUSTOMER_CREDIT_SUMMARY',
+      title: 'Customer-Wise Credit Balance & Outstanding Summary',
+      asOfDate: toDate,
+      customers,
+      summary: {
+        totalCustomers: customers.length,
+        totalInvoiced,
+        totalPaid,
+        totalOutstanding,
+        customersWithBalanceCount: customers.filter((c) => c.outstandingBalance > 0.01).length,
+      },
+    };
+  }
+
   // GST_SUMMARY
   const salesIn = store.salesInvoices.filter((i) => inRange(i.date));
   const cnIn = store.creditNotes.filter((c) => inRange(c.date));
@@ -2346,6 +2831,7 @@ export function getAccountingOverview(): AccountingOverviewPayload {
       expenseCategories: store.expenseCategories.length,
       cashBankAccounts: store.cashBankAccounts.length,
       contraTransfers: store.contraTransfers.length,
+      partyToPartyPayments: (store.partyToPartyPayments || []).length,
       coaAccounts: store.accounts.length,
       journals: store.journals.length,
     },

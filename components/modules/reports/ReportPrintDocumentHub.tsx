@@ -140,7 +140,7 @@ export function ReportPrintDocumentHub({
       {reportResult.summaryMetrics && Object.keys(reportResult.summaryMetrics).length > 0 && (
         <div className="mb-5">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-            Executive Summary Highlights (ഓഡിറ്റ് സമറി)
+            Executive Summary Highlights
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {Object.entries(reportResult.summaryMetrics).map(([key, val]) => (

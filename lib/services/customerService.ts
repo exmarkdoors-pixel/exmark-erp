@@ -23,6 +23,10 @@ export interface Customer {
   email?: string | null;
   creditLimit: number;
   outstandingBalance: number;
+  creditPeriodDays?: number;
+  salespersonId?: string;
+  salespersonName?: string;
+  salespersonCode?: string;
   status: CustomerStatus;
   createdAt: string;
   updatedAt: string;
@@ -37,6 +41,7 @@ export interface CustomerFilter {
   type?: CustomerType;
   district?: string;
   status?: CustomerStatus;
+  salespersonId?: string;
 }
 
 // ── Store helpers ─────────────────────────────────────────────────────────────
@@ -89,12 +94,14 @@ function filterCustomers(all: Customer[], filter?: CustomerFilter): Customer[] {
         (c.district?.toLowerCase().includes(q)) ||
         (c.town?.toLowerCase().includes(q)) ||
         (c.firmName?.toLowerCase().includes(q)) ||
-        (c.customerCode?.toLowerCase().includes(q));
+        (c.customerCode?.toLowerCase().includes(q)) ||
+        (c.salespersonName?.toLowerCase().includes(q));
       if (!matches) return false;
     }
     if (filter?.type && c.type !== filter.type) return false;
     if (filter?.district && c.district?.toLowerCase() !== filter.district.toLowerCase()) return false;
     if (filter?.status && c.status !== filter.status) return false;
+    if (filter?.salespersonId && filter.salespersonId !== 'ALL' && c.salespersonId !== filter.salespersonId) return false;
     return true;
   });
 }
@@ -107,25 +114,33 @@ export async function listCustomers(filter?: CustomerFilter): Promise<Customer[]
     try {
       const dbCusts = await prisma.customer.findMany({ orderBy: { createdAt: 'desc' } });
       if (dbCusts && dbCusts.length > 0) {
-        const mapped: Customer[] = dbCusts.map((c) => ({
-          id: c.id,
-          customerCode: c.customerCode,
-          name: c.name,
-          firmName: c.firmName || undefined,
-          type: c.type as CustomerType,
-          district: c.district,
-          town: c.town,
-          address: c.address || undefined,
-          gstin: c.gstin || undefined,
-          phone: c.phone,
-          email: c.email || undefined,
-          creditLimit: Number(c.creditLimit),
-          outstandingBalance: Number(c.outstandingBalance),
-          status: c.status as CustomerStatus,
-          createdAt: c.createdAt.toISOString(),
-          updatedAt: c.updatedAt.toISOString(),
-        }));
         const local = readStore();
+        const localMap = new Map(local.map((l) => [l.id, l]));
+        const mapped: Customer[] = dbCusts.map((c) => {
+          const loc = localMap.get(c.id);
+          return {
+            id: c.id,
+            customerCode: c.customerCode,
+            name: c.name,
+            firmName: c.firmName || undefined,
+            type: c.type as CustomerType,
+            district: c.district,
+            town: c.town,
+            address: c.address || undefined,
+            gstin: c.gstin || undefined,
+            phone: c.phone,
+            email: c.email || undefined,
+            creditLimit: Number(c.creditLimit),
+            outstandingBalance: Number(c.outstandingBalance),
+            creditPeriodDays: loc?.creditPeriodDays || 30,
+            salespersonId: loc?.salespersonId || undefined,
+            salespersonName: loc?.salespersonName || undefined,
+            salespersonCode: loc?.salespersonCode || undefined,
+            status: c.status as CustomerStatus,
+            createdAt: c.createdAt.toISOString(),
+            updatedAt: c.updatedAt.toISOString(),
+          };
+        });
         const merged = [...mapped, ...local.filter((l) => !mapped.some((m) => m.id === l.id))];
         writeStore(merged);
         return filterCustomers(merged, filter);

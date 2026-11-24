@@ -85,43 +85,35 @@ export interface SalesReturnCreditNote {
   notes?: string;
 }
 
-export const RETURN_REASONS: Record<ReturnReason, { en: string; ml: string }> = {
+export const RETURN_REASONS: Record<ReturnReason, { en: string; ml?: string }> = {
   SIZE_TOLERANCE_MISMATCH: {
     en: 'Site Opening Tolerance Mismatch',
-    ml: 'സൈറ്റ് അളവ് വ്യത്യാസം (മസോൺ ഫ്രെയിം വ്യത്യാസം)',
   },
   TRANSIT_SURFACE_DAMAGE: {
     en: 'Transit Surface Scratch / Coating Chip',
-    ml: 'വാഹന ചരക്കുനീക്കത്തിലെ സ്ക്രാച്ച് / പോറലുകൾ',
   },
   LOCK_HINGE_MISALIGNMENT: {
     en: 'Lock Hole / Hinge Routing Variation',
-    ml: 'ലോക്ക് ഹോൾ / ഹിഞ്ച് റൂട്ടിംഗ് വ്യത്യാസം',
   },
   CLIENT_DESIGN_CHANGE: {
     en: 'Client Shade / Finish Design Modification',
-    ml: 'ഉപഭോക്താവിന്റെ ഡിസൈൻ / ഷേഡ് മാറ്റം',
   },
   FACTORY_QC_REJECT: {
     en: 'Factory Floor QA Tolerance Rejection',
-    ml: 'ഫാക്ടറി ക്വാളിറ്റി ചെക്ക് റിജക്ഷൻ',
   },
 };
 
-export const DISPOSITION_LABELS: Record<ReturnDisposition, { en: string; ml: string; color: string }> = {
+export const DISPOSITION_LABELS: Record<ReturnDisposition, { en: string; ml?: string; color: string }> = {
   REWORK_PLANT_FLOOR: {
     en: 'Route to Plant Floor (Resizing & Buffing)',
-    ml: 'ഫാക്ടറി പ്ലാന്റിൽ റീവർക്ക് / സൈസിംഗ് ചെയ്യുക',
     color: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
   },
   RESTOCK_INVENTORY: {
     en: 'Restock into Finished Goods Bay',
-    ml: 'ഫിനിഷ്ഡ് ഗുഡ്സ് വെയർഹൗസിലേക്ക് തിരിച്ചെടുക്കുക',
     color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
   },
   SCRAP_WRITE_OFF: {
     en: 'Scrap & Material Recovery',
-    ml: 'സ്ക്രാപ്പ് / മെറ്റീരിയൽ റിക്കവറി',
     color: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
   },
 };
@@ -593,7 +585,7 @@ export default function SalesAndReturnHub() {
               }`}
             >
               <ReceiptText className="w-4 h-4" />
-              <span>Sales Invoices / Bills (സെയിൽസ് ബിൽ)</span>
+              <span>Sales Invoices / Bills</span>
               <span className="bg-slate-800 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
                 {invoices.length}
               </span>
@@ -609,7 +601,7 @@ export default function SalesAndReturnHub() {
               }`}
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Sales Returns &amp; Credit Notes (ക്രെഡിറ്റ് നോട്ട്)</span>
+              <span>Sales Returns &amp; Credit Notes</span>
               <span className="bg-slate-800 text-rose-300 text-[10px] px-1.5 py-0.2 rounded-full font-mono">
                 {returns.length}
               </span>
@@ -625,7 +617,7 @@ export default function SalesAndReturnHub() {
               }`}
             >
               <Building2 className="w-4 h-4" />
-              <span>Reconciliation Ledger (നെറ്റ് സെയിൽസ്)</span>
+              <span>Reconciliation Ledger</span>
             </button>
           </div>
 
@@ -988,7 +980,7 @@ export default function SalesAndReturnHub() {
                   <RotateCcw className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Record Sales Return (സെയിൽസ് റിട്ടേൺ)</h3>
+                  <h3 className="text-base font-bold text-white">Record Sales Return</h3>
                   <p className="text-xs text-slate-400">Sales Return &amp; Balance Adjustment Issuance</p>
                 </div>
               </div>
@@ -1020,7 +1012,7 @@ export default function SalesAndReturnHub() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">
-                    Returned Door Quantity (എണ്ണം)
+                    Returned Door Quantity
                   </label>
                   <input
                     type="number"
@@ -1045,7 +1037,7 @@ export default function SalesAndReturnHub() {
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">
-                  Reason for Return (തിരിച്ചയക്കാനുള്ള കാരണം)
+                  Reason for Return
                 </label>
                 <select
                   value={returnReason}
@@ -1054,7 +1046,7 @@ export default function SalesAndReturnHub() {
                 >
                   {Object.entries(RETURN_REASONS).map(([k, val]) => (
                     <option key={k} value={k}>
-                      {val.en} ({val.ml})
+                      {val.en}
                     </option>
                   ))}
                 </select>
@@ -1062,7 +1054,7 @@ export default function SalesAndReturnHub() {
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">
-                  Factory Material Disposition (ഫാക്ടറി നടപടി)
+                  Factory Material Disposition
                 </label>
                 <select
                   value={returnDisposition}
@@ -1079,7 +1071,7 @@ export default function SalesAndReturnHub() {
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">
-                  Site / Inspection Notes (പരിശോധന കുറിപ്പ്)
+                  Site / Inspection Notes
                 </label>
                 <textarea
                   rows={2}
@@ -1103,7 +1095,7 @@ export default function SalesAndReturnHub() {
                   className="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-rose-950/40 cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Issue Credit Note &amp; Adjust (ക്രെഡിറ്റ് നോട്ട് രേഖപ്പെടുത്തുക)</span>
+                  <span>Issue Credit Note &amp; Adjust</span>
                 </button>
               </div>
             </form>

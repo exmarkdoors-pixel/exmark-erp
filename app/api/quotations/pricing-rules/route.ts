@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     if (auth.errorResponse) return auth.errorResponse;
 
     const settings = getFrpRateCardSettings();
-    return NextResponse.json({ success: true, settings });
+    return NextResponse.json({ success: true, settings, data: settings });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to retrieve pricing rules';
     return NextResponse.json({ success: false, error: message }, { status: 500 });

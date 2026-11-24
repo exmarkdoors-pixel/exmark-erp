@@ -27,7 +27,7 @@ interface PipelineStep {
   id: NavigationTab;
   stepNumber: number;
   labelEn: string;
-  labelMl: string;
+  labelMl?: string;
   icon: React.ElementType;
   colorClass: string;
   activeBg: string;
@@ -39,7 +39,6 @@ const PIPELINE_STEPS: PipelineStep[] = [
     id: 'quotations',
     stepNumber: 1,
     labelEn: 'Quotation',
-    labelMl: 'കൊട്ടേഷൻ',
     icon: FileSpreadsheet,
     colorClass: 'text-blue-400',
     activeBg: 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 border-blue-500',
@@ -49,7 +48,6 @@ const PIPELINE_STEPS: PipelineStep[] = [
     id: 'sales-orders',
     stepNumber: 2,
     labelEn: 'Order Lock',
-    labelMl: 'അഡ്വാൻസ് & സ്റ്റിക്കർ',
     icon: ShoppingBag,
     colorClass: 'text-rose-400',
     activeBg: 'bg-rose-600 text-white shadow-lg shadow-rose-900/40 border-rose-500',
@@ -59,7 +57,6 @@ const PIPELINE_STEPS: PipelineStep[] = [
     id: 'production',
     stepNumber: 3,
     labelEn: 'Door Molding',
-    labelMl: 'മോൾഡിംഗ് & പ്രസ്സ്',
     icon: Factory,
     colorClass: 'text-purple-400',
     activeBg: 'bg-purple-600 text-white shadow-lg shadow-purple-900/40 border-purple-500',
@@ -69,7 +66,6 @@ const PIPELINE_STEPS: PipelineStep[] = [
     id: 'batch-print',
     stepNumber: 4,
     labelEn: '12L & 4"×2" Stickers',
-    labelMl: 'സ്റ്റിക്കർ പ്രിൻ്റ്',
     icon: ShieldCheck,
     colorClass: 'text-teal-400',
     activeBg: 'bg-teal-600 text-white shadow-lg shadow-teal-900/40 border-teal-500',
@@ -79,7 +75,6 @@ const PIPELINE_STEPS: PipelineStep[] = [
     id: 'bom',
     stepNumber: 5,
     labelEn: 'Paint Section',
-    labelMl: 'പെയിന്റിംഗ് സെക്ഷൻ',
     icon: Palette,
     colorClass: 'text-amber-400',
     activeBg: 'bg-amber-600 text-white shadow-lg shadow-amber-900/40 border-amber-500',
@@ -89,7 +84,6 @@ const PIPELINE_STEPS: PipelineStep[] = [
     id: 'dispatch',
     stepNumber: 6,
     labelEn: 'Packing & Delivery',
-    labelMl: 'ഡെലിവറി ചലാൻ',
     icon: Truck,
     colorClass: 'text-emerald-400',
     activeBg: 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 border-emerald-500',
@@ -99,7 +93,6 @@ const PIPELINE_STEPS: PipelineStep[] = [
     id: 'installation',
     stepNumber: 7,
     labelEn: 'Site Fitting',
-    labelMl: 'സൈറ്റ് ഫിറ്റിംഗ്',
     icon: Wrench,
     colorClass: 'text-cyan-400',
     activeBg: 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/40 border-cyan-500',
@@ -157,7 +150,7 @@ export default function UnifiedBondingPipelineBar({
                       ? 'text-slate-300 hover:text-white hover:bg-slate-800'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
-                  title={`${step.stepNumber}. ${step.labelEn} (${step.labelMl})`}
+                  title={`${step.stepNumber}. ${step.labelEn}`}
                 >
                   {step.stepNumber}. {step.labelEn}
                 </button>
@@ -252,9 +245,6 @@ export default function UnifiedBondingPipelineBar({
                   <div className="text-left">
                     <div className="leading-tight text-[11px] font-bold flex items-center gap-1">
                       <span>{step.labelEn}</span>
-                      <span className="text-[9px] opacity-75 font-normal hidden xl:inline">
-                        ({step.labelMl})
-                      </span>
                     </div>
                   </div>
                 </button>

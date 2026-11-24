@@ -511,7 +511,7 @@ export default function DailyEveningClosingModal({
                   </div>
                   <div>
                     <h4 className="text-xs font-black text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>Today&apos;s Store BOQ Material Consumption (ഇന്ന് ഫാക്ടറിയിൽ ഉപയോഗിച്ച മെറ്റീരിയലുകൾ)</span>
+                      <span>Today&apos;s Store BOQ Material Consumption</span>
                     </h4>
                     <p className="text-[10.5px] text-slate-400">
                       {overviewData.todayBoqConsumption.totalVouchersCount} Store Issue Voucher(s) • {overviewData.todayBoqConsumption.totalDoorsIssued} Door(s) • Total Value ₹{overviewData.todayBoqConsumption.totalMaterialValue.toLocaleString('en-IN')}

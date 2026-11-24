@@ -38,9 +38,22 @@ import {
   WipStageStockItem,
 } from '@/lib/services/stockMaintenanceService';
 import { ReadyStockDoorsTab } from './ReadyStockDoorsTab';
+import { BulkRawMaterialStockModal } from './BulkRawMaterialStockModal';
 
-export default function StockMaintenanceHub() {
-  const [activeTab, setActiveTab] = useState<'RM' | 'WIP' | 'FG' | 'READY_STOCK' | 'CONFIG'>('RM');
+export interface StockMaintenanceHubProps {
+  initialTab?: 'RM' | 'WIP' | 'FG' | 'READY_STOCK' | 'CONFIG';
+}
+
+export default function StockMaintenanceHub({ initialTab }: StockMaintenanceHubProps = {}) {
+  const [activeTab, setActiveTab] = useState<'RM' | 'WIP' | 'FG' | 'READY_STOCK' | 'CONFIG'>(
+    initialTab || 'RM'
+  );
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -71,6 +84,7 @@ export default function StockMaintenanceHub() {
   const [replenishingFgId, setReplenishingFgId] = useState<string | null>(null);
 
   // 1. Add New RM State
+  const [isBulkStockModalOpen, setIsBulkStockModalOpen] = useState(false);
   const [isAddRmModalOpen, setIsAddRmModalOpen] = useState(false);
   const [isSubmittingNewRm, setIsSubmittingNewRm] = useState(false);
   const [newRmDraft, setNewRmDraft] = useState({
@@ -126,6 +140,68 @@ export default function StockMaintenanceHub() {
   const [targetDraft, setTargetDraft] = useState<string>('2500000');
   const [autoDeductDraft, setAutoDeductDraft] = useState<boolean>(true);
   const [isSavingConfig, setIsSavingConfig] = useState<boolean>(false);
+  const [isSyncingAllToBoq, setIsSyncingAllToBoq] = useState<boolean>(false);
+
+  // Sync All Raw Material Prices to BOQ Formulas
+  const handleSyncAllToBoq = async () => {
+    setIsSyncingAllToBoq(true);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/stock-maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'SYNC_ALL_TO_BOQ' }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotice({
+          type: 'success',
+          text: json.message || 'Successfully synchronized Stock Ledger prices to BOQ formula rates!',
+        });
+      } else {
+        setNotice({
+          type: 'error',
+          text: json.error || 'Failed to sync Stock Ledger to BOQ',
+        });
+      }
+    } catch {
+      setNotice({ type: 'error', text: 'Network error syncing rates to BOQ.' });
+    } finally {
+      setIsSyncingAllToBoq(false);
+    }
+  };
+
+  const isBoqMappedItem = (itemCode?: string, name?: string): boolean => {
+    const code = (itemCode || '').toUpperCase();
+    const n = (name || '').toLowerCase();
+    if (
+      code.startsWith('RAW-RES') ||
+      code.startsWith('RAW-GEL') ||
+      code.startsWith('CHM-CAT') ||
+      code.startsWith('CHM-ACC') ||
+      code.startsWith('RAW-FBR') ||
+      code.startsWith('CORE-FOAM') ||
+      code.startsWith('CORE-TMB') ||
+      code.startsWith('PIG-') ||
+      code.startsWith('HRD-LCK')
+    ) {
+      return true;
+    }
+    return (
+      n.includes('resin') ||
+      n.includes('gelcoat') ||
+      n.includes('catalyst') ||
+      n.includes('mekp') ||
+      n.includes('accelerator') ||
+      n.includes('cobalt') ||
+      n.includes('csm') ||
+      n.includes('foam') ||
+      n.includes('batten') ||
+      n.includes('pigment') ||
+      n.includes('mortise') ||
+      n.includes('baby latch')
+    );
+  };
 
   const loadStockData = useCallback(async () => {
     setIsLoading(true);
@@ -530,7 +606,7 @@ export default function StockMaintenanceHub() {
   const pctOfTarget = targetBaseline > 0 ? Math.min(150, Math.round((totalValuation / targetBaseline) * 100)) : 100;
 
   return (
-    <div className="space-y-3 p-2 sm:p-3 text-slate-100 max-w-[1600px] mx-auto">
+    <div className="space-y-3 p-2 sm:p-3 text-slate-100 w-full max-w-full min-w-0">
       {/* ── TOP EXECUTIVE STOCK BUFFER HEADER ───────────────────────────── */}
       <div className="bg-[#0B132B] border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-800">
@@ -543,7 +619,7 @@ export default function StockMaintenanceHub() {
                 <h1 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
                   <span>Stock Maintenance &amp; Buffer Planning</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    കൺസിസ്റ്റന്റ് സ്റ്റോക്ക് ബഫർ
+                    Baseline Stock Buffer
                   </span>
                 </h1>
                 <p className="text-[11px] text-slate-400">
@@ -834,7 +910,7 @@ export default function StockMaintenanceHub() {
             }`}
           >
             <Boxes className="w-3.5 h-3.5" />
-            <span>1. Raw Materials Store Ledger (റോ മെറ്റീരിയൽ ഫയൽ)</span>
+            <span>1. Raw Materials Store Ledger</span>
             <span className="px-1.5 py-0.2 rounded text-[10px] bg-black/30 font-mono">
               {rawMaterials.length}
             </span>
@@ -850,7 +926,7 @@ export default function StockMaintenanceHub() {
             }`}
           >
             <Factory className="w-3.5 h-3.5" />
-            <span>2. WIP Stage Stock (ഫ്ലോർ സ്റ്റേജ് ഇൻവെന്ററി)</span>
+            <span>2. WIP Stage Stock</span>
             <span className="px-1.5 py-0.2 rounded text-[10px] bg-black/30 font-mono">
               {overview?.wipSummary.totalDoorsInPipeline || 0} Doors
             </span>
@@ -866,7 +942,7 @@ export default function StockMaintenanceHub() {
             }`}
           >
             <Package className="w-3.5 h-3.5" />
-            <span>3. Finished Goods Buffer (ഫിനിഷ്ഡ് ഗുഡ്സ് ബാലൻസ്)</span>
+            <span>3. Finished Goods Buffer</span>
             <span className="px-1.5 py-0.2 rounded text-[10px] bg-black/30 font-mono">
               {overview?.finishedGoodsSummary.totalBufferDoors || 0}
             </span>
@@ -882,7 +958,7 @@ export default function StockMaintenanceHub() {
             }`}
           >
             <Boxes className="w-3.5 h-3.5 text-amber-300" />
-            <span>4. Ready &amp; Old Stock Doors (പഴയ / റെഡി ഡോർ ബാങ്ക്)</span>
+            <span>4. Ready &amp; Old Stock Doors</span>
           </button>
 
           <button
@@ -944,6 +1020,25 @@ export default function StockMaintenanceHub() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
+                onClick={() => setIsBulkStockModalOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition cursor-pointer"
+                title="Bulk update physical stock count, inward consignments, rates & CSV import/export"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>⚡ Bulk Stock Update</span>
+              </button>
+              <button
+                type="button"
+                disabled={isSyncingAllToBoq}
+                onClick={handleSyncAllToBoq}
+                className="px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white font-bold text-xs flex items-center gap-1.5 shadow transition cursor-pointer disabled:opacity-50"
+                title="Synchronize live purchase rates from Stock Ledger into BOQ Formulas (Resin, Gelcoat, Catalyst, Accelerator, CSM, Foam, Wood, Pigments & Lock Boxes)"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingAllToBoq ? 'animate-spin' : ''}`} />
+                <span>{isSyncingAllToBoq ? 'Syncing BOQ...' : '⚡ Sync Prices to BOQ'}</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setNewRmDraft({
                     name: '',
@@ -962,7 +1057,7 @@ export default function StockMaintenanceHub() {
                 title="Add new raw material to store inventory"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add New Stock (പുതിയ സ്റ്റോക്ക്)</span>
+                <span>+ Add New Stock</span>
               </button>
               <span className="text-[11px] text-slate-400 font-mono font-bold shrink-0 hidden md:inline">
                 {filteredRawMaterials.length} of {rawMaterials.length} SKUs
@@ -1000,7 +1095,14 @@ export default function StockMaintenanceHub() {
                       >
                         <td className="p-2.5 font-mono text-slate-400 text-[11px]">{rm.itemCode}</td>
                         <td className="p-2.5 font-bold text-white">
-                          <div>{rm.name}</div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{rm.name}</span>
+                            {isBoqMappedItem(rm.itemCode, rm.name) && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-950/80 border border-cyan-500/50 text-cyan-300">
+                                ⚡ BOQ Mapped
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-slate-500 font-mono">{rm.warehouseLocation}</span>
                         </td>
                         <td className="p-2.5 text-slate-300">
@@ -1193,7 +1295,7 @@ export default function StockMaintenanceHub() {
               <div>
                 <h4 className="text-sm font-black text-amber-300 flex items-center gap-2">
                   <Wrench className="w-4 h-4 text-amber-400" />
-                  <span>🛠️ Rework Station &amp; Quality Rectification (റീവർക്ക് സ്റ്റേഷൻ)</span>
+                  <span>🛠️ Rework Station &amp; Quality Rectification</span>
                 </h4>
                 <p className="text-[11px] text-slate-400">
                   Tracks doors undergoing quality defect rectification, reasons, and cumulative extra rework materials consumed.
@@ -1225,7 +1327,7 @@ export default function StockMaintenanceHub() {
                   className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-black text-xs flex items-center gap-1.5 shadow transition cursor-pointer"
                 >
                   <Hammer className="w-3.5 h-3.5" />
-                  <span>+ Issue Rework Material (മെറ്റീരിയൽ നൽകുക)</span>
+                  <span>+ Issue Rework Material</span>
                 </button>
               </div>
             </div>
@@ -1411,7 +1513,7 @@ export default function StockMaintenanceHub() {
         </div>
       )}
 
-      {/* ── TAB: READY & OLD STOCK DOORS (പഴയ / റെഡി ഡോർ ബാങ്ക്) ─────────── */}
+      {/* ── TAB: READY & OLD STOCK DOORS ─────────────────────────────── */}
       {activeTab === 'READY_STOCK' && <ReadyStockDoorsTab />}
 
       {/* ── TAB 4: CONFIGURATION & BUFFER SETTINGS ─────────────────────── */}
@@ -1632,6 +1734,17 @@ export default function StockMaintenanceHub() {
         </div>
       )}
 
+      {/* ── BULK RAW MATERIAL STOCK & AUDIT RECONCILIATION MODAL ──────── */}
+      <BulkRawMaterialStockModal
+        isOpen={isBulkStockModalOpen}
+        onClose={() => setIsBulkStockModalOpen(false)}
+        rawMaterials={rawMaterials}
+        onSuccess={(msg) => {
+          setNotice({ type: 'success', text: msg });
+          loadStockData();
+        }}
+      />
+
       {/* ── MODAL 1: ADD NEW RAW MATERIAL ITEM ───────────────────────────── */}
       {isAddRmModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
@@ -1640,7 +1753,7 @@ export default function StockMaintenanceHub() {
               <div>
                 <h4 className="text-sm font-black text-white flex items-center gap-1.5">
                   <Plus className="w-4 h-4 text-emerald-400" />
-                  <span>Add New Raw Material (+ പുതിയ സ്റ്റോക്ക് ചേർക്കുക)</span>
+                  <span>Add New Raw Material</span>
                 </h4>
                 <p className="text-[10.5px] text-slate-400">
                   Register a new factory stock item with pricing, safety buffer and warehouse location.
@@ -1819,7 +1932,7 @@ export default function StockMaintenanceHub() {
               <div>
                 <h4 className="text-sm font-black text-white flex items-center gap-1.5">
                   <Edit2 className="w-4 h-4 text-blue-400" />
-                  <span>Edit Raw Material (വിവരങ്ങൾ / പേര് മാറ്റുക)</span>
+                  <span>Edit Raw Material</span>
                 </h4>
                 <p className="text-[10.5px] text-slate-400 font-mono">
                   {fullEditRmItem.itemCode}
@@ -1983,7 +2096,7 @@ export default function StockMaintenanceHub() {
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <h4 className="text-sm font-black text-rose-400 flex items-center gap-1.5">
                 <Trash2 className="w-4 h-4 text-rose-400" />
-                <span>Delete Stock Item (ഡിലീറ്റ് ചെയ്യുക)</span>
+                <span>Delete Stock Item</span>
               </h4>
               <button
                 type="button"
@@ -2033,7 +2146,7 @@ export default function StockMaintenanceHub() {
               <div>
                 <h4 className="text-sm font-black text-amber-300 flex items-center gap-1.5">
                   <Minus className="w-4 h-4 text-amber-400" />
-                  <span>Manual Stock-Out / Issue (- കുറയ്ക്കുക)</span>
+                  <span>Manual Stock-Out / Issue</span>
                 </h4>
                 <p className="text-[10.5px] text-slate-400 font-mono">
                   {manualMinusRmItem.itemCode} — {manualMinusRmItem.name}
@@ -2135,7 +2248,7 @@ export default function StockMaintenanceHub() {
               <div>
                 <h4 className="text-sm font-black text-amber-300 flex items-center gap-1.5">
                   <Hammer className="w-4 h-4 text-amber-400" />
-                  <span>Issue Rework Material (റീവർക്ക് മെറ്റീരിയൽ നൽകുക)</span>
+                  <span>Issue Rework Material</span>
                 </h4>
                 <p className="text-[10.5px] text-slate-400">
                   Issues extra chemicals/hardware for defect correction and logs direct rework cost to the order profit ledger.

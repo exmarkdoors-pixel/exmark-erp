@@ -76,8 +76,16 @@ export function MobileStoreBoqPanel({ staffName }: MobileStoreBoqPanelProps) {
   const [materialGroup, setMaterialGroup] = useState<BoqMaterialGroupFilter>('ALL');
 
   // Handover proof states
+  const [issueDate, setIssueDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [gangName, setGangName] = useState<string>('');
   const [shift, setShift] = useState<BoqIssueShift>('MORNING');
+
+  const getTodayDateString = () => new Date().toISOString().slice(0, 10);
+  const getYesterdayDateString = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  };
   const [receiverName, setReceiverName] = useState<string>('');
   const [hasSigned, setHasSigned] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -389,6 +397,7 @@ export function MobileStoreBoqPanel({ staffName }: MobileStoreBoqPanelProps) {
           formulaLocked: true,
           source: 'ANDROID_APP',
           materialGroup,
+          issueDate,
           shift,
           gangName: cleanGang,
           receiverName: receiverName.trim() || cleanGang,
@@ -407,6 +416,7 @@ export function MobileStoreBoqPanel({ staffName }: MobileStoreBoqPanelProps) {
           formulaLocked: true,
           source: 'ANDROID_APP',
           materialGroup,
+          issueDate,
           shift,
           gangName: cleanGang,
           receiverName: receiverName.trim() || cleanGang,
@@ -869,7 +879,44 @@ export function MobileStoreBoqPanel({ staffName }: MobileStoreBoqPanelProps) {
                   <span>Floor Team Handover Proof</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] text-slate-400 font-bold">Issue Date</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setIssueDate(getTodayDateString())}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                            issueDate === getTodayDateString()
+                              ? 'bg-cyan-500 text-slate-950 font-black'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          Today
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIssueDate(getYesterdayDateString())}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                            issueDate === getYesterdayDateString()
+                              ? 'bg-amber-500 text-slate-950 font-black'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          Yesterday
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="date"
+                      value={issueDate}
+                      max={getTodayDateString()}
+                      onChange={(e) => setIssueDate(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-cyan-200 font-bold text-xs cursor-pointer"
+                    />
+                  </div>
+
                   <div>
                     <label className="text-[10px] text-slate-400 font-bold block mb-1">
                       Floor Team / Gang *
@@ -907,6 +954,7 @@ export function MobileStoreBoqPanel({ staffName }: MobileStoreBoqPanelProps) {
                       <option value="MORNING">Morning</option>
                       <option value="AFTERNOON">Afternoon</option>
                       <option value="EVENING">Evening</option>
+                      <option value="NIGHT">Night</option>
                     </select>
                   </div>
                 </div>

@@ -507,32 +507,127 @@ export default function AdminCustomizationSettings() {
       {/* Tab 6: Frame & Cutting Tolerances */}
       {activeTab === 'tolerances' && (
         <div className="bg-white dark:bg-[#0B132B] p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
-          <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-red-500" />
-            6. Frame &amp; Finished Cutting Tolerances (Deterministic Formulas)
-          </h4>
+          <div className="flex justify-between items-center">
+            <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-cyan-400" />
+              6. Factory Frame &amp; Finished Cutting Tolerances
+            </h4>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-bold">
+              Synced Across All Modules
+            </span>
+          </div>
           <p className="text-xs text-slate-400">
-            Finished dimensions are calculated deterministically as <em>Finished = Raw Masonry Opening - Tolerance Deduction</em>. Negative dimensions are strictly prohibited.
+            Finished dimensions are calculated deterministically across Site Measurements, Mobile App, Quotations, and Shop Floor CNC cutting sheets as <em>Finished = Raw Frame Opening - Tolerances</em>.
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-              <span className="text-[10px] text-slate-400 block mb-1">FRP Height Deduction</span>
-              <span className="font-mono text-white font-bold text-sm">
-                -{config.frameAndCuttingSettings.frpHeightDeductionMm} mm
-              </span>
+              <label className="text-[10px] text-slate-400 block mb-1">Standard Frame Rebate (Each Side)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={config.frameAndCuttingSettings.frpWidthDeductionMm ? Math.round((config.frameAndCuttingSettings.frpWidthDeductionMm - 5) / 2) : 40}
+                  onChange={(e) => {
+                    const rebate = parseInt(e.target.value) || 0;
+                    const totalW = (rebate * 2) + 5;
+                    setConfig((prev) => {
+                      if (!prev) return prev;
+                      return {
+                        ...prev,
+                        frameAndCuttingSettings: {
+                          ...prev.frameAndCuttingSettings,
+                          frpWidthDeductionMm: totalW,
+                        },
+                      };
+                    });
+                  }}
+                  className="w-24 bg-[#131b2e] border border-slate-700 rounded-lg p-1.5 text-white font-mono font-bold"
+                />
+                <span className="text-slate-400 text-xs">mm/side</span>
+              </div>
+              <span className="text-[9.5px] text-cyan-400 mt-1 block">Total Width Deduction: -{config.frameAndCuttingSettings.frpWidthDeductionMm || 85} mm</span>
             </div>
+
             <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-              <span className="text-[10px] text-slate-400 block mb-1">FRP Width Deduction</span>
-              <span className="font-mono text-white font-bold text-sm">
-                -{config.frameAndCuttingSettings.frpWidthDeductionMm} mm
-              </span>
+              <label className="text-[10px] text-slate-400 block mb-1">Floor Clearance (Finished Tile)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={config.frameAndCuttingSettings.frpHeightDeductionMm ? config.frameAndCuttingSettings.frpHeightDeductionMm - 5 : 12}
+                  onChange={(e) => {
+                    const floor = parseInt(e.target.value) || 0;
+                    const totalH = floor + 5;
+                    setConfig((prev) => {
+                      if (!prev) return prev;
+                      return {
+                        ...prev,
+                        frameAndCuttingSettings: {
+                          ...prev.frameAndCuttingSettings,
+                          frpHeightDeductionMm: totalH,
+                        },
+                      };
+                    });
+                  }}
+                  className="w-24 bg-[#131b2e] border border-slate-700 rounded-lg p-1.5 text-white font-mono font-bold"
+                />
+                <span className="text-slate-400 text-xs">mm (Tile)</span>
+              </div>
+              <span className="text-[9.5px] text-cyan-400 mt-1 block">Total Height Deduction: -{config.frameAndCuttingSettings.frpHeightDeductionMm || 17} mm</span>
             </div>
+
             <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-              <span className="text-[10px] text-slate-400 block mb-1">Granite Offset Allowance</span>
-              <span className="font-mono text-white font-bold text-sm">
-                {config.frameAndCuttingSettings.graniteSubframeOffsetMm} mm
-              </span>
+              <label className="text-[10px] text-slate-400 block mb-1">Granite / Subframe Offset</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={config.frameAndCuttingSettings.graniteSubframeOffsetMm ?? 10}
+                  onChange={(e) => {
+                    const offset = parseInt(e.target.value) || 0;
+                    setConfig((prev) => {
+                      if (!prev) return prev;
+                      return {
+                        ...prev,
+                        frameAndCuttingSettings: {
+                          ...prev.frameAndCuttingSettings,
+                          graniteSubframeOffsetMm: offset,
+                        },
+                      };
+                    });
+                  }}
+                  className="w-24 bg-[#131b2e] border border-slate-700 rounded-lg p-1.5 text-white font-mono font-bold"
+                />
+                <span className="text-slate-400 text-xs">mm offset</span>
+              </div>
+              <span className="text-[9.5px] text-slate-400 mt-1 block">Subframe clearance allowance</span>
             </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={async () => {
+                await fetch('/api/settings/tolerances', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    defaultSideRebateMm: Math.round(((config.frameAndCuttingSettings.frpWidthDeductionMm || 85) - 5) / 2),
+                    defaultBottomTileClearanceMm: (config.frameAndCuttingSettings.frpHeightDeductionMm || 17) - 5,
+                    defaultTopGapMm: 5,
+                  }),
+                });
+                await handleSaveDraft();
+                showToast('success', '✓ Factory tolerances synced across Measurement, Mobile, and CNC Floor!');
+              }}
+              className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition shadow-lg cursor-pointer"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Save &amp; Sync Tolerances</span>
+            </button>
           </div>
         </div>
       )}
@@ -659,7 +754,7 @@ export default function AdminCustomizationSettings() {
             <div className="p-4 bg-slate-900/60 rounded-xl border border-slate-800 space-y-2">
               <span className="font-bold text-slate-300 block">Localization</span>
               <p className="text-[11px] text-slate-400">
-                Official templates rendered in Malayalam (മലയാളം) and English for Kerala dealers, builders, and home owners.
+                Official templates rendered in clean English for Kerala dealers, builders, and home owners.
               </p>
             </div>
           </div>

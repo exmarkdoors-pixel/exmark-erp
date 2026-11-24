@@ -113,6 +113,10 @@ export interface CustomerItem {
   totalVolume: string;
   creditLimit: string;
   outstandingBalance: string;
+  creditPeriodDays?: number;
+  salespersonId?: string;
+  salespersonName?: string;
+  salespersonCode?: string;
   status: 'Active' | 'Under Review' | 'Priority VIP';
 }
 

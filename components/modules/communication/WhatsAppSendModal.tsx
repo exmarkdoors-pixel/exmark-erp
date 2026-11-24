@@ -36,13 +36,13 @@ export function WhatsAppSendModal({
     if (language === 'ml') {
       switch (documentType) {
         case 'MEASUREMENT_CONFIRMATION':
-          return `നമസ്കാരം ${recipientName || 'സർ/മാഡം'}, EXMARK DOORS-ൽ നിന്നുള്ള നിങ്ങളുടെ സൈറ്റ് ഡോർ അളവുകൾ തയ്യാറായിട്ടുണ്ട്. ദയവായി താഴെ നൽകിയിരിക്കുന്ന ലിങ്ക് വഴി അളവുകൾ പരിശോധിച്ച് സ്ഥിരീകരിക്കുക:\n🔗 https://exmarkdoors.com/confirm/${initialDocumentId || 'msr-doc'}`;
+          return `Dear ${recipientName || 'Customer'}, your EXMARK DOORS site measurements are ready. Please review and confirm using the link:\n🔗 https://exmarkdoors.com/confirm/${initialDocumentId || 'msr-doc'}`;
         case 'QUOTATION':
-          return `നമസ്കാരം ${recipientName}, EXMARK FRP ഡോറുകൾക്കുള്ള നിങ്ങളുടെ കൊട്ടേഷൻ എസ്റ്റിമേറ്റ് തയ്യാറായിട്ടുണ്ട്. വിശദമായ വിവരങ്ങൾ ഇതോടൊപ്പം അറ്റാച്ച് ചെയ്തിരിക്കുന്നു.`;
+          return `Dear ${recipientName}, your quotation estimate for EXMARK FRP Doors is ready. Detailed specifications are attached.`;
         case 'INVOICE':
-          return `പ്രിയ ${recipientName}, EXMARK DOORS സെയിൽസ് ഇൻവോയ്സ് ഇതോടൊപ്പം ചേർക്കുന്നു. നന്ദി!`;
+          return `Dear ${recipientName}, your EXMARK DOORS sales invoice is attached. Thank you!`;
         default:
-          return `നമസ്കാരം ${recipientName}, EXMARK DOORS-ൽ നിന്നുള്ള അറിയിപ്പ്.`;
+          return `Dear ${recipientName}, official notification from EXMARK DOORS.`;
       }
     } else {
       switch (documentType) {
@@ -178,7 +178,7 @@ export function WhatsAppSendModal({
                       : 'text-slate-600 dark:text-slate-400'
                   }`}
                 >
-                  മലയാളം
+                  Standard
                 </button>
               </div>
             </div>

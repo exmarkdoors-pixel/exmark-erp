@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   X,
-  Printer,
   QrCode,
   Sliders,
   Layers,
@@ -27,6 +26,7 @@ import {
 import { CustomFrameManagerModal } from './CustomFrameManagerModal';
 import { CustomToleranceManagerModal } from './CustomToleranceManagerModal';
 import { cmToTapeInch, parseTapeInchToCm, computeStickerSizes } from '@/lib/utils/doorStickerFormula';
+import { computeDoorTolerances, FloorCondition } from '@/lib/services/toleranceCalculation';
 import {
   DoorModelOption,
   STANDARD_DOOR_MODELS,
@@ -58,6 +58,72 @@ interface FloorDoorRow {
   remark: string;
   qcStatus: 'PENDING' | 'PASSED' | 'REJECTED';
   qrPayload: string;
+  // Live synchronized tolerance & deduction metrics:
+  hDeductionMm?: number;
+  wDeductionMm?: number;
+  isCustomDeduction?: boolean;
+  bottomClearanceMm?: number;
+  topGapMm?: number;
+  sideRebateMm?: number;
+  floorCondition?: string;
+  finishedHeightMm?: number;
+  finishedWidthMm?: number;
+}
+
+/**
+ * Deterministically resolves synchronized tolerance deductions and finished cutting dimensions
+ * using the central EXMARK tolerance calculation engine.
+ */
+function resolveDoorRowMetrics(row: FloorDoorRow, frame: CustomFrameProfile) {
+  const rawHMm = Math.round(row.rawHeightCm * 10);
+  const rawTopWMm = Math.round(row.rawWidthTopCm * 10);
+  const rawBtmWMm = Math.round((row.widthLinked ? row.rawWidthTopCm : row.rawWidthBtmCm) * 10);
+
+  const tol = computeDoorTolerances({
+    rawHeightMm: rawHMm,
+    rawWidthTopMm: rawTopWMm,
+    rawWidthBottomMm: rawBtmWMm,
+    frameTypeName: frame.name,
+    frameProfile: frame,
+    rebateDepthMm: frame.rebateDepthMm,
+    frameHDeductionMm: frame.hDeductionCm ? Math.round(frame.hDeductionCm * 10) : undefined,
+    frameWDeductionMm: frame.wDeductionCm ? Math.round(frame.wDeductionCm * 10) : undefined,
+    floorCondition: (row.floorCondition as FloorCondition) || 'FINISHED_TILE',
+    customBottomClearanceMm: row.bottomClearanceMm,
+    customTopGapMm: row.topGapMm,
+    customSideRebateMm: row.sideRebateMm || frame.rebateDepthMm,
+  });
+
+  const hDedMm =
+    row.isCustomDeduction && row.hDeductionMm !== undefined && row.hDeductionMm > 0
+      ? row.hDeductionMm
+      : tol.totalHeightDeductionMm;
+  const wDedMm =
+    row.isCustomDeduction && row.wDeductionMm !== undefined && row.wDeductionMm > 0
+      ? row.wDeductionMm
+      : tol.totalWidthDeductionMm;
+
+  const hDedCm = parseFloat((hDedMm / 10).toFixed(2));
+  const wDedCm = parseFloat((wDedMm / 10).toFixed(2));
+
+  const calc = computeStickerSizes({
+    rawHeightCm: row.rawHeightCm,
+    rawWidthTopCm: row.rawWidthTopCm,
+    rawWidthBtmCm: row.rawWidthBtmCm,
+    widthLinked: row.widthLinked,
+    hDeductionCm: hDedCm,
+    wDeductionCm: wDedCm,
+    hingeSide: row.hingeSide,
+  });
+
+  return {
+    tol,
+    hDedMm,
+    wDedMm,
+    hDedCm,
+    wDedCm,
+    calc,
+  };
 }
 
 const DEFAULT_LOCK_OPTIONS = [
@@ -217,6 +283,14 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
         remark: d.remark || '',
         qcStatus: d.qcStatus,
         qrPayload: d.qrPayload,
+        hDeductionMm: d.hDeductionMm,
+        wDeductionMm: d.wDeductionMm,
+        bottomClearanceMm: d.bottomClearanceMm,
+        topGapMm: d.topGapMm,
+        sideRebateMm: d.sideRebateMm,
+        floorCondition: d.floorCondition,
+        finishedHeightMm: d.finishedHeightMm,
+        finishedWidthMm: d.finishedWidthMm,
       };
     });
     setRows(mapped);
@@ -262,6 +336,23 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
 
   const updateRow = (id: string, updates: Partial<FloorDoorRow>) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
+  };
+
+  const applyFrameToAll = (frameId: string) => {
+    const targetFrame = getFrameProfile(frameId);
+    const targetHDed = targetFrame.hDeductionCm ? Math.round(targetFrame.hDeductionCm * 10) : undefined;
+    const targetWDed = targetFrame.wDeductionCm ? Math.round(targetFrame.wDeductionCm * 10) : undefined;
+    setRows((prev) =>
+      prev.map((r) => ({
+        ...r,
+        frameTypeId: targetFrame.id,
+        isCustomDeduction: false,
+        hDeductionMm: targetHDed,
+        wDeductionMm: targetWDed,
+      }))
+    );
+    setSaveToast(`✓ Applied frame "${targetFrame.name}" (-${targetFrame.hDeductionCm || 4.5}cm H / -${targetFrame.wDeductionCm || 7.6}cm W) to all doors!`);
+    setTimeout(() => setSaveToast(null), 3500);
   };
 
   const handleSyncFromQuotation = async () => {
@@ -464,15 +555,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
     try {
       const updatedDoors: ProductionDoorItem[] = rows.map((r) => {
         const frame = getFrameProfile(r.frameTypeId);
-        const calc = computeStickerSizes({
-          rawHeightCm: r.rawHeightCm,
-          rawWidthTopCm: r.rawWidthTopCm,
-          rawWidthBtmCm: r.rawWidthBtmCm,
-          widthLinked: r.widthLinked,
-          hDeductionCm: frame.hDeductionCm ?? 4.5,
-          wDeductionCm: frame.wDeductionCm ?? 7.6,
-          hingeSide: r.hingeSide,
-        });
+        const { tol, hDedMm, wDedMm, calc } = resolveDoorRowMetrics(r, frame);
 
         return {
           id: r.id,
@@ -492,6 +575,13 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
           remark: r.remark.trim(),
           finishedHeightMm: Math.round(calc.finH * 10),
           finishedWidthMm: Math.round(calc.finTopW * 10),
+          hDeductionMm: hDedMm,
+          wDeductionMm: wDedMm,
+          bottomClearanceMm: r.bottomClearanceMm ?? tol.bottomFloorClearanceMm,
+          topGapMm: r.topGapMm ?? tol.topGapMm,
+          sideRebateMm: r.sideRebateMm ?? tol.sideRebateMm,
+          floorCondition: r.floorCondition || tol.floorCondition,
+          shutterSizeText: tol.shutterSizeCmText,
           handing: r.hingeSide === 'L' ? 'LH' : 'RH',
           lockType: r.lockType,
           finishColor: r.finishColor,
@@ -524,10 +614,6 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const handleDownloadVectorPdf = async (mode: 'A4_12L' | 'A4_12L_PACKING_PASS' | 'THERMAL') => {
     if (rows.length === 0) return;
     setIsDownloadingPdf(true);
@@ -535,15 +621,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
       const { generate12LStickerPdf, generate12LPackingPassPdf, generateThermal4x2Pdf } = await import('@/lib/utils/pdfStickerEngine');
       const items = rows.map((row, idx) => {
         const frame = getFrameProfile(row.frameTypeId);
-        const calc = computeStickerSizes({
-          rawHeightCm: row.rawHeightCm,
-          rawWidthTopCm: row.rawWidthTopCm,
-          rawWidthBtmCm: row.rawWidthBtmCm,
-          widthLinked: row.widthLinked,
-          hDeductionCm: frame.hDeductionCm ?? 4.5,
-          wDeductionCm: frame.wDeductionCm ?? 7.6,
-          hingeSide: row.hingeSide,
-        });
+        const { tol, hDedMm, wDedMm, calc } = resolveDoorRowMetrics(row, frame);
         const isOnlyDoor =
           frame.material === 'NONE' || frame.name.toLowerCase().includes('only door');
         const isTapered = !row.widthLinked && Math.abs(row.rawWidthTopCm - row.rawWidthBtmCm) > 0.05;
@@ -562,8 +640,8 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
           roomLabel: row.roomTag || `Door #${idx + 1}`,
           rebateLabel: frame.name || 'Mini 40x25',
           doorThicknessLabel: '28mm',
-          hDedMm: Math.max(0, Math.round((frame.hDeductionCm ?? 4.5) * 10)),
-          wDedMm: Math.max(0, Math.round((frame.wDeductionCm ?? 7.6) * 10)),
+          hDedMm,
+          wDedMm,
           doorNumber: idx + 1,
           totalDoorsInOrder: rows.length,
           rawHeightCm: row.rawHeightCm,
@@ -762,21 +840,6 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
 
               <button
                 type="button"
-                onClick={handlePrint}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-black transition cursor-pointer shadow-lg"
-              >
-                <Printer className="w-4 h-4" />
-                <span>
-                  {printFormat === 'THERMAL'
-                    ? 'Print 4"×2" Labels'
-                    : printFormat === 'A4_12L_PACKING_PASS'
-                    ? 'Print 12L Packing Pass'
-                    : 'Print 12L Stickers'}
-                </span>
-              </button>
-
-              <button
-                type="button"
                 onClick={onClose}
                 className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/50 text-slate-400 hover:text-white cursor-pointer"
               >
@@ -967,15 +1030,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                 ) : (
                   rows.map((row) => {
                     const frame = getFrameProfile(row.frameTypeId);
-                    const calc = computeStickerSizes({
-                      rawHeightCm: row.rawHeightCm,
-                      rawWidthTopCm: row.rawWidthTopCm,
-                      rawWidthBtmCm: row.rawWidthBtmCm,
-                      widthLinked: row.widthLinked,
-                      hDeductionCm: frame.hDeductionCm ?? 4.5,
-                      wDeductionCm: frame.wDeductionCm ?? 7.6,
-                      hingeSide: row.hingeSide,
-                    });
+                    const { tol, hDedMm, wDedMm, calc } = resolveDoorRowMetrics(row, frame);
                     const rawBtmInch = cmToTapeInch(row.widthLinked ? row.rawWidthTopCm : row.rawWidthBtmCm);
 
                     return (
@@ -1038,24 +1093,42 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
 
                         {/* 2. CHOWKHAT FRAME */}
                         <td className="p-2 space-y-1">
-                          <select
-                            value={frame.id}
-                            onChange={(e) => updateRow(row.id, { frameTypeId: e.target.value })}
-                            className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded font-bold text-white text-xs cursor-pointer"
-                          >
-                            {framesList.map((f) => (
-                              <option key={f.id} value={f.id}>
-                                {f.name}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="flex items-center gap-1">
+                            <select
+                              value={frame.id}
+                              onChange={(e) => {
+                                const newFrame = getFrameProfile(e.target.value);
+                                updateRow(row.id, {
+                                  frameTypeId: newFrame.id,
+                                  isCustomDeduction: false,
+                                  hDeductionMm: newFrame.hDeductionCm ? Math.round(newFrame.hDeductionCm * 10) : undefined,
+                                  wDeductionMm: newFrame.wDeductionCm ? Math.round(newFrame.wDeductionCm * 10) : undefined,
+                                });
+                              }}
+                              className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded font-bold text-white text-xs cursor-pointer"
+                            >
+                              {framesList.map((f) => (
+                                <option key={f.id} value={f.id}>
+                                  {f.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => applyFrameToAll(frame.id)}
+                              className="px-1.5 py-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-600/40 rounded text-[9px] font-black text-amber-300 shrink-0 uppercase cursor-pointer"
+                              title="Apply this frame profile and tolerances to all doors in this job card"
+                            >
+                              All
+                            </button>
+                          </div>
                           <div className="text-[10px] text-slate-400 truncate" title={frame.description}>
                             {frame.wallThicknessMm > 0
                               ? `${frame.wallThicknessMm}×${frame.sectionWidthMm}mm Section`
                               : 'Shutter Only (No Frame)'}
                           </div>
                           <div className="text-[9.5px] font-mono text-rose-400 font-semibold">
-                            Tol: H -{calc.hMinusCm}cm | W -{calc.wMinusCm}cm
+                            Tol: H -{hDedMm}mm ({calc.hMinusCm}cm) | W -{wDedMm}mm ({calc.wMinusCm}cm)
                           </div>
                         </td>
 
@@ -1327,15 +1400,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
               <div className="print:space-y-0">
                 {rows.map((row, idx) => {
                   const frame = getFrameProfile(row.frameTypeId);
-                  const calc = computeStickerSizes({
-                    rawHeightCm: row.rawHeightCm,
-                    rawWidthTopCm: row.rawWidthTopCm,
-                    rawWidthBtmCm: row.rawWidthBtmCm,
-                    widthLinked: row.widthLinked,
-                    hDeductionCm: frame.hDeductionCm ?? 4.5,
-                    wDeductionCm: frame.wDeductionCm ?? 7.6,
-                    hingeSide: row.hingeSide,
-                  });
+                  const { tol, hDedMm, wDedMm, calc } = resolveDoorRowMetrics(row, frame);
                   const isOnlyDoor =
                     frame.material === 'NONE' || frame.name.toLowerCase().includes('only door');
                   const hasRemark = Boolean(row.remark && row.remark.trim().length > 0);
@@ -1457,17 +1522,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                         {sheetRows.map((row, localIdx) => {
                           const doorIndex = pageIdx * 12 + localIdx + 1;
                           const frame = getFrameProfile(row.frameTypeId);
-                          const calc = computeStickerSizes({
-                            rawHeightCm: row.rawHeightCm,
-                            rawWidthTopCm: row.rawWidthTopCm,
-                            rawWidthBtmCm: row.rawWidthBtmCm,
-                            widthLinked: row.widthLinked,
-                            hDeductionCm: frame.hDeductionCm ?? 4.5,
-                            wDeductionCm: frame.wDeductionCm ?? 7.6,
-                            hingeSide: row.hingeSide,
-                          });
-                          const hDedMm = Math.max(0, Math.round((frame.hDeductionCm ?? 4.5) * 10));
-                          const wDedMm = Math.max(0, Math.round((frame.wDeductionCm ?? 7.6) * 10));
+                          const { tol, hDedMm, wDedMm, calc } = resolveDoorRowMetrics(row, frame);
                           const rawBtm = row.widthLinked ? row.rawWidthTopCm : row.rawWidthBtmCm;
                           const doorTag = row.roomTag || `Door #${doorIndex}`;
                           const modelDisplay = row.modelName.includes('mm') ? row.modelName : `${row.modelName} (28mm)`;
@@ -1558,12 +1613,12 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                                   </div>
                                   <div className="px-1.5 py-[2px] flex-1 flex flex-col justify-between leading-[1.15]">
                                     <div className="text-[8.2px] font-black text-slate-950">
-                                      HEIGHT: <span className="font-sans font-black tabular-nums">{calc.finHText}</span>
+                                      HEIGHT: <span className="font-sans font-black tabular-nums">{calc.finHText} cm</span>
                                     </div>
                                     <div className="text-[7.5px] font-black text-slate-950 truncate">
                                       WIDTH:{' '}
                                       <span className="font-sans font-black tabular-nums">
-                                        T:{calc.finTopWText} B:{calc.finBtmWText}
+                                        T:{calc.finTopWText} B:{calc.finBtmWText} cm
                                       </span>
                                     </div>
                                     <div className="text-[6.3px] text-slate-600 font-semibold">
@@ -1656,15 +1711,7 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
                         {sheetRows.map((row, localIdx) => {
                           const doorIndex = pageIdx * 12 + localIdx + 1;
                           const frame = getFrameProfile(row.frameTypeId);
-                          const calc = computeStickerSizes({
-                            rawHeightCm: row.rawHeightCm,
-                            rawWidthTopCm: row.rawWidthTopCm,
-                            rawWidthBtmCm: row.rawWidthBtmCm,
-                            widthLinked: row.widthLinked,
-                            hDeductionCm: frame.hDeductionCm ?? 4.5,
-                            wDeductionCm: frame.wDeductionCm ?? 7.6,
-                            hingeSide: row.hingeSide,
-                          });
+                          const { tol, hDedMm, wDedMm, calc } = resolveDoorRowMetrics(row, frame);
                           const isOnlyDoor =
                             frame.material === 'NONE' || frame.name.toLowerCase().includes('only door');
                           const hasRemark = row.remark && row.remark.trim().length > 0;
@@ -1883,10 +1930,36 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
           setIsFrameManagerOpen(false);
           loadFrames();
         }}
+        onFramesUpdated={(updatedFrames) => {
+          setFramesList(updatedFrames);
+          setRows((prev) =>
+            prev.map((r) => {
+              const f =
+                updatedFrames.find((uf) => uf.id === r.frameTypeId || uf.name === r.frameTypeId) ||
+                updatedFrames[0];
+              if (f && !r.isCustomDeduction) {
+                return {
+                  ...r,
+                  hDeductionMm: f.hDeductionCm ? Math.round(f.hDeductionCm * 10) : undefined,
+                  wDeductionMm: f.wDeductionCm ? Math.round(f.wDeductionCm * 10) : undefined,
+                };
+              }
+              return r;
+            })
+          );
+        }}
         onSelectFrame={(frameName) => {
           const found = framesList.find((f) => f.name === frameName);
           if (found) {
-            setRows((prev) => prev.map((r) => ({ ...r, frameTypeId: found.id })));
+            setRows((prev) =>
+              prev.map((r) => ({
+                ...r,
+                frameTypeId: found.id,
+                isCustomDeduction: false,
+                hDeductionMm: found.hDeductionCm ? Math.round(found.hDeductionCm * 10) : undefined,
+                wDeductionMm: found.wDeductionCm ? Math.round(found.wDeductionCm * 10) : undefined,
+              }))
+            );
           }
           setIsFrameManagerOpen(false);
         }}
@@ -1896,6 +1969,21 @@ export function StickerPrintModal({ isOpen, onClose, order, onOrderUpdated }: St
       <CustomToleranceManagerModal
         isOpen={isToleranceManagerOpen}
         onClose={() => setIsToleranceManagerOpen(false)}
+        onSelectPreset={(preset) => {
+          setRows((prev) =>
+            prev.map((r) => ({
+              ...r,
+              isCustomDeduction: true,
+              hDeductionMm: preset.heightDeductionMm,
+              wDeductionMm: preset.widthDeductionMm,
+            }))
+          );
+          setIsToleranceManagerOpen(false);
+          setSaveToast(
+            `✓ Applied tolerance preset "${preset.name}" (-${preset.heightDeductionMm}mm H / -${preset.widthDeductionMm}mm W) to all doors!`
+          );
+          setTimeout(() => setSaveToast(null), 3500);
+        }}
       />
 
       {/* INLINE ADD MODEL MODAL */}

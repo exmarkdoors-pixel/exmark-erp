@@ -4,9 +4,11 @@ import { logAuditEvent } from '@/lib/audit/auditLogger';
 import {
   adjustFinishedGoodsStock,
   adjustRawMaterialStock,
+  bulkUpdateRawMaterials,
   createFgBufferReplenishmentOrder,
   createRawMaterialItem,
   deleteRawMaterialItem,
+  generateRawMaterialsCsv,
   getCompanyStockOverview,
   getFinishedGoodsInventory,
   getRawMaterialsInventory,
@@ -16,6 +18,10 @@ import {
   saveStockMaintenanceConfig,
   updateRawMaterialItem,
 } from '@/lib/services/stockMaintenanceService';
+import {
+  syncSingleStockItemToBoq,
+  syncBoqRatesFromStockLedger,
+} from '@/lib/services/boqRateService';
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,6 +34,17 @@ export async function GET(req: NextRequest) {
       'Accounts',
     ]);
     if (auth.errorResponse) return auth.errorResponse;
+
+    const { searchParams } = new URL(req.url);
+    if (searchParams.get('export') === 'csv') {
+      const csv = generateRawMaterialsCsv();
+      return new NextResponse(csv, {
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="EXMARK-Raw-Materials-Stock-Audit.csv"',
+        },
+      });
+    }
 
     const overview = getCompanyStockOverview();
     const rawMaterials = getRawMaterialsInventory();
@@ -208,10 +225,19 @@ export async function POST(req: NextRequest) {
         details: { action: 'CREATE_RM', name: created.name, stock: created.currentStock },
       }).catch(() => {});
 
+      // Auto-sync to BOQ formula rates if applicable
+      const boqSync = await syncSingleStockItemToBoq(created).catch(() => ({
+        synced: false as const,
+        fieldName: undefined,
+        newRate: undefined,
+      }));
+      const syncNote = boqSync.synced && boqSync.fieldName ? ` (Auto-synced to BOQ: ${boqSync.fieldName})` : '';
+
       return NextResponse.json({
         success: true,
         data: created,
-        message: `Added new raw material ${created.name} (${created.itemCode}) with ${created.currentStock} ${created.unit}!`,
+        boqSync,
+        message: `Added new raw material ${created.name} (${created.itemCode}) with ${created.currentStock} ${created.unit}!${syncNote}`,
       });
     }
 
@@ -244,14 +270,71 @@ export async function POST(req: NextRequest) {
         details: { action: 'UPDATE_RM', name: updated.name },
       }).catch(() => {});
 
+      // Auto-sync to BOQ formula rates if applicable
+      const boqSync = await syncSingleStockItemToBoq(updated).catch(() => ({
+        synced: false as const,
+        fieldName: undefined,
+        newRate: undefined,
+      }));
+      const syncNote = boqSync.synced && boqSync.fieldName ? ` (Auto-synced to BOQ: ${boqSync.fieldName})` : '';
+
       return NextResponse.json({
         success: true,
         data: updated,
-        message: `Updated raw material item ${updated.name} (${updated.itemCode})!`,
+        boqSync,
+        message: `Updated raw material item ${updated.name} (${updated.itemCode})!${syncNote}`,
       });
     }
 
-    // 7. Delete Raw Material Item (Clean up unwanted demo items)
+    // 7. Bulk Sync All Raw Material Prices to BOQ Formulas
+    if (action === 'SYNC_ALL_TO_BOQ') {
+      const result = await syncBoqRatesFromStockLedger();
+      return NextResponse.json({
+        success: true,
+        data: result,
+        message: `Successfully synchronized ${result.updatedCount} material rate(s) from Stock Ledger into BOQ formulas!`,
+      });
+    }
+
+    // 7b. Bulk Update Raw Materials (Physical Count, Consignment Inward, Grid Edit, CSV Import)
+    if (action === 'BULK_UPDATE_RM') {
+      const payload = body.payload || body;
+      const result = await bulkUpdateRawMaterials(payload);
+
+      await logAuditEvent({
+        userId: auth.user?.id || null,
+        action: 'INVENTORY_COUNT_ADJUSTED',
+        entityType: 'INVENTORY',
+        entityId: 'BULK_UPDATE_RM',
+        details: {
+          mode: payload.mode,
+          updatedCount: result.updatedCount,
+          netStockVariance: result.netStockVariance,
+          netValuationDiff: result.netValuationDiff,
+          reason: payload.reason,
+          referenceNumber: payload.referenceNumber,
+        },
+      }).catch(() => {});
+
+      const varianceSign = result.netStockVariance > 0 ? '+' : '';
+      const valSign = result.netValuationDiff >= 0 ? '+' : '';
+      return NextResponse.json({
+        success: true,
+        data: result,
+        message: `Successfully updated ${result.updatedCount} raw material item(s) (Variance: ${varianceSign}${result.netStockVariance} KG, Valuation: ${valSign}₹${result.netValuationDiff.toLocaleString('en-IN')})`,
+      });
+    }
+
+    // 7c. Export Raw Materials CSV Data
+    if (action === 'EXPORT_RM_CSV') {
+      const csv = generateRawMaterialsCsv();
+      return NextResponse.json({
+        success: true,
+        data: { csv },
+      });
+    }
+
+    // 8. Delete Raw Material Item (Clean up unwanted demo items)
     if (action === 'DELETE_RM') {
       const id = String(body.id || body.itemId || '').trim();
       if (!id) {

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api/apiClient';
-import { X, ReceiptIndianRupee, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, ReceiptIndianRupee, CheckCircle2, AlertCircle, UserCheck } from 'lucide-react';
 import { Payment, PaymentMode, Invoice } from '@/types/finance';
 
 interface PaymentReceiptModalProps {
@@ -16,10 +16,31 @@ export function PaymentReceiptModal({ isOpen, onClose, onSaved, invoices }: Paym
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('NEFT');
+  const [salespersonId, setSalespersonId] = useState<string>('');
+  const [salesStaffList, setSalesStaffList] = useState<Array<{ id: string; name: string; employeeCode: string }>>([]);
   const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      apiFetch('/api/employees')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && Array.isArray(json.data)) {
+            setSalesStaffList(
+              json.data.map((e: any) => ({
+                id: e.id,
+                name: e.name,
+                employeeCode: e.employeeCode || e.code || 'EMP',
+              }))
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -42,6 +63,7 @@ export function PaymentReceiptModal({ isOpen, onClose, onSaved, invoices }: Paym
     }
 
     const selectedInv = invoices.find((i) => i.id === selectedInvoiceId);
+    const selectedStaff = salesStaffList.find((s) => s.id === salespersonId);
 
     setIsSubmitting(true);
     try {
@@ -54,6 +76,10 @@ export function PaymentReceiptModal({ isOpen, onClose, onSaved, invoices }: Paym
           customerName: selectedInv?.customerName || 'Direct Client',
           amount: amt,
           paymentMode,
+          salespersonId: selectedStaff?.id || undefined,
+          salespersonName: selectedStaff?.name || undefined,
+          salespersonCode: selectedStaff?.employeeCode || undefined,
+          collectionType: paymentMode === 'CASH' ? 'CASH_IN_HAND' : 'DIRECT_BANK',
           referenceNumber: referenceNumber.trim() || undefined,
           notes: notes.trim() || undefined,
         }),
@@ -149,6 +175,25 @@ export function PaymentReceiptModal({ isOpen, onClose, onSaved, invoices }: Paym
                 <option value="CASH">Cash at Factory Counter</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-1">
+              <UserCheck className="w-3.5 h-3.5 text-amber-500" />
+              <span>Collected By (Sales Executive)</span>
+            </label>
+            <select
+              value={salespersonId}
+              onChange={(e) => setSalespersonId(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white font-semibold"
+            >
+              <option value="">-- Direct / House Account (None) --</option>
+              {salesStaffList.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.employeeCode || 'Sales'})
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

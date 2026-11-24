@@ -503,7 +503,7 @@ export default function SiteInstallationHub() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">Schedule Site Fitting Order</h3>
-                  <p className="text-xs text-slate-400">സൈറ്റ് ഇൻസ്റ്റലേഷൻ ഷെഡ്യൂൾ ചെയ്യുക</p>
+                  <p className="text-xs text-slate-400">Schedule site door installation and carpenter dispatch</p>
                 </div>
               </div>
               <button

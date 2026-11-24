@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeRequest } from '@/lib/auth/authorization';
 import {
+  checkAccountDeletability,
   createChartAccount,
   deleteChartAccount,
   listChartOfAccounts,
@@ -14,6 +15,13 @@ export async function GET(req: NextRequest) {
   if (auth.errorResponse) return auth.errorResponse;
 
   try {
+    const { searchParams } = new URL(req.url);
+    const checkDeleteId = searchParams.get('checkDeleteId');
+    if (checkDeleteId) {
+      const check = checkAccountDeletability(checkDeleteId);
+      return NextResponse.json({ success: true, data: check });
+    }
+
     const accounts = listChartOfAccounts();
     return NextResponse.json({ success: true, data: accounts });
   } catch (err: unknown) {

@@ -7,6 +7,8 @@ import {
   allocateStockDoor,
   releaseStockDoor,
   getReadyStockDoor,
+  sellStockDoor,
+  returnDeliveredDoorToStock,
 } from '@/lib/services/readyStockDoorService';
 
 export async function GET(req: NextRequest) {
@@ -24,9 +26,10 @@ export async function GET(req: NextRequest) {
 
     const status = searchParams.get('status') || 'ALL';
     const itemType = searchParams.get('itemType') || 'ALL';
+    const condition = searchParams.get('condition') || 'ALL';
     const search = searchParams.get('search') || '';
 
-    const data = await listReadyStockDoors({ status, itemType, search });
+    const data = await listReadyStockDoors({ status, itemType, condition, search });
     return NextResponse.json({ success: true, count: data.length, data });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to list ready stock doors';
@@ -51,6 +54,27 @@ export async function POST(req: NextRequest) {
       if (!id) return NextResponse.json({ success: false, error: 'Missing stock door ID' }, { status: 400 });
       const released = await releaseStockDoor(id);
       return NextResponse.json({ success: true, data: released });
+    }
+
+    if (action === 'SELL') {
+      const { id, salePrice, customerName, salespersonId, salespersonCode, salespersonName, notes } = body;
+      if (!id) return NextResponse.json({ success: false, error: 'Missing stock door ID' }, { status: 400 });
+      if (!customerName?.trim()) return NextResponse.json({ success: false, error: 'Customer name is required' }, { status: 400 });
+      const sold = await sellStockDoor({
+        id,
+        salePrice: Number(salePrice),
+        customerName: customerName.trim(),
+        salespersonId,
+        salespersonCode,
+        salespersonName,
+        notes,
+      });
+      return NextResponse.json({ success: true, data: sold });
+    }
+
+    if (action === 'RETURN_DELIVERY') {
+      const restocked = await returnDeliveredDoorToStock(body);
+      return NextResponse.json({ success: true, data: restocked });
     }
 
     // Default: create new stock door

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ProductCategoryProvider } from "@/lib/context/ProductCategoryContext";
 import { DisplayPreferencesProvider } from "@/lib/context/DisplayPreferencesContext";
+import { FactoryBackgroundSlideshow } from "@/components/layout/FactoryBackgroundSlideshow";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
 
 export const metadata: Metadata = {
@@ -29,8 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className="h-full antialiased"
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col relative">
         <DisplayPreferencesProvider>
+          <FactoryBackgroundSlideshow />
           <ProductCategoryProvider>
             {children}
             <PwaRegister />

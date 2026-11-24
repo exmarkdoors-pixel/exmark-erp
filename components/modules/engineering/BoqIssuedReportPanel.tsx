@@ -233,7 +233,7 @@ export function BoqIssuedReportPanel({
             </span>
           </h3>
           <p className="text-[11px] text-slate-400 mt-0.5">
-            ഓരോ ഡോറിനും, ഓർഡറിനും, ബാച്ചിനും ഇഷ്യൂ ചെയ്ത മെറ്റീരിയൽ അളവുകളും വാല്യൂവും (Door-Wise • Order-Wise • Batch-Wise Audit Ledger).
+            Material quantities and financial valuation issued per door, order, and batch (Door-Wise • Order-Wise • Batch-Wise Audit Ledger).
           </p>
         </div>
 

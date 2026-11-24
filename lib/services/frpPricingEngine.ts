@@ -84,7 +84,7 @@ export interface FrpRateCardSettings {
     D: number;               // default: 8800
     E: number;               // default: 9500
   };
-  belowSizeCalculationMode: 'DIVIDED_RATE' | 'BASE_MINIMUM'; // default: 'DIVIDED_RATE'
+  belowSizeCalculationMode: 'DIVIDED_RATE' | 'BASE_MINIMUM'; // default: 'BASE_MINIMUM' (Base Piece Minimum Locked)
   locks?: LockOption[];
   colours?: ColourOption[];
   doorThicknesses?: DoorThicknessOption[];
@@ -164,7 +164,7 @@ export const DEFAULT_FRP_RATE_CARD: FrpRateCardSettings = {
     D: 8800,
     E: 9500,
   },
-  belowSizeCalculationMode: 'DIVIDED_RATE',
+  belowSizeCalculationMode: 'BASE_MINIMUM',
   defaultInstallationRatePerDoor: 500,
   defaultInstallationLabel: 'Site Door & Frame Installation (Hardware & Fitting)',
   locks: DEFAULT_LOCK_OPTIONS,

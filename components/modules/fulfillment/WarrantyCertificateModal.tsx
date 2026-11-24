@@ -272,7 +272,7 @@ export function WarrantyCertificateModal({ isOpen, onClose, initialCertificate, 
                   </div>
 
                   <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 space-y-1 font-sans">
-                    <span className="font-bold text-slate-800 dark:text-slate-200">സംരക്ഷണ നിർദ്ദേശങ്ങൾ (Malayalam)</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">Maintenance Guidelines</span>
                     <ul className="list-disc pl-4 text-slate-600 dark:text-slate-400 space-y-1">
                       {certificate.bilingualCareInstructions.malayalam.map((inst, i) => (
                         <li key={i}>{inst}</li>

@@ -556,7 +556,7 @@ export default function PlantMaintenanceHub() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">Create Maintenance Work Order</h3>
-                  <p className="text-xs text-slate-400">മെഷീൻ സർവീസ് / റിപ്പയർ ടിക്കറ്റ്</p>
+                  <p className="text-xs text-slate-400">Log machine service and breakdown repair ticket</p>
                 </div>
               </div>
               <button

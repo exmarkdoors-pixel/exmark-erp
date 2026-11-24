@@ -109,7 +109,7 @@ export function RecordAdvanceModal({
         const origin = window.location.origin;
         const link = `${origin}/order-status/${encodeURIComponent(order.orderNumber)}`;
         const msg = encodeURIComponent(
-          `*EXMARK ARCHITECTURAL FRP DOORS* 🚪✨\nപ്രിയപ്പെട്ട *${order.customerName}*,\n\nതാങ്കളുടെ അഡ്വാൻസ് പേയ്‌മെന്റ് (₹${depositAmount.toLocaleString('en-IN')}) വിജയകരമായി വെരിഫൈ ചെയ്തിരിക്കുന്നു.\nYour advance deposit is verified & doors are entering manufacturing.\n\n🔗 *Live Order & Door Status Tracking Link:*\n${link}\n\n📞 Factory Support: +91 94479 28866\nThank you for choosing EXMARK!`
+          `*EXMARK ARCHITECTURAL FRP DOORS* 🚪✨\nDear *${order.customerName}*,\n\nYour advance deposit payment of ₹${depositAmount.toLocaleString('en-IN')} has been verified successfully.\nYour order has entered production.\n\n🔗 *Live Order & Door Status Tracking Link:*\n${link}\n\n📞 Factory Support: +91 94479 28866\nThank you for choosing EXMARK!`
         );
         window.open(`https://wa.me/?text=${msg}`, '_blank');
       }
@@ -131,7 +131,7 @@ export function RecordAdvanceModal({
             <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
             <div>
               <h3 className="font-bold text-white text-sm">
-                Record Advance Deposit / പേയ്‌മെന്റ് വെരിഫിക്കേഷൻ
+                Record Advance Deposit / Payment Verification
               </h3>
               <p className="text-[10px] text-slate-400">
                 Minimum 40% mandatory deposit gatekeeper for plant floor release
@@ -297,7 +297,7 @@ export function RecordAdvanceModal({
           >
             <CheckCircle2 className="w-4 h-4" />
             <span>
-              {isSubmitting ? 'Verifying...' : 'Verify & Save Advance (അഡ്വാൻസ് ഉറപ്പാക്കുക)'}
+              {isSubmitting ? 'Verifying...' : 'Verify & Save Advance'}
             </span>
           </button>
         </div>

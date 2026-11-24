@@ -1,3 +1,5 @@
+import type { AppliedDoorTolerances } from '@/lib/services/toleranceSyncEngine';
+
 export type MeasurementUnit = 'CM' | 'INCH' | 'MM';
 
 export interface DoorItemInput {
@@ -8,7 +10,7 @@ export interface DoorItemInput {
   sizePreset?: string;              // e.g. "Mini Size (72×50)"
   frameType: string;                // e.g. "WPC Solid Extruded 100x65mm Frame"
   colour: string;                   // e.g. "Natural Teak (EXGC-510)"
-  insideColour?: string;            // e.g. "Inside Colour (ഇൻസൈഡ് കളർ)..."
+  insideColour?: string;            // e.g. "Inside Colour (Light Teak / Pure White)..."
   hingeSide: string;                // e.g. "Left Hand (LH) - Inward"
   lockType: string;                 // e.g. "Baby Latch (+₹200)"
   lockPrice?: number;               // e.g. 200
@@ -33,6 +35,7 @@ export interface DoorItemInput {
   calculatedFrameRft?: number;      // e.g. 16
   remarks?: string;
   photoCount?: number;
+  tolerances?: AppliedDoorTolerances;
 }
 
 export interface SiteMeasurementRecord {

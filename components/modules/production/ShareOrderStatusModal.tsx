@@ -73,7 +73,7 @@ export function ShareOrderStatusModal({
 
   const getBilingualMessage = () => {
     const custName = order.customerName || 'Valued Customer';
-    return `*EXMARK ARCHITECTURAL FRP DOORS* 🚪✨\nപ്രിയപ്പെട്ട *${custName}*,\n\nതാങ്കളുടെ വാതിലുകളുടെ ഓർഡർ *#${jobCard}* ഫാക്ടറി പ്രൊഡക്ഷനിലേക്ക് കടന്നിരിക്കുന്നു.\nYour door project is in active manufacturing.\n\n🔗 *Live Order & Door Status Tracking Link:*\n${statusLink}\n\n🚪 *Total Doors:* ${order.quantity || 1} Nos\n📅 *Target Delivery:* ${order.targetDeliveryDate || 'As scheduled'}\n🏢 *Factory:* EXMARK DOORS Kerala\n📞 *Support:* +91 94479 28866\n\nഓരോ വാതിലിന്റെയും തത്സമയ സ്റ്റാറ്റസ് മുകളിലെ ലിങ്കിൽ കാണാവുന്നതാണ്.\nThank you for choosing EXMARK!`;
+    return `*EXMARK ARCHITECTURAL FRP DOORS* 🚪✨\nDear *${custName}*,\n\nYour doors order *#${jobCard}* has entered active factory production.\nYour door project is in active manufacturing.\n\n🔗 *Live Order & Door Status Tracking Link:*\n${statusLink}\n\n🚪 *Total Doors:* ${order.quantity || 1} Nos\n📅 *Target Delivery:* ${order.targetDeliveryDate || 'As scheduled'}\n🏢 *Factory:* EXMARK DOORS Kerala\n📞 *Support:* +91 94479 28866\n\nLive real-time status of each door is viewable on the link above.\nThank you for choosing EXMARK!`;
   };
 
   const getEnglishMessage = () => {
@@ -196,7 +196,7 @@ export function ShareOrderStatusModal({
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Bilingual (Mal + Eng)
+                  Detailed
                 </button>
                 <button
                   type="button"
@@ -207,7 +207,7 @@ export function ShareOrderStatusModal({
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  English Only
+                  Concise
                 </button>
               </div>
             </div>

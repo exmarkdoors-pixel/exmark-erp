@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: exmark-erp-staging
+    name: exmark-erp
     env: node
     plan: free
     region: singapore
@@ -13,25 +13,14 @@ services:
       - key: NODE_ENV
         value: production
       - key: STAGE
-        value: staging
+        value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: exmark-staging-db
-          property: connectionString
+        sync: false
       - key: DIRECT_URL
-        fromDatabase:
-          name: exmark-staging-db
-          property: connectionString
+        sync: false
       - key: AUTH_SECRET
         generateValue: true
       - key: NEXT_PUBLIC_FACTORY_MODE
         value: "false"
       - key: EXMARK_OMIT_HSTS
         value: "false"
-
-databases:
-  - name: exmark-staging-db
-    plan: free
-    region: singapore
-    databaseName: exmark_erp
-    user: exmark_user

@@ -185,7 +185,7 @@ export default function AuditActivityLogsTab() {
           </div>
           <div>
             <h2 className="text-base font-black uppercase tracking-wider text-black flex items-center gap-2">
-              System Activity &amp; Audit Log (സിസ്റ്റം ആക്റ്റിവിറ്റി ലോഗ്)
+              System Activity &amp; Audit Log
             </h2>
             <p className="text-xs text-slate-600 font-medium">
               Real-time persistent audit tracking across all transactions, creations, edits, and deletions.
@@ -267,12 +267,12 @@ export default function AuditActivityLogsTab() {
             }}
             className="px-2.5 py-1.5 border border-slate-300 rounded-md bg-white text-black font-bold text-xs focus:border-black outline-none"
           >
-            <option value="ALL">All Actions (എല്ലാം)</option>
-            <option value="CREATE">CREATE (നിർമ്മിച്ചത്)</option>
-            <option value="UPDATE">UPDATE / EDIT (എഡിറ്റ് ചെയ്തത്)</option>
-            <option value="DELETE">DELETE (ഡിലീറ്റ് ചെയ്തത്)</option>
-            <option value="BOQ">BOQ Actions (BOQ വൗച്ചറുകൾ)</option>
-            <option value="STATUS_CHANGE">STATUS CHANGE (സ്റ്റേജ് മാറ്റങ്ങൾ)</option>
+            <option value="ALL">All Actions</option>
+            <option value="CREATE">CREATE</option>
+            <option value="UPDATE">UPDATE / EDIT</option>
+            <option value="DELETE">DELETE</option>
+            <option value="BOQ">BOQ Actions</option>
+            <option value="STATUS_CHANGE">STATUS CHANGE</option>
           </select>
         </div>
 
@@ -287,7 +287,7 @@ export default function AuditActivityLogsTab() {
             }}
             className="px-2.5 py-1.5 border border-slate-300 rounded-md bg-white text-black font-bold text-xs focus:border-black outline-none"
           >
-            <option value="ALL">All Modules (എല്ലാ മൊഡ്യൂളുകളും)</option>
+            <option value="ALL">All Modules</option>
             <option value="ORDER">Production Orders / Job Cards</option>
             <option value="QUOTATION">Quotations</option>
             <option value="BOQ">BOQ &amp; Material Issue</option>
@@ -309,7 +309,7 @@ export default function AuditActivityLogsTab() {
             className="px-2.5 py-1.5 border border-slate-300 rounded-md bg-white text-black font-bold text-xs focus:border-black outline-none"
           >
             <option value="ALL">All History</option>
-            <option value="TODAY">Today (ഇന്ന്)</option>
+            <option value="TODAY">Today</option>
             <option value="LAST_7_DAYS">Last 7 Days</option>
             <option value="THIS_MONTH">This Month</option>
           </select>
@@ -490,7 +490,7 @@ export default function AuditActivityLogsTab() {
               {/* Details & Diff Payload */}
               <div>
                 <label className="text-xs font-black uppercase tracking-wider text-black block mb-1">
-                  Change Diff &amp; Payload Details (മാറ്റങ്ങളുടെ വിശദാംശങ്ങൾ):
+                  Change Diff &amp; Payload Details:
                 </label>
                 {selectedLog.details && Object.keys(selectedLog.details).length > 0 ? (
                   <div className="border border-slate-300 rounded-lg p-3 bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-[300px]">

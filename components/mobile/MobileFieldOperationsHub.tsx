@@ -36,6 +36,7 @@ import {
   Home,
   Download,
   ArrowUpCircle,
+  Sliders,
 } from 'lucide-react';
 import {
   calculateFrpDoorPrice,
@@ -49,6 +50,9 @@ import {
 import type { MobileStaffRole } from '@/lib/auth/operationalStaffTypes';
 import { MobileStoreBoqPanel } from './MobileStoreBoqPanel';
 import { MobileCrmLeadsPanel } from './MobileCrmLeadsPanel';
+import { MobileCustomerModal } from './MobileCustomerModal';
+import { computeDoorTolerances, FloorCondition } from '@/lib/services/toleranceCalculation';
+import type { Customer } from '@/lib/services/customerService';
 
 export interface MobileOpeningMeasurement {
   id: string;
@@ -75,6 +79,9 @@ export interface MobileOpeningMeasurement {
   colourId?: string;
   photo?: string;
   remark?: string;
+  floorCondition?: FloorCondition;
+  customBottomClearanceMm?: number;
+  customSideRebateMm?: number;
 }
 
 export interface MobileFieldOperationsHubProps {
@@ -177,6 +184,33 @@ export function MobileFieldOperationsHub({
   const [includeGst, setIncludeGst] = useState<boolean>(false);
   const [advancePercent, setAdvancePercent] = useState<number>(40);
 
+  // Mobile Customer Creation & Autocomplete states
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
+  const [matchingCustomers, setMatchingCustomers] = useState<Customer[]>([]);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!customerSearchQuery.trim() || customerSearchQuery.length < 2) {
+      setMatchingCustomers([]);
+      setShowCustomerDropdown(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/customers?search=${encodeURIComponent(customerSearchQuery.trim())}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setMatchingCustomers(json.data.slice(0, 5));
+          setShowCustomerDropdown(true);
+        }
+      } catch {
+        // Ignore
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [customerSearchQuery]);
+
   const [openings, setOpenings] = useState<MobileOpeningMeasurement[]>([
     {
       id: 'op-1',
@@ -235,22 +269,24 @@ export function MobileFieldOperationsHub({
     fetch('/api/quotations/pricing-rules')
       .then((r) => r.json())
       .then((data) => {
-        if (data && data.success && data.data) {
-          setPricingSettings(data.data);
+        if (data && data.success && (data.data || data.settings)) {
+          setPricingSettings(data.data || data.settings);
         }
       })
       .catch((e) => console.error('Failed to load pricing rules:', e));
   }, []);
 
-  // Compute live price using ERP software engine matching exact rupee
+  // Compute live price using ERP software engine matching exact rupee with Base Piece Minimum Price Lock
   const computeDoorPrice = (op: MobileOpeningMeasurement) => {
     const isCm = op.unit === 'cm';
     const withoutFrame = op.frameProfile.includes('Without Frame') || op.frameProfile.includes('Shutter Only');
     const lockPrice = pricingSettings?.locks?.find((l) => l.id === op.lockId)?.price;
     const colourExtra = pricingSettings?.colours?.find((c) => c.id === op.colourId)?.extraRate;
+    const baseMin = pricingSettings?.categoryPieceRates?.[op.category || 'A'] ?? DEFAULT_FRP_RATE_CARD.categoryPieceRates[op.category || 'A'];
 
+    let calcResult: any;
     if (isCm) {
-      return calculateFrpDoorPrice({
+      calcResult = calculateFrpDoorPrice({
         category: op.category || 'A',
         height: Number(op.heightCm) || 210,
         widthTop: Number(op.widthTopCm) || 80,
@@ -265,7 +301,7 @@ export function MobileFieldOperationsHub({
         settings: pricingSettings || undefined,
       });
     } else {
-      return calculateFrpDoorPrice({
+      calcResult = calculateFrpDoorPrice({
         category: op.category || 'A',
         height: Number(op.heightInches) || 80,
         heightFraction: op.heightFrac || '0',
@@ -283,6 +319,14 @@ export function MobileFieldOperationsHub({
         settings: pricingSettings || undefined,
       });
     }
+
+    // Enforce Base Piece Minimum Price Lock (minimum base rate preserved regardless of smaller size)
+    if (calcResult && calcResult.finalUnitRate < baseMin) {
+      calcResult.finalUnitRate = baseMin;
+      calcResult.breakdown = `Below Standard (${calcResult.actualSqft} sq.ft) — Base Piece Minimum Price Locked: ₹${baseMin.toLocaleString('en-IN')}`;
+    }
+
+    return calcResult;
   };
 
   const toFractionString = (val: number): string => {
@@ -655,7 +699,7 @@ export function MobileFieldOperationsHub({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-cyan-400 uppercase flex items-center gap-1.5">
                   <Ruler className="w-4 h-4" />
-                  Site Measurement Entry (സൈറ്റ് അളവ്)
+                  Site Measurement Entry
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-bold">
                   All Roles
@@ -663,15 +707,56 @@ export function MobileFieldOperationsHub({
               </div>
 
               <div className="space-y-2 text-xs">
-                <div>
-                  <label className="block text-slate-400 text-[11px] mb-0.5">Customer / Architect Name *</label>
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="text-slate-400 text-[11px] font-semibold">Customer / Architect Name *</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomerModalOpen(true)}
+                      className="inline-flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-bold bg-cyan-950/60 border border-cyan-500/40 px-2 py-0.5 rounded-md transition cursor-pointer"
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                      <span>+ New Customer</span>
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={siteCustomerName}
-                    onChange={(e) => setSiteCustomerName(e.target.value)}
-                    placeholder="E.g. KAMARU YUSUF"
-                    className="w-full bg-[#182849] border border-slate-700 rounded-lg p-2 text-white font-bold"
+                    onChange={(e) => {
+                      setSiteCustomerName(e.target.value);
+                      setCustomerSearchQuery(e.target.value);
+                    }}
+                    onFocus={() => {
+                      if (matchingCustomers.length > 0) setShowCustomerDropdown(true);
+                    }}
+                    placeholder="Search or enter customer name..."
+                    className="w-full bg-[#182849] border border-slate-700 rounded-lg p-2 text-white font-bold placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
                   />
+                  {showCustomerDropdown && matchingCustomers.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-[#0F172A] border border-cyan-500/50 rounded-xl shadow-2xl overflow-hidden divide-y divide-slate-800">
+                      {matchingCustomers.map((c) => (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setSiteCustomerName(c.name);
+                            if (c.phone) setSiteCustomerPhone(c.phone);
+                            if (c.town || c.district) setSiteLocation(`${c.town || ''}${c.town && c.district ? ', ' : ''}${c.district || ''}`);
+                            setShowCustomerDropdown(false);
+                            showToast(`✓ Selected: ${c.name} (${c.district})`);
+                          }}
+                          className="p-2.5 hover:bg-cyan-950/40 cursor-pointer flex items-center justify-between transition"
+                        >
+                          <div>
+                            <div className="font-bold text-white text-xs">{c.name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{c.phone} • {c.town}, {c.district}</div>
+                          </div>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-medium">
+                            {c.type}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -725,7 +810,7 @@ export function MobileFieldOperationsHub({
 
                 {/* Default Unit Selector Strip */}
                 <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400 font-medium">Default Unit (പ്രാരംഭ യൂണിറ്റ്):</span>
+                  <span className="text-[11px] text-slate-400 font-medium">Default Unit:</span>
                   <div className="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-700">
                     <button
                       type="button"
@@ -740,7 +825,7 @@ export function MobileFieldOperationsHub({
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      cm (സെ.മീ)
+                      cm
                     </button>
                     <button
                       type="button"
@@ -771,7 +856,7 @@ export function MobileFieldOperationsHub({
                   </span>
                   <span className="text-[10px] text-emerald-400 flex items-center gap-1 mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    ERP Rate Card Synced (തത്സമയ സോഫ്റ്റ്‌വെയർ നിരക്ക്)
+                    ERP Rate Card Synced
                   </span>
                 </div>
                 <button
@@ -843,7 +928,7 @@ export function MobileFieldOperationsHub({
                       </div>
 
                       <div className="flex-1">
-                        <span className="text-[9px] text-slate-400 font-medium block mb-0.5">ROOM / LOCATION (റൂം / സ്ഥലം)</span>
+                        <span className="text-[9px] text-slate-400 font-medium block mb-0.5">ROOM / LOCATION</span>
                         <input
                           type="text"
                           value={op.roomName}
@@ -924,7 +1009,7 @@ export function MobileFieldOperationsHub({
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           {/* Height in cm */}
                           <div className="bg-[#182849] p-2.5 rounded-lg border border-slate-700">
-                            <span className="text-[10px] text-cyan-400 block font-semibold">Height (ഉയരം cm) *</span>
+                            <span className="text-[10px] text-cyan-400 block font-semibold">Height (cm) *</span>
                             <div className="flex items-center gap-1.5 mt-1">
                               <input
                                 type="number"
@@ -946,7 +1031,7 @@ export function MobileFieldOperationsHub({
                           {/* Width Top in cm */}
                           <div className="bg-[#182849] p-2.5 rounded-lg border border-slate-700">
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-cyan-400 font-semibold">Width Top (വീതി cm) *</span>
+                              <span className="text-[10px] text-cyan-400 font-semibold">Width Top (cm) *</span>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -991,7 +1076,7 @@ export function MobileFieldOperationsHub({
                         {!op.widthLinked && (
                           <div className="bg-[#182849] p-2 rounded-lg border border-amber-600/60">
                             <span className="text-[10px] text-amber-300 block font-semibold">
-                              Width Bottom (വീതി താഴെ cm - Tapered Opening)
+                              Width Bottom (cm - Tapered Opening)
                             </span>
                             <div className="flex items-center gap-1.5 mt-1">
                               <input
@@ -1018,7 +1103,7 @@ export function MobileFieldOperationsHub({
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           {/* Height in Inches */}
                           <div className="bg-[#182849] p-2.5 rounded-lg border border-slate-700">
-                            <span className="text-[10px] text-slate-400 block font-semibold">Height (ഇഞ്ച്)</span>
+                            <span className="text-[10px] text-slate-400 block font-semibold">Height (Inches)</span>
                             <div className="flex items-center gap-1 mt-1">
                               <input
                                 type="number"
@@ -1200,6 +1285,65 @@ export function MobileFieldOperationsHub({
                       </div>
                     </div>
 
+                    {/* Floor Condition & Synchronized Tolerance Cutting Dimensions */}
+                    <div className="pt-1.5 border-t border-slate-800 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-cyan-400 font-bold flex items-center gap-1">
+                          <Sliders className="w-3 h-3" />
+                          <span>Floor Level &amp; Cutting Tolerance</span>
+                        </span>
+                        {(() => {
+                          const hMm = op.unit === 'cm' ? Number(op.heightCm) * 10 : (Number(op.heightInches) + parseFraction(op.heightFrac)) * 25.4;
+                          const wMm = op.unit === 'cm' ? Number(op.widthTopCm) * 10 : (Number(op.widthTopInches) + parseFraction(op.widthTopFrac)) * 25.4;
+                          const tol = computeDoorTolerances({
+                            rawHeightMm: hMm,
+                            rawWidthTopMm: wMm,
+                            frameTypeName: op.frameProfile,
+                            floorCondition: op.floorCondition || 'FINISHED_TILE',
+                          });
+                          return (
+                            <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded">
+                              Cutting: {tol.shutterSizeCmText}
+                            </span>
+                          );
+                        })()}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <label className="block text-slate-400 text-[10px] mb-0.5">Floor Level Condition</label>
+                          <select
+                            value={op.floorCondition || 'FINISHED_TILE'}
+                            onChange={(e) => {
+                              const val = e.target.value as any;
+                              setOpenings(openings.map((o) => (o.id === op.id ? { ...o, floorCondition: val } : o)));
+                            }}
+                            className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white"
+                          >
+                            <option value="FINISHED_TILE">🏢 Finished Tile (-12mm Bottom)</option>
+                            <option value="UNFINISHED_CONCRETE">🏗️ Unfinished Floor (-25mm Bottom)</option>
+                          </select>
+                        </div>
+                        <div className="flex items-end">
+                          {(() => {
+                            const hMm = op.unit === 'cm' ? Number(op.heightCm) * 10 : (Number(op.heightInches) + parseFraction(op.heightFrac)) * 25.4;
+                            const wMm = op.unit === 'cm' ? Number(op.widthTopCm) * 10 : (Number(op.widthTopInches) + parseFraction(op.widthTopFrac)) * 25.4;
+                            const tol = computeDoorTolerances({
+                              rawHeightMm: hMm,
+                              rawWidthTopMm: wMm,
+                              frameTypeName: op.frameProfile,
+                              floorCondition: op.floorCondition || 'FINISHED_TILE',
+                            });
+                            return (
+                              <div className="w-full p-1 rounded bg-slate-900/80 border border-slate-800 text-[9.5px] text-slate-300">
+                                <div>Deduction: -{tol.totalHeightDeductionCm}cm H / -{tol.totalWidthDeductionCm}cm W</div>
+                                <div className="text-cyan-300 font-mono">{tol.shutterTapeInchText}</div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Lock Hardware, Hinge & Swing */}
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       {/* Lock Hardware */}
@@ -1236,7 +1380,7 @@ export function MobileFieldOperationsHub({
                                 : 'bg-slate-900 border-slate-700 text-slate-400'
                             }`}
                           >
-                            LH (ഇടത്)
+                            LH (Left Hand)
                           </button>
                           <button
                             type="button"
@@ -1249,7 +1393,7 @@ export function MobileFieldOperationsHub({
                                 : 'bg-slate-900 border-slate-700 text-slate-400'
                             }`}
                           >
-                            RH (വലത്)
+                            RH (Right Hand)
                           </button>
                         </div>
                       </div>
@@ -1534,7 +1678,7 @@ ${includeGst ? `*GST (18%):* ₹${gstAmount.toLocaleString('en-IN')}\n` : ''}*ES
                       className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-900/30 transition active:scale-[0.99]"
                     >
                       <Share2 className="w-4 h-4" />
-                      <span>Instant WhatsApp Quote Share (ക്ലയന്റിന് അയക്കുക)</span>
+                      <span>Instant WhatsApp Quote Share</span>
                     </button>
 
                     {/* Save Record button */}
@@ -1546,7 +1690,7 @@ ${includeGst ? `*GST (18%):* ₹${gstAmount.toLocaleString('en-IN')}\n` : ''}*ES
                       className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer border border-slate-700"
                     >
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Save Measurements Record (സേവ് ചെയ്യുക)</span>
+                      <span>Save Measurements Record</span>
                     </button>
                   </div>
                 </div>
@@ -1612,7 +1756,7 @@ ${includeGst ? `*GST (18%):* ₹${gstAmount.toLocaleString('en-IN')}\n` : ''}*ES
               <div className="p-3 bg-gradient-to-b from-[#111e38] to-[#0a1224] border-b border-slate-800">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[11px] font-black uppercase text-cyan-300 tracking-wider">
-                    Finished Cutting Size (ഫാക്ടറി കട്ടിംഗ് സൈസ്)
+                    Finished Cutting Size
                   </span>
                   {doorData.dimensions.isTapered && (
                     <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-500 text-slate-950 rounded shadow-xs">
@@ -1776,7 +1920,7 @@ ${includeGst ? `*GST (18%):* ₹${gstAmount.toLocaleString('en-IN')}\n` : ''}*ES
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white uppercase flex items-center gap-1">
                     <Camera className="w-3.5 h-3.5 text-rose-400" />
-                    After-Delivery Site Photo (സ്ഥലത്തെ ഫോട്ടോ)
+                    After-Delivery Site Photo
                   </span>
                   {deliveryPhoto && (
                     <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5">
@@ -1900,7 +2044,7 @@ ${includeGst ? `*GST (18%):* ₹${gstAmount.toLocaleString('en-IN')}\n` : ''}*ES
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                 <span className="text-xs font-bold text-cyan-300 uppercase flex items-center gap-1">
                   <ShieldCheck className="w-4 h-4 text-cyan-400" />
-                  6-Point Site Quality Checklist (പരിശോധന)
+                  6-Point Site Quality Checklist
                 </span>
                 <div className="flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -1924,7 +2068,7 @@ ${includeGst ? `*GST (18%):* ₹${gstAmount.toLocaleString('en-IN')}\n` : ''}*ES
                 {[
                   {
                     key: 'framePlumbAndLevel',
-                    label: '1. Frame Plumb & Level Checked (സ്പിരിറ്റ് ലെവൽ)',
+                    label: '1. Frame Plumb & Level Checked',
                   },
                   {
                     key: 'uniformPerimeterGap',
@@ -2117,6 +2261,23 @@ ${includeGst ? `*GST (18%):* ₹${gstAmount.toLocaleString('en-IN')}\n` : ''}*ES
           </div>
         )}
       </main>
+
+      {/* Mobile Customer Registration Modal */}
+      <MobileCustomerModal
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        initialName={siteCustomerName !== 'KAMARU YUSUF' ? siteCustomerName : ''}
+        initialPhone={siteCustomerPhone !== '+91 98471 23456' ? siteCustomerPhone : ''}
+        initialTown={siteLocation !== 'Vengara, Malappuram' ? siteLocation.split(',')[0].trim() : ''}
+        onCustomerCreated={(c) => {
+          setSiteCustomerName(c.name);
+          if (c.phone) setSiteCustomerPhone(c.phone);
+          if (c.town || c.district) {
+            setSiteLocation(`${c.town || ''}${c.town && c.district ? ', ' : ''}${c.district || ''}`);
+          }
+          showToast(`✓ Registered & linked new customer: ${c.name}`);
+        }}
+      />
     </div>
   );
 }

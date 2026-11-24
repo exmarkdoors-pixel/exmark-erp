@@ -320,7 +320,7 @@ export function MobileStaffAuthGate({ children }: MobileStaffAuthGateProps) {
           </span>
         </h1>
         <p className="text-[11px] text-slate-400">
-          Operational Staff Terminal Login (സ്റ്റാഫ് ലോഗിൻ)
+          Operational Staff Terminal Login
         </p>
       </div>
 
@@ -330,7 +330,7 @@ export function MobileStaffAuthGate({ children }: MobileStaffAuthGateProps) {
           <div>
             <div className="flex items-center justify-between px-1 mb-1.5 text-[11px]">
               <span className="text-slate-400 font-bold uppercase tracking-wider">
-                Select Your Role (റോൾ തിരഞ്ഞെടുക്കുക):
+                Select Your Role:
               </span>
               <button
                 type="button"
@@ -431,7 +431,7 @@ export function MobileStaffAuthGate({ children }: MobileStaffAuthGateProps) {
         {/* PIN Display Slots */}
         <div className="space-y-1.5 text-center">
           <div className="text-[11px] text-slate-400 font-medium">
-            Enter 4-Digit Quick PIN (4 അക്ക പിൻ നൽകുക):
+            Enter 4-Digit Quick PIN:
           </div>
 
           <div className="flex items-center justify-center gap-3 py-1">

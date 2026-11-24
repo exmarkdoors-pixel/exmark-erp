@@ -42,6 +42,7 @@ import { CuttingSchedulePrintHubModal } from './measurements/CuttingSchedulePrin
 import { SiteMeasurementLandscapePrintModal } from './measurements/SiteMeasurementLandscapePrintModal';
 import { useProductCategories } from '@/lib/context/ProductCategoryContext';
 import { StockDoorMatchReminder } from './inventory/StockDoorMatchReminder';
+import { computeDoorTolerances, AppliedDoorTolerances } from '@/lib/services/toleranceCalculation';
 
 interface DoorMeasurementModalProps {
   isOpen: boolean;
@@ -403,7 +404,7 @@ function DoorMeasurementModalContent({
   const [bottomFloorClearanceMm, setBottomFloorClearanceMm] = useState<number>(12);
   const [topGapMm, setTopGapMm] = useState<number>(5);
 
-  // Load latest catalog from database/store
+  // Load latest catalog and factory tolerance defaults from database/store
   useEffect(() => {
     fetch('/api/catalog')
       .then((r) => r.json())
@@ -415,6 +416,17 @@ function DoorMeasurementModalContent({
       .catch((err) => {
         console.warn('Could not fetch dynamic catalog, using defaults:', err);
       });
+
+    fetch('/api/settings/tolerances')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.settings) {
+          if (data.settings.defaultSideRebateMm) setSideRebateMm(data.settings.defaultSideRebateMm);
+          if (data.settings.defaultBottomTileClearanceMm) setBottomFloorClearanceMm(data.settings.defaultBottomTileClearanceMm);
+          if (data.settings.defaultTopGapMm) setTopGapMm(data.settings.defaultTopGapMm);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Switch Unit for entire site sheet & active door
@@ -593,6 +605,28 @@ function DoorMeasurementModalContent({
     setIsSubmitting(true);
 
     try {
+      // Calculate and bond synchronized tolerances to each door item
+      const doorsWithSyncedTolerances = doors.map((d) => {
+        const hLMm = toMmCalc(d.heightLeft, d.fractionHeightLeft);
+        const hRMm = toMmCalc(d.heightRight, d.fractionHeightRight);
+        const wTMm = toMmCalc(d.widthTop, d.fractionWidthTop);
+        const wBMm = toMmCalc(d.widthBottom, d.fractionWidthBottom);
+        const avgHMm = (hLMm + hRMm) / 2;
+        const tol = computeDoorTolerances({
+          rawHeightMm: avgHMm,
+          rawWidthTopMm: wTMm,
+          rawWidthBottomMm: wBMm,
+          frameTypeName: d.frameType,
+          customSideRebateMm: sideRebateMm,
+          customBottomClearanceMm: bottomFloorClearanceMm,
+          customTopGapMm: topGapMm,
+        });
+        return {
+          ...d,
+          tolerances: tol,
+        };
+      });
+
       const payload = {
         refNumber,
         customerName,
@@ -606,7 +640,7 @@ function DoorMeasurementModalContent({
         wallThicknessMm,
         notes,
         status: targetStatus,
-        doors,
+        doors: doorsWithSyncedTolerances,
       };
 
       const url = isEditing
@@ -1285,7 +1319,7 @@ function DoorMeasurementModalContent({
               <div className="flex justify-between items-center">
                 <span className="text-xs font-black text-cyan-400 flex items-center gap-1.5">
                   <Sliders className="w-4 h-4 text-cyan-400" />
-                  <span>Frame Rebate &amp; Shutter Tolerance Deductions (അളവ് കുറവ്)</span>
+                  <span>Frame Rebate &amp; Shutter Tolerance Deductions</span>
                 </span>
                 <span className="text-[11px] text-slate-400">Kerala Factory Standards</span>
               </div>
@@ -1312,10 +1346,11 @@ function DoorMeasurementModalContent({
                     onChange={(e) => setBottomFloorClearanceMm(parseInt(e.target.value) || 0)}
                     className="w-full bg-[#131b2e] border border-slate-700 rounded-lg p-2 text-slate-200 font-medium focus:border-cyan-400 focus:outline-none cursor-pointer"
                   >
-                    <option value="12">12 mm (1/2" Standard Flooring Gap)</option>
-                    <option value="15">15 mm (Bathroom / Tile Slant)</option>
-                    <option value="10">10 mm (Tight Living Room)</option>
-                    <option value="20">20 mm (High Sill)</option>
+                    <option value="12">12 mm (Finished Tile Floor)</option>
+                    <option value="25">25 mm (Unfinished Concrete Floor)</option>
+                    <option value="15">15 mm (Bathroom / Tile Slant threshold)</option>
+                    <option value="10">10 mm (Tight Living Room / Vinyl Flooring)</option>
+                    <option value="20">20 mm (High Sill Threshold)</option>
                   </select>
                 </div>
 
@@ -1404,7 +1439,7 @@ function DoorMeasurementModalContent({
                   type="text"
                   value={currentDoor.insideColour || ''}
                   onChange={(e) => handleDoorChange('insideColour', e.target.value)}
-                  placeholder="Inside Colour (ഇൻസൈഡ് കളർ)..."
+                  placeholder="Inside Colour..."
                   className="w-full px-3 py-1.5 bg-[#070D1E] text-slate-300 text-xs rounded-lg border border-slate-700/80 focus:outline-none focus:border-amber-500"
                 />
               </div>

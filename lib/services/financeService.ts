@@ -170,6 +170,10 @@ export async function recordPayment(input: {
   paymentMode: PaymentMode;
   referenceNumber?: string | null;
   notes?: string;
+  salespersonId?: string;
+  salespersonName?: string;
+  salespersonCode?: string;
+  collectionType?: 'DIRECT_BANK' | 'CASH_IN_HAND' | 'UPI_QR';
 }): Promise<Payment> {
   await assertWriteAllowed('record payment');
 
@@ -185,6 +189,10 @@ export async function recordPayment(input: {
     paymentMode: input.paymentMode,
     referenceNumber: input.referenceNumber || null,
     notes: input.notes,
+    salespersonId: input.salespersonId || undefined,
+    salespersonName: input.salespersonName || undefined,
+    salespersonCode: input.salespersonCode || undefined,
+    collectionType: input.collectionType || (input.paymentMode === 'CASH' ? 'CASH_IN_HAND' : 'DIRECT_BANK'),
     createdAt: new Date().toISOString(),
   };
 

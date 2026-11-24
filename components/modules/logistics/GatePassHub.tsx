@@ -444,7 +444,7 @@ export default function GatePassHub() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">Generate Factory Gate Pass</h3>
-                  <p className="text-xs text-slate-400">ഫാക്ടറി ഗേറ്റ് പാസ് ഇഷ്യൂ ചെയ്യുക</p>
+                  <p className="text-xs text-slate-400">Issue material or vehicle dispatch factory gate pass</p>
                 </div>
               </div>
               <button

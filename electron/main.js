@@ -859,7 +859,16 @@ function createMainWindow() {
         }
       });
     } else {
-      loadAppUrl(config.clientServerUrl);
+      checkHealthUrl(config.clientServerUrl, 1500).then((isAlive) => {
+        if (isAlive) {
+          loadAppUrl(config.clientServerUrl);
+        } else {
+          console.warn(`[Desktop Main] Remote server ${config.clientServerUrl} is unreachable. Auto-fallback to Embedded Standalone Mode.`);
+          saveDesktopConfig({ mode: 'standalone' });
+          buildApplicationMenu();
+          startEmbeddedStandaloneServer();
+        }
+      });
     }
   } else {
     startEmbeddedStandaloneServer();

@@ -98,18 +98,18 @@ export function WhatsAppQuoteShareModal({
 
     if (language === 'ml') {
       return `🏢 *EXMARK DOORS PRIVATE LIMITED*
-*ഫാക്ടറി കൊട്ടേഷൻ വിവരം*
+*Factory Quotation Summary*
 
-📋 *കൊട്ടേഷൻ നമ്പർ*: ${q.id}
-👤 *കസ്റ്റമർ*: ${q.customerName}
-📍 *സ്ഥലം*: ${q.location || 'Kerala'}
-📅 *തീയതി*: ${q.date || new Date().toISOString().slice(0, 10)}
-🚪 *ഡോറുകൾ*: ${q.itemsSummary || `${q.items?.length || 1} FRP/WPC Doors`}
-💰 *ആകെ തുക*: ₹${cleanTotal}
-💵 *ആവശ്യമായ അഡ്വാൻസ് (${advPercent}%)*: ₹${cleanAdv}
+📋 *Quotation Ref*: ${q.id}
+👤 *Client*: ${q.customerName}
+📍 *Location*: ${q.location || 'Kerala'}
+📅 *Date*: ${q.date || new Date().toISOString().slice(0, 10)}
+🚪 *Doors*: ${q.itemsSummary || `${q.items?.length || 1} FRP/WPC Doors`}
+💰 *Total Amount*: ₹${cleanTotal}
+💵 *Required Advance (${advPercent}%)*: ₹${cleanAdv}
 
-${includeTrackingLink ? `🔍 *നിങ്ങളുടെ ഓർഡർ സ്റ്റാറ്റസ് ഓൺലൈനായി കാണുക*:\n${trackingUrl}\n\n` : ''}കൂടുതൽ വിവരങ്ങൾക്ക് വിളിക്കുക: +91 94470 12345
-*EXMARK DOORS — ഭംഗിയും ഉറപ്പും ആജീവനാന്തം*`;
+${includeTrackingLink ? `🔍 *View Live Order Status Online*:\n${trackingUrl}\n\n` : ''}For support & schedule: +91 94479 28866
+*EXMARK DOORS — High Strength Architectural Doors*`;
     }
 
     if (language === 'en') {
@@ -128,18 +128,18 @@ ${includeTrackingLink ? `🔍 *Live Customer Order Tracking Portal*:\n${tracking
 *EXMARK DOORS — Certified ISO 9001:2015 Manufacturing Plant*`;
     }
 
-    // Default Bilingual (English + Malayalam)
+    // Default Standard Quotation Template
     return `🏢 *EXMARK DOORS PRIVATE LIMITED*
-*Factory Quotation / ഫാക്ടറി കൊട്ടേഷൻ*
+*Factory Quotation & Specifications*
 
-📋 *Ref / കൊട്ടേഷൻ നമ്പർ*: ${q.id}
-👤 *Customer / കസ്റ്റമർ*: ${q.customerName}
-📍 *Location / സ്ഥലം*: ${q.location || 'Kerala'}
+📋 *Quotation Ref*: ${q.id}
+👤 *Customer*: ${q.customerName}
+📍 *Location*: ${q.location || 'Kerala'}
 🚪 *Door Openings*: ${q.itemsSummary || `${q.items?.length || 1} FRP Doors`}
-💰 *Total Value / ആകെ തുക*: ₹${cleanTotal}
+💰 *Total Value*: ₹${cleanTotal}
 💵 *Advance Required (${advPercent}%)*: ₹${cleanAdv}
 
-${includeTrackingLink ? `🔍 *Live Customer Order Status Link / ഓൺലൈൻ ട്രാക്കിംഗ്*:\n${trackingUrl}\n\n` : ''}For inquiries & delivery schedule: +91 94470 12345
+${includeTrackingLink ? `🔍 *Live Customer Order Status Link*:\n${trackingUrl}\n\n` : ''}For inquiries & delivery schedule: +91 94479 28866
 *EXMARK DOORS — FRP Molded & WPC Composite Doors*`;
   };
 
@@ -314,7 +314,7 @@ ${includeTrackingLink ? `🔍 *Live Customer Order Status Link / ഓൺലൈൻ
                     language === 'bilingual' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Bilingual
+                  Standard
                 </button>
                 <button
                   type="button"
@@ -323,7 +323,7 @@ ${includeTrackingLink ? `🔍 *Live Customer Order Status Link / ഓൺലൈൻ
                     language === 'en' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  English
+                  Executive
                 </button>
                 <button
                   type="button"
@@ -332,7 +332,7 @@ ${includeTrackingLink ? `🔍 *Live Customer Order Status Link / ഓൺലൈൻ
                     language === 'ml' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  മലയാളം
+                  Compact
                 </button>
               </div>
             </div>

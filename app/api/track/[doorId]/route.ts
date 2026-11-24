@@ -10,6 +10,70 @@ export async function GET(
     const result = await findDoorBySerial(doorId);
 
     if (!result) {
+      // Check ready/old stock door inventory
+      const { getReadyStockDoor } = await import('@/lib/services/readyStockDoorService');
+      const stockDoor = await getReadyStockDoor(doorId);
+      if (stockDoor) {
+        const hMm = stockDoor.doorHeightMm || stockDoor.frameHeightMm || 2085;
+        const wMm = stockDoor.doorWidthMm || stockDoor.frameWidthMm || 815;
+        const heightInches = (hMm / 25.4).toFixed(1);
+        const widthInches = (wMm / 25.4).toFixed(1);
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            doorId: stockDoor.stockCode,
+            doorNumber: `[${stockDoor.condition.replace(/_/g, ' ')}] ${stockDoor.stockCode}`,
+            model: stockDoor.doorModelName || stockDoor.frameTypeName || 'Ready Stock Door',
+            finishColor: stockDoor.doorFinishColor || stockDoor.frameFinishColor || 'Natural Teak',
+            handing: stockDoor.handing || 'UNIVERSAL',
+            lockType: stockDoor.lockType || (stockDoor.lockCutoutStatus === 'UNCUT' ? 'Uncut (Hole on Site)' : 'Pre-Cut Lock'),
+            finishedHeightMm: hMm,
+            finishedWidthMm: wMm,
+            finishedSizeInches: `${heightInches}" x ${widthInches}"`,
+            rawHeightMm: stockDoor.frameHeightMm || hMm,
+            rawWidthMm: stockDoor.frameWidthMm || wMm,
+            jobCardNumber: `STOCK: ${stockDoor.stockCode}`,
+            prodOrderNumber: stockDoor.condition.replace(/_/g, ' '),
+            customerName: stockDoor.reservedForCustomer || 'EXMARK Godown Inventory',
+            siteName: stockDoor.rackLocation,
+            district: 'Warehouse Rack',
+            doorCategory: stockDoor.doorCategory || 'FRP_DOORS',
+            lineAssigned: stockDoor.rackLocation,
+            batchNumber: stockDoor.id,
+            productionStatus: stockDoor.status === 'AVAILABLE' ? 'COMPLETED' : stockDoor.status,
+            qcStatus: 'PASSED',
+            notes: stockDoor.notes || `Stock valuation: Rs.${stockDoor.sellingPrice}. Repaintable: ${stockDoor.isDoorRepaintable ? 'Yes' : 'No'}`,
+            lifecycle: [
+              {
+                stage: 'ORDER_RELEASE',
+                name: 'Stock Registered',
+                completed: true,
+                timestamp: stockDoor.createdAt,
+              },
+              {
+                stage: 'MANUFACTURING',
+                name: 'Factory Production Complete',
+                completed: true,
+                timestamp: stockDoor.createdAt,
+              },
+              {
+                stage: 'QA_INSPECTION',
+                name: 'Ready Stock QC Inspection',
+                completed: true,
+                timestamp: stockDoor.updatedAt,
+              },
+              {
+                stage: 'DISPATCH',
+                name: stockDoor.status === 'AVAILABLE' ? `Available in ${stockDoor.rackLocation}` : `Status: ${stockDoor.status}`,
+                completed: stockDoor.status === 'SOLD',
+                current: stockDoor.status === 'AVAILABLE',
+              },
+            ],
+          },
+        });
+      }
+
       return NextResponse.json(
         { success: false, error: `Door with ID "${doorId}" was not found.` },
         { status: 404 }

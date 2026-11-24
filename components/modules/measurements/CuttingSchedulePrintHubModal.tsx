@@ -1611,7 +1611,7 @@ export function CuttingSchedulePrintHubModal({
                   if (hDiff <= 0.4 && wDiff <= 0.4) {
                     swapAlert = (
                       <div className="p-3 rounded-lg bg-emerald-950 border border-emerald-500 text-emerald-300 text-xs font-bold">
-                        ✅ സ്റ്റിക്കറും ഡോറിന്റെ അളവും 100% കൃത്യമാണ്! (Confirmed Matches Packed Door Size: ~{c.finH} × ~{c.finTopW} cm)
+                        ✅ Sticker and physical door dimensions are 100% matched! (Confirmed Matches Packed Door Size: ~{c.finH} × ~{c.finTopW} cm)
                       </div>
                     );
                   } else {
@@ -1626,14 +1626,14 @@ export function CuttingSchedulePrintHubModal({
                       const sc = calcDoorSizes(swapped);
                       swapAlert = (
                         <div className="p-3 rounded-lg bg-amber-950 border-2 border-amber-500 text-amber-200 text-xs font-bold">
-                          ⚠️ സ്റ്റിക്കർ മാറിപ്പോയിട്ടുണ്ട് (STICKER SWAPPED)!<br />
-                          ഇപ്പോൾ സ്കാൻ ചെയ്ത സ്റ്റിക്കർ <strong>DOOR #{targetIdx} ({targetDoor.roomTag}: ~{c.finH}×~{c.finTopW} cm)</strong>-ന്റേതാണ്. എന്നാൽ നിങ്ങൾ അളന്ന ഡോർ ഇതേ ഓർഡറിലെ <strong>DOOR #{swappedIdx} ({swapped.roomTag}: ~{sc.finH}×~{sc.finTopW} cm)</strong> ആണ്!
+                          ⚠️ STICKER SWAPPED DETECTED!<br />
+                          Scanned sticker belongs to <strong>DOOR #{targetIdx} ({targetDoor.roomTag}: ~{c.finH}×~{c.finTopW} cm)</strong>, but the physically measured door matches <strong>DOOR #{swappedIdx} ({swapped.roomTag}: ~{sc.finH}×~{sc.finTopW} cm)</strong> in this order!
                         </div>
                       );
                     } else {
                       swapAlert = (
                         <div className="p-3 rounded-lg bg-rose-950 border border-rose-500 text-rose-200 text-xs font-bold">
-                          ❌ അളവ് വ്യത്യാസം! കമ്പനിയിൽ കൊടുത്ത ഫൈനൽ ഡോർ അളവ് <strong>~{c.finH} × ~{c.finTopW} cm</strong> ആണ്, എന്നാൽ നിങ്ങൾ അളന്നത് <strong>{physH} × {physW} cm</strong> ആണ്.
+                          ❌ Dimension Mismatch! Engineered final door size is <strong>~{c.finH} × ~{c.finTopW} cm</strong>, but physically measured size is <strong>{physH} × {physW} cm</strong>.
                         </div>
                       );
                     }

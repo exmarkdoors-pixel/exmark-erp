@@ -44,6 +44,10 @@ export async function POST(req: NextRequest) {
       paymentMode: body.paymentMode as PaymentMode,
       referenceNumber: body.referenceNumber || null,
       notes: body.notes?.trim(),
+      salespersonId: body.salespersonId?.trim() || undefined,
+      salespersonName: body.salespersonName?.trim() || undefined,
+      salespersonCode: body.salespersonCode?.trim() || undefined,
+      collectionType: body.collectionType || undefined,
     });
 
     return NextResponse.json({ success: true, data: payment }, { status: 201 });

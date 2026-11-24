@@ -26,6 +26,8 @@ export type AccountSubType =
 
 export type BalanceSide = 'DEBIT' | 'CREDIT';
 
+export type PartyType = 'CUSTOMER' | 'SUPPLIER' | 'CONTRACTOR' | 'OTHER';
+
 export type AccountingPaymentMode = 'CASH' | 'UPI' | 'NEFT' | 'RTGS' | 'CHEQUE' | 'CARD';
 
 export type VoucherSourceType =
@@ -38,6 +40,7 @@ export type VoucherSourceType =
   | 'PAYMENT_OUT'
   | 'EXPENSE'
   | 'CONTRA'
+  | 'PARTY_TO_PARTY'
   | 'YEAR_CLOSE';
 
 export interface FinancialYearCloseRecord {
@@ -134,6 +137,7 @@ export interface ChartOfAccount {
   name: string;
   group: AccountGroup;
   subType: AccountSubType;
+  parentId?: string;
   openingBalance: number;
   openingType: BalanceSide;
   isSystem: boolean;
@@ -149,6 +153,9 @@ export interface ChartOfAccountWithBalance extends ChartOfAccount {
   closingBalance: number;
   closingType: BalanceSide;
   transactionCount: number;
+  isDeletable?: boolean;
+  deleteBlockReason?: string;
+  childCount?: number;
 }
 
 export interface ExpenseCategory {
@@ -237,6 +244,10 @@ export interface PaymentInRecord {
   amount: number;
   referenceNumber?: string;
   notes?: string;
+  salespersonId?: string;
+  salespersonName?: string;
+  salespersonCode?: string;
+  collectionType?: 'DIRECT_BANK' | 'CASH_IN_HAND' | 'UPI_QR';
   journalEntryId?: string;
   createdAt: string;
 }
@@ -361,6 +372,40 @@ export interface ContraTransferRecord {
   createdAt: string;
 }
 
+export type PartyToPartyPaymentMode =
+  | 'DIRECT_BANK'
+  | 'DIRECT_UPI'
+  | 'CASH'
+  | 'BOOK_ADJUSTMENT'
+  | 'CHEQUE';
+
+export interface PartyToPartyPaymentRecord {
+  id: string;
+  voucherNumber: string;
+  date: string;
+  // Paying Party (Credit)
+  fromPartyId?: string;
+  fromPartyName: string;
+  fromPartyType: PartyType;
+  fromAccountId: string;
+  fromAccountName: string;
+  // Receiving Party (Debit)
+  toPartyId?: string;
+  toPartyName: string;
+  toPartyType: PartyType;
+  toAccountId: string;
+  toAccountName: string;
+  // Payment details
+  amount: number;
+  paymentMode: PartyToPartyPaymentMode;
+  referenceNumber?: string;
+  narration: string;
+  journalEntryId?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface JournalLine {
   accountId: string;
   accountCode: string;
@@ -377,7 +422,7 @@ export interface JournalEntryRecord {
   sourceType: VoucherSourceType;
   sourceId?: string;
   partyName?: string;
-  partyType?: 'CUSTOMER' | 'SUPPLIER' | 'OTHER';
+  partyType?: PartyType;
   reference?: string;
   narration: string;
   lines: JournalLine[];
@@ -433,6 +478,7 @@ export interface AccountingLedgerStore {
   paymentsOut: PaymentOutRecord[];
   expenses: ExpenseRecord[];
   contraTransfers: ContraTransferRecord[];
+  partyToPartyPayments?: PartyToPartyPaymentRecord[];
   journals: JournalEntryRecord[];
   updatedAt: string;
 }
@@ -472,7 +518,10 @@ export type AccountingReportType =
   | 'CASH_BANK_SUMMARY'
   | 'AGING'
   | 'EXPENSE_BY_CATEGORY'
-  | 'GST_SUMMARY';
+  | 'GST_SUMMARY'
+  | 'PARTY_TO_PARTY'
+  | 'SALESMAN_COLLECTION'
+  | 'CUSTOMER_CREDIT_SUMMARY';
 
 export interface AccountingOverviewPayload {
   gstEnabled: boolean;
@@ -504,6 +553,7 @@ export interface AccountingOverviewPayload {
     expenseCategories: number;
     cashBankAccounts: number;
     contraTransfers: number;
+    partyToPartyPayments: number;
     coaAccounts: number;
     journals: number;
   };

@@ -60,7 +60,7 @@ export function FrpPricingSettingsModal({
   const [rateD, setRateD] = useState(currentSettings.categoryPieceRates?.D || 8800);
   const [rateE, setRateE] = useState(currentSettings.categoryPieceRates?.E || 9500);
   const [belowMode, setBelowMode] = useState<'DIVIDED_RATE' | 'BASE_MINIMUM'>(
-    currentSettings.belowSizeCalculationMode || 'DIVIDED_RATE'
+    currentSettings.belowSizeCalculationMode || 'BASE_MINIMUM'
   );
   const [defaultInstallRate, setDefaultInstallRate] = useState<number>(
     currentSettings.defaultInstallationRatePerDoor ?? 500
@@ -124,7 +124,7 @@ export function FrpPricingSettingsModal({
     setRateC(currentSettings.categoryPieceRates?.C || 8200);
     setRateD(currentSettings.categoryPieceRates?.D || 8800);
     setRateE(currentSettings.categoryPieceRates?.E || 9500);
-    setBelowMode(currentSettings.belowSizeCalculationMode || 'DIVIDED_RATE');
+    setBelowMode(currentSettings.belowSizeCalculationMode || 'BASE_MINIMUM');
     setDefaultInstallRate(currentSettings.defaultInstallationRatePerDoor ?? 500);
     setDefaultInstallLabel(
       currentSettings.defaultInstallationLabel || 'Site Door & Frame Installation (Hardware & Fitting)'
@@ -410,7 +410,7 @@ export function FrpPricingSettingsModal({
         setRateC(8200);
         setRateD(8800);
         setRateE(9500);
-        setBelowMode('DIVIDED_RATE');
+        setBelowMode('BASE_MINIMUM');
         setDefaultInstallRate(500);
         setDefaultInstallLabel('Site Door & Frame Installation (Hardware & Fitting)');
         setLocks(DEFAULT_LOCK_OPTIONS);
@@ -713,9 +713,26 @@ export function FrpPricingSettingsModal({
 
                   <div>
                     <label className="block text-slate-400 font-bold mb-1">
-                      Below Standard Size ({standardSqft} sq.ft) Strategy:
+                      Below Standard Size ({standardSqft} sq.ft) Pricing Policy:
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBelowMode('BASE_MINIMUM')}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition ${
+                          belowMode === 'BASE_MINIMUM'
+                            ? 'bg-cyan-950/70 border-cyan-400 text-white shadow-md'
+                            : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <div className="font-bold text-xs text-cyan-300 flex items-center gap-1.5">
+                          <span>🔒 Base Piece Minimum (Enforced Policy)</span>
+                        </div>
+                        <p className="text-[10px] text-slate-300 mt-0.5">
+                          Retain full piece rate (Minimum piece rate is locked even for smaller doors)
+                        </p>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setBelowMode('DIVIDED_RATE')}
@@ -725,24 +742,9 @@ export function FrpPricingSettingsModal({
                             : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:text-slate-200'
                         }`}
                       >
-                        <div className="font-bold text-xs text-cyan-300">Divided Rate (Pro-rata Default)</div>
+                        <div className="font-bold text-xs text-slate-300">Divided Rate (Pro-rata)</div>
                         <p className="text-[10px] text-slate-400 mt-0.5">
                           Actual Sq.Ft × (Base Rate ÷ {standardSqft} sq.ft)
-                        </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setBelowMode('BASE_MINIMUM')}
-                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition ${
-                          belowMode === 'BASE_MINIMUM'
-                            ? 'bg-cyan-950/50 border-cyan-500 text-white shadow-sm'
-                            : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        <div className="font-bold text-xs text-cyan-300">Base Piece Minimum</div>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          Retain full piece rate (no reduction below standard size)
                         </p>
                       </button>
                     </div>
@@ -754,7 +756,7 @@ export function FrpPricingSettingsModal({
               <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2.5">
                 <span className="font-bold text-white text-xs flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-amber-400" />
-                  <span>3. Default Door Installation Option Rate (ഡോർ ഇൻസ്റ്റാളേഷൻ ചാർജ്)</span>
+                  <span>3. Default Door Installation Option Rate</span>
                 </span>
                 <p className="text-[11px] text-slate-400">
                   Prefills the optional Door Installation charge when creating quotations (editable per quotation).

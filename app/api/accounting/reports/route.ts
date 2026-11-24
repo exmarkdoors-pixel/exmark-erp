@@ -14,6 +14,7 @@ const VALID_REPORTS: AccountingReportType[] = [
   'AGING',
   'EXPENSE_BY_CATEGORY',
   'GST_SUMMARY',
+  'PARTY_TO_PARTY',
 ];
 
 export async function GET(req: NextRequest) {

@@ -1112,6 +1112,96 @@ export async function getSalespersonLeaderboard(targetPeriod?: string): Promise<
   return metrics;
 }
 
+export interface RecordDoorSaleAchievementInput {
+  salespersonId: string;
+  salespersonCode?: string;
+  salespersonName?: string;
+  doorCount: number; // e.g. 1 (or negative if return deduction)
+  saleValue: number; // e.g. 7500 (or negative if return deduction)
+  orderRef?: string; // e.g. "STK-001" or Job Card ref
+  customerName?: string;
+  isReturn?: boolean;
+  notes?: string;
+  targetPeriod?: string;
+}
+
+/**
+ * Updates staff member's achieved doors and revenue on stock door sale or return adjustment.
+ * Immediately recalculates and returns fresh Sales Leaderboard rankings.
+ */
+export async function recordDoorSaleAchievement(
+  input: RecordDoorSaleAchievementInput
+): Promise<{
+  updatedTarget: StaffSalesTarget;
+  leaderboard: SalespersonPerformanceMetrics[];
+}> {
+  await assertWriteAllowed('record door sale achievement');
+  const period = input.targetPeriod || getCurrentPeriodKey();
+  const now = new Date().toISOString();
+
+  // Ensure staff target exists for this period
+  const target = await getOrCreateStaffTarget(
+    input.salespersonId,
+    input.salespersonCode || 'EXM-SALES',
+    input.salespersonName || 'Sales Representative',
+    period
+  );
+
+  const targets = readJsonFile<StaffSalesTarget[]>(getTargetsStorePath(), []);
+  const idx = targets.findIndex((t) => t.employeeId === input.salespersonId && t.targetPeriod === period);
+
+  const doorDelta = Number(input.doorCount) || 0;
+  const revenueDelta = Number(input.saleValue) || 0;
+
+  if (idx !== -1) {
+    targets[idx].achievedDoors = Math.max(0, (targets[idx].achievedDoors || 0) + doorDelta);
+    targets[idx].achievedRevenue = Math.max(0, (targets[idx].achievedRevenue || 0) + revenueDelta);
+    targets[idx].achievedCollections = Math.max(0, (targets[idx].achievedCollections || 0) + (revenueDelta > 0 ? revenueDelta : 0));
+    targets[idx].updatedAt = now;
+    writeJsonFile(getTargetsStorePath(), targets);
+  }
+
+  // Also log commission record if it's a positive door sale
+  if (!input.isReturn && revenueDelta > 0) {
+    const commissions = readJsonFile<SalesCommissionRecord[]>(getCommissionsStorePath(), []);
+    const commId = `comm-stock-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
+    const newCommRecord: SalesCommissionRecord = {
+      id: commId,
+      quotationId: input.orderRef || `STK-SALE-${Date.now().toString(36)}`,
+      quoteNumber: input.orderRef || 'STOCK-SALE',
+      customerId: 'CUST-DIRECT',
+      customerName: input.customerName || 'Direct Stock Customer',
+      orderDate: now.slice(0, 10),
+      orderAmount: revenueDelta,
+      advancePaid: revenueDelta,
+      doorCount: Math.max(1, doorDelta),
+      salespersonId: input.salespersonId,
+      salespersonCode: input.salespersonCode || target.employeeCode,
+      salespersonName: input.salespersonName || target.employeeName,
+      targetPeriod: period,
+      commissionType: 'PERCENTAGE',
+      commissionRate: 2.5,
+      baseRatePercent: 2.5,
+      tierAcceleratorPercent: 0,
+      advanceBonusPercent: 0,
+      effectiveCommissionPercent: 2.5,
+      baseCommissionAmount: Math.round(revenueDelta * 0.025),
+      bonusAmount: 0,
+      totalCommissionAmount: Math.round(revenueDelta * 0.025),
+      status: 'ACCRUED',
+      createdAt: now,
+      updatedAt: now,
+    };
+    commissions.unshift(newCommRecord);
+    writeJsonFile(getCommissionsStorePath(), commissions);
+  }
+
+  const updatedTarget = idx !== -1 ? targets[idx] : target;
+  const leaderboard = await getSalespersonLeaderboard(period);
+
+  return { updatedTarget, leaderboard };
+}
+
 // ── Staff Orders & Commission Report API (Daily, Weekly, Monthly, All-Staff) ─
 
 export function parseDateToISO(dateStr?: string): string {

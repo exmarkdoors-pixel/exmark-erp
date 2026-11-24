@@ -321,7 +321,7 @@ export default function QualityControlHub() {
             className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-purple-950/40 flex items-center gap-1.5 cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print Floor QC Sheet (പ്രിന്റ് ടിക്ക് ഷീറ്റ്) 🖨️</span>
+            <span>Print Floor QC Sheet 🖨️</span>
           </button>
         </div>
 
@@ -656,7 +656,7 @@ export default function QualityControlHub() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">Log Quality Inspection</h3>
-                  <p className="text-xs text-slate-400">ക്വാളിറ്റി ചെക്ക് എൻട്രി രേഖപ്പെടുത്തുക</p>
+                  <p className="text-xs text-slate-400">Record quality check parameters and defect observations</p>
                 </div>
               </div>
               <button

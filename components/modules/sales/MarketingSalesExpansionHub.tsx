@@ -609,7 +609,7 @@ export function MarketingSalesExpansionHub() {
                 <div className="flex items-center gap-2">
                   <Calculator className="w-5 h-5 text-amber-400" />
                   <h3 className="text-sm font-bold text-white">
-                    Live Deal Commission Simulator (ലൈവ് കമ്മീഷൻ കാൽക്കുലേറ്റർ)
+                    Live Deal Commission Simulator
                   </h3>
                 </div>
                 <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded">
@@ -1167,7 +1167,7 @@ export function MarketingSalesExpansionHub() {
               <div className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-amber-400" />
                 <h3 className="text-sm font-bold text-white">
-                  Kerala Territory Expansion Simulator (ടെറിട്ടറി എക്സ്പാൻഷൻ സിമുലേറ്റർ)
+                  Kerala Territory Expansion Simulator
                 </h3>
               </div>
               <button

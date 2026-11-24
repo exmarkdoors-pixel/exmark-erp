@@ -25,7 +25,9 @@ import {
   Calendar,
   X,
   Play,
+  TrendingDown,
 } from 'lucide-react';
+import { ExpenseCostCuttingPanel } from './ExpenseCostCuttingPanel';
 import type {
   AiStrategistAnalysisResult,
   ForecastScenarioType,
@@ -51,6 +53,7 @@ export function AiFinancialStrategistPanel() {
   // Boardroom Meeting Deck Presentation State
   const [isBoardroomOpen, setIsBoardroomOpen] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [subTab, setSubTab] = useState<'FORECASTING' | 'COST_CUTTING'>('FORECASTING');
 
   useEffect(() => {
     let active = true;
@@ -142,7 +145,7 @@ export function AiFinancialStrategistPanel() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-bold cursor-pointer shadow-lg shadow-red-950/40 transition"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Launch Boardroom Deck (മീറ്റിംഗ് മോഡ്)</span>
+            <span>Launch Boardroom Deck</span>
           </button>
           <button
             type="button"
@@ -155,7 +158,40 @@ export function AiFinancialStrategistPanel() {
         </div>
       </div>
 
-      {/* Governance & Safety Barrier Banner */}
+      {/* Sub-tab Switcher: Macro Projections vs Overhead Cost-Cutting */}
+      <div className="flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl w-fit border border-slate-800">
+        <button
+          type="button"
+          onClick={() => setSubTab('FORECASTING')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            subTab === 'FORECASTING'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <TrendingUp className="w-3.5 h-3.5" />
+          <span>Macro Projections &amp; What-If</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('COST_CUTTING')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            subTab === 'COST_CUTTING'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
+          <span>✂️ Cost-Cutting &amp; Expense Monitor</span>
+        </button>
+      </div>
+
+      {subTab === 'COST_CUTTING' ? (
+        <ExpenseCostCuttingPanel />
+      ) : (
+        <>
+          {/* Governance & Safety Barrier Banner */}
       <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-500">
         <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
         <p className="text-[11px] text-amber-300/90 leading-relaxed">
@@ -207,7 +243,7 @@ export function AiFinancialStrategistPanel() {
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-red-400" />
-              6-Month Rolling Financial Forecast (തത്സമയ പ്രൊജക്ഷൻ)
+              6-Month Rolling Financial Forecast
             </h3>
             <p className="text-[11px] text-slate-400">Projected revenue, factory costs, and EBITDA margins</p>
           </div>
@@ -302,7 +338,7 @@ export function AiFinancialStrategistPanel() {
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Target className="w-4 h-4 text-emerald-400" />
-              5-Pillar Profit Maximization Suggestions (ലാഭം വർദ്ധിപ്പിക്കാനുള്ള വഴികൾ)
+              5-Pillar Profit Maximization Suggestions
             </h3>
             <p className="text-[11px] text-slate-400">Calculated directly from factory chemical usage, gang piece-rates, and product mix</p>
           </div>
@@ -355,7 +391,7 @@ export function AiFinancialStrategistPanel() {
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Sliders className="w-4 h-4 text-purple-400" />
-              Interactive Boardroom What-If Simulator (സാമ്പത്തിക സിമുലേറ്റർ)
+              Interactive Boardroom What-If Simulator
             </h3>
             <p className="text-[11px] text-slate-400">Adjust parameters live in meetings to forecast profit &amp; cash runway impact</p>
           </div>
@@ -508,6 +544,8 @@ export function AiFinancialStrategistPanel() {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* ================= FULL-SCREEN BOARDROOM PRESENTATION MODAL ================= */}
       {isBoardroomOpen && (

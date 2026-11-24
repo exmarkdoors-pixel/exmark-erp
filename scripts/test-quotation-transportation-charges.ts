@@ -24,7 +24,7 @@ async function testTransportationCharges() {
         totalPrice: 10000
       }
     ],
-    installationCharge: 1000,
+    installationRate: 1000,
     includeTransportation: true,
     transportationMode: 'FIXED_LUMP_SUM',
     transportationRate: 1500,
@@ -32,10 +32,9 @@ async function testTransportationCharges() {
     transportationVehicleType: 'Pickup / Tata Ace',
     transportationNotes: 'Direct factory to site drop',
     transportationAmount: 1500,
-    subtotal: 12500, // 10000 + 1000 + 1500
     totalAmount: 12500,
     advanceAmount: Math.round(12500 * 0.3) // 3750
-  });
+  } as any);
 
   console.log(`Created Quote 1: ID=${quote1.id}, QuoteNo=${quote1.quoteNumber}`);
   console.log(`Transportation: Mode=${quote1.transportationMode}, Amount=₹${quote1.transportationAmount}, Vehicle=${quote1.transportationVehicleType}`);
@@ -71,10 +70,9 @@ async function testTransportationCharges() {
     transportationVehicleType: 'Heavy Truck',
     transportationNotes: 'Inter-district delivery',
     transportationAmount: 1000, // 25 * 40
-    subtotal: 16000,
     totalAmount: 16000,
     advanceAmount: Math.round(16000 * 0.3)
-  });
+  } as any);
 
   console.log(`Created Quote 2: ID=${quote2.id}, QuoteNo=${quote2.quoteNumber}`);
   console.log(`Transportation: Mode=${quote2.transportationMode}, Rate=₹${quote2.transportationRate}/km, Distance=${quote2.transportationDistanceKm}km, Amount=₹${quote2.transportationAmount}`);
@@ -110,10 +108,9 @@ async function testTransportationCharges() {
     transportationVehicleType: 'Standard Van',
     transportationNotes: 'Careful handling for glass inserts',
     transportationAmount: 1000, // 4 * 250
-    subtotal: 17000,
     totalAmount: 17000,
     advanceAmount: Math.round(17000 * 0.3)
-  });
+  } as any);
 
   console.log(`Created Quote 3: ID=${quote3.id}, QuoteNo=${quote3.quoteNumber}`);
   console.log(`Transportation: Mode=${quote3.transportationMode}, Rate=₹${quote3.transportationRate}/door, Amount=₹${quote3.transportationAmount}`);
@@ -134,10 +131,9 @@ async function testTransportationCharges() {
     transportationVehicleType: 'Eicher 14ft',
     transportationNotes: 'Updated route via bypass',
     transportationAmount: 2000, // 40 * 50
-    subtotal: 13000,
     totalAmount: 13000,
     advanceAmount: Math.round(13000 * 0.3)
-  });
+  } as any);
 
   console.log(`Updated Quote 1: Mode=${updatedQuote1.transportationMode}, Rate=₹${updatedQuote1.transportationRate}/km, Distance=${updatedQuote1.transportationDistanceKm}km, Amount=₹${updatedQuote1.transportationAmount}, Vehicle=${updatedQuote1.transportationVehicleType}`);
   if (updatedQuote1.transportationAmount !== 2000 || updatedQuote1.transportationMode !== 'PER_KM') {

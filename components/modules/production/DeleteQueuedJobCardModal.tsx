@@ -25,43 +25,36 @@ export const CANCELLATION_REASONS = [
   {
     code: 'CUSTOMER_CANCELLED',
     labelEn: 'Customer Cancelled Order',
-    labelMl: 'കസ്റ്റമർ ഓർഡർ റദ്ദാക്കി',
     desc: 'Customer requested order cancellation prior to physical factory molding.',
   },
   {
     code: 'MEASUREMENT_ERROR',
     labelEn: 'Measurement Error / Revised Sizes',
-    labelMl: 'സൈറ്റ് അളവിൽ മാറ്റം / പുതിയ അളവ് വേണം',
     desc: 'Civil opening sizes changed; fresh job card with revised measurements required.',
   },
   {
     code: 'DESIGN_MODEL_CHANGE',
     labelEn: 'Model / Design / Color Changed',
-    labelMl: 'മോഡൽ / ഡിസൈൻ / കളർ മാറ്റം',
     desc: 'Party changed door model, frame profile, or PU color specification.',
   },
   {
     code: 'SITE_POSTPONED',
     labelEn: 'Site Delayed / Postponed Indefinitely',
-    labelMl: 'സൈറ്റ് വർക്ക് നീട്ടിവെച്ചു',
     desc: 'Civil contractor or owner delayed site readiness indefinitely.',
   },
   {
     code: 'DUPLICATE_ENTRY',
     labelEn: 'Duplicate / Mistaken Job Card',
-    labelMl: 'അബദ്ധത്തിൽ രണ്ടുതവണ ചേർത്തത്',
     desc: 'Created twice by accident or erroneous test entry on production board.',
   },
   {
     code: 'PAYMENT_HOLD',
     labelEn: 'Commercial Dispute / Payment Hold',
-    labelMl: 'പേയ്മെന്റ് തടസ്സം / ക്രഡിറ്റ് ഹോൾഡ്',
     desc: 'Customer advance cheque bounced or management placed commercial credit hold.',
   },
   {
     code: 'OTHER',
     labelEn: 'Other Reason (Specify below)',
-    labelMl: 'മറ്റ് കാരണങ്ങൾ (വിശദമായി നൽകുക)',
     desc: 'Custom reason requiring mandatory explanation notes.',
   },
 ] as const;
@@ -209,10 +202,7 @@ export function DeleteQueuedJobCardModal({
                         <Square className="w-4 h-4 text-slate-600 shrink-0" />
                       )}
                     </div>
-                    <span className="text-[11px] text-amber-300 font-medium font-sans">
-                      {r.labelMl}
-                    </span>
-                    <span className="text-[10px] text-slate-500 line-clamp-1">
+                    <span className="text-[10px] text-slate-400 line-clamp-1">
                       {r.desc}
                     </span>
                   </button>

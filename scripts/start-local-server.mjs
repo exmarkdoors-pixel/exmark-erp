@@ -14,6 +14,8 @@ import path from 'path';
 import http from 'http';
 import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { ensurePostgresRunning, fixDesktopAppConfig } from './ensure-local-services.mjs';
+import { startPortForwarder } from './localhost-port-forwarder.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -63,9 +65,9 @@ function loadEnvFiles() {
   return env;
 }
 
-function checkHealth(url) {
+function checkHealth(url, timeoutMs = 6000) {
   return new Promise((resolve) => {
-    const req = http.get(url, { timeout: 1500 }, (res) => {
+    const req = http.get(url, { timeout: timeoutMs }, (res) => {
       let data = '';
       res.on('data', (c) => { data += c; });
       res.on('end', () => {
@@ -73,7 +75,7 @@ function checkHealth(url) {
           const json = JSON.parse(data);
           resolve(res.statusCode === 200 && (json.liveness === 'ALIVE' || json.service === 'EXMARK-ERP' || (json.profile && json.profile.companyName && json.profile.companyName.includes('EXMARK'))));
         } catch {
-          resolve(false);
+          resolve(res.statusCode >= 200 && res.statusCode < 400);
         }
       });
     });
@@ -218,6 +220,11 @@ async function main() {
   const loopbackUrl = `http://localhost:${port}`;
   const healthUrl = `http://127.0.0.1:${port}/api/health`;
 
+  // 1. Ensure local services (PostgreSQL 18, Desktop config, Port Forwarder & IPv6 Bridge)
+  await ensurePostgresRunning().catch(() => {});
+  fixDesktopAppConfig();
+  startPortForwarder({ targetPort: port });
+
   if (await checkHealth(healthUrl)) {
     console.log(`[EXMARK Localhost] Server is already running and healthy at ${loopbackUrl}`);
     for (const lanUrl of getLanUrls(port)) {
@@ -227,6 +234,25 @@ async function main() {
       openUrlInBrowser(loopbackUrl);
     }
     return;
+  }
+
+  // Clear hung or unresponsive process on the requested port before shifting
+  if (await isTcpPortBusy(port)) {
+    const isHealthy = await checkHealth(`http://127.0.0.1:${port}/api/health`, 6000);
+    if (!isHealthy) {
+      const isRootAlive = await new Promise((resolve) => {
+        const req = http.get(`http://127.0.0.1:${port}/`, { timeout: 3000 }, (res) => {
+          resolve(res.statusCode >= 200 && res.statusCode < 500);
+        });
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => { req.destroy(); resolve(false); });
+      });
+      if (!isRootAlive) {
+        console.warn(`[EXMARK Localhost] Port ${port} is occupied by an unresponsive process. Clearing...`);
+        clearHungPortProcess(port);
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
   }
 
   // Find next available port if requested port is occupied by an external service
@@ -323,13 +349,22 @@ async function main() {
       });
     } else {
       console.log(`[EXMARK Localhost] Starting Next.js dev server on ${loopbackUrl} (Vault: ${dataDir})...`);
-      const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-      activeChild = spawn(npxCmd, ['next', 'dev', '-H', host, '-p', String(port)], {
-        cwd: rootDir,
-        env: serverEnv,
-        shell: process.platform === 'win32',
-        stdio: 'inherit',
-      });
+      const nextBin = path.join(rootDir, 'node_modules', 'next', 'dist', 'bin', 'next');
+      if (fs.existsSync(nextBin)) {
+        activeChild = spawn(process.execPath, [nextBin, 'dev', '-H', host, '-p', String(port)], {
+          cwd: rootDir,
+          env: serverEnv,
+          stdio: 'inherit',
+        });
+      } else {
+        const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+        activeChild = spawn(npxCmd, ['next', 'dev', '-H', host, '-p', String(port)], {
+          cwd: rootDir,
+          env: serverEnv,
+          shell: process.platform === 'win32',
+          stdio: 'inherit',
+        });
+      }
     }
 
     activeChild.on('exit', (code) => {

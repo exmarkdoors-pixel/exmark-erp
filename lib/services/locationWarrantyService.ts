@@ -53,9 +53,9 @@ const DEFAULT_SEED_WARRANTIES: GeotaggedWarranty[] = [
         'Apply machine lubricant or WD-40 to SS 304 ball-bearing hinges every 6 months.',
       ],
       malayalam: [
-        'ഡോർ വൃത്തിയാക്കാൻ നേർപ്പിച്ച സോപ്പ് വെള്ളവും മൈക്രോഫൈബർ തുണിയും മാത്രം ഉപയോഗിക്കുക.',
-        'ആസിഡ്, കോസ്റ്റിക് സോഡ, അല്ലെങ്കിൽ കമ്പി ബ്രഷ് എന്നിവ ഡോറിൽ ഒരിക്കലും ഉപയോഗിക്കരുത്.',
-        'ഹിഞ്ചുകൾ (Hinges) 6 മാസത്തിലൊരിക്കൽ ഓയിൽ ഇട്ട് സുഗമമായി പ്രവർത്തിക്കുന്നുണ്ടെന്ന് ഉറപ്പാക്കുക.',
+        'Inspect hinges and hardware fasteners every 6 months to ensure smooth, unhindered operation.',
+        'Protect finished surfaces from direct chemical spills or acid cleaners during tile washing.',
+        'Wipe door leaf with soft damp microfiber cloth; do not use abrasive pads or metal wool.',
       ],
     },
     coveredDoors: [
@@ -120,8 +120,8 @@ const DEFAULT_SEED_WARRANTIES: GeotaggedWarranty[] = [
         'Never use acidic cleaners on FRP doors.',
       ],
       malayalam: [
-        'ഡോർ വൃത്തിയാക്കാൻ വീര്യം കുറഞ്ഞ സോപ്പ് വെള്ളവും തുണിയും ഉപയോഗിക്കുക.',
-        'ആസിഡ് അടങ്ങിയ ക്ലീനറുകൾ ഒഴിവാക്കുക.',
+        'Inspect hinges and hardware fasteners every 6 months to ensure smooth, unhindered operation.',
+        'Protect finished surfaces from direct chemical spills or acid cleaners during tile washing.',
       ],
     },
     coveredDoors: [
@@ -253,9 +253,9 @@ export async function createLocationWarranty(input: Partial<GeotaggedWarranty>):
         'Lubricate hinges with machine oil every 6 months.',
       ],
       malayalam: [
-        'ഡോർ വൃത്തിയാക്കാൻ വീര്യം കുറഞ്ഞ സോപ്പ് വെള്ളവും തുണിയും മാത്രം ഉപയോഗിക്കുക.',
-        'ആസിഡ് അടങ്ങിയ ക്ലീനറുകൾ ഡോറിൽ ഒഴിക്കരുത്.',
-        'ഹിഞ്ചുകൾ (Hinges) 6 മാസത്തിലൊരിക്കൽ ഓയിൽ ഇട്ട് സുഗമമായി പ്രവർത്തിക്കുന്നുണ്ടെന്ന് ഉറപ്പാക്കുക.',
+        'Inspect hinges and hardware fasteners every 6 months to ensure smooth, unhindered operation.',
+        'Protect finished surfaces from direct chemical spills or acid cleaners during tile washing.',
+        'Wipe door leaf with soft damp microfiber cloth; do not use abrasive pads or metal wool.',
       ],
     },
     coveredDoors: Array.isArray(input.coveredDoors) && input.coveredDoors.length > 0

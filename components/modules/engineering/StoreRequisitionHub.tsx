@@ -24,6 +24,8 @@ import {
   BarChart3,
   Users,
   Package,
+  RefreshCw,
+  Zap,
 } from 'lucide-react';
 import { PurchaseOrderModal } from '@/components/modules/purchases/PurchaseOrderModal';
 import type { PurchaseLineItem } from '@/app/api/purchases/route';
@@ -50,6 +52,7 @@ import type {
   BoqIssueVoucherRecord,
   ConsolidatedBoqBatchSummary,
 } from '@/lib/services/boqIssueService';
+import type { StockBoqRateDiff } from '@/lib/services/boqRateService';
 import { apiFetch } from '@/lib/api/apiClient';
 import {
   ConsolidatedBatchIssueResult,
@@ -212,6 +215,22 @@ export default function StoreRequisitionHub({
   const [isSavingRates, setIsSavingRates] = useState<boolean>(false);
   const [ratesSaveNotice, setRatesSaveNotice] = useState<string | null>(null);
 
+  // Stock Ledger to BOQ Sync State
+  const [stockDiffs, setStockDiffs] = useState<StockBoqRateDiff[]>([]);
+  const [isLoadingStockDiff, setIsLoadingStockDiff] = useState<boolean>(false);
+  const [isSyncingFromStock, setIsSyncingFromStock] = useState<boolean>(false);
+  const [selectedDiffKeys, setSelectedDiffKeys] = useState<Record<string, boolean>>({});
+  const [liveStockItems, setLiveStockItems] = useState<Array<{
+    id: string;
+    itemCode: string;
+    name: string;
+    category: string;
+    unit: string;
+    unitCost: number;
+    currentStock: number;
+    status: string;
+  }>>([]);
+
   // Custom Usage Mode for Consolidated BOQ
   const [isCustomUsageEditMode, setIsCustomUsageEditMode] = useState<boolean>(false);
   const [customUsageBufferPercent, setCustomUsageBufferPercent] = useState<number>(0);
@@ -223,8 +242,16 @@ export default function StoreRequisitionHub({
   const [customUsageSaveSuccess, setCustomUsageSaveSuccess] = useState<boolean>(false);
 
   // Direct BOQ Issue & Issued Value Ledger state
+  const [issueDate, setIssueDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [issueGangName, setIssueGangName] = useState<string>('Molding Team A');
   const [issueShift, setIssueShift] = useState<BoqIssueShift>('MORNING');
+
+  const getTodayDateString = () => new Date().toISOString().slice(0, 10);
+  const getYesterdayDateString = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  };
   const [isIssuingBoq, setIsIssuingBoq] = useState<boolean>(false);
   const [boqIssueNotice, setBoqIssueNotice] = useState<{
     type: 'success' | 'error';
@@ -614,6 +641,16 @@ export default function StoreRequisitionHub({
       setExtraItemShift(isConsumablesMode || forceFloorConsumable ? 'EVENING' : 'MORNING');
       setExtraItemDate(new Date().toISOString().slice(0, 10));
       setExtraItemGangName('');
+    }
+    if (liveStockItems.length === 0) {
+      apiFetch('/api/boq/material-rates?liveStock=true')
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.success && Array.isArray(j.liveStockItems)) {
+            setLiveStockItems(j.liveStockItems);
+          }
+        })
+        .catch(() => {});
     }
     setIsAddItemModalOpen(true);
   };
@@ -1476,6 +1513,7 @@ export default function StoreRequisitionHub({
           doorIds,
           doorNumbers,
           items: markedIssueItems,
+          issueDate,
           shift: issueShift,
           gangName: issueGangName.trim() || 'Production Floor Team',
           bufferPercent: customUsageBufferPercent,
@@ -1726,6 +1764,7 @@ export default function StoreRequisitionHub({
             totalValue: Number(t.boq.grandTotalCost.toFixed(2)),
           })),
           items: markedIssueItems,
+          issueDate,
           shift: issueShift,
           gangName: issueGangName.trim() || 'Production Floor Team',
           bufferPercent: customUsageBufferPercent,
@@ -1838,10 +1877,82 @@ export default function StoreRequisitionHub({
     window.print();
   };
 
+  const loadStockDiffs = async () => {
+    setIsLoadingStockDiff(true);
+    try {
+      const res = await apiFetch('/api/boq/material-rates?diff=true&liveStock=true');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.diffs)) {
+        setStockDiffs(json.diffs);
+        const map: Record<string, boolean> = {};
+        json.diffs.forEach((d: StockBoqRateDiff) => {
+          map[d.boqKey] = true;
+        });
+        setSelectedDiffKeys(map);
+      }
+      if (json.success && Array.isArray(json.liveStockItems)) {
+        setLiveStockItems(json.liveStockItems);
+      }
+    } catch (err) {
+      console.warn('Failed to load stock diffs:', err);
+    } finally {
+      setIsLoadingStockDiff(false);
+    }
+  };
+
+  const handleApplyStockSync = async () => {
+    const selectedKeys = Object.entries(selectedDiffKeys)
+      .filter(([, checked]) => checked)
+      .map(([key]) => key);
+
+    if (selectedKeys.length === 0) {
+      setRatesSaveNotice('Please select at least one material rate to sync.');
+      return;
+    }
+
+    setIsSyncingFromStock(true);
+    try {
+      const res = await apiFetch('/api/boq/material-rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'SYNC_FROM_STOCK',
+          selectedKeys,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const merged = mergeBoqMaterialRates(json.data);
+        if (json.data.pigmentRatesByColour) {
+          merged.pigmentRatesByColour = json.data.pigmentRatesByColour;
+        }
+        setRatesConfig(merged);
+        setDraftRates(merged);
+        setRatesSaveNotice(
+          json.message ||
+            `Successfully synchronized ${json.updatedCount || selectedKeys.length} rate(s) from Stock Ledger!`
+        );
+        if (Array.isArray(json.diffs)) {
+          setStockDiffs(json.diffs);
+        } else {
+          loadStockDiffs();
+        }
+      } else {
+        throw new Error(json.error || 'Failed to sync rates from Stock Ledger');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to sync rates';
+      setRatesSaveNotice(`Sync Error: ${msg}`);
+    } finally {
+      setIsSyncingFromStock(false);
+    }
+  };
+
   const openRatesModal = () => {
     setDraftRates(mergeBoqMaterialRates(ratesConfig));
     setRatesSaveNotice(null);
     setIsRatesModalOpen(true);
+    loadStockDiffs();
   };
 
   const handleSaveRates = async (resetToDefaults = false) => {
@@ -2094,7 +2205,7 @@ export default function StoreRequisitionHub({
                   <>
                     {(orderHistoryFilter === 'ALL' || orderHistoryFilter === 'PENDING') &&
                       pendingBoqOrders.length > 0 && (
-                        <optgroup label="🔥 Ready for Molding (ക്യൂവ് ➔ മോൾഡിംഗ് - PENDING BOQ)">
+                        <optgroup label="🔥 Ready for Molding (Queue ➔ Molding - PENDING BOQ)">
                           {pendingBoqOrders.map((o) => {
                             const stats = getOrderIssueStats(o);
                             const stageTag = o.orderStatus === 'QUEUED' ? 'QUEUE ➔ MOLD' : 'MOLDING';
@@ -2111,7 +2222,7 @@ export default function StoreRequisitionHub({
                       )}
                     {(orderHistoryFilter === 'ALL' || orderHistoryFilter === 'ISSUED') &&
                       issuedBoqOrders.length > 0 && (
-                        <optgroup label="✓ Already Issued BOQ History (നൽകി കഴിഞ്ഞവ)">
+                        <optgroup label="✓ Already Issued BOQ History">
                           {issuedBoqOrders.map((o) => (
                             <option key={o.id} value={o.id}>
                               [ISSUED {o.boqIssuedAt ? o.boqIssuedAt.slice(0, 10) : ''}] {o.jobCardNumber} — {o.customerName} ({o.doorsCount} Doors)
@@ -2120,7 +2231,7 @@ export default function StoreRequisitionHub({
                         </optgroup>
                       )}
                     {orderHistoryFilter === 'ALL' && pastMoldingOrders.length > 0 && (
-                      <optgroup label="📜 Past Molding / Floor Progress (മോൾഡിംഗ് കഴിഞ്ഞവ - VIEW ONLY)">
+                      <optgroup label="📜 Past Molding / Floor Progress (VIEW ONLY)">
                         {pastMoldingOrders.map((o) => (
                           <option key={o.id} value={o.id}>
                             [PAST MOLDING: {o.orderStatus}] {o.jobCardNumber} — {o.customerName} ({o.doorsCount} Doors)
@@ -2246,7 +2357,7 @@ export default function StoreRequisitionHub({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
                 <h4 className="text-xs font-black text-white uppercase tracking-wider">
-                  Team-Wise Partial Door Slicer (പാർഷ്യൽ ഡോർ BOQ ബാച്ച്)
+                  Team-Wise Partial Door Slicer
                 </h4>
                 <span className="text-[10px] text-amber-300 font-bold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-600/40">
                   Selected: {pendingSelectedCount} Pending of {selectedOrder.doors.length} Doors
@@ -2338,6 +2449,40 @@ export default function StoreRequisitionHub({
                 )}
                 {selStats.pending > 0 ? (
                   <>
+                    <div className="inline-flex items-center gap-1 bg-[#070D1E] border border-slate-700 rounded-lg p-0.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setIssueDate(getTodayDateString())}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                          issueDate === getTodayDateString()
+                            ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                        title="Issue for Today"
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIssueDate(getYesterdayDateString())}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                          issueDate === getYesterdayDateString()
+                            ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                        title="Issue for Yesterday's Evening / Night Shift"
+                      >
+                        Yesterday
+                      </button>
+                      <input
+                        type="date"
+                        value={issueDate}
+                        max={getTodayDateString()}
+                        onChange={(e) => setIssueDate(e.target.value)}
+                        className="bg-transparent border-0 text-[10px] text-cyan-200 font-mono font-bold px-1 py-0.5 outline-none cursor-pointer"
+                        title="Select Custom Issue Date"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={handleDirectIssueSelectedDoors}
@@ -2680,6 +2825,40 @@ export default function StoreRequisitionHub({
               Enter Door Dimensions (cm), Qty, Frame, Colour &amp; Lock Box for Instant Auto-BOQ:
             </span>
             <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1 bg-[#070D1E] border border-cyan-700/60 rounded-lg p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setIssueDate(getTodayDateString())}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                    issueDate === getTodayDateString()
+                      ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Today's Date"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIssueDate(getYesterdayDateString())}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                    issueDate === getYesterdayDateString()
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Yesterday's Evening / Night Shift"
+                >
+                  Yesterday
+                </button>
+                <input
+                  type="date"
+                  value={issueDate}
+                  max={getTodayDateString()}
+                  onChange={(e) => setIssueDate(e.target.value)}
+                  className="bg-transparent border-0 text-[11px] text-cyan-200 font-mono font-bold px-1 py-0.5 outline-none cursor-pointer"
+                  title="Custom Issue Date"
+                />
+              </div>
               <button
                 type="button"
                 onClick={() =>
@@ -2982,6 +3161,41 @@ export default function StoreRequisitionHub({
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
+                {/* Date Controls with Today & Yesterday shortcuts */}
+                <div className="inline-flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg p-0.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setIssueDate(getTodayDateString())}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                      issueDate === getTodayDateString()
+                        ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Log for Today"
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIssueDate(getYesterdayDateString())}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                      issueDate === getYesterdayDateString()
+                        ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Log for Yesterday's Evening / Night Shift"
+                  >
+                    Yesterday
+                  </button>
+                  <input
+                    type="date"
+                    value={issueDate}
+                    max={getTodayDateString()}
+                    onChange={(e) => setIssueDate(e.target.value)}
+                    className="bg-transparent border-0 text-[11px] text-cyan-200 font-mono font-bold px-1 py-0.5 outline-none cursor-pointer"
+                    title="Custom Issue Date"
+                  />
+                </div>
                 <input
                   type="text"
                   value={issueGangName}
@@ -2997,6 +3211,7 @@ export default function StoreRequisitionHub({
                   <option value="MORNING">Morning</option>
                   <option value="AFTERNOON">Afternoon</option>
                   <option value="EVENING">Evening</option>
+                  <option value="NIGHT">Night</option>
                 </select>
                 <button
                   type="button"
@@ -3522,7 +3737,7 @@ export default function StoreRequisitionHub({
               className="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Add Issue Item (പുതിയ ഐറ്റം)</span>
+              <span>Add Issue Item</span>
             </button>
 
             <button
@@ -3530,7 +3745,7 @@ export default function StoreRequisitionHub({
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-950/40 flex items-center gap-1.5 cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              <span>Print Store Issue Slip (സ്റ്റോർ ഇഷ്യൂ വൗച്ചർ) 🖨️</span>
+              <span>Print Store Issue Slip 🖨️</span>
             </button>
           </div>
         </div>
@@ -3545,10 +3760,10 @@ export default function StoreRequisitionHub({
                 </div>
                 <div>
                   <h4 className="font-bold text-amber-300 text-xs">
-                    Custom Shop-Floor Usage, Item Marking &amp; Direct Issue (കസ്റ്റം യൂസേജ് &amp; ഇഷ്യൂ)
+                    Custom Shop-Floor Usage, Item Marking &amp; Direct Issue
                   </h4>
                   <p className="text-[10px] text-slate-300">
-                    Check/uncheck individual items below, edit quantities (അളവ്), and issue directly for the selected {activeDoors.length} door(s).
+                    Check/uncheck individual items below, edit quantities, and issue directly for the selected {activeDoors.length} door(s).
                   </p>
                 </div>
               </div>
@@ -3649,6 +3864,41 @@ export default function StoreRequisitionHub({
 
               {!isCustomCalcMode && (isBatchBoqMode || selectedOrder) && (
                 <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  {/* Date Controls with Today & Yesterday shortcuts */}
+                  <div className="inline-flex items-center gap-1 bg-[#070D1E] border border-slate-700 rounded-lg p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setIssueDate(getTodayDateString())}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                        issueDate === getTodayDateString()
+                          ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      title="Log for Today"
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIssueDate(getYesterdayDateString())}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                        issueDate === getYesterdayDateString()
+                          ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      title="Log for Yesterday's Evening / Night Shift"
+                    >
+                      Yesterday
+                    </button>
+                    <input
+                      type="date"
+                      value={issueDate}
+                      max={getTodayDateString()}
+                      onChange={(e) => setIssueDate(e.target.value)}
+                      className="bg-transparent border-0 text-[11px] text-cyan-200 font-mono font-bold px-1 py-0.5 outline-none cursor-pointer"
+                      title="Custom Issue Date"
+                    />
+                  </div>
                   <input
                     type="text"
                     value={issueGangName}
@@ -3665,6 +3915,7 @@ export default function StoreRequisitionHub({
                     <option value="MORNING">Morning</option>
                     <option value="AFTERNOON">Afternoon</option>
                     <option value="EVENING">Evening</option>
+                    <option value="NIGHT">Night</option>
                   </select>
                   <button
                     type="button"
@@ -4783,6 +5034,193 @@ export default function StoreRequisitionHub({
                 </div>
               )}
 
+              {/* Raw Material Stock Ledger Sync & Diff Table */}
+              <div className="bg-[#070D1E] border border-cyan-500/40 rounded-xl p-4 shadow-lg">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="p-1 rounded bg-cyan-900/60 text-cyan-400">
+                        <RefreshCw className={`w-4 h-4 ${isLoadingStockDiff ? 'animate-spin' : ''}`} />
+                      </span>
+                      <h4 className="font-black text-cyan-300 uppercase text-xs tracking-wider">
+                        Raw Material Stock Ledger Sync (Inventory Rates)
+                      </h4>
+                      <span className="text-[10px] bg-cyan-950 border border-cyan-800 text-cyan-400 px-2 py-0.5 rounded font-mono font-bold">
+                        {stockDiffs.length} items mapped
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Compare live purchase rates in Raw Material Stock Ledger with current BOQ formula rates.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isLoadingStockDiff}
+                      onClick={loadStockDiffs}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Reload latest purchase rates from Stock Ledger"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isLoadingStockDiff ? 'animate-spin' : ''}`} />
+                      <span>{isLoadingStockDiff ? 'Checking...' : 'Re-check Store'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSyncingFromStock || Object.values(selectedDiffKeys).filter(Boolean).length === 0}
+                      onClick={handleApplyStockSync}
+                      className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-[11px] font-black flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-40"
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>
+                        {isSyncingFromStock
+                          ? 'Syncing...'
+                          : `Sync Selected to BOQ (${Object.values(selectedDiffKeys).filter(Boolean).length})`}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {isLoadingStockDiff ? (
+                  <div className="py-6 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
+                    <span>Loading Stock Ledger rates & comparing with BOQ formulas...</span>
+                  </div>
+                ) : stockDiffs.length === 0 ? (
+                  <div className="py-4 text-center text-slate-500 text-xs italic">
+                    No active Raw Material stock items found in Stock Ledger.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const allSelected = stockDiffs.every((d) => selectedDiffKeys[d.boqKey]);
+                            const newMap: Record<string, boolean> = {};
+                            stockDiffs.forEach((d) => {
+                              newMap[d.boqKey] = !allSelected;
+                            });
+                            setSelectedDiffKeys(newMap);
+                          }}
+                          className="text-cyan-400 hover:underline cursor-pointer font-bold"
+                        >
+                          {stockDiffs.every((d) => selectedDiffKeys[d.boqKey])
+                            ? 'Deselect All'
+                            : 'Select All Diff Items'}
+                        </button>
+                        <span>•</span>
+                        <span>
+                          {stockDiffs.filter((d) => Math.abs(d.variance) > 0.01).length} items have price variance
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto border border-slate-800 rounded-lg max-h-56 overflow-y-auto">
+                      <table className="w-full text-left border-collapse text-[11px]">
+                        <thead>
+                          <tr className="bg-slate-900/90 text-slate-400 font-bold border-b border-slate-800 sticky top-0 z-10">
+                            <th className="p-2 w-8 text-center">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  stockDiffs.length > 0 &&
+                                  stockDiffs.every((d) => selectedDiffKeys[d.boqKey])
+                                }
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  const newMap: Record<string, boolean> = {};
+                                  stockDiffs.forEach((d) => {
+                                    newMap[d.boqKey] = checked;
+                                  });
+                                  setSelectedDiffKeys(newMap);
+                                }}
+                                className="rounded cursor-pointer"
+                              />
+                            </th>
+                            <th className="p-2">Material / Stock Item</th>
+                            <th className="p-2">Category</th>
+                            <th className="p-2 text-right">BOQ Formula Rate</th>
+                            <th className="p-2 text-right">Stock Ledger Rate</th>
+                            <th className="p-2 text-right">Variance</th>
+                            <th className="p-2 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60 font-mono">
+                          {stockDiffs.map((diff) => {
+                            const isDifferent = Math.abs(diff.variance) > 0.01;
+                            const isSelected = !!selectedDiffKeys[diff.boqKey];
+                            return (
+                              <tr
+                                key={diff.boqKey}
+                                className={`hover:bg-slate-800/40 transition-colors ${
+                                  isSelected ? 'bg-cyan-950/20' : ''
+                                }`}
+                              >
+                                <td className="p-2 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) =>
+                                      setSelectedDiffKeys((prev) => ({
+                                        ...prev,
+                                        [diff.boqKey]: e.target.checked,
+                                      }))
+                                    }
+                                    className="rounded cursor-pointer"
+                                  />
+                                </td>
+                                <td className="p-2 font-sans font-bold text-slate-200">
+                                  <div>{diff.label}</div>
+                                  <div className="text-[10px] text-slate-500 font-mono">
+                                    {diff.stockItemCode ? `Stock Code: ${diff.stockItemCode}` : 'Default formula'}
+                                  </div>
+                                </td>
+                                <td className="p-2 font-sans text-slate-400 text-[10px]">
+                                  {diff.category}
+                                </td>
+                                <td className="p-2 text-right text-slate-300">
+                                  ₹{diff.currentBoqRate.toLocaleString('en-IN')}/{diff.unit}
+                                </td>
+                                <td className="p-2 text-right text-cyan-300 font-bold">
+                                  ₹{diff.stockUnitCost.toLocaleString('en-IN')}/{diff.unit}
+                                </td>
+                                <td className="p-2 text-right">
+                                  {isDifferent ? (
+                                    <span
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                        diff.variance > 0
+                                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                          : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                      }`}
+                                    >
+                                      {diff.variance > 0 ? `+₹${diff.variance.toFixed(1)}` : `-₹${Math.abs(diff.variance).toFixed(1)}`}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-500 text-[10px]">0.0</span>
+                                  )}
+                                </td>
+                                <td className="p-2 text-center">
+                                  {isDifferent ? (
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-bold font-sans bg-amber-950/70 border border-amber-600/40 text-amber-300">
+                                      Diff Detected
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-bold font-sans bg-emerald-950/70 border border-emerald-600/40 text-emerald-300">
+                                      Matched
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Unit Prices */}
               <div>
                 <h4 className="font-bold text-emerald-300 uppercase text-[11px] mb-2">
@@ -5133,7 +5571,7 @@ export default function StoreRequisitionHub({
                     EXMARK DOORS — FACTORY STORE DIVISION
                   </div>
                   <div className="text-xs text-slate-700 font-bold">
-                    STORE MATERIAL REQUISITION &amp; ISSUE SLIP (മെറ്റീരിയൽ ഇഷ്യൂ വൗച്ചർ)
+                    STORE MATERIAL REQUISITION &amp; ISSUE SLIP
                   </div>
                   <div className="text-[10px] text-slate-500">
                     Plant Unit, Vengara, Malappuram • Release to Hand-Craft FRP Layup &amp; Assembly Floor
@@ -5153,8 +5591,8 @@ export default function StoreRequisitionHub({
                       ? `MR-BATCH-${batchOrders.length}P`
                       : `MR-2026-${(selectedOrder?.orderNumber || '001').slice(-3)}`}
                   </div>
-                  <div className="text-[10px] text-slate-600">
-                    Date: {new Date().toLocaleDateString('en-GB')}
+                  <div className="text-[10px] text-slate-600 font-semibold">
+                    Date: {issueDate ? new Date(issueDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}
                   </div>
                 </div>
               </div>
@@ -5520,7 +5958,7 @@ export default function StoreRequisitionHub({
                   <Plus className="w-4 h-4 text-purple-400" />
                   {editingExtraItemId
                     ? 'Edit Extra Store Issue Item'
-                    : 'Add New Store Issue Item (പുതിയ ഐറ്റം ചേർക്കുക)'}
+                    : 'Add New Store Issue Item'}
                 </h3>
                 <p className="text-[11px] text-slate-400">
                   Attached to Order Key: <strong className="text-purple-300">{primaryExtraOrderKey}</strong>
@@ -5536,6 +5974,46 @@ export default function StoreRequisitionHub({
             </div>
 
             <form onSubmit={handleSaveExtraItem} className="p-5 space-y-4 text-xs">
+              {!editingExtraItemId && liveStockItems.length > 0 && (
+                <div className="p-2.5 rounded-xl bg-slate-900/90 border border-cyan-500/40">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] text-cyan-400 uppercase font-black flex items-center gap-1.5">
+                      <Package className="w-3.5 h-3.5" />
+                      Pick Directly from Raw Material Stock Ledger:
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      ({liveStockItems.length} active inventory items)
+                    </span>
+                  </div>
+                  <select
+                    onChange={(e) => {
+                      const selectedItem = liveStockItems.find((it) => it.id === e.target.value);
+                      if (selectedItem) {
+                        setExtraItemName(selectedItem.name);
+                        setExtraItemUnit(selectedItem.unit || 'Kg');
+                        setExtraItemRate(String(selectedItem.unitCost || 0));
+                        setExtraItemSpecNote(
+                          `Stock Code: ${selectedItem.itemCode} • In Stock: ${selectedItem.currentStock} ${selectedItem.unit}`
+                        );
+                        if (selectedItem.category === 'Chemicals') setExtraItemCategory('Chemical');
+                        else if (selectedItem.category === 'Core & Structural') setExtraItemCategory('Timber / Wood');
+                        else if (selectedItem.category === 'Consumables') setExtraItemCategory('Consumable');
+                        else setExtraItemCategory('Other');
+                      }
+                    }}
+                    defaultValue=""
+                    className="w-full bg-[#070D1E] border border-cyan-600/50 rounded-lg px-2.5 py-1.5 text-cyan-200 font-semibold text-xs focus:ring-1 focus:ring-cyan-500 cursor-pointer"
+                  >
+                    <option value="" disabled>-- Select Material from Inventory Store --</option>
+                    {liveStockItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} ({item.itemCode}) — ₹{item.unitCost}/{item.unit} [Avail: {item.currentStock} {item.unit}]
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {!editingExtraItemId && (
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase font-bold block mb-1.5">
@@ -5659,12 +6137,39 @@ export default function StoreRequisitionHub({
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] text-slate-400 uppercase font-bold">Date</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] text-slate-400 uppercase font-bold">Date</label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setExtraItemDate(getTodayDateString())}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                          extraItemDate === getTodayDateString()
+                            ? 'bg-cyan-500 text-slate-950 font-black'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExtraItemDate(getYesterdayDateString())}
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                          extraItemDate === getYesterdayDateString()
+                            ? 'bg-amber-500 text-slate-950 font-black'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Yesterday
+                      </button>
+                    </div>
+                  </div>
                   <input
                     type="date"
                     value={extraItemDate}
+                    max={getTodayDateString()}
                     onChange={(e) => setExtraItemDate(e.target.value)}
-                    className="w-full mt-1 bg-[#070D1E] border border-slate-700 rounded-lg px-3 py-2 text-white"
+                    className="w-full bg-[#070D1E] border border-slate-700 rounded-lg px-3 py-2 text-white"
                   />
                 </div>
                 <div>
@@ -6043,6 +6548,7 @@ export default function StoreRequisitionHub({
         bufferPercent={customUsageBufferPercent}
         initialGangName={issueGangName}
         initialShift={issueShift}
+        initialIssueDate={issueDate}
         notes={customUsageNotes}
         previewVoucher={previewIssueVoucher}
         consolidatedEntries={isBatchBoqMode ? consolidatedBatchEntries : undefined}

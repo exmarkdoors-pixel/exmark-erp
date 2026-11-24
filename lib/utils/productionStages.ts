@@ -21,6 +21,11 @@ export interface ProductionStageAssignment {
   isRework?: boolean;
   reworkReason?: string;
   pieceRateSkippedReason?: string;
+  workStatus?: 'IN_PROGRESS' | 'COMPLETED';
+  pieceRateCredited?: boolean;
+  creditedAmount?: number;
+  creditedAt?: string;
+  assignedAt?: string;
   completedAt: string;
 }
 

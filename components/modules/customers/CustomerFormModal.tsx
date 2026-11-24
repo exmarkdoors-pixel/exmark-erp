@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Building2, MapPin, Phone, Mail, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Building2, MapPin, Phone, Mail, FileText, CheckCircle2, AlertCircle, UserCheck, Clock } from 'lucide-react';
 import { Customer, CustomerType } from '@/lib/services/customerService';
 import { apiFetch } from '@/lib/api/apiClient';
 
@@ -22,6 +22,14 @@ const KERALA_DISTRICTS = [
   'Wayanad',
 ];
 
+interface SalesStaffOption {
+  id: string;
+  name: string;
+  employeeCode: string;
+  department?: string;
+  role?: string;
+}
+
 interface CustomerFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -39,8 +47,31 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
   const [phone, setPhone] = useState(initialCustomer?.phone || '');
   const [email, setEmail] = useState(initialCustomer?.email || '');
   const [creditLimit, setCreditLimit] = useState(initialCustomer?.creditLimit?.toString() || '100000');
+  const [creditPeriodDays, setCreditPeriodDays] = useState(initialCustomer?.creditPeriodDays?.toString() || '30');
+  const [salespersonId, setSalespersonId] = useState(initialCustomer?.salespersonId || '');
+  const [salesStaffList, setSalesStaffList] = useState<SalesStaffOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      apiFetch('/api/employees')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && Array.isArray(json.data)) {
+            const staff = json.data.map((e: any) => ({
+              id: e.id,
+              name: e.name,
+              employeeCode: e.employeeCode || e.code || 'EMP',
+              department: e.department,
+              role: e.role,
+            }));
+            setSalesStaffList(staff);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -61,6 +92,8 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
       return;
     }
 
+    const selectedStaff = salesStaffList.find((s) => s.id === salespersonId);
+
     setIsSubmitting(true);
     try {
       const url = initialCustomer?.id ? `/api/customers/${initialCustomer.id}` : '/api/customers';
@@ -80,6 +113,10 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
           phone: phone.trim(),
           email: email.trim() || null,
           creditLimit: parseFloat(creditLimit) || 0,
+          creditPeriodDays: parseInt(creditPeriodDays) || 30,
+          salespersonId: selectedStaff?.id || undefined,
+          salespersonName: selectedStaff?.name || undefined,
+          salespersonCode: selectedStaff?.employeeCode || undefined,
         }),
       });
 
@@ -185,6 +222,46 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
             </div>
           </div>
 
+          {/* Sales Executive Assignment & Credit Period */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+            <div>
+              <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-1">
+                <UserCheck className="w-3.5 h-3.5 text-amber-500" />
+                <span>Assigned Sales Executive</span>
+              </label>
+              <select
+                value={salespersonId}
+                onChange={(e) => setSalespersonId(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white font-medium"
+              >
+                <option value="">Direct / House Account (None)</option>
+                {salesStaffList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.employeeCode || 'Sales'})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-1">
+                <Clock className="w-3.5 h-3.5 text-sky-500" />
+                <span>Credit Terms (Days)</span>
+              </label>
+              <select
+                value={creditPeriodDays}
+                onChange={(e) => setCreditPeriodDays(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white"
+              >
+                <option value="0">0 Days (Strict Immediate Payment)</option>
+                <option value="15">15 Days Standard</option>
+                <option value="30">30 Days (Default)</option>
+                <option value="45">45 Days Dealer Terms</option>
+                <option value="60">60 Days Extended Project</option>
+                <option value="90">90 Days Major Builder</option>
+              </select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
@@ -220,7 +297,7 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
             </div>
           </div>
 
-          <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                 Email Address
@@ -236,6 +313,18 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
                 />
               </div>
             </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Credit Limit (₹)
+              </label>
+              <input
+                type="number"
+                value={creditLimit}
+                onChange={(e) => setCreditLimit(e.target.value)}
+                placeholder="100000"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white"
+              />
+            </div>
           </div>
 
           <div>
@@ -247,19 +336,6 @@ export function CustomerFormModal({ isOpen, onClose, onSaved, initialCustomer }:
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="e.g. Bypass Road, Near Bus Stand"
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-              Credit Limit (₹)
-            </label>
-            <input
-              type="number"
-              value={creditLimit}
-              onChange={(e) => setCreditLimit(e.target.value)}
-              placeholder="100000"
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white"
             />
           </div>

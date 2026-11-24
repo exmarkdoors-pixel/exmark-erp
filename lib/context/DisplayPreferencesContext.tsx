@@ -12,6 +12,8 @@ export interface DisplayPreferences {
   fontScale: number; // e.g. 0.90, 1.0, 1.10, 1.25, 1.40
   screenFit: ScreenResolutionFit;
   fontWeight: FontWeightPreference;
+  backgroundSlideshowEnabled: boolean;
+  backgroundOpacity: number;
 }
 
 export const THEME_OPTIONS: Array<{ id: StandardUiTheme; label: string; desc: string; previewBg: string; previewAccent: string }> = [
@@ -24,7 +26,7 @@ export const THEME_OPTIONS: Array<{ id: StandardUiTheme; label: string; desc: st
   },
   {
     id: 'light-corporate',
-    label: 'Clean White & Black (Office Light Mode) / ലളിതമായ വൈറ്റ് തീം',
+    label: 'Clean White & Black (Office Light Mode)',
     desc: 'High-contrast 100% pure white background with sharp black letters, black borders, and zero glare for office desks and daytime operations.',
     previewBg: 'bg-white text-black border-black',
     previewAccent: '#2563eb',
@@ -56,9 +58,9 @@ export const FONT_SCALE_PRESETS = [
 ];
 
 export const FONT_WEIGHT_PRESETS: Array<{ id: FontWeightPreference; label: string; desc: string }> = [
-  { id: 'normal', label: 'Normal (സാധാരണ)', desc: 'Standard crisp black letters' },
-  { id: 'bold', label: 'Bold (ബോൾഡ്)', desc: 'Sharper, thicker high-contrast letters' },
-  { id: 'extra-bold', label: 'Extra Bold (കടും കറുപ്പ്)', desc: 'Maximum darkness & heavy solid black' },
+  { id: 'normal', label: 'Normal', desc: 'Standard crisp black letters' },
+  { id: 'bold', label: 'Bold', desc: 'Sharper, thicker high-contrast letters' },
+  { id: 'extra-bold', label: 'Extra Bold', desc: 'Maximum darkness & heavy solid black' },
 ];
 
 export const SCREEN_FIT_OPTIONS: Array<{ id: ScreenResolutionFit; label: string; resolution: string; desc: string }> = [
@@ -74,6 +76,8 @@ const DEFAULT_PREFERENCES: DisplayPreferences = {
   fontScale: 1.0,
   screenFit: 'auto',
   fontWeight: 'normal',
+  backgroundSlideshowEnabled: true,
+  backgroundOpacity: 0.40, // 60% transparency
 };
 
 const STORAGE_KEY = 'exmark_display_preferences_v1';
@@ -102,6 +106,8 @@ interface DisplayPreferencesContextType {
   setFontScale: (scale: number) => void;
   setFontWeight: (weight: FontWeightPreference) => void;
   setScreenFit: (fit: ScreenResolutionFit) => void;
+  toggleBackgroundSlideshow: () => void;
+  setBackgroundOpacity: (opacity: number) => void;
   resetToDefaults: () => void;
   screenFitContainerClass: string;
 }
@@ -118,13 +124,16 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        setPreferences({
-          theme: parsed.theme || DEFAULT_PREFERENCES.theme,
-          accentColor: parsed.accentColor || DEFAULT_PREFERENCES.accentColor,
-          fontScale: typeof parsed.fontScale === 'number' ? parsed.fontScale : DEFAULT_PREFERENCES.fontScale,
-          screenFit: parsed.screenFit || DEFAULT_PREFERENCES.screenFit,
-          fontWeight: parsed.fontWeight || DEFAULT_PREFERENCES.fontWeight,
-        });
+        setPreferences(prev => ({
+          ...prev,
+          theme: parsed.theme || prev.theme,
+          accentColor: parsed.accentColor || prev.accentColor,
+          fontScale: typeof parsed.fontScale === 'number' ? parsed.fontScale : prev.fontScale,
+          screenFit: parsed.screenFit || prev.screenFit,
+          fontWeight: parsed.fontWeight || prev.fontWeight,
+          backgroundSlideshowEnabled: typeof parsed.backgroundSlideshowEnabled === 'boolean' ? parsed.backgroundSlideshowEnabled : prev.backgroundSlideshowEnabled,
+          backgroundOpacity: typeof parsed.backgroundOpacity === 'number' ? parsed.backgroundOpacity : prev.backgroundOpacity,
+        }));
       }
     } catch {
       // Fallback to default
@@ -182,6 +191,17 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
     setPreferences(prev => ({ ...prev, screenFit }));
   };
 
+  const toggleBackgroundSlideshow = () => {
+    setPreferences(prev => ({
+      ...prev,
+      backgroundSlideshowEnabled: !(prev.backgroundSlideshowEnabled ?? true),
+    }));
+  };
+
+  const setBackgroundOpacity = (backgroundOpacity: number) => {
+    setPreferences(prev => ({ ...prev, backgroundOpacity }));
+  };
+
   const resetToDefaults = () => {
     setPreferences(DEFAULT_PREFERENCES);
   };
@@ -189,14 +209,14 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
   const screenFitContainerClass = useMemo(() => {
     switch (preferences.screenFit) {
       case 'laptop-1366':
-        return 'max-w-[1366px] mx-auto w-full';
+        return 'w-full max-w-[1366px] mx-auto min-w-0';
       case 'hd-1600':
-        return 'max-w-[1600px] mx-auto w-full';
+        return 'w-full max-w-[1600px] mx-auto min-w-0';
       case 'fhd-1920':
-        return 'max-w-[1920px] mx-auto w-full';
+        return 'w-full max-w-[1920px] mx-auto min-w-0';
       case 'auto':
       default:
-        return 'w-full';
+        return 'w-full max-w-full min-w-0 overflow-x-hidden';
     }
   }, [preferences.screenFit]);
 
@@ -209,6 +229,8 @@ export function DisplayPreferencesProvider({ children }: { children: React.React
         setFontScale,
         setFontWeight,
         setScreenFit,
+        toggleBackgroundSlideshow,
+        setBackgroundOpacity,
         resetToDefaults,
         screenFitContainerClass,
       }}
@@ -238,6 +260,8 @@ export function useDisplayPreferences() {
       setFontScale: () => {},
       setFontWeight: () => {},
       setScreenFit: () => {},
+      toggleBackgroundSlideshow: () => {},
+      setBackgroundOpacity: () => {},
       resetToDefaults: () => {},
       screenFitContainerClass: 'w-full',
     };

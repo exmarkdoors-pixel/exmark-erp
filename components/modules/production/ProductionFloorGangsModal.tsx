@@ -395,7 +395,7 @@ export function ProductionFloorGangsModal({
             >
               <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                 <Plus className="w-4 h-4" />
-                <span>Create In-House Floor Gang (പുതിയ ഗ്യാങ് ചേർക്കുക)</span>
+                <span>Create In-House Floor Gang</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div>

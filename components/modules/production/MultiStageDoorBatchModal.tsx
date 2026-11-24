@@ -241,6 +241,7 @@ export function MultiStageDoorBatchModal({
           operation,
           customRate: customPieceRate ? parseFloat(customPieceRate) : undefined,
           notes: `Batch transition of ${selectedDoorIds.length} doors to ${targetStage}`,
+          creditDepartingStage: true,
         }),
       });
 

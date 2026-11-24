@@ -123,6 +123,43 @@ export interface UpdateRawMaterialInput {
   currentStock?: number;
 }
 
+export type BulkRawMaterialMode = 'PHYSICAL_AUDIT' | 'CONSIGNMENT_ADD' | 'GRID_EDIT' | 'CSV_IMPORT';
+
+export interface BulkRawMaterialRowInput {
+  id: string;
+  itemCode?: string;
+  name?: string;
+  category?: RawMaterialCategory;
+  unit?: string;
+  currentStock?: number;
+  physicalStock?: number;
+  addQuantity?: number;
+  unitCost?: number;
+  minSafetyBuffer?: number;
+  targetStock?: number;
+  warehouseLocation?: string;
+}
+
+export interface BulkRawMaterialUpdatePayload {
+  mode: BulkRawMaterialMode;
+  reason?: string;
+  referenceNumber?: string;
+  syncBoqRates?: boolean;
+  items: BulkRawMaterialRowInput[];
+}
+
+export interface BulkRawMaterialUpdateResult {
+  updatedCount: number;
+  totalStockBefore: number;
+  totalStockAfter: number;
+  netStockVariance: number;
+  valuationBefore: number;
+  valuationAfter: number;
+  netValuationDiff: number;
+  boqSyncedCount?: number;
+  updatedItems: RawMaterialStockItem[];
+}
+
 export interface ReworkStationItem {
   orderId: string;
   jobCardNumber: string;
@@ -914,6 +951,218 @@ export async function adjustRawMaterialStock(
   return updated;
 }
 
+// ── Bulk Raw Material Update & CSV Import/Export ──────────────────────────────
+
+export async function bulkUpdateRawMaterials(
+  payload: BulkRawMaterialUpdatePayload
+): Promise<BulkRawMaterialUpdateResult> {
+  await assertWriteAllowed('bulk update raw materials');
+  if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) {
+    throw new Error('No items provided for bulk raw material update.');
+  }
+
+  const items = getRawMaterialsInventory();
+  const totalStockBefore = items.reduce((acc, it) => acc + (Number(it.currentStock) || 0), 0);
+  const valuationBefore = items.reduce(
+    (acc, it) => acc + (Number(it.currentStock) || 0) * (Number(it.unitCost) || 0),
+    0
+  );
+
+  let updatedCount = 0;
+  const updatedItemsList: RawMaterialStockItem[] = [];
+
+  for (const inputRow of payload.items) {
+    const rawId = String(inputRow.id || '').trim();
+    const rawCode = String(inputRow.itemCode || '').trim().toUpperCase();
+    const rawName = String(inputRow.name || '').trim().toLowerCase();
+
+    const idx = items.findIndex((it) => {
+      if (rawId && it.id === rawId) return true;
+      if (rawCode && (it.itemCode || '').toUpperCase() === rawCode) return true;
+      if (rawName && (it.name || '').toLowerCase() === rawName) return true;
+      return false;
+    });
+
+    if (idx === -1) continue;
+
+    const current = items[idx];
+    let nextStock = current.currentStock;
+
+    if (payload.mode === 'PHYSICAL_AUDIT') {
+      if (
+        inputRow.physicalStock !== undefined &&
+        inputRow.physicalStock !== null &&
+        !isNaN(Number(inputRow.physicalStock))
+      ) {
+        nextStock = Math.max(0, Number(inputRow.physicalStock));
+      }
+    } else if (payload.mode === 'CONSIGNMENT_ADD') {
+      if (
+        inputRow.addQuantity !== undefined &&
+        inputRow.addQuantity !== null &&
+        !isNaN(Number(inputRow.addQuantity))
+      ) {
+        nextStock = Math.max(0, Number((current.currentStock + Number(inputRow.addQuantity)).toFixed(2)));
+      }
+    } else {
+      // GRID_EDIT or CSV_IMPORT
+      if (
+        inputRow.physicalStock !== undefined &&
+        inputRow.physicalStock !== null &&
+        !isNaN(Number(inputRow.physicalStock))
+      ) {
+        nextStock = Math.max(0, Number(inputRow.physicalStock));
+      } else if (
+        inputRow.currentStock !== undefined &&
+        inputRow.currentStock !== null &&
+        !isNaN(Number(inputRow.currentStock))
+      ) {
+        nextStock = Math.max(0, Number(inputRow.currentStock));
+      } else if (
+        inputRow.addQuantity !== undefined &&
+        inputRow.addQuantity !== null &&
+        !isNaN(Number(inputRow.addQuantity))
+      ) {
+        nextStock = Math.max(0, Number((current.currentStock + Number(inputRow.addQuantity)).toFixed(2)));
+      }
+    }
+
+    const nextCost =
+      inputRow.unitCost !== undefined && inputRow.unitCost !== null && !isNaN(Number(inputRow.unitCost))
+        ? Math.max(0, Number(inputRow.unitCost))
+        : current.unitCost;
+
+    const nextBuffer =
+      inputRow.minSafetyBuffer !== undefined &&
+      inputRow.minSafetyBuffer !== null &&
+      !isNaN(Number(inputRow.minSafetyBuffer))
+        ? Math.max(0, Number(inputRow.minSafetyBuffer))
+        : current.minSafetyBuffer;
+
+    const nextTarget =
+      inputRow.targetStock !== undefined &&
+      inputRow.targetStock !== null &&
+      !isNaN(Number(inputRow.targetStock))
+        ? Math.max(nextBuffer, Number(inputRow.targetStock))
+        : current.targetStock;
+
+    const nextLocation =
+      inputRow.warehouseLocation !== undefined &&
+      inputRow.warehouseLocation !== null &&
+      String(inputRow.warehouseLocation).trim()
+        ? String(inputRow.warehouseLocation).trim()
+        : current.warehouseLocation;
+
+    const nextName =
+      inputRow.name !== undefined && String(inputRow.name).trim()
+        ? String(inputRow.name).trim()
+        : current.name;
+
+    const nextCategory = inputRow.category || current.category;
+    const nextUnit = inputRow.unit ? String(inputRow.unit).trim() : current.unit;
+
+    let nextStatus: 'IN_STOCK' | 'LOW_STOCK' | 'CRITICAL' = 'IN_STOCK';
+    if (nextStock <= 0) nextStatus = 'CRITICAL';
+    else if (nextStock <= nextBuffer) nextStatus = 'LOW_STOCK';
+
+    const updated: RawMaterialStockItem = {
+      ...current,
+      name: nextName,
+      category: nextCategory,
+      unit: nextUnit,
+      currentStock: nextStock,
+      unitCost: nextCost,
+      minSafetyBuffer: nextBuffer,
+      reorderLevel: nextBuffer,
+      targetStock: nextTarget,
+      warehouseLocation: nextLocation,
+      status: nextStatus,
+      updatedAt: new Date().toISOString(),
+    };
+
+    items[idx] = updated;
+    updatedItemsList.push(updated);
+    updatedCount++;
+  }
+
+  const totalStockAfter = items.reduce((acc, it) => acc + (Number(it.currentStock) || 0), 0);
+  const valuationAfter = items.reduce(
+    (acc, it) => acc + (Number(it.currentStock) || 0) * (Number(it.unitCost) || 0),
+    0
+  );
+  const netStockVariance = Number((totalStockAfter - totalStockBefore).toFixed(2));
+  const netValuationDiff = Math.round(valuationAfter - valuationBefore);
+
+  writeJsonFile(getInventoryPath(), items);
+
+  let boqSyncedCount: number | undefined;
+  if (payload.syncBoqRates) {
+    try {
+      const { syncBoqRatesFromStockLedger } = await import('./boqRateService');
+      const syncResult = await syncBoqRatesFromStockLedger();
+      boqSyncedCount = syncResult.updatedCount;
+    } catch (err) {
+      console.warn('[stockMaintenanceService] Failed to auto-sync BOQ rates after bulk update:', err);
+    }
+  }
+
+  return {
+    updatedCount,
+    totalStockBefore: Number(totalStockBefore.toFixed(2)),
+    totalStockAfter: Number(totalStockAfter.toFixed(2)),
+    netStockVariance,
+    valuationBefore: Math.round(valuationBefore),
+    valuationAfter: Math.round(valuationAfter),
+    netValuationDiff,
+    boqSyncedCount,
+    updatedItems: updatedItemsList,
+  };
+}
+
+export function generateRawMaterialsCsv(): string {
+  const items = getRawMaterialsInventory();
+  const headers = [
+    'Item Code',
+    'Raw Material Name',
+    'Category',
+    'Current System Stock',
+    'Physical Count',
+    'Unit',
+    'Unit Rate (INR)',
+    'Min Safety Buffer',
+    'Target Stock',
+    'Warehouse Location',
+    'Status',
+  ];
+
+  const escapeCsv = (val: unknown): string => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return `"${str}"`;
+  };
+
+  const rows = items.map((item) => {
+    return [
+      escapeCsv(item.itemCode),
+      escapeCsv(item.name),
+      escapeCsv(item.category),
+      item.currentStock,
+      item.currentStock, // Pre-filled default for physical count audit
+      escapeCsv(item.unit),
+      item.unitCost,
+      item.minSafetyBuffer,
+      item.targetStock,
+      escapeCsv(item.warehouseLocation),
+      escapeCsv(item.status),
+    ].join(',');
+  });
+
+  return [headers.join(','), ...rows].join('\r\n');
+}
+
 // ── BOQ Raw Material Auto-Deduction ──────────────────────────────────────────
 
 export type DeductibleBoqMaterialInput = {
@@ -1534,7 +1783,7 @@ export async function createFgBufferReplenishmentOrder(
   }));
 
   const newOrder = await createProductionOrder({
-    customerName: 'FACTORY FG BUFFER STOCK (കമ്പനി സ്റ്റോക്ക് ബഫർ)',
+    customerName: 'FACTORY FG BUFFER STOCK (Company Buffer)',
     siteName: 'Main Finished Goods Warehouse',
     district: 'Warehouse',
     doorCategory: 'FRP_DOORS',

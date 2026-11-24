@@ -2932,7 +2932,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold text-white">
-                      {editingQuoteId ? `Edit Quotation (${editingQuoteId})` : 'Create A New Quotation (ക്രിയേറ്റ് എ ന്യൂ കൊട്ടേഷൻ)'}
+                      {editingQuoteId ? `Edit Quotation (${editingQuoteId})` : 'Create A New Quotation'}
                     </h3>
                     <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                       {editingQuoteId || `QT-2026-0${quotations.length + 109}`}
@@ -3062,7 +3062,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
               <div className="md:col-span-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold text-slate-200">
-                    Customer / Client Name (കസ്റ്റമർ പേര്) *
+                    Customer / Client Name *
                   </label>
                   <button
                     type="button"
@@ -3087,7 +3087,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold text-slate-200 flex items-center gap-1">
                     <UserCheck className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Sales Rep (സെയിൽസ്മാൻ)</span>
+                    <span>Sales Rep</span>
                   </label>
                   <span className="text-[10px] text-amber-300 font-bold bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/30">
                     Piece Rate (₹/door)
@@ -3364,7 +3364,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                     className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 bg-cyan-950/40 border border-cyan-800/40 px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>+ Add New Door Model (പുതിയ മോഡൽ)</span>
+                    <span>+ Add New Door Model</span>
                   </button>
                   <button
                     type="button"
@@ -3389,7 +3389,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                       title="Add Section / Floor wise BOQ grouping (e.g. Ground Floor, First Floor)"
                     >
                       <Layers className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>+ Add Section (സെക്ഷൻ)</span>
+                      <span>+ Add Section</span>
                     </button>
                     {showAddSectionMenu && (
                       <div className="absolute right-0 top-full mt-1 w-56 bg-[#0c1324] border border-indigo-500/60 rounded-xl shadow-2xl z-50 p-1.5 space-y-1">
@@ -3397,11 +3397,11 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                           Choose Section:
                         </div>
                         {[
-                          'Ground Floor (ഗ്രൗണ്ട് ഫ്ലോർ)',
-                          'First Floor (ഫസ്റ്റ് ഫ്ലോർ)',
-                          'Second Floor (രണ്ടാം നില)',
-                          'Kitchen & Work Area (അടുക്കള)',
-                          'Bathrooms (ബാത്ത്റൂം)',
+                          'Ground Floor',
+                          'First Floor',
+                          'Second Floor',
+                          'Kitchen & Work Area',
+                          'Bathrooms',
                           'Exterior / Balcony',
                         ].map((sec) => (
                           <button
@@ -3437,13 +3437,13 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                     <tr className="bg-[#11182c] border-b border-slate-800 text-[11px] font-bold text-slate-300">
                       {/* 1. Door Model & Category */}
                       <th className="p-2 w-[24%] min-w-[180px]">
-                        <span>Door Model &amp; Cat (മോഡൽ)</span>
+                        <span>Door Model &amp; Category</span>
                       </th>
 
                       {/* 2. Frame Profile & Thickness */}
                       <th className="p-2 w-[18%] min-w-[150px]">
                         <div className="flex items-center justify-between gap-1">
-                          <span>Frame &amp; Thickness (ഫ്രെയിം / കനം)</span>
+                          <span>Frame &amp; Thickness</span>
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
@@ -3471,7 +3471,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                       {/* 3. Colour & Lock Hardware */}
                       <th className="p-2 w-[18%] min-w-[150px]">
                         <div className="flex items-center justify-between gap-1">
-                          <span>Colour &amp; Lock (നിറം / പൂട്ട്)</span>
+                          <span>Colour &amp; Lock</span>
                           <button
                             type="button"
                             onClick={() => {
@@ -4112,7 +4112,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
               <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-200 mb-1">
-                    Additional Site Services (ഓപ്ഷണൽ സേവനങ്ങൾ)
+                    Additional Site Services
                   </label>
                   <p className="text-[11px] text-slate-400">
                     All quotations follow direct factory pricing (zero tax). Add optional installation below if required.
@@ -4130,7 +4130,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                         className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
                       />
                       <span className="text-xs font-bold text-emerald-300">
-                        Include Door Installation Service (ഡോർ ഇൻസ്റ്റാളേഷൻ)
+                        Include Door Installation Service
                       </span>
                     </label>
                     {includeInstallation && (
@@ -4222,7 +4222,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                         className="w-4 h-4 rounded accent-sky-500 cursor-pointer"
                       />
                       <span className="text-xs font-bold text-sky-300">
-                        Include Transportation &amp; Delivery Freight (ചരക്കുകൂലി / ട്രാൻസ്പോർട്ടേഷൻ)
+                        Include Transportation &amp; Delivery Freight
                       </span>
                     </label>
                     {includeTransportation && (
@@ -4374,7 +4374,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 {/* Special Discount & Round-Off Rows */}
                 <div className="flex items-center justify-between text-slate-300 border-t border-slate-800/80 pt-1.5 gap-2">
                   <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-rose-300 font-semibold">Special Discount (പ്രത്യേക ഡിസ്കൗണ്ട്):</span>
+                    <span className="text-[11px] text-rose-300 font-semibold">Special Discount:</span>
                   </div>
                   <div className="flex items-center gap-1 font-mono">
                     <span className="text-slate-400 text-xs">-₹</span>
@@ -4391,7 +4391,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
 
                 <div className="flex items-center justify-between text-slate-300 pt-1 gap-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-slate-300 font-semibold">Round-Off (റൗണ്ട് ഓഫ്):</span>
+                    <span className="text-[11px] text-slate-300 font-semibold">Round-Off:</span>
                     <button
                       type="button"
                       onClick={handleAutoRoundOff}
@@ -5117,8 +5117,8 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
 
       {/* VIEW 2: PIPELINE KANBAN BOARD */}
       {activeTab === 'pipeline' && (
-        <div className="p-5 overflow-x-auto flex-1">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-full min-w-[1000px]">
+        <div className="p-3 sm:p-5 overflow-x-auto flex-1 w-full max-w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full w-full">
             {STAGE_ORDER.map((stageKey) => {
               const stageLeads = leads.filter((l) => l.stage === stageKey);
               const isLastStage = stageKey === 'negotiation';
@@ -5448,11 +5448,11 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 <div className="flex flex-wrap items-center gap-1.5">
                   {(
                     [
-                      { id: 'quotation', label: 'Quotation (എസ്റ്റിമേറ്റ്)' },
+                      { id: 'quotation', label: 'Quotation / Estimate' },
                       { id: 'proforma', label: 'Proforma Invoice' },
                       { id: 'salesOrder', label: 'Sales Work Order' },
                       { id: 'salesInvoice', label: 'Sales Invoice / Bill' },
-                      { id: 'statement', label: 'Party Statement (ലെഡ്ജർ)' },
+                      { id: 'statement', label: 'Party Statement (Ledger)' },
                     ] as const
                   ).map((doc) => (
                     <button
@@ -5502,11 +5502,11 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 <div className="flex flex-wrap items-center gap-1.5">
                   {(
                     [
-                      { id: 'tally-classic', label: '🏛️ Tally Classic (സിമ്പിൾ)' },
-                      { id: 'tally-modern', label: '📊 Tally Modern (പ്രൈം)' },
-                      { id: 'tally-formal', label: '📋 Tally Formal (ഫോർമൽ)' },
-                      { id: 'vyapar-elegant', label: '🎨 Vyapar Elegant (കളർ)' },
-                      { id: 'vyapar-modern', label: '🏷️ Vyapar Modern (ക്ലീൻ)' },
+                      { id: 'tally-classic', label: '🏛️ Tally Classic' },
+                      { id: 'tally-modern', label: '📊 Tally Modern' },
+                      { id: 'tally-formal', label: '📋 Tally Formal' },
+                      { id: 'vyapar-elegant', label: '🎨 Vyapar Elegant' },
+                      { id: 'vyapar-modern', label: '🏷️ Vyapar Modern' },
                     ] as const
                   ).map((t) => (
                     <button
@@ -5535,7 +5535,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                       onChange={(e) => setHideSqFtOnPrint(e.target.checked)}
                       className="rounded border-slate-700 text-rose-500 focus:ring-rose-500 w-3.5 h-3.5 cursor-pointer"
                     />
-                    <span>Hide Sq.Ft in Print (കസ്റ്റമർക്ക് Sq.Ft ഒഴിവാക്കുക)</span>
+                    <span>Hide Sq.Ft in Print</span>
                   </label>
 
                   <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-300 bg-slate-900 border border-slate-700/80 px-2.5 py-1 rounded-md cursor-pointer hover:border-slate-600 select-none">
@@ -5552,7 +5552,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                       className="rounded border-slate-700 text-amber-500 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
                     />
                     <Landmark className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Hide Bank Details in Print (ബാങ്ക് വിവരങ്ങൾ ഒഴിവാക്കുക)</span>
+                    <span>Hide Bank Details in Print</span>
                   </label>
                 </div>
 
@@ -5639,7 +5639,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                   className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow cursor-pointer transition"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Direct Print (ഡയറക്റ്റ് പ്രിന്റ്)</span>
+                  <span>Direct Print</span>
                 </button>
                 <button
                   type="button"
@@ -5661,7 +5661,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                <h3 className="text-sm font-bold text-white">Add New Customer (പുതിയ കസ്റ്റമർ)</h3>
+                <h3 className="text-sm font-bold text-white">Add New Customer</h3>
               </div>
               <button
                 type="button"
@@ -5812,7 +5812,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                     : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
-                Single Model Entry (ഒറ്റ മോഡൽ)
+                Single Model Entry
               </button>
               <button
                 type="button"
@@ -5837,7 +5837,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 }`}
               >
                 <FileUp className="w-3.5 h-3.5" />
-                <span>Bulk Upload Catalog PDF (ബൾക്ക് അപ്‌ലോഡ്)</span>
+                <span>Bulk Upload Catalog PDF</span>
               </button>
             </div>
 
@@ -5849,7 +5849,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                 <div className="space-y-3">
                   <div>
                     <label className="block font-bold text-slate-200 mb-1">
-                      Door Model Number (മോഡൽ നമ്പർ) *
+                      Door Model Number *
                     </label>
                     <input
                       type="text"
@@ -5862,7 +5862,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
                   </div>
                   <div>
                     <label className="block font-bold text-slate-200 mb-1">
-                      Model Price (പ്രൈസ് / Rate ₹) *
+                      Model Price (₹) *
                     </label>
                     <input
                       type="number"
@@ -6088,7 +6088,7 @@ export function QuotationHub({ userRole }: { userRole?: UserRole } = {}) {
             <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <h3 className="font-black text-white text-sm">Record Advance Deposit / പേയ്‌മെന്റ് വെരിഫിക്കേഷൻ</h3>
+                <h3 className="font-black text-white text-sm">Record Advance Deposit / Payment Verification</h3>
               </div>
               <button
                 type="button"

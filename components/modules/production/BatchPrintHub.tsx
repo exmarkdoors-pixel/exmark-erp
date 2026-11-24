@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { FRAME_DEDUCTION_PRESETS, FramePresetKey } from '@/lib/services/doorSizingEngine';
 import { computeStickerSizes, cmToTapeInch } from '@/lib/utils/doorStickerFormula';
+import { computeDoorTolerances } from '@/lib/services/toleranceCalculation';
 import * as QRCode from 'qrcode';
 
 interface BatchDoorScheduleItem {
@@ -602,13 +603,29 @@ export default function BatchPrintHub({
             const rawBtmCm = d.rawWidthBtmCm ?? (d.rawWidthBottomMm ? d.rawWidthBottomMm / 10 : rawTopCm);
             const isTaperedRaw = Math.abs(rawTopCm - rawBtmCm) >= 0.05;
             const hSide = d.handing === 'LH' ? 'L' : 'R';
+
+            // Synchronize with site measurement tolerances & factory tolerance engine
+            const tol = computeDoorTolerances({
+              rawHeightMm: rawHCm * 10,
+              rawWidthTopMm: rawTopCm * 10,
+              rawWidthBottomMm: rawBtmCm * 10,
+              frameTypeName: d.frameTypeName,
+              floorCondition: (d as any).floorCondition,
+              customSideRebateMm: (d as any).sideRebateMm,
+              customBottomClearanceMm: (d as any).bottomClearanceMm,
+              customTopGapMm: (d as any).topGapMm,
+            });
+
+            const hDedCm = (d as any).hDeductionMm ? (d as any).hDeductionMm / 10 : tol.totalHeightDeductionCm;
+            const wDedCm = (d as any).wDeductionMm ? (d as any).wDeductionMm / 10 : tol.totalWidthDeductionCm;
+
             const calc = computeStickerSizes({
               rawHeightCm: rawHCm,
               rawWidthTopCm: rawTopCm,
               rawWidthBtmCm: rawBtmCm,
               widthLinked: !isTaperedRaw,
-              hDeductionCm: 4.5,
-              wDeductionCm: 7.6,
+              hDeductionCm: hDedCm,
+              wDeductionCm: wDedCm,
               hingeSide: hSide,
             });
             const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -630,10 +647,10 @@ export default function BatchPrintHub({
               rawWidthTopCm: rawTopCm,
               rawWidthBtmCm: rawBtmCm,
               tapeInchH: cmToTapeInch(rawHCm),
-              rebateLabel: d.frameTypeName || 'Mini 40x25',
+              rebateLabel: d.frameTypeName || tol.frameProfileName,
               doorThicknessLabel: d.doorThicknessLabel || (d.doorThicknessMm ? `${d.doorThicknessMm}mm` : '28mm'),
-              hDedMm: Math.max(0, Math.round((rawHCm - calc.finH) * 10)),
-              wDedMm: Math.max(0, Math.round((rawTopCm - calc.finTopW) * 10)),
+              hDedMm: (d as any).hDeductionMm ?? tol.totalHeightDeductionMm,
+              wDedMm: (d as any).wDeductionMm ?? tol.totalWidthDeductionMm,
               qrUrl: d.qrPayload || (origin ? `${origin}/track/${encodeURIComponent(doorCode)}` : `/track/${encodeURIComponent(doorCode)}`),
               finH: calc.finH,
               finTopW: calc.finTopW,

@@ -359,7 +359,7 @@ export default function WarrantyPublicPortalPage() {
           {/* Coverage Scope */}
           <div className="bg-emerald-950/20 border border-emerald-800/40 p-4 rounded-xl space-y-1.5 text-xs">
             <span className="font-bold text-emerald-300 uppercase tracking-wider block">
-              1. Scope of Warranty Coverage (ഗ്യാരണ്ടി പരിധി)
+              1. Scope of Warranty Coverage
             </span>
             <p className="text-slate-200 leading-relaxed">
               {warranty.coverageScope}
@@ -397,7 +397,7 @@ export default function WarrantyPublicPortalPage() {
           {/* Exclusions */}
           <div className="space-y-1.5 text-xs border-t border-slate-800 pt-3">
             <span className="font-bold text-rose-300 uppercase tracking-wider block">
-              3. Explicit Warranty Exclusions (ബാധകമല്ലാത്തവ)
+              3. Explicit Warranty Exclusions
             </span>
             <ul className="list-disc pl-5 space-y-0.5 text-[11px] text-slate-400">
               {warranty.explicitExclusions.map((ex, i) => (
@@ -406,14 +406,14 @@ export default function WarrantyPublicPortalPage() {
             </ul>
           </div>
 
-          {/* Care Instructions (English & Malayalam) */}
+          {/* Care Instructions */}
           <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-800 space-y-3 text-xs">
             <span className="font-bold text-amber-300 uppercase tracking-wider block">
-              4. Door Care &amp; Maintenance Guidelines (പരിപാലന നിർദ്ദേശങ്ങൾ)
+              4. Door Care &amp; Maintenance Guidelines
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
               <div className="space-y-1">
-                <span className="font-bold text-slate-200 block">English Guidelines:</span>
+                <span className="font-bold text-slate-200 block">General Guidelines:</span>
                 <ul className="list-disc pl-4 space-y-0.5 text-slate-300">
                   {warranty.bilingualCareInstructions.english.map((txt, i) => (
                     <li key={i}>{txt}</li>
@@ -421,7 +421,7 @@ export default function WarrantyPublicPortalPage() {
                 </ul>
               </div>
               <div className="space-y-1">
-                <span className="font-bold text-slate-200 block">മലയാളം നിർദ്ദേശങ്ങൾ:</span>
+                <span className="font-bold text-slate-200 block">Handling &amp; Cleaning Precautions:</span>
                 <ul className="list-disc pl-4 space-y-0.5 text-slate-300">
                   {warranty.bilingualCareInstructions.malayalam.map((txt, i) => (
                     <li key={i}>{txt}</li>

@@ -102,6 +102,18 @@ interface MoldingPartyDraft {
   lockedInfo?: OrderPieceRateGroupLock | null;
 }
 
+interface CompletedStageDraft {
+  stage: ProductionStage;
+  gangId: string;
+  gangName: string;
+  operation: ContractorOperationType;
+  quantity: number;
+  unitRate: number;
+  totalAmount: number;
+  isAlreadyLocked: boolean;
+  enabled: boolean;
+}
+
 function getScopeTagSuffix(gang: Contractor): string {
   if (gang.teamScope === 'MOLDING_TEAM_1') return 'Molding Team 1';
   if (gang.teamScope === 'MOLDING_TEAM_2') return 'Molding Team 2';
@@ -218,6 +230,8 @@ export function ProductionBoardHub() {
     moldingTeam2: MoldingPartyDraft;
     doorCuttingParty: CuttingPartyDraft;
     frameCuttingParty: CuttingPartyDraft;
+    completedStageDraft?: CompletedStageDraft | null;
+    creditNow?: boolean;
   } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -348,6 +362,54 @@ export function ProductionBoardHub() {
     const team1InitDoorIds = orderDoorsList.slice(0, mHalf1).map((d) => d.doorId || d.id);
     const team2InitDoorIds = orderDoorsList.slice(mHalf1).map((d) => d.doorId || d.id);
 
+    // Determine completed previous stage draft (Credit After Work Complete policy)
+    let completedStageDraft: CompletedStageDraft | null = null;
+    const currentOrderStage = order.status;
+    if (!keepCurrentStage && currentOrderStage !== 'QUEUED') {
+      const prevGrp = getStageLockGroup(currentOrderStage);
+      const prevGrpLock = prevGrp && lockSummary ? lockSummary.groups[prevGrp] || null : null;
+      const isPrevLocked = Boolean(prevGrpLock?.isLocked);
+
+      const histItem = Array.isArray(order.stageHistory)
+        ? order.stageHistory.findLast((h) => h.stage === currentOrderStage)
+        : null;
+      const assignedGangId =
+        (currentOrderStage === 'MOLDING' ? order.doors?.[0]?.moldedByGangId : null) ||
+        histItem?.gangId ||
+        (currentOrderStage === 'MOLDING'
+          ? gangs.find((g) => g.trade === 'MOLDING')?.id
+          : currentOrderStage === 'CUTTING_FINISHING'
+            ? gangs.find((g) => g.teamScope === 'DOOR_CUTTING_FINISHING')?.id
+            : currentOrderStage === 'PAINT_SECTION'
+              ? gangs.find((g) => g.trade === 'PAINTING')?.id
+              : gangs.find((g) => g.trade === 'SITE_FITTING')?.id) ||
+        '';
+
+      const assignedGang = gangs.find((g) => g.id === assignedGangId) || null;
+      const defaultPrevOp: ContractorOperationType =
+        currentOrderStage === 'MOLDING'
+          ? 'MOLDING_DOOR_WITH_FRAME'
+          : currentOrderStage === 'CUTTING_FINISHING'
+            ? 'DOOR_CUTTING'
+            : currentOrderStage === 'PAINT_SECTION'
+              ? 'DOOR_GRAINS_WITH_PAINT'
+              : 'SITE_FITTING';
+
+      const prevRate = getDefaultRateForOp(rateCard, defaultPrevOp);
+
+      completedStageDraft = {
+        stage: currentOrderStage,
+        gangId: assignedGang?.id || '',
+        gangName: assignedGang?.name || 'Assigned Gang',
+        operation: defaultPrevOp,
+        quantity: totalOrderDoors,
+        unitRate: prevRate,
+        totalAmount: prevRate * totalOrderDoors,
+        isAlreadyLocked: isPrevLocked,
+        enabled: !isPrevLocked,
+      };
+    }
+
     setPendingAdvance({
       order,
       targetStage,
@@ -358,6 +420,8 @@ export function ProductionBoardHub() {
       skipCredit: !defaultOp || isAlreadyLocked,
       lockSummary,
       alreadyPaidLock,
+      completedStageDraft,
+      creditNow: false,
       moldingMode: 'SINGLE',
       moldingTeam1: {
         enabled: Boolean(mTeam1) && !moldingLock?.isLocked,
@@ -398,6 +462,13 @@ export function ProductionBoardHub() {
       operation?: string;
       customRate?: number;
       skipAutoCredit?: boolean;
+      creditNow?: boolean;
+      previousStageCredit?: {
+        gangId?: string;
+        operation?: string;
+        customRate?: number;
+        quantity?: number;
+      };
       isRework?: boolean;
       reworkReason?: string;
       keepCurrentStage?: boolean;
@@ -416,6 +487,8 @@ export function ProductionBoardHub() {
           customRate: opts?.customRate,
           assignments: opts?.assignments,
           skipAutoCredit: opts?.skipAutoCredit,
+          creditNow: opts?.creditNow,
+          previousStageCredit: opts?.previousStageCredit,
           isRework: opts?.isRework,
           reworkReason: opts?.reworkReason,
         }),
@@ -465,6 +538,51 @@ export function ProductionBoardHub() {
       }
     } catch {
       notify('Failed to update installation flag.');
+    }
+  };
+
+  const handleMarkStageWorkCompleted = async (order: ProductionOrder) => {
+    const curStage = order.status;
+    const lastHist = Array.isArray(order.stageHistory)
+      ? order.stageHistory.findLast((h) => h.stage === curStage)
+      : null;
+    const gangId =
+      (curStage === 'MOLDING' ? order.doors?.[0]?.moldedByGangId : null) ||
+      lastHist?.gangId ||
+      '';
+    const gang = gangs.find((g) => g.id === gangId);
+    const op: ContractorOperationType =
+      curStage === 'MOLDING'
+        ? 'MOLDING_DOOR_WITH_FRAME'
+        : curStage === 'CUTTING_FINISHING'
+          ? 'DOOR_CUTTING'
+          : curStage === 'PAINT_SECTION'
+            ? 'DOOR_GRAINS_WITH_PAINT'
+            : 'SITE_FITTING';
+    const rate = getDefaultRateForOp(rateCard, op);
+
+    try {
+      const res = await fetch(`/api/production/${order.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'COMPLETE_STAGE_WORK',
+          stage: curStage,
+          gangId: gang?.id,
+          operation: op,
+          customRate: rate,
+          notes: `${STAGE_DISPLAY_LABELS[curStage]} work completed on floor (${gang?.name || 'Gang'})`,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setOrders((prev) => prev.map((o) => (o.id === order.id ? json.data : o)));
+        notify(json.message || `Marked ${STAGE_DISPLAY_LABELS[curStage]} work completed & credited!`);
+      } else {
+        notify(json.error || 'Failed to mark work complete.');
+      }
+    } catch {
+      notify('Network error marking work complete.');
     }
   };
 
@@ -746,14 +864,43 @@ export function ProductionBoardHub() {
                             </div>
                           </div>
 
-                          {/* Gang / Date Info */}
-                          <div className="flex items-center justify-between text-[10px] text-slate-400">
-                            <span>Order: {order.orderDate || order.createdAt?.slice(0, 10)}</span>
-                            {lastHistory?.gangName && (
-                              <span className="text-amber-400 font-semibold truncate max-w-[155px]">
-                                👷 {lastHistory.gangName}
-                              </span>
-                            )}
+                          {/* Gang / Date Info & Stage Work Status */}
+                          <div className="space-y-1 text-[10px] text-slate-400">
+                            <div className="flex items-center justify-between">
+                              <span>Order: {order.orderDate || order.createdAt?.slice(0, 10)}</span>
+                              {lastHistory?.gangName && (
+                                <span className="text-amber-400 font-semibold truncate max-w-[155px]">
+                                  👷 {lastHistory.gangName}
+                                </span>
+                              )}
+                            </div>
+                            {normalizeActiveStage(order.status) !== 'QUEUED' &&
+                              normalizeActiveStage(order.status) !== 'COMPLETED' &&
+                              normalizeActiveStage(order.status) !== 'DELIVERY' && (
+                                <div className="flex items-center justify-between gap-1 pt-0.5">
+                                  {lastHistory?.workStatus === 'COMPLETED' || lastHistory?.pieceRateCredited ? (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                      <span>Work Complete &bull; Credited</span>
+                                    </span>
+                                  ) : lastHistory?.gangName ? (
+                                    <div className="flex items-center justify-between w-full gap-1">
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-950/60 text-amber-300 border border-amber-500/30">
+                                        <span>⏳ In-Progress (Pay Deferred)</span>
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleMarkStageWorkCompleted(order)}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs transition"
+                                        title={`Mark ${STAGE_DISPLAY_LABELS[order.status]} work complete and credit piece-rate to ${lastHistory.gangName}`}
+                                      >
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        <span>Complete &amp; Credit</span>
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              )}
                           </div>
 
                           {/* BOQ Readiness for Queue -> Molding */}
@@ -764,7 +911,7 @@ export function ProductionBoardHub() {
                               <div className="my-1">
                                 {allIssued || order.boqIssuedAt ? (
                                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-950/70 border border-emerald-500/50 text-emerald-300">
-                                    ✓ BOQ Issued (മോൾഡിംഗിന് തയ്യാർ)
+                                    ✓ BOQ Issued (Ready for Molding)
                                   </span>
                                 ) : someIssued ? (
                                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-950/70 border border-amber-500/50 text-amber-300">
@@ -1198,6 +1345,129 @@ export function ProductionBoardHub() {
               </button>
             </div>
 
+            {/* Completed Previous Stage Credit Section (Work Complete Credit Policy) */}
+            {pendingAdvance.completedStageDraft && (
+              <div className="p-3 rounded-xl bg-slate-900 border border-emerald-500/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Completed Stage Credit ({STAGE_DISPLAY_LABELS[pendingAdvance.completedStageDraft.stage]}):</span>
+                  </div>
+                  {pendingAdvance.completedStageDraft.isAlreadyLocked && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Already Credited (1× Lock)
+                    </span>
+                  )}
+                </div>
+
+                {pendingAdvance.completedStageDraft.isAlreadyLocked ? (
+                  <p className="text-[11px] text-slate-400">
+                    Work on {STAGE_DISPLAY_LABELS[pendingAdvance.completedStageDraft.stage]} was already credited to contractor (Rework ₹0).
+                  </p>
+                ) : (
+                  <>
+                    <label className="flex items-center justify-between gap-2 cursor-pointer text-xs">
+                      <span className="text-slate-200">
+                        Credit gang for completed {STAGE_DISPLAY_LABELS[pendingAdvance.completedStageDraft.stage]} work:
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={pendingAdvance.completedStageDraft.enabled}
+                        onChange={(e) => {
+                          if (!pendingAdvance.completedStageDraft) return;
+                          setPendingAdvance({
+                            ...pendingAdvance,
+                            completedStageDraft: {
+                              ...pendingAdvance.completedStageDraft,
+                              enabled: e.target.checked,
+                            },
+                          });
+                        }}
+                        className="rounded accent-emerald-500 cursor-pointer"
+                      />
+                    </label>
+
+                    {pendingAdvance.completedStageDraft.enabled && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[10px] text-slate-400 mb-1">Contractor / Gang</label>
+                          <select
+                            value={pendingAdvance.completedStageDraft.gangId}
+                            onChange={(e) => {
+                              if (!pendingAdvance.completedStageDraft) return;
+                              const g = gangs.find((x) => x.id === e.target.value);
+                              setPendingAdvance({
+                                ...pendingAdvance,
+                                completedStageDraft: {
+                                  ...pendingAdvance.completedStageDraft,
+                                  gangId: e.target.value,
+                                  gangName: g?.name || 'Gang',
+                                },
+                              });
+                            }}
+                            className="w-full px-2 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white text-[11px]"
+                          >
+                            <option value="">-- Select Gang --</option>
+                            {gangs.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name} ({getScopeTagSuffix(g)})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-1">₹ / Door</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={pendingAdvance.completedStageDraft.unitRate}
+                            onChange={(e) => {
+                              if (!pendingAdvance.completedStageDraft) return;
+                              const val = Number(e.target.value) || 0;
+                              setPendingAdvance({
+                                ...pendingAdvance,
+                                completedStageDraft: {
+                                  ...pendingAdvance.completedStageDraft,
+                                  unitRate: val,
+                                  totalAmount: val * pendingAdvance.completedStageDraft.quantity,
+                                },
+                              });
+                            }}
+                            className="w-full px-2 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg font-mono font-bold text-emerald-400 text-[11px]"
+                          />
+                        </div>
+                        <div className="sm:col-span-3 text-[10px] text-emerald-300 font-semibold flex items-center justify-between bg-emerald-950/40 p-1.5 rounded border border-emerald-500/20">
+                          <span>Total Credit upon exit:</span>
+                          <span className="font-mono text-xs font-black">
+                            ₹{(pendingAdvance.completedStageDraft.unitRate * pendingAdvance.completedStageDraft.quantity).toLocaleString('en-IN')} ({pendingAdvance.completedStageDraft.quantity} doors)
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Upcoming Stage Banner: Payment Deferred Policy */}
+            {!pendingAdvance.keepCurrentStage && pendingAdvance.targetStage !== 'COMPLETED' && pendingAdvance.targetStage !== 'DELIVERY' && (
+              <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-[11px] text-blue-200 flex items-start justify-between gap-2">
+                <div>
+                  <strong>Work First, Pay After Completion:</strong>{' '}
+                  {STAGE_DISPLAY_LABELS[pendingAdvance.targetStage]} gang will be assigned now. Payment will be credited after physical work finishes on the floor.
+                </div>
+                <label className="flex items-center gap-1.5 shrink-0 cursor-pointer text-[10px] text-amber-300 font-bold bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(pendingAdvance.creditNow)}
+                    onChange={(e) => setPendingAdvance({ ...pendingAdvance, creditNow: e.target.checked })}
+                    className="rounded accent-amber-500 cursor-pointer"
+                  />
+                  <span>Pay Now in Advance</span>
+                </label>
+              </div>
+            )}
+
             {pendingAdvance.targetStage === 'CUTTING_FINISHING' ? (
               <div className="space-y-3 text-xs">
                 <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-[11px] text-cyan-200">
@@ -1484,7 +1754,7 @@ export function ProductionBoardHub() {
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-slate-800">
                             <div>
                               <span className="font-bold text-amber-300 text-xs flex items-center gap-1.5">
-                                🎯 Custom Door-Wise Pick for Accountability (ഭാവിയിൽ വാതിൽ ഡാമേജ് വന്നാൽ ആര് മോൾഡ് ചെയ്തു എന്ന് കണ്ടെത്താൻ)
+                                🎯 Custom Door-Wise Pick for Accountability (Floor Operator Traceability)
                               </span>
                               <span className="text-[10px] text-slate-400 block">
                                 Click Gang A or B for each door to stamp permanent accountability on its QR &amp; serial.
@@ -1826,9 +2096,21 @@ export function ProductionBoardHub() {
                             : undefined,
                       });
                     }
+                    const prevCredit =
+                      p.completedStageDraft?.enabled && p.completedStageDraft.gangId
+                        ? {
+                            gangId: p.completedStageDraft.gangId,
+                            operation: p.completedStageDraft.operation,
+                            customRate: p.completedStageDraft.unitRate,
+                            quantity: p.completedStageDraft.quantity,
+                          }
+                        : undefined;
+
                     await confirmStageMove(p.order.id, p.targetStage, {
                       keepCurrentStage: p.keepCurrentStage,
                       assignments,
+                      creditNow: p.creditNow || false,
+                      previousStageCredit: prevCredit,
                       skipAutoCredit: assignments.length === 0,
                     });
                     return;
@@ -1867,13 +2149,37 @@ export function ProductionBoardHub() {
                             : undefined,
                       });
                     }
+
+                    const prevCredit =
+                      p.completedStageDraft?.enabled && p.completedStageDraft.gangId
+                        ? {
+                            gangId: p.completedStageDraft.gangId,
+                            operation: p.completedStageDraft.operation,
+                            customRate: p.completedStageDraft.unitRate,
+                            quantity: p.completedStageDraft.quantity,
+                          }
+                        : undefined;
+
                     await confirmStageMove(p.order.id, p.targetStage, {
                       keepCurrentStage: p.keepCurrentStage,
                       assignments,
+                      creditNow: p.creditNow || false,
+                      previousStageCredit: prevCredit,
                       skipAutoCredit: assignments.length === 0,
                     });
                     return;
                   }
+
+                  const prevCredit =
+                    p.completedStageDraft?.enabled && p.completedStageDraft.gangId
+                      ? {
+                          gangId: p.completedStageDraft.gangId,
+                          operation: p.completedStageDraft.operation,
+                          customRate: p.completedStageDraft.unitRate,
+                          quantity: p.completedStageDraft.quantity,
+                        }
+                      : undefined;
+
                   await confirmStageMove(p.order.id, p.targetStage, {
                     keepCurrentStage: p.keepCurrentStage,
                     gangId: p.skipCredit || p.alreadyPaidLock?.isLocked ? undefined : p.gangId,
@@ -1885,6 +2191,8 @@ export function ProductionBoardHub() {
                       !p.skipCredit && !p.alreadyPaidLock?.isLocked && p.customRate !== ''
                         ? Number(p.customRate)
                         : undefined,
+                    creditNow: p.creditNow || false,
+                    previousStageCredit: prevCredit,
                     skipAutoCredit: p.skipCredit || Boolean(p.alreadyPaidLock?.isLocked),
                     isRework: Boolean(p.alreadyPaidLock?.isLocked),
                   });

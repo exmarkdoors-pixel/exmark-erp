@@ -767,13 +767,13 @@ export async function generate12LPackingPassPdf(
         ? Math.round(item.hDedMm)
         : item.rawHeightCm && finHNum > 0
         ? Math.max(0, Math.round((item.rawHeightCm - finHNum) * 10))
-        : 45;
+        : 17;
     const wDedMm =
       item.wDedMm !== undefined
         ? Math.round(item.wDedMm)
         : item.rawWidthTopCm && finTopWNum > 0
         ? Math.max(0, Math.round((item.rawWidthTopCm - finTopWNum) * 10))
-        : 76;
+        : 85;
 
     const rawH = item.rawHeightCm && item.rawHeightCm > 0 ? item.rawHeightCm : finHNum + hDedMm / 10;
     const rawTopW =
@@ -911,12 +911,12 @@ export async function generate12LPackingPassPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.4);
     doc.setTextColor(15, 23, 42);
-    doc.text(`HEIGHT: -${fmtCm(finHNum, 1)}`, c2Left, gridY + 7.7);
+    doc.text(`HEIGHT: ${fmtCm(finHNum, 1)} cm`, c2Left, gridY + 7.7);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.8);
     doc.setTextColor(15, 23, 42);
-    doc.text(`WIDTH: T:-${fmtCm(finTopWNum, 1)}  B:-${fmtCm(finBtmWNum, 1)}`, c2Left, gridY + 12.5);
+    doc.text(`WIDTH: T:${fmtCm(finTopWNum, 1)}  B:${fmtCm(finBtmWNum, 1)} cm`, c2Left, gridY + 12.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(5.7);

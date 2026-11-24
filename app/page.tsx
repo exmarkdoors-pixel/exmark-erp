@@ -117,7 +117,9 @@ const ZERO_KPI_METRICS: KpiMetric[] = [
 
 export default function Home() {
   const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
+  const [activeSubViewId, setActiveSubViewId] = useState<string | undefined>(undefined);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isModuleExpanded, setIsModuleExpanded] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [isEveningCloseOpen, setIsEveningCloseOpen] = useState(false);
@@ -171,6 +173,35 @@ export default function Home() {
       return next;
     });
   };
+
+  const handleToggleModuleExpanded = () => {
+    setIsModuleExpanded((prev) => {
+      const next = !prev;
+      if (next) {
+        setIsSidebarCollapsed(true);
+      }
+      return next;
+    });
+  };
+
+  // Esc key restores standard view when in full-screen module fit
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isModuleExpanded) {
+        setIsModuleExpanded(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModuleExpanded]);
+
+  // Dispatch window resize event after sidebar/module transitions to auto-fit charts and tables
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [isSidebarCollapsed, isModuleExpanded]);
 
   const effectiveAllowedModules = useMemo(() => {
     if (userRole === 'Super Admin') {
@@ -290,6 +321,18 @@ export default function Home() {
     };
   }, []);
 
+  const handleNavigateSubCategory = (tab: NavigationTab, subViewId?: string) => {
+    if (tab === 'settings') {
+      if (subViewId === 'staff_access') {
+        setSettingsInitialTab('staff_access');
+      } else {
+        setSettingsInitialTab('customization');
+      }
+    }
+    setActiveSubViewId(subViewId);
+    setCurrentTab(tab);
+  };
+
   // Tab label helper for the navbar
   const getTabTitle = (tab: NavigationTab) => {
     switch (tab) {
@@ -380,15 +423,14 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070D1E] text-slate-100 flex flex-col font-sans selection:bg-red-500 selection:text-white">
-      <div className="flex flex-1 relative">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#070D1E] text-slate-100 flex flex-col font-sans selection:bg-red-500 selection:text-white">
+      <div className="flex flex-1 relative w-full max-w-full min-w-0 overflow-x-hidden">
         {/* Collapsible Sidebar */}
         <Sidebar
           currentTab={currentTab}
-          onSelectTab={(tab) => {
-            if (tab === 'settings') setSettingsInitialTab('customization');
-            setCurrentTab(tab);
-          }}
+          activeSubViewId={activeSubViewId}
+          onSelectTab={(tab) => handleNavigateSubCategory(tab, undefined)}
+          onSelectSubCategory={handleNavigateSubCategory}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           isMobileOpen={isMobileSidebarOpen}
@@ -398,23 +440,30 @@ export default function Home() {
           liveBadges={liveSidebarBadges}
           isSimpleMode={isSimpleMode}
           onToggleSimpleMode={handleToggleSimpleMode}
+          isModuleExpanded={isModuleExpanded}
         />
 
         {/* Main Content Area */}
         <div
-          className={`flex-1 flex flex-col transition-all duration-300 min-w-0 print:pl-0 print:m-0 ${
-            isSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-56'
+          className={`flex-1 flex flex-col transition-all duration-300 ease-in-out min-w-0 max-w-full overflow-x-hidden print:pl-0 print:m-0 ${
+            isModuleExpanded
+              ? 'lg:pl-0'
+              : isSidebarCollapsed
+              ? 'lg:pl-16'
+              : 'lg:pl-64'
           }`}
         >
           {/* Top Sticky Navbar */}
           <Navbar
             currentTabName={getTabTitle(currentTab)}
+            currentTab={currentTab}
+            activeSubViewId={activeSubViewId}
             onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
-            onNavigateTab={(tab) => {
-              if (tab === 'settings') setSettingsInitialTab('staff_access');
-              setCurrentTab(tab);
-            }}
+            onNavigateTab={(tab) => handleNavigateSubCategory(tab, undefined)}
+            onNavigateSubCategory={handleNavigateSubCategory}
             onOpenQuickAction={() => setIsQuickActionOpen(true)}
+            isModuleExpanded={isModuleExpanded}
+            onToggleModuleExpanded={handleToggleModuleExpanded}
             userRole={userRole}
             actualRole={actualUser?.role}
             userName={userName}
@@ -433,7 +482,7 @@ export default function Home() {
           />
 
           {/* Main Body Content */}
-          <main className="flex-1 p-2.5 md:p-3 lg:p-3.5 w-full max-w-[1920px] mx-auto space-y-3 pb-16 md:pb-4 print:p-0 print:m-0 print:max-w-none transition-all duration-200">
+          <main className="flex-1 p-2 sm:p-2.5 md:p-3 lg:p-3.5 w-full max-w-full min-w-0 space-y-3 pb-16 md:pb-4 print:p-0 print:m-0 print:max-w-none transition-all duration-200 overflow-x-clip">
             {/* Security Prompt When Using Seeded / Temporary Password */}
             {mustChangePassword && (
               <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs print:hidden">
@@ -511,7 +560,7 @@ export default function Home() {
                                 : 'text-slate-400 hover:text-white'
                             }`}
                           >
-                            Modules (10)
+                            Modules (7 Domains)
                           </button>
                         </div>
                       )}
@@ -608,10 +657,8 @@ export default function Home() {
                 {/* Sub-View 1: EXMARK Corporate Control Center (Full Ops Mode when selected) */}
                 {!isSimpleMode && dashboardSubView === 'control-center' && (
                   <CorporateControlCenter
-                    onNavigateTab={(tab) => {
-                      if (tab === 'settings') setSettingsInitialTab('customization');
-                      setCurrentTab(tab);
-                    }}
+                    onNavigateTab={(tab) => handleNavigateSubCategory(tab, undefined)}
+                    onSelectSubCategory={handleNavigateSubCategory}
                     userRole={userRole}
                     allowedModules={effectiveAllowedModules}
                   />
@@ -661,10 +708,10 @@ export default function Home() {
                           <div className="flex items-center gap-2 min-w-0">
                             <FolderOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                             <span className="text-xs font-bold text-slate-200 truncate">
-                              All 10 Enterprise Modules Directory
+                              All 7 Enterprise Domains Directory
                             </span>
                             <span className="hidden sm:inline text-[11px] text-slate-500 truncate">
-                              · BOQ, Job Work, Inventory POs, Quality Control &amp; Reports
+                              · Sales, Purchases, Manufacturing, Accounting, Store/Stock, Logistics &amp; Settings
                             </span>
                           </div>
                           {showDirectoryDrawer ? (
@@ -676,10 +723,8 @@ export default function Home() {
                         {showDirectoryDrawer && (
                           <div className="p-3 border-t border-slate-800">
                             <CorporateControlCenter
-                              onNavigateTab={(tab) => {
-                                if (tab === 'settings') setSettingsInitialTab('customization');
-                                setCurrentTab(tab);
-                              }}
+                              onNavigateTab={(tab) => handleNavigateSubCategory(tab, undefined)}
+                              onSelectSubCategory={handleNavigateSubCategory}
                               userRole={userRole}
                               allowedModules={effectiveAllowedModules}
                             />
@@ -705,7 +750,19 @@ export default function Home() {
             {currentTab === 'maintenance' && effectiveAllowedModules.includes('maintenance') && <PlantMaintenanceView />}
             {currentTab === 'job-work' && effectiveAllowedModules.includes('job-work') && <SubcontractingView />}
             {currentTab === 'batch-print' && effectiveAllowedModules.includes('batch-print') && <BatchPrintView />}
-            {currentTab === 'inventory' && effectiveAllowedModules.includes('inventory') && <InventoryView />}
+            {currentTab === 'inventory' && effectiveAllowedModules.includes('inventory') && (
+              <InventoryView
+                initialTab={
+                  activeSubViewId === 'RM' ||
+                  activeSubViewId === 'WIP' ||
+                  activeSubViewId === 'FG' ||
+                  activeSubViewId === 'READY_STOCK' ||
+                  activeSubViewId === 'CONFIG'
+                    ? activeSubViewId
+                    : undefined
+                }
+              />
+            )}
             {currentTab === 'purchases' && effectiveAllowedModules.includes('purchases') && <PurchasesView />}
             {currentTab === 'gate-pass' && effectiveAllowedModules.includes('gate-pass') && <GatePassView />}
             {currentTab === 'dispatch' && effectiveAllowedModules.includes('dispatch') && <DispatchInstallationView />}
@@ -734,7 +791,9 @@ export default function Home() {
                 }
               />
             )}
-            {currentTab === 'accounts' && effectiveAllowedModules.includes('accounts') && <AccountsGstView />}
+            {currentTab === 'accounts' && effectiveAllowedModules.includes('accounts') && (
+              <AccountsGstView initialSubView={activeSubViewId} />
+            )}
             {currentTab === 'employees' && effectiveAllowedModules.includes('employees') && (
               <EmployeesView
                 userRole={actualUser?.role}
@@ -758,7 +817,7 @@ export default function Home() {
 
           {/* Footer */}
           <footer className="mt-auto border-t border-slate-800/80 bg-[#070D1E] py-2 px-4 text-[11px] text-slate-400 print:hidden">
-            <div className="max-w-[1920px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="w-full max-w-full mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-white tracking-wider">{brandName}</span>
                 <span>·</span>

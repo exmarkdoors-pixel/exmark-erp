@@ -46,7 +46,13 @@ import {
   ArrowUpCircle,
   Calendar,
   BookOpen,
+  TrendingDown,
+  CreditCard,
 } from 'lucide-react';
+import { CustomerCreditLedgerView } from './customers/CustomerCreditLedgerView';
+import { VyaparPartyImportModal } from './customers/VyaparPartyImportModal';
+import { ExpenseCostCuttingPanel } from './finance/ExpenseCostCuttingPanel';
+import { PayrollAttendanceHub } from './payroll/PayrollAttendanceHub';
 import { buildWhatsAppUrl } from '@/lib/services/whatsappService';
 import { DoorMeasurementModal } from './DoorMeasurementModal';
 import { AutoQuotationModal } from './measurements/AutoQuotationModal';
@@ -126,10 +132,13 @@ import { ReportExecutionResult, WhatsAppDocumentType } from '@/types/communicati
  * ------------------------------------------------------------- */
 export function CustomersView() {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerViewMode, setCustomerViewMode] = useState<'DIRECTORY' | 'CREDIT_LEDGER'>('DIRECTORY');
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isVyaparModalOpen, setIsVyaparModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Multi-selection & batch deletion state
@@ -315,13 +324,49 @@ export function CustomersView() {
 
       {/* Compact Top Header Actions */}
       <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
-        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-          <Users className="w-4 h-4 text-red-500" />
-          <span>Customers &amp; Dealers</span>
-          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300">
-            {customers.length}
-          </span>
-        </h2>
+        <div className="flex items-center gap-2 flex-wrap">
+          <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5 mr-2">
+            <Users className="w-4 h-4 text-red-500" />
+            <span>Customers &amp; Dealers</span>
+          </h2>
+
+          {/* Sub-tab switcher: Directory vs Credit Ledger */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setCustomerViewMode('DIRECTORY')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                customerViewMode === 'DIRECTORY'
+                  ? 'bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 text-red-500" />
+              <span>Directory</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                {customers.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCustomerViewMode('CREDIT_LEDGER')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                customerViewMode === 'CREDIT_LEDGER'
+                  ? 'bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5 text-rose-500" />
+              <span>Credit &amp; Outstanding</span>
+              {customers.filter((c) => Number(c.outstandingBalance || 0) > 0).length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-400 font-mono font-bold">
+                  {customers.filter((c) => Number(c.outstandingBalance || 0) > 0).length}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
           {selectedCustomerIds.length > 0 && (
@@ -344,7 +389,18 @@ export function CustomersView() {
           )}
 
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => setIsVyaparModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-500 transition-colors cursor-pointer shadow-sm"
+            title="Bulk Import Customers & Opening Balances from Vyapar / Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> Import from Vyapar / Excel
+          </button>
+
+          <button
+            onClick={() => {
+              setEditingCustomer(null);
+              setIsModalOpen(true);
+            }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500 transition-colors cursor-pointer shadow-sm"
           >
             <Plus className="w-4 h-4" /> Add New Customer
@@ -352,7 +408,18 @@ export function CustomersView() {
         </div>
       </div>
 
-      {/* Search, Filter & Select All Bar */}
+      {customerViewMode === 'CREDIT_LEDGER' ? (
+        <CustomerCreditLedgerView
+          customers={customers}
+          onRefresh={fetchCustomers}
+          onEditCustomer={(c) => {
+            setEditingCustomer(c);
+            setIsModalOpen(true);
+          }}
+        />
+      ) : (
+        <>
+          {/* Search, Filter & Select All Bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -482,6 +549,17 @@ export function CustomersView() {
                       {customer.status}
                     </span>
                     <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCustomer(customer);
+                        setIsModalOpen(true);
+                      }}
+                      className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                      title="Edit customer details & credit terms"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
                       onClick={() => triggerDelete(customer.id)}
                       className="p-1 text-slate-500 hover:text-rose-400 rounded hover:bg-rose-500/10 transition cursor-pointer"
                       title="Delete customer"
@@ -500,6 +578,12 @@ export function CustomersView() {
                     <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span>{customer.phone}</span>
                   </div>
+                  {customer.salespersonName && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-amber-500 font-semibold pt-0.5">
+                      <UserCheck className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>Sales: {customer.salespersonName}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-center text-xs">
@@ -516,6 +600,8 @@ export function CustomersView() {
             );
           })}
         </div>
+      )}
+      </>
       )}
 
       {/* CONFIRMATION SAFETY MODAL */}
@@ -571,8 +657,23 @@ export function CustomersView() {
 
       <CustomerFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSaved={handleCustomerSaved}
+        initialCustomer={editingCustomer}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingCustomer(null);
+        }}
+        onSaved={(saved) => {
+          handleCustomerSaved(saved);
+          setIsModalOpen(false);
+          setEditingCustomer(null);
+        }}
+      />
+
+      <VyaparPartyImportModal
+        partyType="CUSTOMER"
+        isOpen={isVyaparModalOpen}
+        onClose={() => setIsVyaparModalOpen(false)}
+        onImportSuccess={() => fetchCustomers()}
       />
 
       {/* QUICK MODAL: CREATE LEAD FOR CUSTOMER */}
@@ -1229,8 +1330,12 @@ export function ProductionView() {
 /* -------------------------------------------------------------
  * 7. INVENTORY VIEW (Stock Maintenance & Buffer Management)
  * ------------------------------------------------------------- */
-export function InventoryView() {
-  return <StockMaintenanceHub />;
+export function InventoryView({
+  initialTab,
+}: {
+  initialTab?: 'RM' | 'WIP' | 'FG' | 'READY_STOCK' | 'CONFIG';
+} = {}) {
+  return <StockMaintenanceHub initialTab={initialTab} />;
 }
 
 /* -------------------------------------------------------------
@@ -1239,6 +1344,7 @@ export function InventoryView() {
 export function PurchasesView() {
   const [purchases, setPurchases] = useState<PurchaseOrderRecord[]>([]);
   const [isPoModalOpen, setIsPoModalOpen] = useState(false);
+  const [isVyaparModalOpen, setIsVyaparModalOpen] = useState(false);
   const [printingPo, setPrintingPo] = useState<PurchaseOrderRecord | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -1337,14 +1443,26 @@ export function PurchasesView() {
           <span>Purchase Orders &amp; Supplier Bills</span>
         </h2>
 
-        <button
-          type="button"
-          onClick={() => setIsPoModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Create PO</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsVyaparModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+            title="Bulk Import Vendors / Suppliers from Vyapar or Excel"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Import Vendors from Vyapar</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsPoModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Create PO</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
@@ -1504,6 +1622,13 @@ export function PurchasesView() {
         }}
       />
 
+      <VyaparPartyImportModal
+        partyType="SUPPLIER"
+        isOpen={isVyaparModalOpen}
+        onClose={() => setIsVyaparModalOpen(false)}
+        onImportSuccess={() => loadPurchases()}
+      />
+
       <PurchaseOrderPrintModal po={printingPo} onClose={() => setPrintingPo(null)} />
     </div>
   );
@@ -1512,11 +1637,36 @@ export function PurchasesView() {
 /* -------------------------------------------------------------
  * 9. ACCOUNTS & GST VIEW
  * ------------------------------------------------------------- */
-export function AccountsGstView() {
+export function AccountsGstView({ initialSubView }: { initialSubView?: string } = {}) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [targets, setTargets] = useState<FinancialTarget[]>([]);
-  const [activeFinanceTab, setActiveFinanceTab] = useState<'ACCOUNTING_SUITE' | 'CLIENT_INVOICES' | 'DAILY_HEALTH_FORECAST' | 'CONTRACTOR_PAYABLES' | 'ORDER_PROFIT' | 'BREAK_EVEN' | 'FINANCIAL_FORECAST'>('ACCOUNTING_SUITE');
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'ACCOUNTING_SUITE' | 'CLIENT_INVOICES' | 'DAILY_HEALTH_FORECAST' | 'CONTRACTOR_PAYABLES' | 'ORDER_PROFIT' | 'BREAK_EVEN' | 'FINANCIAL_FORECAST' | 'EXPENSE_INTELLIGENCE'>(
+    initialSubView === 'CONTRACTORS' ? 'CONTRACTOR_PAYABLES' : initialSubView === 'EXPENSE_INTELLIGENCE' ? 'EXPENSE_INTELLIGENCE' : 'ACCOUNTING_SUITE'
+  );
+
+  useEffect(() => {
+    if (initialSubView) {
+      if (initialSubView === 'CONTRACTORS') {
+        setActiveFinanceTab('CONTRACTOR_PAYABLES');
+      } else if (initialSubView === 'EXPENSE_INTELLIGENCE') {
+        setActiveFinanceTab('EXPENSE_INTELLIGENCE');
+      } else {
+        setActiveFinanceTab('ACCOUNTING_SUITE');
+      }
+    }
+  }, [initialSubView]);
+
+  const resolvedPillar: 'SALES' | 'PURCHASES_EXPENSES' | 'CASH_BANK' | 'ACCOUNTING' | 'REPORTS' =
+    initialSubView === 'CASH_BANK' || initialSubView === 'PARTY_TO_PARTY'
+      ? 'CASH_BANK'
+      : initialSubView === 'COA'
+      ? 'ACCOUNTING'
+      : initialSubView === 'REPORTS'
+      ? 'REPORTS'
+      : initialSubView === 'PURCHASES'
+      ? 'PURCHASES_EXPENSES'
+      : 'SALES';
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
   const [isStrategistOpen, setIsStrategistOpen] = useState<boolean>(false);
@@ -1693,6 +1843,19 @@ export function AccountsGstView() {
 
         <button
           type="button"
+          onClick={() => setActiveFinanceTab('EXPENSE_INTELLIGENCE')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeFinanceTab === 'EXPENSE_INTELLIGENCE'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <TrendingDown className="w-4 h-4 text-emerald-400" />
+          <span>✂️ Cost Cutting &amp; Expense Monitor</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveFinanceTab('CONTRACTOR_PAYABLES')}
           className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
             activeFinanceTab === 'CONTRACTOR_PAYABLES'
@@ -1706,13 +1869,15 @@ export function AccountsGstView() {
       </div>
 
       {activeFinanceTab === 'ACCOUNTING_SUITE' ? (
-        <AccountingMasterHub />
+        <AccountingMasterHub initialPillar={resolvedPillar} />
       ) : activeFinanceTab === 'DAILY_HEALTH_FORECAST' ? (
         <BusinessHealthForecastingPanel />
       ) : activeFinanceTab === 'BREAK_EVEN' ? (
         <BreakEvenPanel />
       ) : activeFinanceTab === 'FINANCIAL_FORECAST' ? (
         <AiFinancialStrategistPanel />
+      ) : activeFinanceTab === 'EXPENSE_INTELLIGENCE' ? (
+        <ExpenseCostCuttingPanel />
       ) : activeFinanceTab === 'ORDER_PROFIT' ? (
         <OrderProfitPanel />
       ) : activeFinanceTab === 'CONTRACTOR_PAYABLES' ? (
@@ -1914,6 +2079,7 @@ export function EmployeesView({
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [activeStaffTab, setActiveStaffTab] = useState<'ROSTER' | 'PAYROLL_ATTENDANCE'>('ROSTER');
 
   // Add / Edit Employee Modal
   const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
@@ -2142,33 +2308,66 @@ export function EmployeesView({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
-        <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-          <UserCheck className="w-4 h-4 text-red-500" />
-          <span>Factory Staff &amp; Engineers Roster</span>
-        </h2>
+      {/* Tab Switcher: Employee Directory vs Monthly Attendance & Payroll Hub */}
+      <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl w-fit border border-slate-200 dark:border-slate-800">
+        <button
+          type="button"
+          onClick={() => setActiveStaffTab('ROSTER')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeStaffTab === 'ROSTER'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <UserCheck className="w-3.5 h-3.5" />
+          <span>👥 Employee Directory &amp; Staff Profiles</span>
+        </button>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          {isSuperAdmin && onManageStaffLogins && (
-            <button
-              type="button"
-              onClick={onManageStaffLogins}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Staff Logins</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={openAddEmployee}
-            className="px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Employee</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setActiveStaffTab('PAYROLL_ATTENDANCE')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeStaffTab === 'PAYROLL_ATTENDANCE'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-white'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5" />
+          <span>📅 Monthly Attendance &amp; Payroll Hub (PagarBook/Biometric)</span>
+        </button>
       </div>
+
+      {activeStaffTab === 'PAYROLL_ATTENDANCE' ? (
+        <PayrollAttendanceHub />
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-[#0B132B] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+            <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <UserCheck className="w-4 h-4 text-red-500" />
+              <span>Factory Staff &amp; Engineers Roster</span>
+            </h2>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {isSuperAdmin && onManageStaffLogins && (
+                <button
+                  type="button"
+                  onClick={onManageStaffLogins}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Staff Logins</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={openAddEmployee}
+                className="px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Employee</span>
+              </button>
+            </div>
+          </div>
 
       {notice && (
         <div
@@ -2383,7 +2582,7 @@ export function EmployeesView({
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-400"></span>
                     <label className="text-xs font-bold text-amber-300">
-                      Sales Commission Piece Rates (കമ്മീഷൻ & ഡോർ സ്ലാബുകൾ)
+                      Sales Commission Piece Rates
                     </label>
                   </div>
                   <span className="text-[10px] text-slate-400 font-mono">Piece Rate (₹/Door) • Default 0</span>
@@ -2602,6 +2801,8 @@ export function EmployeesView({
             </form>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
@@ -3017,8 +3218,8 @@ export function DispatchInstallationView() {
                                     'Never use acidic floor cleaners, wire brushes, or harsh solvents on FRP doors.',
                                   ],
                                   malayalam: [
-                                    'ഡോർ വൃത്തിയാക്കാൻ വീര്യം കുറഞ്ഞ സോപ്പ് വെള്ളവും കോട്ടൺ തുണിയും മാത്രം ഉപയോഗിക്കുക.',
-                                    'ആസിഡ്, ഫിനോയിൽ അല്ലെങ്കിൽ കഠിനമായ കെമിക്കലുകൾ ഡോറിൽ ഒഴിക്കരുത്.',
+                                    'Clean door surfaces with mild soapy water and a soft cotton cloth only.',
+                                    'Do not pour acid, phenyl, or harsh chemicals onto door surfaces.',
                                   ],
                                 },
                                 issuedAt: new Date().toISOString(),

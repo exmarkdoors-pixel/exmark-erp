@@ -171,6 +171,7 @@ export async function POST(req: NextRequest) {
     // 2. STOP TUNNEL
     if (action === 'STOP') {
       const child = spawn(nodeExe, [scriptPath, '--stop'], {
+        cwd: process.cwd(),
         detached: true,
         stdio: 'ignore',
         windowsHide: true,
@@ -198,20 +199,21 @@ export async function POST(req: NextRequest) {
         startedAt: new Date().toISOString(),
       });
 
-      // Spawn supervisor process
+      // Spawn supervisor process with explicit working directory
       const child = spawn(nodeExe, [scriptPath, '--restart'], {
+        cwd: process.cwd(),
         detached: true,
         stdio: 'ignore',
         windowsHide: true,
       });
       child.unref();
 
-      // Poll for up to 6 seconds for the new URL to be assigned
+      // Poll for up to 12 seconds for the new URL to be assigned
       const startTime = Date.now();
       let assignedState: any = null;
 
-      while (Date.now() - startTime < 6000) {
-        await new Promise((resolve) => setTimeout(resolve, 400));
+      while (Date.now() - startTime < 12000) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
         const current = readTunnelState();
         if (current?.active && current?.tunnelUrl && isProcessAlive(current?.pid)) {
           assignedState = current;

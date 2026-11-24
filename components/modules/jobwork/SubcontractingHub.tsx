@@ -420,7 +420,7 @@ export default function SubcontractingHub() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">Create Outward Job Work Challan</h3>
-                  <p className="text-xs text-slate-400">ഡെലിവറി ചലാൻ (ഔട്ട്‌വേർഡ് ജോബ് വർക്ക്)</p>
+                  <p className="text-xs text-slate-400">Outward delivery challan for subcontractor processing</p>
                 </div>
               </div>
               <button

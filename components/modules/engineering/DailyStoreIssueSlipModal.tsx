@@ -10,6 +10,7 @@ import {
   User,
   Clock,
   ShieldCheck,
+  Calendar,
 } from 'lucide-react';
 import {
   BatchBoqCalculation,
@@ -93,6 +94,7 @@ interface DailyStoreIssueSlipModalProps {
   bufferPercent?: number;
   initialGangName?: string;
   initialShift?: BoqIssueShift;
+  initialIssueDate?: string;
   notes?: string;
   previewVoucher?: BoqIssueVoucherRecord | null;
   // Consolidated multi-party batch support
@@ -113,6 +115,7 @@ export function DailyStoreIssueSlipModal({
   bufferPercent = 0,
   initialGangName = 'ASHIK (Floor Gang)',
   initialShift = 'MORNING',
+  initialIssueDate,
   notes = '',
   previewVoucher = null,
   consolidatedEntries,
@@ -120,6 +123,19 @@ export function DailyStoreIssueSlipModal({
   onIssued,
   onConsolidatedIssued,
 }: DailyStoreIssueSlipModalProps) {
+  const getTodayDateString = () => new Date().toISOString().slice(0, 10);
+  const getYesterdayDateString = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const [issueDate, setIssueDate] = useState<string>(
+    previewConsolidatedBatch?.issueDate ||
+      previewVoucher?.issueDate ||
+      initialIssueDate ||
+      getTodayDateString()
+  );
   const [shift, setShift] = useState<BoqIssueShift>(initialShift);
   const [gangName, setGangName] = useState<string>(initialGangName || 'ASHIK (Floor Gang)');
   const [storekeeperName, setStorekeeperName] = useState<string>('Storekeeper In-Charge');
@@ -135,6 +151,12 @@ export function DailyStoreIssueSlipModal({
 
   useEffect(() => {
     if (isOpen) {
+      setIssueDate(
+        previewConsolidatedBatch?.issueDate ||
+          previewVoucher?.issueDate ||
+          initialIssueDate ||
+          new Date().toISOString().slice(0, 10)
+      );
       setShift(
         previewConsolidatedBatch?.shift || previewVoucher?.shift || initialShift || 'MORNING'
       );
@@ -299,7 +321,7 @@ export function DailyStoreIssueSlipModal({
     ? previewConsolidatedBatch.issueDate
     : previewVoucher?.issueDate
     ? previewVoucher.issueDate
-    : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    : issueDate;
   const totalSlipValue = Math.round(
     effectiveItems.reduce((sum, item) => sum + (Number(item.value) || 0), 0)
   );
@@ -343,6 +365,7 @@ export function DailyStoreIssueSlipModal({
               selectedSqFt: e.selectedSqFt,
             })),
             items: effectiveItems,
+            issueDate,
             shift,
             gangName: gangName.trim() || 'Production Floor Team',
             issuedBy: storekeeperName.trim() || 'Storekeeper In-Charge',
@@ -388,6 +411,7 @@ export function DailyStoreIssueSlipModal({
               doorIds,
               doorNumbers,
               items: effectiveItems,
+              issueDate,
               shift,
               gangName: gangName.trim() || 'Production Floor Team',
               issuedBy: storekeeperName.trim() || 'Storekeeper In-Charge',
@@ -505,9 +529,49 @@ export function DailyStoreIssueSlipModal({
           </div>
         </div>
 
-        {/* Control Bar (Shift & Contractor Inputs - Hidden in Print) */}
+        {/* Control Bar (Date, Shift & Contractor Inputs - Hidden in Print) */}
         {!isHistoricalPreview && (
-          <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs print:hidden">
+          <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs print:hidden">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10.5px] font-bold text-slate-400 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Issue Date</span>
+                </label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setIssueDate(getTodayDateString())}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                      issueDate === getTodayDateString()
+                        ? 'bg-cyan-500 text-slate-950 font-black'
+                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIssueDate(getYesterdayDateString())}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                      issueDate === getYesterdayDateString()
+                        ? 'bg-amber-500 text-slate-950 font-black'
+                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Yesterday
+                  </button>
+                </div>
+              </div>
+              <input
+                type="date"
+                value={issueDate}
+                max={getTodayDateString()}
+                onChange={(e) => setIssueDate(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-cyan-200 text-xs font-bold cursor-pointer"
+              />
+            </div>
+
             <div>
               <label className="block text-[10.5px] font-bold text-slate-400 mb-1 flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-cyan-400" />
@@ -760,7 +824,7 @@ export function DailyStoreIssueSlipModal({
             <div className="py-2.5 border-t border-slate-300">
               <div className="flex items-center justify-between mb-1.5">
                 <h3 className="text-xs font-black uppercase text-slate-900 tracking-wide">
-                  Floor Dispensing Guide by Molding Team (ടീം തിരിച്ചുള്ള അളവുകൾ)
+                  Floor Dispensing Guide by Molding Team
                 </h3>
                 <span className="text-[10px] text-slate-500 font-mono font-bold">
                   Exact bucket dispensing per gang

@@ -11,14 +11,11 @@ echo.
 
 cd /d "%~dp0"
 
-echo [1/4] Checking PostgreSQL Windows Service...
-powershell -NoProfile -Command "$svc = Get-Service -Name '*postgres*' -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $svc) { Write-Host 'PostgreSQL service NOT found.' -ForegroundColor Red; exit 2 } else { Write-Host ('Found service: ' + $svc.Name + ' (' + $svc.Status + ')') -ForegroundColor Green; if ($svc.Status -ne 'Running') { Start-Service $svc.Name; Write-Host 'Started PostgreSQL service.' -ForegroundColor Green } }"
-if %errorlevel% equ 2 (
+echo [1/4] Ensuring PostgreSQL 18 Local Engine is running...
+node scripts\ensure-local-services.mjs
+if %errorlevel% neq 0 (
   echo.
-  echo [!] PostgreSQL is not installed on this PC.
-  echo     Please install PostgreSQL 18 for Windows from:
-  echo     https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
-  echo     Then re-run this script.
+  echo [!] Could not initialize or verify PostgreSQL engine.
   pause
   exit /b 1
 )

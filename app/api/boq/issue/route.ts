@@ -243,9 +243,12 @@ export async function POST(req: NextRequest) {
     const materialGroup = normalizeMaterialGroup(body.materialGroup);
     const source: BoqIssueSource =
       body.source === 'ANDROID_APP' ? 'ANDROID_APP' : 'DESKTOP';
-    const authoritativeDate = isFormulaLocked || !isAdminOrMgmt
-      ? getServerIstDateString()
-      : String(body.issueDate || getServerIstDateString()).slice(0, 10);
+    // Authoritative date: Allow valid client-provided issueDate (e.g. logging yesterday's evening/night shift the next morning).
+    // Defaults strictly to server IST date if omitted or invalid.
+    const authoritativeDate =
+      typeof body.issueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.issueDate.trim())
+        ? body.issueDate.trim()
+        : getServerIstDateString();
     const authoritativeIssuedBy = isFormulaLocked || !isAdminOrMgmt
       ? auth.user?.name || 'Storekeeper'
       : String(body.issuedBy || auth.user?.name || 'Storekeeper');
@@ -740,6 +743,7 @@ export async function PATCH(req: NextRequest) {
     const { updatedVoucher, deltaItems, previousVoucher, totalOrderIssuedValue } = updateBoqIssueVoucher({
       voucherId,
       items: body.items,
+      issueDate: body.issueDate,
       gangName: body.gangName,
       shift: body.shift,
       notes: body.notes,

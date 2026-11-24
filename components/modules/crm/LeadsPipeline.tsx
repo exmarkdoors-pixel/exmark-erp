@@ -39,7 +39,7 @@ import { Customer } from '@/lib/services/customerService';
 import { WhatsAppSession, DEFAULT_WHATSAPP_SESSION } from '@/lib/services/whatsappService';
 import { apiFetch } from '@/lib/api/apiClient';
 
-// 1. കൃത്യമായ സ്റ്റേജ് ക്രമം നിർവ്വചിക്കുക (Exact definitions as requested)
+// 1. Exact pipeline stage definitions
 export const PIPELINE_STAGES = [
   {
     key: 'inquiries',
@@ -374,9 +374,9 @@ export default function LeadsPipeline() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // 2. സ്റ്റെപ്പ് ബൈ സ്റ്റെപ്പ് ആയി അടുത്ത ഘട്ടത്തിലേക്ക് മാറ്റുന്ന ഫങ്ഷൻ
+  // 2. Step-by-step lead progression function
   const handleFollowUp = (e: React.MouseEvent, leadId: string) => {
-    e.stopPropagation(); // ഇവന്റ് ബബ്ലിങ് തടയുന്നു
+    e.stopPropagation(); // Prevents event bubbling
 
     setLeads((prevLeads) => {
       const updatedLeads: LeadItem[] = [];
@@ -390,15 +390,15 @@ export default function LeadsPipeline() {
         const stageKeys = PIPELINE_STAGES.map((s) => s.key);
         const currentIndex = stageKeys.indexOf(lead.stage);
 
-        // ഫൈനൽ നെഗോഷിയേഷൻ കഴിഞ്ഞാൽ സെയിൽസ് ഓർഡറിലേക്ക് മാറ്റുക
+        // Convert to sales order after final negotiation
         if (lead.stage === 'negotiation') {
           convertToSalesOrder(lead);
           setToastMessage(`🎉 Lead "${lead.title}" converted to Sales Order!`);
           setTimeout(() => setToastMessage(null), 4000);
-          continue; // പൈപ്പ്ലൈനിൽ നിന്ന് ഒഴിവാക്കുന്നു (removes from pipeline)
+          continue; // Removes from pipeline
         }
 
-        // അടുത്ത സ്റ്റേജിലേക്ക് കൃത്യമായി മാറ്റുന്നു
+        // Advance to next stage
         if (currentIndex !== -1 && currentIndex < stageKeys.length - 1) {
           const nextStage = stageKeys[currentIndex + 1] as LeadItem['stage'];
           const nextStageLabel = PIPELINE_STAGES[currentIndex + 1].label;
@@ -415,11 +415,11 @@ export default function LeadsPipeline() {
         }
       }
 
-      return updatedLeads; // സെയിൽസ് ഓർഡറിലേക്ക് മാറിയവ നീക്കം ചെയ്യുന്നു
+      return updatedLeads; // Removes converted orders
     });
   };
 
-  // 2b. സ്റ്റേജ് പിന്നോട്ട് മാറ്റുന്ന ഫങ്ഷൻ (Reverse Lead Stage)
+  // 2b. Reverse Lead Stage function
   const handleReverseLead = (e: React.MouseEvent, leadId: string) => {
     e.stopPropagation();
     const stageKeys = PIPELINE_STAGES.map((s) => s.key);
@@ -444,7 +444,7 @@ export default function LeadsPipeline() {
     );
   };
 
-  // 3. ഫൈനൽ നെഗോഷിയേഷൻ കഴിഞ്ഞാൽ സെയിൽസ് ഓർഡർ ക്രിയേറ്റ് ചെയ്യുന്ന ലോജിക്
+  // 3. Logic to create Sales Order after Final Negotiation
   const convertToSalesOrder = (lead: any) => {
     const newSO: SalesOrderItem = {
       id: `SO-2026-0${salesOrders.length + 91}`,
@@ -453,7 +453,7 @@ export default function LeadsPipeline() {
       client: lead.client,
       value: lead.value,
       doors: lead.doors || 'FRP & WPC Doors',
-      stepIndex: 0, // ആദ്യ സ്റ്റെപ്പ്: Order Confirmed
+      stepIndex: 0, // Initial step: Order Confirmed
       advanceStatus: 'Pending 40% Advance',
       advanceReceived: 0,
       advanceVerified: false,
@@ -463,7 +463,7 @@ export default function LeadsPipeline() {
     setSalesOrders((prevOrders) => [newSO, ...prevOrders]);
   };
 
-  // 4. സെയിൽസ് ഓർഡറിലെ ഓരോ സ്റ്റെപ്പും മുന്നോട്ട് മാറ്റുന്ന ഫങ്ഷൻ (with 40% Advance Gatekeeper check)
+  // 4. Advance sales order step function (with 40% Advance Gatekeeper check)
   const advanceSalesOrderStep = (orderId: string) => {
     setSalesOrders((prevOrders) =>
       prevOrders.map((order) => {
@@ -502,7 +502,7 @@ export default function LeadsPipeline() {
     advanceSalesOrderStep(order.id);
   };
 
-  // 4c. സെയിൽസ് ഓർഡർ സ്റ്റേജ് പിന്നോട്ട് മാറ്റുന്ന ഫങ്ഷൻ (Reverse Sales Order Step)
+  // 4c. Reverse Sales Order Step function
   const reverseSalesOrderStep = (orderId: string) => {
     setSalesOrders((prevOrders) =>
       prevOrders.map((order) => {
@@ -1386,7 +1386,7 @@ export default function LeadsPipeline() {
             <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-[#141d33]">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <h3 className="font-black text-white text-sm">Record Advance Deposit / പേയ്‌മെന്റ് വെരിഫിക്കേഷൻ</h3>
+                <h3 className="font-black text-white text-sm">Record Advance Deposit / Payment Verification</h3>
               </div>
               <button
                 type="button"

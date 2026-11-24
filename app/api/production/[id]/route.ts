@@ -112,6 +112,65 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
+    if (body.action === 'COMPLETE_STAGE_WORK') {
+      const { markProductionStageWorkCompleted, getProductionOrder } = await import('@/lib/services/productionService');
+      const { getContractorById, recordPieceRateCreditIfUnpaid, getRateForOperation } = await import('@/lib/services/contractorService');
+      const order = await getProductionOrder(id);
+      if (!order) return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
+
+      const targetStage = (body.stage as ProductionStage) || order.status;
+      const contractor = body.gangId ? getContractorById(body.gangId) : null;
+      let creditedCount = 0;
+      let totalAmount = 0;
+
+      if (contractor && body.operation) {
+        const doorsList = Array.isArray(body.doorIds) && body.doorIds.length > 0
+          ? order.doors.filter((d) => body.doorIds.includes(d.id) || body.doorIds.includes(d.doorId))
+          : order.doors;
+
+        const parsedRate =
+          body.customRate !== undefined && body.customRate !== '' && !Number.isNaN(Number(body.customRate))
+            ? Number(body.customRate)
+            : getRateForOperation(body.operation);
+
+        for (const d of doorsList) {
+          const res = recordPieceRateCreditIfUnpaid({
+            contractorId: contractor.id,
+            orderId: order.id,
+            orderNumber: order.prodOrderNumber || order.id,
+            jobCardNumber: order.jobCardNumber,
+            doorId: d.doorId || d.id,
+            doorNumber: d.doorNumber,
+            doorModel: d.model,
+            operation: body.operation,
+            quantity: 1,
+            customRate: parsedRate,
+            notes: `${targetStage} work completed on floor — ${contractor.name} (${d.doorNumber})`,
+            maxOrderDoorCount: order.doors.length,
+          });
+          if (res.created) {
+            creditedCount++;
+            totalAmount += parsedRate;
+          }
+        }
+      }
+
+      const updated = await markProductionStageWorkCompleted(id, targetStage, {
+        gangId: contractor?.id,
+        gangName: contractor?.name,
+        amount: totalAmount,
+        notes: body.notes,
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: updated,
+        creditedCount,
+        totalAmount,
+        message: `Marked ${targetStage} work complete (${creditedCount} doors credited to ${contractor?.name || 'Gang'} — ₹${totalAmount.toLocaleString('en-IN')}).`,
+      });
+    }
+
     if (body.action === 'RECALL_FROM_FLOOR') {
       const { recallDoorsFromFloor } = await import('@/lib/services/productionService');
       const updated = await recallDoorsFromFloor(id, body.doorIds);
@@ -123,7 +182,9 @@ export async function PUT(
     }
 
     if (body.action === 'UPDATE_DOOR_STAGES') {
-      const { updateDoorStages } = await import('@/lib/services/productionService');
+      const { updateDoorStages, getProductionOrderById } = await import('@/lib/services/productionService');
+      const prevOrder = await getProductionOrderById(id);
+      const targetStage = body.targetStage;
       const updated = await updateDoorStages(id, {
         doorIds: body.doorIds || [],
         targetStage: body.targetStage,
@@ -136,9 +197,65 @@ export async function PUT(
         notes: body.notes,
       });
 
-      // Record piece-rate credit for only these doors if gangId is supplied and not skipped
+      // Record piece-rate credit: only if creditNow is true or if crediting the departing completed stage
       let creditedCount = 0;
-      if (body.gangId && !body.skipCredit && body.operation) {
+      if (body.creditDepartingStage) {
+        const { getContractorById, recordPieceRateCreditIfUnpaid, getRateForOperation } = await import('@/lib/services/contractorService');
+        const doorIdSet = new Set(body.doorIds || []);
+        for (const doorObj of updated.doors) {
+          if (doorIdSet.has(doorObj.id) || doorIdSet.has(doorObj.doorId)) {
+            const prevDoorObj = prevOrder?.doors?.find((d: any) => (d.id === doorObj.id || d.doorId === doorObj.doorId));
+            const prevStage = prevDoorObj?.stage || prevOrder?.status;
+            if (prevStage === 'QUEUED' || prevStage === targetStage) continue;
+
+            const departingGangId =
+              body.departingGangId ||
+              (prevStage === 'MOLDING'
+                ? prevDoorObj?.moldedByGangId || prevOrder?.doors?.find((d: any) => d.moldedByGangId)?.moldedByGangId
+                : prevStage === 'CUTTING_FINISHING'
+                  ? prevDoorObj?.cuttingGangId
+                  : prevStage === 'PAINT_SECTION'
+                    ? prevDoorObj?.paintingGangId
+                    : null) ||
+              prevOrder?.stageHistory?.findLast((h: any) => h.stage === prevStage)?.gangId;
+
+            if (!departingGangId) continue;
+            const contractor = getContractorById(departingGangId);
+            if (!contractor) continue;
+
+            const departingOp =
+              body.departingOp ||
+              (prevStage === 'MOLDING'
+                ? 'MOLDING_DOOR_WITH_FRAME'
+                : prevStage === 'CUTTING_FINISHING'
+                  ? 'DOOR_CUTTING'
+                  : prevStage === 'PAINT_SECTION'
+                    ? 'DOOR_GRAINS_WITH_PAINT'
+                    : 'SITE_FITTING');
+
+            const departingRate =
+              body.departingRate !== undefined && !Number.isNaN(Number(body.departingRate))
+                ? Number(body.departingRate)
+                : getRateForOperation(departingOp as ContractorOperationType);
+
+            const res = recordPieceRateCreditIfUnpaid({
+              contractorId: contractor.id,
+              orderId: updated.id,
+              orderNumber: updated.prodOrderNumber || updated.id,
+              jobCardNumber: updated.jobCardNumber,
+              doorId: doorObj.doorId || doorObj.id,
+              doorNumber: doorObj.doorNumber,
+              doorModel: doorObj.model,
+              operation: departingOp as ContractorOperationType,
+              quantity: 1,
+              customRate: departingRate,
+              notes: `Completed ${prevStage} (${doorObj.doorNumber})`,
+              maxOrderDoorCount: updated.doors.length,
+            });
+            if (res.created) creditedCount++;
+          }
+        }
+      } else if (body.creditNow && body.gangId && !body.skipCredit && body.operation) {
         const { getContractorById, recordPieceRateCreditIfUnpaid } = await import('@/lib/services/contractorService');
         const contractor = getContractorById(body.gangId);
         if (contractor) {
@@ -169,7 +286,11 @@ export async function PUT(
         success: true,
         data: updated,
         creditedCount,
-        message: `Updated ${body.doorIds?.length || 0} doors to ${body.targetStage} (${creditedCount} piece-rate credited).`,
+        message: `Updated ${body.doorIds?.length || 0} doors to ${body.targetStage}${
+          creditedCount > 0
+            ? ` (${creditedCount} piece-rate credited).`
+            : ' (payment deferred until work complete).'
+        }`,
       });
     }
 
@@ -202,9 +323,9 @@ export async function PUT(
       }));
       const updated = await stampDoorsMoldingGang(id, assignments);
 
-      // Record piece-rate credit if gangId is supplied and not skipped
+      // Record piece-rate credit ONLY if explicitly requested (credit after work complete)
       let creditedCount = 0;
-      if (body.gangId && !body.skipCredit) {
+      if (body.creditNow && body.gangId && !body.skipCredit) {
         const { getContractorById, recordPieceRateCreditIfUnpaid } = await import('@/lib/services/contractorService');
         const contractor = getContractorById(body.gangId);
         if (contractor) {
@@ -236,7 +357,9 @@ export async function PUT(
         success: true,
         data: updated,
         creditedCount,
-        message: `Assigned ${assignments.length} doors to molding gang (${creditedCount} piece-rate credited).`,
+        message: `Assigned ${assignments.length} doors to molding gang${
+          creditedCount > 0 ? ` (${creditedCount} piece-rate credited)` : ' (payment deferred until molding complete)'
+        }.`,
       });
     }
 
@@ -344,6 +467,9 @@ export async function PUT(
           await generatePaintBoq(prevOrder);
         }
 
+        const shouldCreditAssignments =
+          body.creditNow === true || body.keepCurrentStage === true || body.assignmentsAreForCompletedStage === true;
+
         if (body.skipAutoCredit !== true && doorsCount > 0) {
           for (const item of assignmentsInput) {
             if (item.skipCredit || !item.gangId || !item.operation) continue;
@@ -379,27 +505,29 @@ export async function PUT(
                   moldingNotes: `${stage} (${contractor.name}) - Door ${doorItem.doorNumber || doorItem.doorId}`,
                 });
 
-                const creditRes = recordPieceRateCreditIfUnpaid({
-                  contractorId: contractor.id,
-                  orderId: prevOrder.id,
-                  orderNumber: prevOrder.prodOrderNumber || prevOrder.id,
-                  jobCardNumber: prevOrder.jobCardNumber,
-                  doorId: doorItem.doorId,
-                  doorNumber: doorItem.doorNumber,
-                  doorModel: doorItem.model,
-                  operation: item.operation,
-                  quantity: 1,
-                  customRate: parsedRate,
-                  notes: `${stage} — ${contractor.name} (${doorItem.doorNumber})`,
-                  maxOrderDoorCount: doorsCount,
-                });
+                if (shouldCreditAssignments) {
+                  const creditRes = recordPieceRateCreditIfUnpaid({
+                    contractorId: contractor.id,
+                    orderId: prevOrder.id,
+                    orderNumber: prevOrder.prodOrderNumber || prevOrder.id,
+                    jobCardNumber: prevOrder.jobCardNumber,
+                    doorId: doorItem.doorId,
+                    doorNumber: doorItem.doorNumber,
+                    doorModel: doorItem.model,
+                    operation: item.operation,
+                    quantity: 1,
+                    customRate: parsedRate,
+                    notes: `${stage} — ${contractor.name} (${doorItem.doorNumber})`,
+                    maxOrderDoorCount: doorsCount,
+                  });
 
-                if (creditRes.created) {
-                  anyCredited = true;
-                  totalAmountMeta += parsedRate;
-                } else if (creditRes.skippedReason) {
-                  anySkippedLocked = true;
-                  skipReasons.push(creditRes.skippedReason);
+                  if (creditRes.created) {
+                    anyCredited = true;
+                    totalAmountMeta += parsedRate;
+                  } else if (creditRes.skippedReason) {
+                    anySkippedLocked = true;
+                    skipReasons.push(creditRes.skippedReason);
+                  }
                 }
               }
 
@@ -407,60 +535,122 @@ export async function PUT(
               opNames.push(item.operation);
               const totalDoorsAmt = parsedRate * matchedDoors.length;
               notesSummary.push(
-                `${contractor.name} (${matchedDoors.length} Doors: ${matchedDoors.map((d) => d.doorNumber).join(', ')} — ₹${totalDoorsAmt.toLocaleString('en-IN')})`
+                shouldCreditAssignments
+                  ? `${contractor.name} (${matchedDoors.length} Doors: ${matchedDoors.map((d) => d.doorNumber).join(', ')} — ₹${totalDoorsAmt.toLocaleString('en-IN')})`
+                  : `${contractor.name} (${matchedDoors.length} Doors assigned — payment deferred until work complete)`
               );
             } else if (item.quantity && item.quantity > 0) {
               const qtyToCredit = Math.min(item.quantity, doorsCount);
               const batchDoorId = `BATCH-${prevOrder.jobCardNumber}-${contractor.id}`;
-              const creditRes = recordPieceRateCreditIfUnpaid({
-                contractorId: contractor.id,
-                orderId: prevOrder.id,
-                orderNumber: prevOrder.prodOrderNumber || prevOrder.id,
-                jobCardNumber: prevOrder.jobCardNumber,
-                doorId: batchDoorId,
-                doorNumber: `${qtyToCredit} Doors Batch`,
-                doorModel: prevOrder.doors?.[0]?.model || 'FRP Door System',
-                operation: item.operation,
-                quantity: qtyToCredit,
-                customRate: parsedRate,
-                notes: `${stage} — ${contractor.name} (${qtyToCredit} Doors)`,
-                maxOrderDoorCount: doorsCount,
-              });
 
-              if (creditRes.created) {
-                anyCredited = true;
-                gangNames.push(contractor.name);
-                opNames.push(item.operation);
-                const amt = parsedRate * qtyToCredit;
-                totalAmountMeta += amt;
+              if (shouldCreditAssignments) {
+                const creditRes = recordPieceRateCreditIfUnpaid({
+                  contractorId: contractor.id,
+                  orderId: prevOrder.id,
+                  orderNumber: prevOrder.prodOrderNumber || prevOrder.id,
+                  jobCardNumber: prevOrder.jobCardNumber,
+                  doorId: batchDoorId,
+                  doorNumber: `${qtyToCredit} Doors Batch`,
+                  doorModel: prevOrder.doors?.[0]?.model || 'FRP Door System',
+                  operation: item.operation,
+                  quantity: qtyToCredit,
+                  customRate: parsedRate,
+                  notes: `${stage} — ${contractor.name} (${qtyToCredit} Doors)`,
+                  maxOrderDoorCount: doorsCount,
+                });
+
+                if (creditRes.created) {
+                  anyCredited = true;
+                  const amt = parsedRate * qtyToCredit;
+                  totalAmountMeta += amt;
+                  notesSummary.push(
+                    `${contractor.name} (${qtyToCredit} Doors ₹${amt.toLocaleString('en-IN')})`
+                  );
+                } else if (creditRes.skippedReason) {
+                  anySkippedLocked = true;
+                  skipReasons.push(creditRes.skippedReason);
+                }
+              } else {
                 notesSummary.push(
-                  `${contractor.name} (${qtyToCredit} Doors ₹${amt.toLocaleString('en-IN')})`
+                  `${contractor.name} (${qtyToCredit} Doors assigned — payment deferred until work complete)`
                 );
-              } else if (creditRes.skippedReason) {
-                anySkippedLocked = true;
-                skipReasons.push(creditRes.skippedReason);
               }
+              gangNames.push(contractor.name);
+              opNames.push(item.operation);
             } else {
+              if (shouldCreditAssignments) {
+                const res = applyOneTimeStageCredits({
+                  order: prevOrder,
+                  contractor,
+                  operation: item.operation,
+                  customRate: parsedRate,
+                  notePrefix: `${stage} — ${contractor.name}`,
+                });
+
+                if (res.creditedCount > 0) {
+                  anyCredited = true;
+                  const amt = parsedRate * res.creditedCount;
+                  totalAmountMeta += amt;
+                  notesSummary.push(
+                    `${contractor.name} (${item.operation === 'FRAME_CUTTING' ? 'Frame' : 'Door'} ₹${amt.toLocaleString('en-IN')})`
+                  );
+                } else if (res.skippedReason) {
+                  anySkippedLocked = true;
+                  skipReasons.push(res.skippedReason);
+                }
+              } else {
+                notesSummary.push(
+                  `${contractor.name} (${item.operation} assigned — payment deferred until work complete)`
+                );
+              }
+              gangNames.push(contractor.name);
+              opNames.push(item.operation);
+            }
+          }
+        }
+
+        // Credit the COMPLETED previous stage upon advance exit (Work Complete Credit Policy)
+        if (!body.keepCurrentStage && prevStatus !== stage && prevStatus !== 'QUEUED' && body.skipCompletedStageCredit !== true) {
+          const prevGroup = getStageLockGroup(prevStatus);
+          const prevLock = prevGroup ? lockSummary.groups[prevGroup] : null;
+          if (!prevLock?.isLocked) {
+            const prevContractorId =
+              body.previousStageCredit?.gangId ||
+              (prevStatus === 'MOLDING'
+                ? prevOrder.doors?.find((d) => d.moldedByGangId)?.moldedByGangId
+                : prevOrder.stageHistory?.findLast((h) => h.stage === prevStatus)?.gangId);
+
+            const prevContractor = prevContractorId ? contractors.find((c) => c.id === prevContractorId) : null;
+            const prevOp =
+              body.previousStageCredit?.operation ||
+              (prevStatus === 'MOLDING'
+                ? 'MOLDING_DOOR_WITH_FRAME'
+                : prevStatus === 'CUTTING_FINISHING'
+                  ? 'DOOR_CUTTING'
+                  : prevStatus === 'PAINT_SECTION'
+                    ? 'DOOR_GRAINS_WITH_PAINT'
+                    : prevStatus === 'INSTALLATION'
+                      ? 'SITE_FITTING'
+                      : null);
+
+            if (prevContractor && prevOp) {
+              const prevRate = body.previousStageCredit?.customRate
+                ? Number(body.previousStageCredit.customRate)
+                : undefined;
+
               const res = applyOneTimeStageCredits({
                 order: prevOrder,
-                contractor,
-                operation: item.operation,
-                customRate: parsedRate,
-                notePrefix: `${stage} — ${contractor.name}`,
+                contractor: prevContractor,
+                operation: prevOp as ContractorOperationType,
+                customRate: prevRate,
+                notePrefix: `Completed ${prevStatus} — ${prevContractor.name}`,
               });
 
               if (res.creditedCount > 0) {
-                anyCredited = true;
-                gangNames.push(contractor.name);
-                opNames.push(item.operation);
-                const amt = parsedRate * res.creditedCount;
-                totalAmountMeta += amt;
-                notesSummary.push(
-                  `${contractor.name} (${item.operation === 'FRAME_CUTTING' ? 'Frame' : 'Door'} ₹${amt.toLocaleString('en-IN')})`
+                const creditedAmt = (prevRate ?? getRateForOperation(prevOp as ContractorOperationType)) * res.creditedCount;
+                notesSummary.unshift(
+                  `✓ Completed ${prevStatus} credited to ${prevContractor.name} (${res.creditedCount} doors — ₹${creditedAmt.toLocaleString('en-IN')})`
                 );
-              } else if (res.skippedReason) {
-                anySkippedLocked = true;
-                skipReasons.push(res.skippedReason);
               }
             }
           }
@@ -555,7 +745,8 @@ export async function PUT(
         await generatePaintBoq(updated);
       }
 
-      if (shouldAttemptCredit) {
+      // 1. Credit incoming stage ONLY if explicitly requested via body.creditNow OR if in-stage save (body.keepCurrentStage)
+      if (shouldAttemptCredit && (body.creditNow || body.keepCurrentStage)) {
         let targetContractor: Contractor | undefined = explicitGang;
         let targetOp: ContractorOperationType | null = explicitGang && body.operation
           ? (body.operation as ContractorOperationType)
@@ -604,6 +795,55 @@ export async function PUT(
             pieceRateMessage = result.skippedReason || pieceRateMessage;
           }
         }
+      }
+
+      // 2. Credit the COMPLETED previous stage upon advance exit (Work Complete Credit Policy)
+      if (!body.keepCurrentStage && prevStatus !== stage && prevStatus !== 'QUEUED' && body.skipCompletedStageCredit !== true) {
+        const prevGroup = getStageLockGroup(prevStatus);
+        const prevLock = prevGroup ? lockSummary.groups[prevGroup] : null;
+        if (!prevLock?.isLocked) {
+          const prevContractorId =
+            body.previousStageCredit?.gangId ||
+            (prevStatus === 'MOLDING'
+              ? prevOrder.doors?.find((d) => d.moldedByGangId)?.moldedByGangId
+              : prevOrder.stageHistory?.findLast((h) => h.stage === prevStatus)?.gangId);
+
+          const prevContractor = prevContractorId ? contractors.find((c) => c.id === prevContractorId) : null;
+          const prevOp =
+            body.previousStageCredit?.operation ||
+            (prevStatus === 'MOLDING'
+              ? 'MOLDING_DOOR_WITH_FRAME'
+              : prevStatus === 'CUTTING_FINISHING'
+                ? 'DOOR_CUTTING'
+                : prevStatus === 'PAINT_SECTION'
+                  ? 'DOOR_GRAINS_WITH_PAINT'
+                  : prevStatus === 'INSTALLATION'
+                    ? 'SITE_FITTING'
+                    : null);
+
+          if (prevContractor && prevOp) {
+            const prevRate = body.previousStageCredit?.customRate
+              ? Number(body.previousStageCredit.customRate)
+              : undefined;
+
+            const res = applyOneTimeStageCredits({
+              order: updated,
+              contractor: prevContractor,
+              operation: prevOp as ContractorOperationType,
+              customRate: prevRate,
+              notePrefix: `Completed ${prevStatus} — ${prevContractor.name}`,
+            });
+
+            if (res.creditedCount > 0) {
+              const creditedAmt = (prevRate ?? getRateForOperation(prevOp as ContractorOperationType)) * res.creditedCount;
+              pieceRateMessage = `Completed ${prevStatus} credited to ${prevContractor.name} (${res.creditedCount} doors — ₹${creditedAmt.toLocaleString('en-IN')}). Next stage payment deferred until work complete.`;
+            }
+          }
+        }
+      }
+
+      if (!pieceRateMessage && !body.keepCurrentStage && prevStatus === 'QUEUED' && explicitGang) {
+        pieceRateMessage = `${explicitGang.name} assigned for molding. Payment will be credited after work is complete.`;
       }
     } catch (autoErr) {
       console.warn('[production:stage:auto] Non-fatal auto-action warning:', autoErr);
@@ -669,7 +909,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await authorizeRequest(req, 'production', ['Super Admin', 'Management', 'Production', 'Admin']);
+    const auth = await authorizeRequest(req, 'production', ['Super Admin', 'Management', 'Production', 'Plant Supervisor']);
     if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await params;

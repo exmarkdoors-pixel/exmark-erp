@@ -31,6 +31,9 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') as CustomerStatus | null;
     if (status) filter.status = status;
 
+    const salespersonId = searchParams.get('salespersonId');
+    if (salespersonId) filter.salespersonId = salespersonId;
+
     const customers = await listCustomers(filter);
     return NextResponse.json({ success: true, data: customers });
   } catch (error: unknown) {
@@ -41,7 +44,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorizeRequest(req, 'customers', ['Super Admin', 'Management', 'Sales', 'Accounts']);
+    const auth = await authorizeRequest(req, 'customers', [
+      'Super Admin',
+      'Management',
+      'Sales',
+      'Accounts',
+      'Site Engineer',
+      'Production',
+      'Installation',
+      'Driver',
+    ]);
     if (auth.errorResponse) return auth.errorResponse;
 
     const body = await req.json();
@@ -74,6 +86,10 @@ export async function POST(req: NextRequest) {
       email: body.email?.trim() || null,
       creditLimit: Number(body.creditLimit) || 0,
       outstandingBalance: Number(body.outstandingBalance) || 0,
+      creditPeriodDays: Number(body.creditPeriodDays) || 30,
+      salespersonId: body.salespersonId?.trim() || undefined,
+      salespersonName: body.salespersonName?.trim() || undefined,
+      salespersonCode: body.salespersonCode?.trim() || undefined,
       status: body.status || 'ACTIVE',
     });
 

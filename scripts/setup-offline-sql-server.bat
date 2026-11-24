@@ -19,33 +19,21 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 2. Check if PostgreSQL Service exists
-echo [1/6] Checking for PostgreSQL Windows Service...
-set "PG_SERVICE="
-for /f "tokens=1" %%S in ('powershell -NoProfile -Command "(Get-Service -Name *postgres* -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Name)"') do set "PG_SERVICE=%%S"
-
-if "%PG_SERVICE%"=="" (
+:: 2. Check and Ensure PostgreSQL Service / Daemon is Running
+echo [1/6] Checking and initializing PostgreSQL 18 Local Database Engine...
+cd /d "%~dp0\.."
+call node scripts\ensure-local-services.mjs
+if %errorlevel% neq 0 (
     echo.
     echo ------------------------------------------------------------------------
-    echo [WARNING] PostgreSQL service was not detected on this computer!
-    echo.
-    echo To use the Offline SQL Server, you must install PostgreSQL:
-    echo   1. Plug in your EXMARK USB pen drive.
-    echo   2. Run 'postgresql-16-windows-x64.exe'.
-    echo   3. Set password as 'postgres' and port as '5432'.
-    echo   4. After installation finishes, run this script again.
+    echo [WARNING] PostgreSQL could not be started automatically.
+    echo Please ensure PostgreSQL 18 is installed in 'C:\Program Files\PostgreSQL\18'.
     echo ------------------------------------------------------------------------
     echo.
     pause
     exit /b 1
 )
-
-echo       [OK] Detected PostgreSQL Service: %PG_SERVICE%
-
-:: 3. Ensure PostgreSQL Service is Started
-echo [2/6] Verifying service state...
-powershell -NoProfile -Command "$s = Get-Service -Name '%PG_SERVICE%'; if ($s.Status -ne 'Running') { Start-Service -Name '%PG_SERVICE%' }" >nul 2>&1
-echo       [OK] PostgreSQL service is active and running.
+echo       [OK] PostgreSQL database engine is active and ready on port 5432.
 
 :: 4. Run Automated Database Initialization & Prisma Schema Deployment
 echo [3/6] Initializing 'exmark_erp' database and deploying 30+ relational tables...

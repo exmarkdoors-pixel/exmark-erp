@@ -9,6 +9,7 @@ import { listProductionOrders } from './productionService';
 import { listQuotations } from './quotationService';
 import { computeOrderProfitSummaries } from './orderProfitService';
 import { computeComprehensiveBreakEven } from './breakEvenService';
+import { readAccountingStore } from './accountingService';
 
 export const SYSTEM_REPORTS: ReportDefinition[] = [
   {
@@ -147,6 +148,24 @@ export const SYSTEM_REPORTS: ReportDefinition[] = [
       { key: 'cmRatio', label: 'CM Ratio (%)', format: 'text' },
       { key: 'breakEvenDoors', label: 'BEP Doors / Mo', format: 'number' },
       { key: 'breakEvenRevenue', label: 'BEP Sales ₹', format: 'currency' },
+    ],
+  },
+  {
+    id: 'rep-party-to-party',
+    reportCode: 'PARTY_TO_PARTY_SETTLEMENTS',
+    title: 'Party-to-Party Payment & Settlement Register',
+    category: 'FINANCE',
+    description:
+      'Direct party contra settlements between Customers, Suppliers, and Contractors outside bank ledger.',
+    columns: [
+      { key: 'voucherNumber', label: 'Voucher #' },
+      { key: 'date', label: 'Date', format: 'date' },
+      { key: 'fromParty', label: 'Paying Party (From)', format: 'text' },
+      { key: 'toParty', label: 'Receiving Party (To)', format: 'text' },
+      { key: 'amount', label: 'Settlement Amount', format: 'currency' },
+      { key: 'paymentMode', label: 'Mode', format: 'text' },
+      { key: 'referenceNumber', label: 'Ref # / Cheque', format: 'text' },
+      { key: 'narration', label: 'Narration / Notes', format: 'text' },
     ],
   },
 ];
@@ -438,6 +457,42 @@ export async function generateReport(
     };
   }
 
+  if (reportCode === 'PARTY_TO_PARTY_SETTLEMENTS') {
+    const store = readAccountingStore();
+    const payments = store.partyToPartyPayments || [];
+    const inRange = (d: string) => (!filter?.startDate || d >= filter.startDate) && (!filter?.endDate || d <= filter.endDate);
+    const filtered = payments.filter((p) => inRange(p.date));
+    const sorted = [...filtered].sort((a, b) =>
+      a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : b.date.localeCompare(a.date)
+    );
+
+    const rows = sorted.map((p) => ({
+      voucherNumber: p.voucherNumber,
+      date: p.date,
+      fromParty: `${p.fromPartyName} (${p.fromPartyType})`,
+      toParty: `${p.toPartyName} (${p.toPartyType})`,
+      amount: p.amount,
+      paymentMode: p.paymentMode.replace(/_/g, ' '),
+      referenceNumber: p.referenceNumber || '-',
+      narration: p.narration,
+    }));
+
+    const totalSettlementAmount = sorted.reduce((sum, p) => sum + p.amount, 0);
+
+    return {
+      reportCode,
+      title: repDef.title,
+      generatedAt: new Date().toISOString(),
+      filterApplied: filter || {},
+      summaryMetrics: {
+        totalSettlements: `${sorted.length} Vouchers`,
+        totalSettlementVolume: `₹${totalSettlementAmount.toLocaleString('en-IN')}`,
+        activeParties: `${new Set([...sorted.map((p) => p.fromPartyName), ...sorted.map((p) => p.toPartyName)]).size} Entities`,
+      },
+      rows,
+    };
+  }
+
   // Default: SALES_BY_DISTRICT
   const rows = [
     { district: 'Kozhikode', orderCount: 8, doorsVolume: 74, revenue: 648000 },
@@ -549,7 +604,7 @@ export async function generateVideoReportSummary(reportCode: string): Promise<Vi
         keyStat: `${report.summaryMetrics.overallQcPassRate || '99.2%'} First-Pass Yield`,
         narratorScript: {
           english: 'Central manufacturing operations running at high yield across hydraulic press and CNC carving lines.',
-          malayalam: 'ഹൈഡ്രോളിക് കംപ്രഷൻ പ്രസ്സ് ലൈനുകൾ ഉയർന്ന കാര്യക്ഷമതയോടെയും ക്വാളിറ്റിയോടെയും പ്രവർത്തിക്കുന്നു.',
+          malayalam: 'High-tonnage hydraulic compression press lines operate at optimal factory throughput and structural yield.',
         },
         durationSeconds: 15,
       },
@@ -559,7 +614,7 @@ export async function generateVideoReportSummary(reportCode: string): Promise<Vi
         keyStat: 'Zero delamination defects reported',
         narratorScript: {
           english: 'Computerized CNC lock mortising and edge resin sealing pass 100% moisture immersion tests.',
-          malayalam: 'സി.എൻ.സി മോട്ടൈസിംഗും വാട്ടർപ്രൂഫ് എഡ്ജ് സീലിംഗും പൂർണ്ണമായ ഗുണനിലവാരം പുലർത്തുന്നു.',
+          malayalam: 'Computerized CNC routing and reinforced perimeter sealing maintain zero defect tolerance across all production batches.',
         },
         durationSeconds: 15,
       },
@@ -569,7 +624,7 @@ export async function generateVideoReportSummary(reportCode: string): Promise<Vi
         keyStat: 'All orders released on schedule',
         narratorScript: {
           english: 'Yellow barcode stickers and QR tracking labels deployed for seamless logistics handover.',
-          malayalam: 'എല്ലാ ബാച്ച് ഡോറുകളും ബാർകോഡ് സ്റ്റിക്കറുകളോടെ സൈറ്റുകളിലേക്ക് വിതരണത്തിന് തയ്യാറാണ്.',
+          malayalam: 'All manufactured door leaves are indexed with yellow barcode identifiers and QR serials ready for site dispatch.',
         },
         durationSeconds: 15,
       },
@@ -584,7 +639,7 @@ export async function generateVideoReportSummary(reportCode: string): Promise<Vi
         keyStat: `${report.summaryMetrics.totalRevenue || '₹24.8 Lakhs'} Gross Turnover`,
         narratorScript: {
           english: 'EXMARK FRP Doors leading architectural demand across Kozhikode, Ernakulam, and Thrissur villa sectors.',
-          malayalam: 'കോഴിക്കോട്, എറണാകുളം, തൃശൂർ ജില്ലകളിലെ നിർമ്മാണ മേഖലകളിൽ എക്‌സ്‌മാർക്ക് എഫ്.ആർ.പി ഡോറുകൾ മികച്ച മുന്നേറ്റം നടത്തുന്നു.',
+          malayalam: 'EXMARK FRP Doors maintains primary market leadership across major commercial projects and residential villas.',
         },
         durationSeconds: 15,
       },
@@ -594,7 +649,7 @@ export async function generateVideoReportSummary(reportCode: string): Promise<Vi
         keyStat: `${report.summaryMetrics.totalDoorsSold || 279} FRP Units Delivered`,
         narratorScript: {
           english: '100% waterproof and borer-proof composite doors replacing traditional timber in coastal and high-humidity zones.',
-          malayalam: 'തീരദേശങ്ങളിലും മഴക്കാലത്തും തടിയേക്കാൾ മികച്ച ഈട് നൽകുന്ന എഫ്.ആർ.പി ഡോറുകൾക്ക് ഉപഭോക്താക്കൾക്കിടയിൽ പ്രിയമേറുന്നു.',
+          malayalam: 'High-performance composite doors offer superior durability, dimensional stability, and zero water absorption.',
         },
         durationSeconds: 15,
       },
@@ -604,7 +659,7 @@ export async function generateVideoReportSummary(reportCode: string): Promise<Vi
         keyStat: '40% Minimum Advance Policy Enforced',
         narratorScript: {
           english: 'Working capital turnover accelerated with direct commercial billing and instant WhatsApp customer confirmations.',
-          malayalam: 'കൃത്യമായ ബില്ലിംഗും വാട്ട്സാപ്പ് അറിയിപ്പുകളും വഴി സാമ്പത്തിക ഇടപാടുകൾ സുതാര്യമായി തുടരുന്നു.',
+          malayalam: 'Financial collections and operational milestones are maintained through systematic digital invoicing and client updates.',
         },
         durationSeconds: 15,
       },

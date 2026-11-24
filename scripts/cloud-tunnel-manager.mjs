@@ -171,11 +171,20 @@ export function startTunnel(port = 4000, options = {}) {
   // Build command args
   let args = [];
   if (token) {
-    appendLog('Using permanent Cloudflare Tunnel token.');
-    args = ['tunnel', 'run', '--token', token];
+    appendLog('Using permanent Cloudflare Tunnel token over HTTP/2...');
+    args = ['tunnel', '--protocol', 'http2', '--ha-connections', '1', '--no-autoupdate', 'run', '--token', token];
   } else {
-    appendLog('Using TryCloudflare zero-config temporary tunnel.');
-    args = ['tunnel', '--url', `http://127.0.0.1:${port}`];
+    appendLog('Using TryCloudflare zero-config temporary tunnel over HTTP/2 (TCP 443)...');
+    args = [
+      'tunnel',
+      '--protocol',
+      'http2',
+      '--ha-connections',
+      '1',
+      '--no-autoupdate',
+      '--url',
+      `http://127.0.0.1:${port}`,
+    ];
   }
 
   let restartCount = 0;
@@ -222,7 +231,13 @@ export function startTunnel(port = 4000, options = {}) {
       }
 
       // If permanent token, Cloudflare connects without printing a URL
-      if (token && customDomain && (text.includes('Registered tunnel connection') || text.includes('Connection registered'))) {
+      if (token && customDomain && (
+        text.includes('Registered tunnel connection') ||
+        text.includes('Connection registered') ||
+        text.includes('registered with protocol') ||
+        text.includes('Updated to new configuration') ||
+        text.includes('Connected to')
+      )) {
         const payload = {
           active: true,
           pid: childPid,
@@ -282,7 +297,7 @@ export function startTunnel(port = 4000, options = {}) {
 }
 
 // CLI Execution handling
-if (process.argv[1] && process.argv[1].endsWith('cloud-tunnel-manager.mjs')) {
+if (process.argv[1] && (process.argv[1].endsWith('cloud-tunnel-manager.mjs') || process.argv[1].includes('cloud-tunnel-manager'))) {
   const args = process.argv.slice(2);
   const port = Number(process.env.ERP_PORT || 4000);
 

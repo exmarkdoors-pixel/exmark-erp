@@ -270,7 +270,7 @@ export function DeliveryRouteOptimizerModal({
           {/* Optimized Sequence of Stops */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <span>Optimized Stop Sequence (ഏറ്റവും കുറഞ്ഞ ദൂരം)</span>
+              <span>Optimized Stop Sequence</span>
             </h4>
 
             <div className="space-y-2">

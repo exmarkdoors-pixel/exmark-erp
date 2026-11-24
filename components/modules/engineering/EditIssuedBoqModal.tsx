@@ -63,7 +63,17 @@ export function EditIssuedBoqModal({
 
   const [gangName, setGangName] = useState<string>(voucher.gangName || '');
   const [shift, setShift] = useState<BoqIssueShift>(voucher.shift || 'MORNING');
+  const [issueDate, setIssueDate] = useState<string>(
+    voucher.issueDate || new Date().toISOString().slice(0, 10)
+  );
   const [notes, setNotes] = useState<string>(voucher.notes || '');
+
+  const getTodayDateString = () => new Date().toISOString().slice(0, 10);
+  const getYesterdayDateString = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  };
   const [editReason, setEditReason] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -163,6 +173,7 @@ export function EditIssuedBoqModal({
         body: JSON.stringify({
           id: voucher.id,
           items: payloadItems,
+          issueDate,
           gangName: gangName.trim(),
           shift,
           notes: notes.trim(),
@@ -217,8 +228,36 @@ export function EditIssuedBoqModal({
           {/* Metadata Card */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-slate-50 border border-slate-300 rounded-lg text-xs">
             <div>
-              <span className="text-slate-500 font-bold block text-[10px] uppercase">Original Issue Date</span>
-              <span className="font-bold text-black">{voucher.issueDate}</span>
+              <div className="flex items-center justify-between">
+                <label className="text-slate-500 font-bold block text-[10px] uppercase">Issue Date</label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setIssueDate(getTodayDateString())}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                      issueDate === getTodayDateString() ? 'bg-cyan-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIssueDate(getYesterdayDateString())}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                      issueDate === getYesterdayDateString() ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                    }`}
+                  >
+                    Yesterday
+                  </button>
+                </div>
+              </div>
+              <input
+                type="date"
+                value={issueDate}
+                max={getTodayDateString()}
+                onChange={(e) => setIssueDate(e.target.value)}
+                className="w-full mt-0.5 px-2 py-1 border border-slate-300 rounded bg-white text-black font-bold text-xs focus:border-black outline-none"
+              />
             </div>
             <div>
               <label className="text-slate-500 font-bold block text-[10px] uppercase">Molding Gang / Team</label>
@@ -236,9 +275,9 @@ export function EditIssuedBoqModal({
                 onChange={(e) => setShift(e.target.value as BoqIssueShift)}
                 className="w-full mt-0.5 px-2 py-1 border border-slate-300 rounded bg-white text-black font-bold text-xs focus:border-black outline-none"
               >
-                <option value="MORNING">Morning (രാവിലെ)</option>
-                <option value="AFTERNOON">Afternoon (ഉച്ചയ്ക്ക്)</option>
-                <option value="EVENING">Evening (വൈകുന്നേരം)</option>
+                <option value="MORNING">Morning</option>
+                <option value="AFTERNOON">Afternoon</option>
+                <option value="EVENING">Evening</option>
               </select>
             </div>
           </div>
@@ -247,9 +286,9 @@ export function EditIssuedBoqModal({
           <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
             <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold">Automatic Inventory Re-sync (ഓട്ടോമാറ്റിക് സ്റ്റോക്ക് ക്രമീകരണം):</p>
+              <p className="font-bold">Automatic Inventory Re-sync:</p>
               <p className="text-[11px] text-blue-800 mt-0.5">
-                മെറ്റീരിയൽ അളവ് കൂട്ടുമ്പോൾ അധികമുള്ള സ്റ്റോക്ക് കുറയ്ക്കുകയും, അളവ് കുറയ്ക്കുമ്പോൾ വ്യത്യാസമുള്ള സ്റ്റോക്ക് തിരികെ ഇൻവെന്ററിയിലേക്ക് ചേർക്കുകയും ചെയ്യും.
+                Increasing material quantity will deduct additional inventory, while reducing quantity will automatically credit the difference back to store stock.
               </p>
             </div>
           </div>
@@ -407,7 +446,7 @@ export function EditIssuedBoqModal({
           <div className="space-y-1.5 p-3 bg-amber-50 border border-amber-300 rounded-lg">
             <label className="text-xs font-black text-amber-950 flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 text-amber-600" />
-              Reason for Modification (എഡിറ്റ് ചെയ്യാനുള്ള കാരണം - നിർബന്ധം):
+              Reason for Modification (Required):
             </label>
             <textarea
               rows={2}
@@ -420,11 +459,11 @@ export function EditIssuedBoqModal({
             <div className="flex flex-wrap gap-1.5 pt-1">
               <span className="text-[10px] text-slate-600 font-bold self-center">Quick Presets:</span>
               {[
-                'Cold weather extra resin (തണുപ്പുള്ള കാലാവസ്ഥ)',
-                'Molding defect rectification (മോൾഡിംഗ് തകരാർ)',
-                'Excess material returned (തിരിച്ചേൽപ്പിച്ചു)',
-                'Job card size alteration (അളവ് മാറ്റം)',
-                'Floor supervisor correction (സൂപ്പർവൈസർ തിരുത്തൽ)',
+                'Cold weather extra resin',
+                'Molding defect rectification',
+                'Excess material returned',
+                'Job card size alteration',
+                'Floor supervisor correction',
               ].map((preset) => (
                 <button
                   key={preset}
@@ -441,7 +480,7 @@ export function EditIssuedBoqModal({
           {/* Supervisor Notes */}
           <div>
             <label className="text-[11px] font-bold text-slate-700 block mb-1">
-              Additional Remarks / Notes (ഓപ്ഷണൽ കുറിപ്പുകൾ):
+              Additional Remarks / Notes (Optional):
             </label>
             <input
               type="text"

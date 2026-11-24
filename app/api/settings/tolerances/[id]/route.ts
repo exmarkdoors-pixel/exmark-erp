@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeRequest } from '@/lib/auth/authorization';
-import { updateTolerancePreset, deleteTolerancePreset, getTolerancePresetById } from '@/lib/services/toleranceService';
+import {
+  getTolerancePresetById,
+  updateTolerancePreset,
+  deleteTolerancePreset,
+} from '@/lib/services/toleranceService';
 
 export async function GET(
   req: NextRequest,
@@ -29,12 +33,21 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await authorizeRequest(req, 'settings', ['Super Admin', 'Management']);
+    const auth = await authorizeRequest(req, 'settings', ['Super Admin', 'Management', 'Plant Supervisor']);
     if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await params;
     const body = await req.json();
-    const updated = updateTolerancePreset(id, body);
+
+    const updated = updateTolerancePreset(id, {
+      name: body.name,
+      heightDeductionMm: body.heightDeductionMm !== undefined ? Number(body.heightDeductionMm) : undefined,
+      widthDeductionMm: body.widthDeductionMm !== undefined ? Number(body.widthDeductionMm) : undefined,
+      applicableFor: body.applicableFor,
+      description: body.description,
+      isDefault: body.isDefault !== undefined ? Boolean(body.isDefault) : undefined,
+    });
+
     if (!updated) {
       return NextResponse.json({ success: false, error: 'Tolerance preset not found' }, { status: 404 });
     }
@@ -52,7 +65,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await authorizeRequest(req, 'settings', ['Super Admin', 'Management']);
+    const auth = await authorizeRequest(req, 'settings', ['Super Admin', 'Management', 'Plant Supervisor']);
     if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await params;

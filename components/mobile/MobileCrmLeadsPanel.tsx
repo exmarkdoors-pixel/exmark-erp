@@ -13,8 +13,10 @@ import {
   Send,
   X,
   UserPlus,
+  User,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/apiClient';
+import { MobileCustomerModal } from './MobileCustomerModal';
 
 interface MobileLeadFollowUp {
   id: string;
@@ -59,6 +61,7 @@ export function MobileCrmLeadsPanel({ staffName }: { staffName: string }) {
 
   // Quick New Lead drawer
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
+  const [showCustomerModal, setShowCustomerModal] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>('');
   const [newClient, setNewClient] = useState<string>('');
   const [newPhone, setNewPhone] = useState<string>('');
@@ -214,16 +217,25 @@ export function MobileCrmLeadsPanel({ staffName }: { staffName: string }) {
         <div className="flex items-center gap-1.5">
           <button
             type="button"
+            onClick={() => setShowCustomerModal(true)}
+            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition shadow"
+            title="Register Master Customer into ERP"
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>+ Customer</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setShowAddForm((v) => !v)}
-            className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1"
+            className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5" />
-            <span>New</span>
+            <span>+ Lead</span>
           </button>
           <button
             type="button"
             onClick={loadLeads}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-300"
+            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -496,6 +508,15 @@ export function MobileCrmLeadsPanel({ staffName }: { staffName: string }) {
           </div>
         </div>
       )}
+
+      {/* Mobile Customer Creation Modal */}
+      <MobileCustomerModal
+        isOpen={showCustomerModal}
+        onClose={() => setShowCustomerModal(false)}
+        onCustomerCreated={(c) => {
+          showToast(`✓ Master customer "${c.name}" registered & synced to Desktop ERP!`);
+        }}
+      />
     </div>
   );
 }

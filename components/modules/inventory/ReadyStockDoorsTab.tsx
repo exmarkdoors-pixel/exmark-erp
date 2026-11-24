@@ -19,6 +19,10 @@ import {
   Tag,
   X,
   RefreshCw,
+  Printer,
+  Undo2,
+  User,
+  Ruler,
 } from 'lucide-react';
 import type {
   ReadyStockDoor,
@@ -27,6 +31,13 @@ import type {
   StockCondition,
   CreateReadyStockDoorInput,
 } from '@/lib/services/readyStockDoorService';
+import {
+  computeDoorTolerances,
+  AppliedDoorTolerances,
+  FloorCondition,
+} from '@/lib/services/toleranceCalculation';
+import { StockDoorStickerModal } from './StockDoorStickerModal';
+import { ReturnDoorToStockModal } from './ReturnDoorToStockModal';
 
 export function ReadyStockDoorsTab() {
   const [items, setItems] = useState<ReadyStockDoor[]>([]);
@@ -34,7 +45,13 @@ export function ReadyStockDoorsTab() {
   const [search, setSearch] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [conditionFilter, setConditionFilter] = useState<string>('ALL');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Sticker Modal state
+  const [isStickerModalOpen, setIsStickerModalOpen] = useState<boolean>(false);
+  const [stickerDoors, setStickerDoors] = useState<ReadyStockDoor[]>([]);
+  const [selectedDoorIds, setSelectedDoorIds] = useState<string[]>([]);
 
   // Add / Edit Modal state
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -64,6 +81,28 @@ export function ReadyStockDoorsTab() {
   const [sellingPrice, setSellingPrice] = useState<string>('7500');
   const [notes, setNotes] = useState<string>('');
 
+  // Frame Opening Measurement Live Auto-Calculation state
+  const [autoCalculateFromFrame, setAutoCalculateFromFrame] = useState<boolean>(false);
+  const [calcFrameHeightMm, setCalcFrameHeightMm] = useState<string>('2100');
+  const [calcFrameWidthMm, setCalcFrameWidthMm] = useState<string>('900');
+  const [calcFrameProfile, setCalcFrameProfile] = useState<string>('Regular Factory Frame 70×45mm');
+  const [calcFloorCondition, setCalcFloorCondition] = useState<FloorCondition>('FINISHED_TILE');
+  const [calcResult, setCalcResult] = useState<AppliedDoorTolerances | null>(null);
+  const [customFrames, setCustomFrames] = useState<any[]>([]);
+
+  // Return Delivered Door modal state
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState<boolean>(false);
+
+  // Sell Stock Door modal state
+  const [isSellModalOpen, setIsSellModalOpen] = useState<boolean>(false);
+  const [sellingDoor, setSellingDoor] = useState<ReadyStockDoor | null>(null);
+  const [sellCustomerName, setSellCustomerName] = useState<string>('');
+  const [sellPrice, setSellPrice] = useState<string>('7500');
+  const [sellSalespersonId, setSellSalespersonId] = useState<string>('');
+  const [sellNotes, setSellNotes] = useState<string>('');
+  const [isSelling, setIsSelling] = useState<boolean>(false);
+  const [salesStaff, setSalesStaff] = useState<Array<{ id: string; code: string; name: string }>>([]);
+
   const notify = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -88,6 +127,82 @@ export function ReadyStockDoorsTab() {
     loadData();
   }, [loadData]);
 
+  // Load active sales staff for quota leaderboard attribution
+  useEffect(() => {
+    async function loadStaff() {
+      try {
+        const res = await fetch('/api/sales/targets?leaderboard=false');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data?.targets) {
+            const list = json.data.targets.map((t: { employeeId: string; employeeCode: string; employeeName: string }) => ({
+              id: t.employeeId,
+              code: t.employeeCode,
+              name: t.employeeName,
+            }));
+            setSalesStaff(list);
+            if (list.length > 0) setSellSalespersonId(list[0].id);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load sales staff:', err);
+      }
+
+      try {
+        const frameRes = await fetch('/api/settings/frames');
+        if (frameRes.ok) {
+          const frameJson = await frameRes.json();
+          if (frameJson.success && Array.isArray(frameJson.data)) {
+            setCustomFrames(frameJson.data);
+            if (frameJson.data.length > 0 && !calcFrameProfile) {
+              setCalcFrameProfile(frameJson.data[0].name);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load custom frames:', err);
+      }
+    }
+    loadStaff();
+  }, []);
+
+  // Live tolerance & deduction auto-calculation from frame opening measurements
+  useEffect(() => {
+    if (!autoCalculateFromFrame) return;
+    const h = Number(calcFrameHeightMm);
+    const w = Number(calcFrameWidthMm);
+    if (!h || !w || h <= 0 || w <= 0) {
+      setCalcResult(null);
+      return;
+    }
+
+    try {
+      const matched = customFrames.find((f) => f.name === calcFrameProfile || f.id === calcFrameProfile);
+      const computed = computeDoorTolerances({
+        rawHeightMm: h,
+        rawWidthTopMm: w,
+        frameTypeName: calcFrameProfile,
+        frameProfile: matched,
+        rebateDepthMm: matched?.rebateDepthMm,
+        frameHDeductionMm: matched?.hDeductionCm ? Math.round(matched.hDeductionCm * 10) : undefined,
+        frameWDeductionMm: matched?.wDeductionCm ? Math.round(matched.wDeductionCm * 10) : undefined,
+        floorCondition: calcFloorCondition,
+      });
+
+      setCalcResult(computed);
+      setDoorHeightMm(String(computed.shutterHeightMm));
+      setDoorWidthMm(String(computed.effectiveShutterWidthMm));
+
+      if (draftType === 'DOOR_AND_FRAME') {
+        setFrameHeightMm(calcFrameHeightMm);
+        setFrameWidthMm(calcFrameWidthMm);
+        setFrameType(calcFrameProfile);
+      }
+    } catch (err) {
+      console.error('Error auto-calculating door tolerance:', err);
+    }
+  }, [autoCalculateFromFrame, calcFrameHeightMm, calcFrameWidthMm, calcFrameProfile, calcFloorCondition, draftType]);
+
   const handleOpenAddModal = () => {
     setEditingItem(null);
     setDraftType('DOOR_AND_FRAME');
@@ -109,6 +224,15 @@ export function ReadyStockDoorsTab() {
     setCondition('OLD_STOCK');
     setSellingPrice('7500');
     setNotes('');
+
+    // Reset frame calculation state
+    setAutoCalculateFromFrame(false);
+    setCalcFrameHeightMm('2100');
+    setCalcFrameWidthMm('900');
+    setCalcFrameProfile('Regular Factory Frame 70×45mm');
+    setCalcFloorCondition('FINISHED_TILE');
+    setCalcResult(null);
+
     setIsModalOpen(true);
   };
 
@@ -133,7 +257,84 @@ export function ReadyStockDoorsTab() {
     setCondition(item.condition || 'OLD_STOCK');
     setSellingPrice(String(item.sellingPrice || 6500));
     setNotes(item.notes || '');
+
+    // Initialize frame calculation state from item if present
+    setAutoCalculateFromFrame(Boolean(item.frameOpeningHeightMm && item.frameOpeningWidthMm));
+    setCalcFrameHeightMm(
+      item.frameOpeningHeightMm
+        ? String(item.frameOpeningHeightMm)
+        : item.frameHeightMm
+        ? String(item.frameHeightMm)
+        : '2100'
+    );
+    setCalcFrameWidthMm(
+      item.frameOpeningWidthMm
+        ? String(item.frameOpeningWidthMm)
+        : item.frameWidthMm
+        ? String(item.frameWidthMm)
+        : '900'
+    );
+    setCalcFrameProfile(item.frameProfile || item.frameTypeName || 'Regular Factory Frame 70×45mm');
+    setCalcFloorCondition((item.floorCondition as FloorCondition) || 'FINISHED_TILE');
+    setCalcResult(null);
+
     setIsModalOpen(true);
+  };
+
+  const handleOpenSellModal = (item: ReadyStockDoor) => {
+    setSellingDoor(item);
+    setSellCustomerName(item.reservedForCustomer || '');
+    setSellPrice(String(item.sellingPrice || 6500));
+    setSellNotes('');
+    if (salesStaff.length > 0 && !sellSalespersonId) {
+      setSellSalespersonId(salesStaff[0].id);
+    }
+    setIsSellModalOpen(true);
+  };
+
+  const handleConfirmSell = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sellingDoor) return;
+    if (!sellCustomerName.trim()) {
+      notify('Customer name is required.');
+      return;
+    }
+
+    setIsSelling(true);
+    const chosenRep = salesStaff.find((s) => s.id === sellSalespersonId);
+
+    try {
+      const res = await fetch('/api/stock-doors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'SELL',
+          id: sellingDoor.id,
+          salePrice: Number(sellPrice) || sellingDoor.sellingPrice,
+          customerName: sellCustomerName.trim(),
+          salespersonId: chosenRep?.id,
+          salespersonCode: chosenRep?.code,
+          salespersonName: chosenRep?.name,
+          notes: sellNotes.trim() || undefined,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        setItems((prev) => prev.map((d) => (d.id === sellingDoor.id ? json.data : d)));
+        const repName = chosenRep ? chosenRep.name : 'Direct Sales';
+        notify(
+          `🎉 Door ${json.data.stockCode} sold! Leaderboard updated for ${repName} (+${json.data.quantity || 1} Door, +₹${Number(sellPrice).toLocaleString('en-IN')})`
+        );
+        setIsSellModalOpen(false);
+      } else {
+        notify(json.error || 'Failed to sell door');
+      }
+    } catch {
+      notify('Network error processing door sale.');
+    } finally {
+      setIsSelling(false);
+    }
   };
 
   const handleSaveStockDoor = async (e: React.FormEvent) => {
@@ -162,6 +363,11 @@ export function ReadyStockDoorsTab() {
         condition,
         sellingPrice: Number(sellingPrice) || 6500,
         notes,
+
+        frameOpeningHeightMm: autoCalculateFromFrame && calcFrameHeightMm ? Number(calcFrameHeightMm) : undefined,
+        frameOpeningWidthMm: autoCalculateFromFrame && calcFrameWidthMm ? Number(calcFrameWidthMm) : undefined,
+        frameProfile: autoCalculateFromFrame ? calcFrameProfile : undefined,
+        floorCondition: autoCalculateFromFrame ? calcFloorCondition : undefined,
       };
 
       if (editingItem) {
@@ -218,10 +424,37 @@ export function ReadyStockDoorsTab() {
     }
   };
 
+  const handleOpenStickerForSingle = (door: ReadyStockDoor) => {
+    setStickerDoors([door]);
+    setIsStickerModalOpen(true);
+  };
+
+  const handleOpenStickerForSelected = () => {
+    const selected = items.filter((d) => selectedDoorIds.includes(d.id));
+    if (selected.length === 0) return;
+    setStickerDoors(selected);
+    setIsStickerModalOpen(true);
+  };
+
+  const toggleSelectDoor = (id: string) => {
+    setSelectedDoorIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedDoorIds.length === filtered.length && filtered.length > 0) {
+      setSelectedDoorIds([]);
+    } else {
+      setSelectedDoorIds(filtered.map((d) => d.id));
+    }
+  };
+
   // Filter items
   const filtered = items.filter((d) => {
     if (typeFilter !== 'ALL' && d.itemType !== typeFilter) return false;
     if (statusFilter !== 'ALL' && d.status !== statusFilter) return false;
+    if (conditionFilter !== 'ALL' && d.condition !== conditionFilter) return false;
     if (search.trim()) {
       const q = search.toLowerCase().trim();
       const matchCode = d.stockCode.toLowerCase().includes(q);
@@ -230,7 +463,11 @@ export function ReadyStockDoorsTab() {
       const matchColor = d.doorFinishColor && d.doorFinishColor.toLowerCase().includes(q);
       const matchRack = d.rackLocation && d.rackLocation.toLowerCase().includes(q);
       const matchNotes = d.notes && d.notes.toLowerCase().includes(q);
-      return matchCode || matchModel || matchFrame || matchColor || matchRack || matchNotes;
+      const matchReturn =
+        (d.returnedFromJobCard && d.returnedFromJobCard.toLowerCase().includes(q)) ||
+        (d.returnedCustomerName && d.returnedCustomerName.toLowerCase().includes(q)) ||
+        (d.soldToCustomer && d.soldToCustomer.toLowerCase().includes(q));
+      return matchCode || matchModel || matchFrame || matchColor || matchRack || matchNotes || matchReturn;
     }
     return true;
   });
@@ -306,10 +543,10 @@ export function ReadyStockDoorsTab() {
             onChange={(e) => setTypeFilter(e.target.value)}
             className="px-2.5 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-xs text-white"
           >
-            <option value="ALL">All Types (എല്ലാം)</option>
+            <option value="ALL">All Types</option>
             <option value="DOOR_AND_FRAME">🚪 + 🖼️ Door &amp; Frame Sets</option>
-            <option value="DOOR_ONLY">🚪 Door Only (ഡോർ മാത്രം)</option>
-            <option value="FRAME_ONLY">🖼️ Frame Only (ഫ്രെയിം മാത്രം)</option>
+            <option value="DOOR_ONLY">🚪 Door Only</option>
+            <option value="FRAME_ONLY">🖼️ Frame Only</option>
           </select>
 
           {/* Status Filter */}
@@ -323,9 +560,36 @@ export function ReadyStockDoorsTab() {
             <option value="RESERVED">Reserved</option>
             <option value="SOLD">Sold</option>
           </select>
+
+          {/* Condition Filter */}
+          <select
+            value={conditionFilter}
+            onChange={(e) => setConditionFilter(e.target.value)}
+            className="px-2.5 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-xs text-white"
+          >
+            <option value="ALL">All Conditions</option>
+            <option value="RETURNED_DELIVERY">↩️ Returned Delivery</option>
+            <option value="OLD_STOCK">📦 Old Godown Stock</option>
+            <option value="CANCELLED_JOB">🚫 Cancelled Job Door</option>
+            <option value="SURPLUS_PRODUCTION">🏭 Surplus Production</option>
+            <option value="SHOWROOM_DISPLAY">🏢 Showroom Display</option>
+            <option value="FACTORY_OUTLET">🏷️ Factory Outlet</option>
+          </select>
         </div>
 
         <div className="flex items-center gap-2">
+          {selectedDoorIds.length > 0 && (
+            <button
+              type="button"
+              onClick={handleOpenStickerForSelected}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold cursor-pointer shadow transition animate-pulse"
+              title="Print 12L stickers for selected stock doors"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print {selectedDoorIds.length} Stickers (12L)</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={loadData}
@@ -337,11 +601,21 @@ export function ReadyStockDoorsTab() {
 
           <button
             type="button"
+            onClick={() => setIsReturnModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold cursor-pointer shadow-md transition"
+            title="Return a delivered door to ready stock"
+          >
+            <Undo2 className="w-4 h-4" />
+            <span>↩️ Return Door</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleOpenAddModal}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold cursor-pointer shadow-md transition"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Add Stock Door / Frame (പഴയ / റെഡി സ്റ്റോക്ക് ചേർക്കുക)</span>
+            <span>+ Add Stock Door / Frame</span>
           </button>
         </div>
       </div>
@@ -352,6 +626,15 @@ export function ReadyStockDoorsTab() {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-900/90 text-slate-400 border-b border-slate-800 text-[10px] uppercase font-bold tracking-wider">
+                <th className="p-2.5 w-8 text-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedDoorIds.length === filtered.length && filtered.length > 0}
+                    onChange={toggleSelectAll}
+                    className="rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-0 cursor-pointer"
+                    title="Select All"
+                  />
+                </th>
                 <th className="p-2.5">Stock Code</th>
                 <th className="p-2.5">Item Type</th>
                 <th className="p-2.5">Model / Specifications</th>
@@ -367,7 +650,7 @@ export function ReadyStockDoorsTab() {
             <tbody className="divide-y divide-slate-800/60 font-medium text-[11px]">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-slate-400">
+                  <td colSpan={11} className="p-8 text-center text-slate-400">
                     No stock doors or frames matching the current filters.
                   </td>
                 </tr>
@@ -376,13 +659,30 @@ export function ReadyStockDoorsTab() {
                   const isFullSet = item.itemType === 'DOOR_AND_FRAME';
                   const isDoor = item.itemType === 'DOOR_ONLY';
                   const isFrame = item.itemType === 'FRAME_ONLY';
+                  const isChecked = selectedDoorIds.includes(item.id);
 
                   return (
-                    <tr key={item.id} className="hover:bg-slate-900/40 transition">
+                    <tr key={item.id} className={`hover:bg-slate-900/40 transition ${isChecked ? 'bg-slate-900/60' : ''}`}>
+                      {/* Checkbox */}
+                      <td className="p-2.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleSelectDoor(item.id)}
+                          className="rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-0 cursor-pointer"
+                        />
+                      </td>
+
                       {/* Code */}
                       <td className="p-2.5 font-mono font-bold text-amber-300">
                         {item.stockCode}
-                        <span className="block text-[9px] text-slate-500">{item.condition.replace('_', ' ')}</span>
+                        {item.condition === 'RETURNED_DELIVERY' ? (
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            ↩️ RETURN
+                          </span>
+                        ) : (
+                          <span className="block text-[9px] text-slate-500">{item.condition.replace('_', ' ')}</span>
+                        )}
                       </td>
 
                       {/* Type Badge */}
@@ -406,10 +706,28 @@ export function ReadyStockDoorsTab() {
 
                       {/* Model & Specs */}
                       <td className="p-2.5 text-white">
-                        <div className="font-bold">{item.doorModelName || item.frameTypeName}</div>
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span>{item.doorModelName || item.frameTypeName}</span>
+                          {item.returnedFromJobCard && (
+                            <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-700/60">
+                              {item.returnedFromJobCard}
+                            </span>
+                          )}
+                        </div>
                         {isFullSet && (
                           <div className="text-[10px] text-slate-400">
                             Frame: {item.frameTypeName} ({item.frameWallThickness || '100mm'})
+                          </div>
+                        )}
+                        {item.returnedCustomerName && (
+                          <div className="text-[9.5px] text-amber-400/90 font-medium">
+                            Return from: {item.returnedCustomerName}
+                            {item.returnReason ? ` • Reason: ${item.returnReason}` : ''}
+                          </div>
+                        )}
+                        {item.status === 'SOLD' && item.soldToCustomer && (
+                          <div className="text-[9.5px] text-emerald-400 font-medium">
+                            Sold to: {item.soldToCustomer} {item.salespersonName ? `via ${item.salespersonName}` : ''}
                           </div>
                         )}
                         {item.notes && <div className="text-[9.5px] text-slate-500 italic">{item.notes}</div>}
@@ -489,7 +807,27 @@ export function ReadyStockDoorsTab() {
                       </td>
 
                       {/* Actions */}
-                      <td className="p-2.5 text-right whitespace-nowrap space-x-1">
+                      <td className="p-2.5 text-right whitespace-nowrap space-x-1.5">
+                        {item.status !== 'SOLD' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSellModal(item)}
+                            className="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 cursor-pointer inline-flex items-center gap-1 text-[10.5px] font-bold shadow-sm transition"
+                            title="Sell Stock Door & Update Sales Leaderboard"
+                          >
+                            <DollarSign className="w-3.5 h-3.5" />
+                            <span>Sell</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenStickerForSingle(item)}
+                          className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer inline-flex items-center gap-1 text-[10.5px] font-bold shadow-sm transition"
+                          title="Print 12L / Thermal Sticker for this stock door"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Sticker</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleOpenEditModal(item)}
@@ -578,6 +916,110 @@ export function ReadyStockDoorsTab() {
                   </button>
                 </div>
               </div>
+
+              {/* Frame Opening Auto-Calculate Door Section */}
+              {draftType !== 'FRAME_ONLY' && (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-bold text-amber-300 uppercase text-[10.5px] flex items-center gap-1.5">
+                      <Ruler className="w-3.5 h-3.5 text-amber-400" />
+                      <span>📐 Auto-Calculate from Frame Opening</span>
+                    </div>
+                    <label className="flex items-center gap-1.5 text-[10.5px] font-semibold text-amber-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={autoCalculateFromFrame}
+                        onChange={(e) => setAutoCalculateFromFrame(e.target.checked)}
+                        className="rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-0"
+                      />
+                      <span>Auto-Calculate</span>
+                    </label>
+                  </div>
+
+                  {autoCalculateFromFrame && (
+                    <div className="space-y-2.5 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                        <div>
+                          <label className="block text-[10px] text-slate-300 mb-1">Frame Height (mm)</label>
+                          <input
+                            type="number"
+                            value={calcFrameHeightMm}
+                            onChange={(e) => setCalcFrameHeightMm(e.target.value)}
+                            placeholder="e.g. 2100"
+                            className="w-full px-2.5 py-1.5 bg-[#0B132B] border border-amber-500/50 rounded-lg font-mono text-white text-xs focus:ring-1 focus:ring-amber-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-slate-300 mb-1">Frame Width (mm)</label>
+                          <input
+                            type="number"
+                            value={calcFrameWidthMm}
+                            onChange={(e) => setCalcFrameWidthMm(e.target.value)}
+                            placeholder="e.g. 900"
+                            className="w-full px-2.5 py-1.5 bg-[#0B132B] border border-amber-500/50 rounded-lg font-mono text-white text-xs focus:ring-1 focus:ring-amber-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-slate-300 mb-1">Frame Profile &amp; Rebate</label>
+                          <select
+                            value={calcFrameProfile}
+                            onChange={(e) => setCalcFrameProfile(e.target.value)}
+                            className="w-full px-2 py-1.5 bg-[#0B132B] border border-slate-700 rounded-lg text-white text-xs"
+                          >
+                            {customFrames.length > 0 ? (
+                              customFrames.map((f) => (
+                                <option key={f.id} value={f.name}>
+                                  {f.name} (Tol: -{f.hDeductionCm || 4.5}cm H / -{f.wDeductionCm || 7.6}cm W)
+                                </option>
+                              ))
+                            ) : (
+                              <>
+                                <option value="Regular Factory Frame 70×45mm">Regular Frame 70×45mm (Rebate 40mm)</option>
+                                <option value="WPC Solid Extruded 100×65mm">WPC Solid 100×65mm (Rebate 40mm)</option>
+                                <option value="Mini Frame 40×25mm">Mini Frame 40×25mm (Rebate 35mm)</option>
+                                <option value="Heavy Frame 4x2 Hardwood">Heavy 4×2 Hardwood (Rebate 40mm)</option>
+                              </>
+                            )}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-slate-300 mb-1">Floor Clearance</label>
+                          <select
+                            value={calcFloorCondition}
+                            onChange={(e) => setCalcFloorCondition(e.target.value as FloorCondition)}
+                            className="w-full px-2 py-1.5 bg-[#0B132B] border border-slate-700 rounded-lg text-white text-xs"
+                          >
+                            <option value="FINISHED_TILE">Finished Tile (12mm)</option>
+                            <option value="UNFINISHED_CONCRETE">Unfinished Concrete (25mm)</option>
+                            <option value="CARPET">Carpet / Threshold (15mm)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Live Calculation Result Ribbon */}
+                      {calcResult && (
+                        <div className="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-emerald-300">✅ Calculated Door Size:</span>
+                            <span className="font-mono font-black text-white text-sm">
+                              {calcResult.shutterHeightMm} × {calcResult.effectiveShutterWidthMm} mm
+                            </span>
+                            <span className="text-[11px] font-mono text-emerald-300">
+                              ({calcResult.shutterSizeCmText} • {calcResult.shutterTapeInchText})
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            Deductions: H -{calcResult.totalHeightDeductionMm}mm | W -{calcResult.totalWidthDeductionMm}mm
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Door Slab Section */}
               {draftType !== 'FRAME_ONLY' && (
@@ -788,6 +1230,7 @@ export function ReadyStockDoorsTab() {
                     className="w-full px-2.5 py-1.5 bg-[#070D1E] border border-slate-700 rounded-lg text-white"
                   >
                     <option value="OLD_STOCK">Old Godown Stock</option>
+                    <option value="RETURNED_DELIVERY">Returned Delivery</option>
                     <option value="CANCELLED_JOB">Cancelled Order Door</option>
                     <option value="SURPLUS_PRODUCTION">Surplus Production Batch</option>
                     <option value="SHOWROOM_DISPLAY">Showroom Display Sample</option>
@@ -835,6 +1278,143 @@ export function ReadyStockDoorsTab() {
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{isSubmitting ? 'Saving...' : editingItem ? 'Save Changes' : 'Add to Stock Register'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Stock Door 12L & Thermal Sticker Modal */}
+      <StockDoorStickerModal
+        isOpen={isStickerModalOpen}
+        onClose={() => setIsStickerModalOpen(false)}
+        doors={stickerDoors}
+      />
+
+      {/* Return Delivered Door to Stock Modal */}
+      <ReturnDoorToStockModal
+        isOpen={isReturnModalOpen}
+        onClose={() => setIsReturnModalOpen(false)}
+        onSuccess={(newDoor) => {
+          setItems((prev) => [newDoor, ...prev]);
+          notify(`Added returned door ${newDoor.stockCode}!`);
+          setIsReturnModalOpen(false);
+          handleOpenStickerForSingle(newDoor);
+        }}
+      />
+
+      {/* Sell Stock Door Modal */}
+      {isSellModalOpen && sellingDoor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="relative w-full max-w-lg bg-[#0B132B] rounded-2xl shadow-2xl border border-slate-700 p-6 space-y-4 font-sans text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+                  Sell Stock Door {sellingDoor.stockCode}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSellModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmSell} className="space-y-4 text-xs">
+              <div className="p-3 rounded-xl bg-[#070D1E] border border-slate-800 space-y-1.5">
+                <div className="font-bold text-white text-sm">
+                  {sellingDoor.doorModelName || sellingDoor.frameTypeName}
+                </div>
+                <div className="text-[11px] text-slate-400 font-mono">
+                  {sellingDoor.doorHeightMm} × {sellingDoor.doorWidthMm} mm • {sellingDoor.doorFinishColor || 'Natural'} • Qty: {sellingDoor.quantity}
+                </div>
+                <div className="text-[10px] text-amber-400">
+                  Rack: {sellingDoor.rackLocation} | Listed Price: ₹{sellingDoor.sellingPrice}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Customer Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={sellCustomerName}
+                  onChange={(e) => setSellCustomerName(e.target.value)}
+                  placeholder="e.g. Skyline Builders / Mr. Shameer"
+                  className="w-full px-3 py-2 bg-[#070D1E] border border-slate-700 rounded-lg text-white font-medium focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                    Final Sale Price (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={sellPrice}
+                    onChange={(e) => setSellPrice(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#070D1E] border border-slate-700 rounded-lg font-mono font-bold text-emerald-300 text-sm focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                    Sales Representative
+                  </label>
+                  <select
+                    value={sellSalespersonId}
+                    onChange={(e) => setSellSalespersonId(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-[#070D1E] border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="">-- Direct / Showroom Sales --</option>
+                    {salesStaff.map((staff) => (
+                      <option key={staff.id} value={staff.id}>
+                        {staff.name} ({staff.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-[11px] text-blue-200">
+                ⚡ <strong>Leaderboard Sync:</strong> Sold door count (+{sellingDoor.quantity || 1} Door) and amount (+₹{Number(sellPrice || 0).toLocaleString('en-IN')}) will be credited in real-time to the selected sales rep and rank updated on the sales leaderboard.
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-1">Sale Notes / Invoice Ref</label>
+                <input
+                  type="text"
+                  value={sellNotes}
+                  onChange={(e) => setSellNotes(e.target.value)}
+                  placeholder="e.g. Paid in full via GPay; direct counter pickup"
+                  className="w-full px-3 py-2 bg-[#070D1E] border border-slate-700 rounded-lg text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsSellModalOpen(false)}
+                  disabled={isSelling}
+                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSelling}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg cursor-pointer shadow transition disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{isSelling ? 'Processing...' : 'Confirm Sale & Update Leaderboard'}</span>
                 </button>
               </div>
             </form>

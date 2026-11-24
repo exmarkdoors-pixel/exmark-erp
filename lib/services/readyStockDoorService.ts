@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getDataFilePath } from '../utils/dataPaths';
+import { recordDoorSaleAchievement } from './salesTargetService';
 
 export type StockItemType = 'DOOR_AND_FRAME' | 'DOOR_ONLY' | 'FRAME_ONLY';
 export type StockDoorStatus = 'AVAILABLE' | 'RESERVED' | 'SOLD';
@@ -9,7 +10,8 @@ export type StockCondition =
   | 'CANCELLED_JOB'
   | 'SURPLUS_PRODUCTION'
   | 'SHOWROOM_DISPLAY'
-  | 'FACTORY_OUTLET';
+  | 'FACTORY_OUTLET'
+  | 'RETURNED_DELIVERY';
 
 export interface ReadyStockDoor {
   id: string; // e.g. "stk-dr-17951710001-1234"
@@ -46,6 +48,27 @@ export interface ReadyStockDoor {
   reservedForRef?: string | null;
   reservedForCustomer?: string | null;
   notes?: string;
+
+  // Delivery Return provenance metadata
+  returnedFromJobCard?: string;
+  returnedCustomerName?: string;
+  returnReason?: string;
+  returnedAt?: string;
+
+  // Sales and Leaderboard tracking
+  salespersonId?: string;
+  salespersonName?: string;
+  salespersonCode?: string;
+  salePrice?: number;
+  soldToCustomer?: string;
+  soldAt?: string;
+
+  // Frame calculation provenance
+  frameOpeningHeightMm?: number;
+  frameOpeningWidthMm?: number;
+  frameProfile?: string;
+  floorCondition?: string;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -77,6 +100,22 @@ export interface CreateReadyStockDoorInput {
   sellingPrice?: number;
   originalCostValuation?: number;
   notes?: string;
+
+  // Provenance & Sales attributes
+  returnedFromJobCard?: string;
+  returnedCustomerName?: string;
+  returnReason?: string;
+  returnedAt?: string;
+  salespersonId?: string;
+  salespersonName?: string;
+  salespersonCode?: string;
+  salePrice?: number;
+  soldToCustomer?: string;
+  soldAt?: string;
+  frameOpeningHeightMm?: number;
+  frameOpeningWidthMm?: number;
+  frameProfile?: string;
+  floorCondition?: string;
 }
 
 export interface StockMatchQuery {
@@ -142,6 +181,7 @@ export async function listReadyStockDoors(filter?: {
   status?: string;
   itemType?: string;
   search?: string;
+  condition?: string;
 }): Promise<ReadyStockDoor[]> {
   let all = readStore();
 
@@ -151,6 +191,10 @@ export async function listReadyStockDoors(filter?: {
 
   if (filter?.itemType && filter.itemType !== 'ALL') {
     all = all.filter((d) => d.itemType === filter.itemType);
+  }
+
+  if (filter?.condition && filter.condition !== 'ALL') {
+    all = all.filter((d) => d.condition === filter.condition);
   }
 
   if (filter?.search) {
@@ -171,7 +215,8 @@ export async function listReadyStockDoors(filter?: {
 
 export async function getReadyStockDoor(id: string): Promise<ReadyStockDoor | null> {
   const all = readStore();
-  return all.find((d) => d.id === id || d.stockCode === id) || null;
+  const search = id.trim().toUpperCase();
+  return all.find((d) => d.id === id || (d.stockCode && d.stockCode.toUpperCase() === search)) || null;
 }
 
 export async function createReadyStockDoor(
@@ -210,6 +255,24 @@ export async function createReadyStockDoor(
     originalCostValuation: Number(input.originalCostValuation) || 3300,
     status: 'AVAILABLE',
     notes: input.notes,
+
+    returnedFromJobCard: input.returnedFromJobCard,
+    returnedCustomerName: input.returnedCustomerName,
+    returnReason: input.returnReason,
+    returnedAt: input.returnedAt,
+
+    salespersonId: input.salespersonId,
+    salespersonName: input.salespersonName,
+    salespersonCode: input.salespersonCode,
+    salePrice: input.salePrice,
+    soldToCustomer: input.soldToCustomer,
+    soldAt: input.soldAt,
+
+    frameOpeningHeightMm: input.frameOpeningHeightMm ? Number(input.frameOpeningHeightMm) : undefined,
+    frameOpeningWidthMm: input.frameOpeningWidthMm ? Number(input.frameOpeningWidthMm) : undefined,
+    frameProfile: input.frameProfile,
+    floorCondition: input.floorCondition,
+
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -466,6 +529,168 @@ export async function releaseStockDoor(id: string): Promise<ReadyStockDoor> {
 
   writeStore(all);
   return all[idx];
+}
+
+export interface ReturnDeliveredDoorInput {
+  jobCardNumber?: string;
+  customerName: string;
+  itemType?: StockItemType;
+  doorModelName?: string;
+  doorCategory?: 'FRP_DOORS' | 'WPC_DOORS';
+  doorHeightMm?: number;
+  doorWidthMm?: number;
+  doorThicknessMm?: number;
+  doorFinishColor?: string;
+  handing?: 'LH' | 'RH' | 'UNIVERSAL';
+  lockCutoutStatus?: 'UNCUT' | 'PRE_CUT';
+  lockType?: string;
+
+  frameTypeName?: string;
+  frameHeightMm?: number;
+  frameWidthMm?: number;
+  frameWallThickness?: string;
+  frameFinishColor?: string;
+
+  quantity?: number;
+  returnReason: string;
+  rackLocation: string;
+  resalePrice: number;
+  originalCostValuation?: number;
+  notes?: string;
+
+  salespersonId?: string;
+  salespersonCode?: string;
+  salespersonName?: string;
+  adjustSalespersonTarget?: boolean;
+}
+
+/**
+ * Restocks a door returned from site after delivery.
+ * Records return provenance, marks condition as RETURNED_DELIVERY, and optionally adjusts salesperson quota.
+ */
+export async function returnDeliveredDoorToStock(
+  input: ReturnDeliveredDoorInput
+): Promise<ReadyStockDoor> {
+  const returnNotes = [
+    input.notes ? input.notes.trim() : '',
+    `[RETURNED FROM DELIVERY] JobCard: ${input.jobCardNumber || 'N/A'} | Customer: ${input.customerName} | Reason: ${input.returnReason}`,
+  ]
+    .filter(Boolean)
+    .join(' | ');
+
+  const door = await createReadyStockDoor({
+    itemType: input.itemType || 'DOOR_ONLY',
+    doorModelName: input.doorModelName || 'Returned Custom FRP/WPC Door',
+    doorCategory: input.doorCategory || 'FRP_DOORS',
+    doorHeightMm: input.doorHeightMm,
+    doorWidthMm: input.doorWidthMm,
+    doorThicknessMm: input.doorThicknessMm || 32,
+    doorFinishColor: input.doorFinishColor || 'Natural Wood / Factory Finish',
+    handing: input.handing || 'UNIVERSAL',
+    lockCutoutStatus: input.lockCutoutStatus || 'PRE_CUT',
+    lockType: input.lockType,
+
+    frameTypeName: input.frameTypeName,
+    frameHeightMm: input.frameHeightMm,
+    frameWidthMm: input.frameWidthMm,
+    frameWallThickness: input.frameWallThickness,
+    frameFinishColor: input.frameFinishColor,
+
+    quantity: Math.max(1, Number(input.quantity) || 1),
+    rackLocation: input.rackLocation || 'Return Bay R-1',
+    condition: 'RETURNED_DELIVERY',
+    sellingPrice: Number(input.resalePrice) || 4500,
+    originalCostValuation: Number(input.originalCostValuation) || 2500,
+    notes: returnNotes,
+
+    returnedFromJobCard: input.jobCardNumber,
+    returnedCustomerName: input.customerName,
+    returnReason: input.returnReason,
+    returnedAt: new Date().toISOString(),
+    salespersonId: input.salespersonId,
+    salespersonName: input.salespersonName,
+    salespersonCode: input.salespersonCode,
+  });
+
+  // If user selected to adjust salesperson target/quota on return:
+  if (input.adjustSalespersonTarget && input.salespersonId) {
+    try {
+      await recordDoorSaleAchievement({
+        salespersonId: input.salespersonId,
+        salespersonCode: input.salespersonCode,
+        salespersonName: input.salespersonName,
+        doorCount: -(door.quantity || 1),
+        saleValue: -Number(door.sellingPrice || 0),
+        orderRef: input.jobCardNumber || door.stockCode,
+        customerName: input.customerName,
+        isReturn: true,
+      });
+    } catch (err) {
+      console.error('Failed to deduct sales target for return:', err);
+    }
+  }
+
+  return door;
+}
+
+export interface SellStockDoorInput {
+  id: string;
+  salePrice: number;
+  customerName: string;
+  salespersonId?: string;
+  salespersonCode?: string;
+  salespersonName?: string;
+  notes?: string;
+}
+
+/**
+ * Sells / dispatches a ready stock door to a customer.
+ * Marks door as SOLD and immediately credits the salesperson's achieved revenue and door count on the Sales Leaderboard.
+ */
+export async function sellStockDoor(input: SellStockDoorInput): Promise<ReadyStockDoor> {
+  const all = readStore();
+  const idx = all.findIndex((d) => d.id === input.id || d.stockCode === input.id);
+  if (idx === -1) throw new Error(`Stock door ${input.id} not found.`);
+
+  const item = all[idx];
+  if (item.status === 'SOLD') throw new Error(`Stock door ${item.stockCode} is already sold.`);
+
+  const now = new Date().toISOString();
+  item.status = 'SOLD';
+  item.salePrice = Number(input.salePrice) || item.sellingPrice;
+  item.soldToCustomer = input.customerName;
+  item.soldAt = now;
+  item.reservedForCustomer = input.customerName;
+  item.salespersonId = input.salespersonId;
+  item.salespersonCode = input.salespersonCode;
+  item.salespersonName = input.salespersonName;
+  if (input.notes) {
+    item.notes = item.notes ? `${item.notes} | [SOLD]: ${input.notes}` : `[SOLD]: ${input.notes}`;
+  }
+  item.updatedAt = now;
+
+  all[idx] = item;
+  writeStore(all);
+
+  // Auto update sales leaderboard and rep targets
+  if (input.salespersonId) {
+    try {
+      await recordDoorSaleAchievement({
+        salespersonId: input.salespersonId,
+        salespersonCode: input.salespersonCode,
+        salespersonName: input.salespersonName,
+        doorCount: item.quantity || 1,
+        saleValue: item.salePrice,
+        orderRef: item.stockCode,
+        customerName: input.customerName,
+        isReturn: false,
+      });
+    } catch (err) {
+      console.error('Failed to update sales target for stock door sale:', err);
+    }
+  }
+
+  return item;
 }
 
 const DEFAULT_SAMPLE_STOCK: ReadyStockDoor[] = [

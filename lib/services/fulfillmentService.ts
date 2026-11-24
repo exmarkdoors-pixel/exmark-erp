@@ -234,9 +234,9 @@ export async function generateWarrantyCertificate(input: {
         'Ensure SS hinges are lubricated with silicone or machine oil every 6 months.',
       ],
       malayalam: [
-        'ഡോർ വൃത്തിയാക്കാൻ വീര്യം കുറഞ്ഞ സോപ്പ് വെള്ളവും കോട്ടൺ തുണിയും മാത്രം ഉപയോഗിക്കുക.',
-        'ആസിഡ്, ഫിനോയിൽ അല്ലെങ്കിൽ കഠിനമായ കെമിക്കലുകൾ ഡോറിൽ ഒഴിക്കരുത്.',
-        'ഹിഞ്ചുകൾ (Hinges) 6 മാസത്തിലൊരിക്കൽ ഓയിൽ ഇട്ട് സുഗമമായി പ്രവർത്തിക്കുന്നുണ്ടെന്ന് ഉറപ്പാക്കുക.',
+        'Inspect hinges and hardware fasteners every 6 months to ensure smooth, unhindered operation.',
+        'Protect finished surfaces from direct chemical spills or acid cleaners during tile washing.',
+        'Wipe door leaf with soft damp cotton cloth; do not use abrasive pads or metal wool.',
       ],
     },
     issuedAt: new Date().toISOString(),

@@ -1,0 +1,87 @@
+version: '3.8'
+
+# ==============================================================================
+# EXMARK ERP — Full-Stack Cloud GPU Docker Compose
+# Includes:
+# 1. EXMARK ERP Next.js 16 Production Web App (Port 4000)
+# 2. PostgreSQL 18 Enterprise Database (Port 5432 with persistent volume)
+# 3. Optional Local Ollama GPU Service for Offline AI & OCR
+# ==============================================================================
+
+services:
+  # ── 1. EXMARK ERP Next.js Application ──────────────────────────────────────
+  exmark-erp:
+    build:
+      context: .
+      dockerfile: Dockerfile.cloud-gpu
+    container_name: exmark-erp-app
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+      - "3000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - HOSTNAME=0.0.0.0
+      - DATABASE_URL=postgresql://exmark_admin:ExmarkDoors2026SecurePass@postgres:5432/exmark_erp?sslmode=disable
+      - DIRECT_URL=postgresql://exmark_admin:ExmarkDoors2026SecurePass@postgres:5432/exmark_erp?sslmode=disable
+      - AUTH_SECRET=exmark-cloud-production-secret-key-32chars-min
+      - ENABLE_STRICT_POSTGRES=true
+      - DATABASE_FALLBACK_PERMITTED=false
+      - DEFAULT_CATEGORY_FRP=true
+      - DEFAULT_CATEGORY_WPC=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - exmark-network
+
+  # ── 2. PostgreSQL 18 Database ──────────────────────────────────────────────
+  postgres:
+    image: postgres:18-alpine
+    container_name: exmark-postgres-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=exmark_admin
+      - POSTGRES_PASSWORD=ExmarkDoors2026SecurePass
+      - POSTGRES_DB=exmark_erp
+    volumes:
+      - exmark-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U exmark_admin -d exmark_erp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - exmark-network
+
+  # ── 3. Optional Ollama Local GPU Engine (NVIDIA CUDA Pass-Through) ──────────
+  ollama-gpu:
+    image: ollama/ollama:latest
+    container_name: exmark-ollama-gpu
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - exmark-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+networks:
+  exmark-network:
+    driver: bridge
+
+volumes:
+  exmark-pgdata:
+    driver: local
+  ollama-models:
+    driver: local

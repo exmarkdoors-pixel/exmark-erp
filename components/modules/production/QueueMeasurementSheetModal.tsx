@@ -153,7 +153,7 @@ export function QueueMeasurementSheetModal({
             <Printer className="w-5 h-5 text-amber-400" />
             <div>
               <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
-                <span>QUEUE STAGE MEASUREMENT FORM (ക്യൂ മെഷർമെന്റ് ഷീറ്റ്)</span>
+                <span>QUEUE STAGE MEASUREMENT FORM</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300">
                   IN QUEUE
                 </span>
@@ -266,7 +266,7 @@ export function QueueMeasurementSheetModal({
                 </div>
                 <div className="text-[11px] text-slate-700">
                   Order Date: <span className="font-bold text-black">{order.orderDate || order.createdAt?.slice(0, 10)}</span> |
-                  Stage: <span className="font-black text-black uppercase">IN QUEUE (മൊൾഡിംഗ് ക്യൂ)</span>
+                  Stage: <span className="font-black text-black uppercase">IN QUEUE</span>
                 </div>
               </div>
             </div>
@@ -497,7 +497,7 @@ export function QueueMeasurementSheetModal({
               {/* Box 1 */}
               <div className="border border-black rounded p-2.5 text-center space-y-7 bg-slate-50">
                 <div className="text-[9.5px] font-black uppercase tracking-wider text-slate-600">
-                  1. Field Site Surveyor (അളവെടുത്തയാൾ)
+                  1. Field Site Surveyor
                 </div>
                 <div className="border-t border-dashed border-slate-400 pt-1 text-[10px] text-slate-700">
                   Signature &amp; Date
@@ -507,7 +507,7 @@ export function QueueMeasurementSheetModal({
               {/* Box 2 */}
               <div className="border border-black rounded p-2.5 text-center space-y-7 bg-slate-50">
                 <div className="text-[9.5px] font-black uppercase tracking-wider text-slate-600">
-                  2. Plant Queue In-Charge (മോൾഡിംഗ് &amp; കട്ടിംഗ് ഇൻചാർജ്)
+                  2. Plant Queue In-Charge
                 </div>
                 <div className="border-t border-dashed border-slate-400 pt-1 text-[10px] text-slate-700">
                   Verified for Molds &amp; Gang
@@ -517,7 +517,7 @@ export function QueueMeasurementSheetModal({
               {/* Box 3 */}
               <div className="border border-black rounded p-2.5 text-center space-y-7 bg-slate-50">
                 <div className="text-[9.5px] font-black uppercase tracking-wider text-slate-600">
-                  3. Client / Site Representative (കസ്റ്റമർ സ്ഥിരീകരണം)
+                  3. Client / Site Representative
                 </div>
                 <div className="border-t border-dashed border-slate-400 pt-1 text-[10px] text-slate-700">
                   Approved Dimensions

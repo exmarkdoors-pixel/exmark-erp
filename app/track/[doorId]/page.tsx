@@ -373,7 +373,7 @@ export default function DoorTrackingPage() {
                   <span className="text-lg">🚪</span>
                   <div>
                     <span className="text-[9.5px] uppercase font-bold text-slate-400 block">
-                      Door Slab Caster (ഡോർ അടിച്ചയാൾ)
+                      Door Slab Caster
                     </span>
                     <strong className="text-xs text-emerald-400 font-mono">
                       {data.doorMolderName || 'N/A'}
@@ -384,7 +384,7 @@ export default function DoorTrackingPage() {
                   <span className="text-lg">🖼️</span>
                   <div>
                     <span className="text-[9.5px] uppercase font-bold text-slate-400 block">
-                      Frame Caster (ഫ്രെയിം അടിച്ചയാൾ)
+                      Frame Caster
                     </span>
                     <strong className="text-xs text-sky-400 font-mono">
                       {data.frameMolderName || 'N/A'}

@@ -57,7 +57,7 @@ export function getAuthoritativeAppVersion(): string {
   } catch {
     // Non-fatal fallback
   }
-  return '1.4.0';
+  return '1.5.0';
 }
 
 export function parseSemVer(v: string): number[] {
@@ -278,6 +278,31 @@ export async function checkForSystemUpdates(options: {
 
   // Curated changelog features
   const changelog = [
+    {
+      version: '1.5.0',
+      title: 'COA Tree View & Protection, Bulk Raw Material Stock Audit, Vyapar Import & Salesman Payment-In',
+      features: [
+        'Chart of Accounts Hierarchical Tree View: Visual Tree Chart View with expandable branches, category financial metrics, and sub-account code auto-suggest',
+        'Strict Double-Entry Deletion Protection: Blocks deletion of accounts with posted journal vouchers or system control status, with a safe 1-click Deactivate Account option',
+        'Bulk Raw Material Stock & Reconciliation Hub: 4 modes (Physical Count Audit, Inward Consignment Add, Full Grid Edit, CSV Export/Import) with live variance and valuation calculation',
+        'Auto-Sync to BOQ Formula Rates: Two-way synchronization propagating live raw material purchase rates into boq-material-rates.json for accurate quote margins',
+        'Vyapar Party Master Import: Bulk import parties with credit balances, GSTIN, phone, and address into customer master',
+        'Salesman-Wise Payment In & Customer Outstanding Credit Tracking: Real-time collection tracking by sales staff with live balances',
+        'BOQ Next-Day Date Selection: Flexible issuance date picker for morning shift production orders',
+      ],
+    },
+    {
+      version: '1.4.1',
+      title: 'Universal Tolerance Sync, Mobile Customer Registration, Base Price Lock & Credit Payment Settlement',
+      features: [
+        'Universal Tolerance Synchronization: Synced Frame Rebates (40mm), Bottom Floor Clearances (Tile 12mm / Raw Concrete 25mm), and Top Gaps (5mm) end-to-end across Site Measurements, Mobile App, Quotations, and CNC Shop Floor',
+        'Production 12L Sticker & Cutting Sheet Precision: Removed hardcoded 4.5cm/7.6cm deductions and bonded live measurement tolerances to CNC cutting sizes and barcode passes',
+        'Mobile Field App Customer Creation: Added instant MobileCustomerModal with Kerala district dropdown, GPS locality auto-fill, and customer search autocomplete',
+        'Base Piece Minimum Price Lock: Enforced BASE_MINIMUM calculation standard across mobile and desktop preventing door unit rates from dropping below category base piece rate',
+        'Queue Stage Job Card Deletion: Added deletion with required terms/reasons and recovery audit log',
+        'Floor Line Credit Payment: Added credit payment settlement on production work completion with immediate ledger posting',
+      ],
+    },
     {
       version: '1.2.8',
       title: 'Unrestricted Super Admin Permissions & Neon PostgreSQL Cloud Sync Hardening',

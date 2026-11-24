@@ -37,6 +37,10 @@ export interface Payment {
   paymentMode: PaymentMode;
   referenceNumber?: string | null;
   notes?: string;
+  salespersonId?: string;
+  salespersonName?: string;
+  salespersonCode?: string;
+  collectionType?: 'DIRECT_BANK' | 'CASH_IN_HAND' | 'UPI_QR';
   createdAt: string;
   _demo?: boolean;
 }

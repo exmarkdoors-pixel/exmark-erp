@@ -748,6 +748,7 @@ export function createConsolidatedBoqBatchVouchers(
 export interface UpdateBoqIssueVoucherInput {
   voucherId: string;
   items: BoqIssueVoucherItem[];
+  issueDate?: string;
   gangName?: string;
   shift?: BoqIssueShift;
   notes?: string;
@@ -864,6 +865,10 @@ export function updateBoqIssueVoucher(input: UpdateBoqIssueVoucherInput): {
 
   const updatedRecord: BoqIssueVoucherRecord = {
     ...existing,
+    issueDate:
+      input.issueDate && /^\d{4}-\d{2}-\d{2}$/.test(input.issueDate.trim())
+        ? input.issueDate.trim()
+        : existing.issueDate,
     items: cleanNewItems,
     doorAllocations,
     totalIssuedValue: newTotalValue,

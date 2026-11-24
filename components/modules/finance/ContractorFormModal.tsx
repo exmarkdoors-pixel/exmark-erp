@@ -157,7 +157,7 @@ export function ContractorFormModal({
                 {isEditing ? `Edit Contractor — ${contractorToEdit?.name}` : 'Onboard New Contractor / Floor Gang'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Setup team profile, rate assignments, and migration opening balance (പഴയ ബാലൻസ്).
+                Setup team profile, rate assignments, and migration opening balance.
               </p>
             </div>
           </div>
@@ -280,11 +280,11 @@ export function ContractorFormModal({
             </div>
           </div>
 
-          {/* Section 2: Historical Opening Balance Setup (പഴയ ബാലൻസുകൾ) */}
+          {/* Section 2: Historical Opening Balance Setup */}
           <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/50 rounded-xl p-3.5 space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="font-extrabold text-amber-900 dark:text-amber-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                <span>💰</span> Migration Opening Balance (പഴയ ബാലൻസ് സെറ്റപ്പ്)
+                <span>💰</span> Migration Opening Balance Setup
               </h4>
               <span className="text-[10px] text-amber-800 dark:text-amber-400 font-semibold">
                 Historical Books Migration
@@ -319,8 +319,8 @@ export function ContractorFormModal({
                   onChange={(e) => setOpeningBalanceType(e.target.value as 'PAYABLE' | 'RECEIVABLE')}
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-400 dark:border-amber-600 rounded-lg font-bold text-slate-900 dark:text-white cursor-pointer"
                 >
-                  <option value="PAYABLE">PAYABLE (കമ്പനി നൽകാനുള്ളത് - We owe)</option>
-                  <option value="RECEIVABLE">RECEIVABLE (മുൻകൂർ വാങ്ങിയത് - Advance taken)</option>
+                  <option value="PAYABLE">PAYABLE (Company Owes Contractor)</option>
+                  <option value="RECEIVABLE">RECEIVABLE (Advance Taken by Contractor)</option>
                 </select>
               </div>
 

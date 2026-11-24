@@ -96,6 +96,13 @@ export interface ProductionDoorItem {
   remark?: string;
   finishedHeightMm: number;
   finishedWidthMm: number;
+  hDeductionMm?: number;
+  wDeductionMm?: number;
+  bottomClearanceMm?: number;
+  sideRebateMm?: number;
+  topGapMm?: number;
+  floorCondition?: string;
+  shutterSizeText?: string;
   handing: 'LH' | 'RH';
   lockId?: string;
   lockType: string;
@@ -112,11 +119,21 @@ export interface ProductionDoorItem {
   stickerRemovalNotes?: string | null;
   moldedByGangId?: string;
   moldedByGangName?: string;
-  doorMolderName?: string; // ഡോർ അടിച്ചയാൾ (Door Slab Caster / Operator)
-  frameMolderName?: string; // ഫ്രെയിം അടിച്ചയാൾ (Frame Caster / Operator)
+  doorMolderName?: string; // Door Slab Caster / Operator
+  frameMolderName?: string; // Frame Caster / Operator
   moldingShift?: 'SHIFT_1' | 'SHIFT_2' | 'NIGHT_SHIFT' | 'GENERAL';
   moldedAt?: string;
   moldingNotes?: string;
+  moldingWorkCompleted?: boolean;
+  cuttingGangId?: string;
+  cuttingGangName?: string;
+  cuttingWorkCompleted?: boolean;
+  paintingGangId?: string;
+  paintingGangName?: string;
+  paintingWorkCompleted?: boolean;
+  fittingGangId?: string;
+  fittingGangName?: string;
+  fittingWorkCompleted?: boolean;
 }
 
 export interface ProductionOrder {
@@ -129,6 +146,7 @@ export interface ProductionOrder {
   isSupplementaryJobWork?: boolean;
   customerName: string;
   siteName: string;
+  phone?: string;
   district: string;
   doorCategory: 'FRP_DOORS' | 'WPC_DOORS';
   quantity: number;
@@ -154,13 +172,17 @@ export interface ProductionOrder {
 }
 
 export interface ProductionOrderCreateInput {
+  prodOrderNumber?: string;
+  jobCardNumber?: string;
   salesOrderId?: string | null;
   measurementRef?: string | null;
   parentJobCardNumber?: string | null;
   isSupplementaryJobWork?: boolean;
   customerName: string;
   siteName: string;
+  phone?: string;
   district: string;
+  quantity?: number;
   doorCategory?: 'FRP_DOORS' | 'WPC_DOORS';
   lineAssigned?: string;
   priority?: ProductionPriority;
@@ -281,6 +303,8 @@ export async function getProductionOrder(id: string): Promise<ProductionOrder | 
   return all.find((o) => o.id === id || o.jobCardNumber === id || o.prodOrderNumber === id) ?? null;
 }
 
+export const getProductionOrderById = getProductionOrder;
+
 export async function findDoorBySerial(doorId: string): Promise<{ order: ProductionOrder; door: ProductionDoorItem } | null> {
   const all = readStore();
   const search = doorId.trim().toUpperCase();
@@ -297,8 +321,24 @@ export async function createProductionOrder(input: ProductionOrderCreateInput): 
   await assertWriteAllowed('create production order');
 
   const all = readStore();
-  const prodOrderNumber = generateProdNumber(all.length);
-  const jobCardNumber = generateJobCardNumber(all.length);
+  const prodOrderNumber = input.prodOrderNumber || (() => {
+    let nextNum = all.length;
+    let candidate = generateProdNumber(nextNum);
+    while (all.some((o) => o.prodOrderNumber === candidate)) {
+      nextNum++;
+      candidate = generateProdNumber(nextNum);
+    }
+    return candidate;
+  })();
+  const jobCardNumber = input.jobCardNumber || (() => {
+    let nextNum = all.length;
+    let candidate = generateJobCardNumber(nextNum);
+    while (all.some((o) => o.jobCardNumber === candidate)) {
+      nextNum++;
+      candidate = generateJobCardNumber(nextNum);
+    }
+    return candidate;
+  })();
   const batchNumber = `BTH-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${all.length + 1}`;
 
   // Default tolerances for FRP Doors: 10mm Height deduction, 10mm Width deduction
@@ -435,6 +475,12 @@ export async function updateProductionStage(
     isRework?: boolean;
     reworkReason?: string;
     pieceRateSkippedReason?: string;
+    workStatus?: 'IN_PROGRESS' | 'COMPLETED';
+    pieceRateCredited?: boolean;
+    creditedAmount?: number;
+    creditedAt?: string;
+    assignedAt?: string;
+    completedAt?: string;
     doorAssignments?: Array<{
       doorId: string;
       gangId: string;
@@ -492,6 +538,18 @@ export async function updateProductionStage(
       moldedByGangName: d.moldedByGangName || stageMeta.gangName,
       moldedAt: d.moldedAt || nowIso,
     }));
+  } else if (stage === 'CUTTING_FINISHING' && stageMeta?.gangId && stageMeta?.gangName) {
+    updatedDoors = updatedDoors.map((d) => ({
+      ...d,
+      cuttingGangId: d.cuttingGangId || stageMeta.gangId,
+      cuttingGangName: d.cuttingGangName || stageMeta.gangName,
+    }));
+  } else if ((stage === 'PAINT_SECTION' || stage === 'PU_COATING') && stageMeta?.gangId && stageMeta?.gangName) {
+    updatedDoors = updatedDoors.map((d) => ({
+      ...d,
+      paintingGangId: d.paintingGangId || stageMeta.gangId,
+      paintingGangName: d.paintingGangName || stageMeta.gangName,
+    }));
   }
 
   const nextHistory: ProductionStageAssignment[] = Array.isArray(order.stageHistory)
@@ -506,7 +564,12 @@ export async function updateProductionStage(
     isRework: stageMeta?.isRework,
     reworkReason: stageMeta?.reworkReason,
     pieceRateSkippedReason: stageMeta?.pieceRateSkippedReason,
-    completedAt: new Date().toISOString(),
+    workStatus: stageMeta?.workStatus || (stageMeta?.pieceRateCredited ? 'COMPLETED' : 'IN_PROGRESS'),
+    pieceRateCredited: stageMeta?.pieceRateCredited || false,
+    creditedAmount: stageMeta?.creditedAmount,
+    creditedAt: stageMeta?.creditedAt,
+    assignedAt: stageMeta?.assignedAt || nowIso,
+    completedAt: stageMeta?.completedAt || nowIso,
   });
 
   const updated: ProductionOrder = {
@@ -754,6 +817,74 @@ export async function toggleProductionInstallation(
   return updated;
 }
 
+export async function markProductionStageWorkCompleted(
+  id: string,
+  stage: ProductionStage,
+  creditInfo?: {
+    gangId?: string;
+    gangName?: string;
+    amount?: number;
+    notes?: string;
+  }
+): Promise<ProductionOrder> {
+  await assertWriteAllowed('mark stage work completed');
+
+  const all = readStore();
+  const idx = all.findIndex((o) => o.id === id || o.jobCardNumber === id || o.prodOrderNumber === id);
+  if (idx === -1) throw new Error(`Production order ${id} not found`);
+
+  const order = all[idx];
+  const nowIso = new Date().toISOString();
+
+  // Update stageHistory
+  const history = Array.isArray(order.stageHistory) ? [...order.stageHistory] : [];
+  const stageIdx = history.findLastIndex((h) => h.stage === stage);
+  if (stageIdx !== -1) {
+    history[stageIdx] = {
+      ...history[stageIdx],
+      workStatus: 'COMPLETED',
+      pieceRateCredited: true,
+      creditedAmount: creditInfo?.amount ?? history[stageIdx].amount,
+      creditedAt: nowIso,
+      completedAt: nowIso,
+      gangId: creditInfo?.gangId ?? history[stageIdx].gangId,
+      gangName: creditInfo?.gangName ?? history[stageIdx].gangName,
+    };
+  } else {
+    history.push({
+      stage,
+      gangId: creditInfo?.gangId,
+      gangName: creditInfo?.gangName,
+      amount: creditInfo?.amount,
+      workStatus: 'COMPLETED',
+      pieceRateCredited: true,
+      creditedAmount: creditInfo?.amount,
+      creditedAt: nowIso,
+      completedAt: nowIso,
+    });
+  }
+
+  // Update door completion flags
+  const doors = (order.doors || []).map((d) => {
+    if (stage === 'MOLDING') return { ...d, moldingWorkCompleted: true };
+    if (stage === 'CUTTING_FINISHING') return { ...d, cuttingWorkCompleted: true };
+    if (stage === 'PAINT_SECTION' || stage === 'PU_COATING') return { ...d, paintingWorkCompleted: true };
+    if (stage === 'INSTALLATION') return { ...d, fittingWorkCompleted: true };
+    return d;
+  });
+
+  const updated: ProductionOrder = {
+    ...order,
+    stageHistory: history,
+    doors,
+    updatedAt: nowIso,
+  };
+
+  all[idx] = updated;
+  writeStore(all);
+  return updated;
+}
+
 export interface CancelledJobCardRecord {
   id: string;
   jobCardNumber: string;
@@ -849,7 +980,7 @@ export async function cancelQueuedProductionOrder(
     order.doors = (order.doors || []).map((d) => ({
       ...d,
       materialIssued: false,
-      materialIssuedAt: null,
+      materialIssuedAt: undefined,
       boqVoucherNo: undefined,
     }));
     order.boqIssuedAt = null;

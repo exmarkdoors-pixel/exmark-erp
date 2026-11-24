@@ -24,6 +24,12 @@ const fmt = (n: number) =>
 
 export function AccountingMasterHub({ initialPillar = 'SALES' }: { initialPillar?: PillarTab }) {
   const [activePillar, setActivePillar] = useState<PillarTab>(initialPillar);
+
+  useEffect(() => {
+    if (initialPillar) {
+      setActivePillar(initialPillar);
+    }
+  }, [initialPillar]);
   const [overview, setOverview] = useState<AccountingOverviewPayload | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -95,7 +101,7 @@ export function AccountingMasterHub({ initialPillar = 'SALES' }: { initialPillar
           {[
             { id: 'SALES' as PillarTab, label: '1. Sales', sub: overview?.gstEnabled ? 'Invoice · Pay In · Credit Note · Other Inc' : 'Sales Entry · Pay In · Returns · Other Inc', Icon: ReceiptText },
             { id: 'PURCHASES_EXPENSES' as PillarTab, label: '2. Purchases & Expenses', sub: 'Bills · Pay Out · Categories', Icon: ShoppingBag },
-            { id: 'CASH_BANK' as PillarTab, label: '3. Cash & Bank', sub: 'Accounts · Contra · Passbook', Icon: Landmark },
+            { id: 'CASH_BANK' as PillarTab, label: '3. Cash & Bank', sub: 'Accounts · Contra · Party-to-Party · Passbook', Icon: Landmark },
             { id: 'ACCOUNTING' as PillarTab, label: '4. Accounting', sub: 'COA · Journal · Statement', Icon: BookOpenCheck },
             { id: 'REPORTS' as PillarTab, label: '5. Reports', sub: 'P&L · Balance Sheet · Trial Bal', Icon: BarChart3 },
           ].map(({ id, label, sub, Icon }) => {

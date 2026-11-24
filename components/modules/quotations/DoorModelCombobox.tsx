@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Search, ChevronDown, Check, Tag, FileText, Download, Share2, X, ExternalLink } from 'lucide-react';
 import { HubDoorModel } from './QuotationHub';
 import { FrpDoorCategory } from '@/lib/services/frpPricingEngine';
@@ -28,7 +28,15 @@ export function DoorModelCombobox({
   const [showBrochureModal, setShowBrochureModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectedModel = useMemo(
@@ -36,25 +44,72 @@ export function DoorModelCombobox({
     [doorModels, selectedModelId]
   );
 
-  // Close on outside click
+  // Floating viewport coordinates calculation so dropdown renders strictly IN FRONT of all rows
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const dropdownWidth = Math.max(420, Math.min(rect.width, 500));
+
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    let top = rect.bottom + 4;
+    let maxHeight = Math.min(360, spaceBelow - 16);
+
+    // If space below is cramped and space above has more room, flip upward
+    if (spaceBelow < 240 && spaceAbove > spaceBelow) {
+      maxHeight = Math.min(360, spaceAbove - 16);
+      top = rect.top - maxHeight - 4;
+    }
+
+    // Keep within horizontal screen bounds
+    let left = rect.left;
+    if (left + dropdownWidth > viewportWidth - 16) {
+      left = Math.max(16, viewportWidth - dropdownWidth - 16);
+    }
+
+    setDropdownPosition({
+      top: Math.round(top),
+      left: Math.round(left),
+      width: Math.min(dropdownWidth, viewportWidth - 32),
+      maxHeight: Math.max(180, Math.round(maxHeight)),
+    });
+  }, []);
+
+  // Close on outside click & synchronize floating position
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
         setSearchQuery('');
       }
     }
+
     if (isOpen) {
+      updatePosition();
       document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('resize', updatePosition);
+      window.addEventListener('scroll', updatePosition, true);
       setTimeout(() => {
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
       }, 50);
     }
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [isOpen]);
+  }, [isOpen, updatePosition]);
 
   const filteredModels = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -200,11 +255,22 @@ export function DoorModelCombobox({
         </div>
       </div>
 
-      {/* Popover Dropdown with Instant Search */}
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-[420px] min-w-[340px] max-w-[95vw] bg-[#0c1222] border border-cyan-500/50 rounded-xl shadow-2xl z-50 overflow-hidden ring-1 ring-cyan-500/30 animate-in fade-in zoom-in-95 duration-100">
+      {/* Floating Popover Dropdown with Instant Search (Rendered Strictly IN FRONT of All Rows) */}
+      {isOpen && dropdownPosition && (
+        <div
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`,
+            maxHeight: `${dropdownPosition.maxHeight}px`,
+            zIndex: 99999,
+          }}
+          className="bg-[#0c1222] border-2 border-cyan-500 rounded-xl shadow-2xl ring-2 ring-cyan-500/40 animate-in fade-in zoom-in-95 duration-100 flex flex-col overflow-hidden"
+        >
           {/* Instant Search Box */}
-          <div className="p-2.5 border-b border-slate-800 bg-[#11182c]">
+          <div className="p-2.5 border-b border-slate-800 bg-[#11182c] shrink-0">
             <div className="relative">
               <Search className="w-4 h-4 text-cyan-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -223,7 +289,10 @@ export function DoorModelCombobox({
           </div>
 
           {/* Model Items List */}
-          <div className="max-h-72 overflow-y-auto divide-y divide-slate-800/60 custom-scrollbar">
+          <div
+            className="overflow-y-auto divide-y divide-slate-800/60 custom-scrollbar flex-1"
+            style={{ maxHeight: `${dropdownPosition.maxHeight - 80}px` }}
+          >
             {filteredModels.length === 0 ? (
               <div className="p-5 text-center text-xs text-slate-400">
                 No door models matching <strong className="text-rose-400">&quot;{searchQuery}&quot;</strong>.

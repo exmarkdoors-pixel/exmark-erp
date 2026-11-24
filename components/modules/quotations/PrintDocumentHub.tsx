@@ -163,12 +163,12 @@ export const COMPANY_PROFILE = {
 };
 
 export const DOCUMENT_TITLES: Record<DocumentType, { en: string; ml: string; badge: string }> = {
-  quotation: { en: 'QUOTATION / ESTIMATE', ml: 'ക്വട്ടേഷൻ / എസ്റ്റിമേറ്റ്', badge: 'ESTIMATE' },
-  proforma: { en: 'PROFORMA INVOICE', ml: 'പ്രൊഫോർമ ഇൻവോയ്സ്', badge: 'PROFORMA' },
-  salesOrder: { en: 'SALES WORK ORDER', ml: 'സെയിൽസ് വർക്ക് ഓർഡർ', badge: 'WORK ORDER' },
-  salesInvoice: { en: 'SALES INVOICE / BILL', ml: 'സെയിൽസ് ബിൽ / ഇൻവോയ്സ്', badge: 'SALES BILL' },
-  statement: { en: 'PARTY ACCOUNT STATEMENT', ml: 'കസ്റ്റമർ അക്കൗണ്ട് ലെഡ്ജർ', badge: 'LEDGER' },
-  creditNote: { en: 'SALES RETURN / CREDIT NOTE', ml: 'സെയിൽസ് റിട്ടേൺ / ക്രെഡിറ്റ് നോട്ട്', badge: 'RETURN VOUCHER' },
+  quotation: { en: 'QUOTATION / ESTIMATE', ml: 'QUOTATION / ESTIMATE', badge: 'ESTIMATE' },
+  proforma: { en: 'PROFORMA INVOICE', ml: 'PROFORMA INVOICE', badge: 'PROFORMA' },
+  salesOrder: { en: 'SALES WORK ORDER', ml: 'SALES WORK ORDER', badge: 'WORK ORDER' },
+  salesInvoice: { en: 'SALES INVOICE / BILL', ml: 'SALES INVOICE / BILL', badge: 'SALES BILL' },
+  statement: { en: 'PARTY ACCOUNT STATEMENT', ml: 'PARTY ACCOUNT STATEMENT', badge: 'LEDGER' },
+  creditNote: { en: 'SALES RETURN / CREDIT NOTE', ml: 'SALES RETURN / CREDIT NOTE', badge: 'RETURN VOUCHER' },
 };
 
 // Generate default statement ledger data based on quotation
@@ -181,7 +181,7 @@ export function getSampleStatementEntries(quote: HubQuotation): StatementEntry[]
     {
       id: 'TXN-01',
       date: '15 Oct 2026',
-      particulars: 'Opening Balance (മുമ്പുള്ള ബാക്കി)',
+      particulars: 'Opening Balance',
       voucherType: 'Invoice',
       voucherNo: 'OB-00',
       debit: 0,
@@ -857,7 +857,7 @@ function renderTallyItemTable(
           <tr className="text-[11px] bg-emerald-50/40">
             <td className="p-1.5 border-r border-slate-300 text-center font-mono">{rows.length + 1}</td>
             <td className="p-1.5 border-r border-slate-300">
-              <span className="font-bold">Door Installation Service (ഡോർ ഇൻസ്റ്റാളേഷൻ)</span>
+              <span className="font-bold">Door Installation Service</span>
               <span className="text-[10px] text-slate-600 block">
                 {quotation.installationNotes || 'Site Door & Frame Installation (Hardware & Fitting)'} •{' '}
                 {quotation.installationMode === 'FIXED_LUMP_SUM' ? 'Fixed Lump-Sum' : 'Per Door Rate'}
@@ -881,7 +881,7 @@ function renderTallyItemTable(
               {rows.length + (quotation.includeInstallation && (quotation.installationAmount || 0) > 0 ? 2 : 1)}
             </td>
             <td className="p-1.5 border-r border-slate-300">
-              <span className="font-bold">Transportation &amp; Delivery Freight (ചരക്കുകൂലി / ട്രാൻസ്പോർട്ടേഷൻ)</span>
+              <span className="font-bold">Transportation &amp; Delivery Freight</span>
               <span className="text-[10px] text-slate-600 block">
                 {quotation.transportationNotes || 'Site Delivery & Logistics Freight'} •{' '}
                 {quotation.transportationMode === 'FIXED_LUMP_SUM'
@@ -1019,7 +1019,7 @@ function renderVyaparItemTable(
           <tr className="bg-emerald-50/60">
             <td className="p-2 text-center font-mono text-emerald-700">{rows.length + 1}</td>
             <td className="p-2">
-              <span className="font-bold text-slate-900">Door Installation Service (ഡോർ ഇൻസ്റ്റാളേഷൻ)</span>
+              <span className="font-bold text-slate-900">Door Installation Service</span>
               <span className="text-[10px] text-slate-600 block">
                 {quotation.installationNotes || 'Site Door & Frame Installation (Hardware & Fitting)'}
               </span>
@@ -1044,7 +1044,7 @@ function renderVyaparItemTable(
               {rows.length + (quotation.includeInstallation && (quotation.installationAmount || 0) > 0 ? 2 : 1)}
             </td>
             <td className="p-2">
-              <span className="font-bold text-slate-900">Transportation &amp; Delivery Freight (ചരക്കുകൂലി)</span>
+              <span className="font-bold text-slate-900">Transportation &amp; Delivery Freight</span>
               <span className="text-[10px] text-slate-600 block">
                 {quotation.transportationNotes || 'Site Delivery & Logistics Freight (SAC 9965)'}
               </span>

@@ -12,13 +12,17 @@ import {
   AlertCircle,
   X,
   BookOpen,
+  Users,
+  Search,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/apiClient';
 import type {
   AccountStatementResponse,
   CashBankAccountWithBalance,
   ContraTransferRecord,
+  PartyToPartyPaymentRecord,
 } from '@/types/accounting';
+import { PartyToPartyPaymentModal } from './PartyToPartyPaymentModal';
 
 interface AccountingCashBankSectionProps {
   onDataChanged: () => void;
@@ -35,6 +39,14 @@ export function AccountingCashBankSection({ onDataChanged }: AccountingCashBankS
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  // Sub-Tab State
+  const [activeSubTab, setActiveSubTab] = useState<'CASH_BANK' | 'PARTY_TO_PARTY'>('CASH_BANK');
+
+  // Party to Party Payment state
+  const [p2pList, setP2pList] = useState<PartyToPartyPaymentRecord[]>([]);
+  const [showP2PModal, setShowP2PModal] = useState(false);
+  const [p2pSearch, setP2pSearch] = useState('');
 
   // Account modal state
   const [showAccModal, setShowAccModal] = useState(false);
@@ -86,6 +98,17 @@ export function AccountingCashBankSection({ onDataChanged }: AccountingCashBankS
           setContraFrom((prev) => prev || list[0].id);
           setContraTo((prev) => prev || list[1].id);
         }
+      }
+
+      // Also load Party to Party Payments
+      try {
+        const p2pRes = await apiFetch('/api/accounting/party-to-party');
+        const p2pJson = await p2pRes.json();
+        if (p2pRes.ok && p2pJson.success) {
+          setP2pList(p2pJson.data || []);
+        }
+      } catch {
+        // Non-fatal
       }
     } catch {
       notify('err', 'Failed to load Cash & Bank accounts.');
@@ -226,6 +249,43 @@ export function AccountingCashBankSection({ onDataChanged }: AccountingCashBankS
     }
   };
 
+  const handleDeleteP2P = async (id: string, voucherNum: string) => {
+    if (!confirm(`Delete Party to Party payment voucher ${voucherNum} and reverse its ledger journal entry?`)) return;
+    setBusy(true);
+    try {
+      const res = await apiFetch(`/api/accounting/party-to-party?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Delete failed');
+      notify('ok', json.message || 'Payment deleted.');
+      await loadCashBank(selectedAccountId);
+      onDataChanged();
+    } catch (err: unknown) {
+      notify('err', err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const filteredP2p = p2pList.filter((p) => {
+    if (!p2pSearch.trim()) return true;
+    const q = p2pSearch.toLowerCase().trim();
+    return (
+      p.voucherNumber.toLowerCase().includes(q) ||
+      p.fromPartyName.toLowerCase().includes(q) ||
+      p.toPartyName.toLowerCase().includes(q) ||
+      (p.referenceNumber && p.referenceNumber.toLowerCase().includes(q)) ||
+      (p.narration && p.narration.toLowerCase().includes(q))
+    );
+  });
+
+  const totalP2pAmount = p2pList.reduce((s, p) => s + p.amount, 0);
+  const bankUpiAmount = p2pList
+    .filter((p) => p.paymentMode === 'DIRECT_BANK' || p.paymentMode === 'DIRECT_UPI')
+    .reduce((s, p) => s + p.amount, 0);
+  const contraBookAmount = p2pList
+    .filter((p) => p.paymentMode === 'BOOK_ADJUSTMENT' || p.paymentMode === 'CASH' || p.paymentMode === 'CHEQUE')
+    .reduce((s, p) => s + p.amount, 0);
+
   return (
     <div className="space-y-4">
       {banner && (
@@ -235,37 +295,96 @@ export function AccountingCashBankSection({ onDataChanged }: AccountingCashBankS
         </div>
       )}
 
+      {/* Sub-Pillar Tabs: Cash/Bank vs Party to Party */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+        <div className="flex items-center gap-1.5 bg-[#070D1E] p-1 rounded-xl border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('CASH_BANK')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeSubTab === 'CASH_BANK'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Landmark className="w-3.5 h-3.5" />
+            <span>Cash &amp; Bank Accounts ({accounts.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('PARTY_TO_PARTY')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeSubTab === 'PARTY_TO_PARTY'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Party to Party Settlements ({p2pList.length})</span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowP2PModal(true)}
+          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-emerald-600/30"
+        >
+          <Users className="w-3.5 h-3.5" />
+          <span>+ Party to Party Payment</span>
+        </button>
+      </div>
+
       {/* Action Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 bg-[#070D1E] p-3 rounded-xl border border-slate-800">
         <div>
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Landmark className="w-4 h-4 text-sky-400" />
-            Cash-in-Hand &amp; Bank Accounts ({accounts.length})
+            {activeSubTab === 'CASH_BANK' ? (
+              <>
+                <Landmark className="w-4 h-4 text-sky-400" />
+                <span>Cash-in-Hand &amp; Bank Accounts ({accounts.length})</span>
+              </>
+            ) : (
+              <>
+                <Users className="w-4 h-4 text-emerald-400" />
+                <span>Party to Party Settlements ({p2pList.length})</span>
+              </>
+            )}
           </h3>
-          <p className="text-[11px] text-slate-400">Real-time cash drawers, current accounts, UPI wallets, Contra deposits &amp; passbook ledger</p>
+          <p className="text-[11px] text-slate-400">
+            {activeSubTab === 'CASH_BANK'
+              ? 'Real-time cash drawers, current accounts, UPI wallets, Contra deposits & passbook ledger'
+              : 'Direct contra settlements between Customers, Suppliers & Contractors without routing company funds'}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowContraModal((v) => !v)}
-            disabled={accounts.length < 2}
-            className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
-          >
-            <ArrowLeftRight className="w-3.5 h-3.5" />
-            <span>Contra / Fund Transfer</span>
-          </button>
-          <button
-            type="button"
-            onClick={openCreateAccount}
-            className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Cash / Bank Account</span>
-          </button>
+          {activeSubTab === 'CASH_BANK' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowContraModal((v) => !v)}
+                disabled={accounts.length < 2}
+                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>Contra / Fund Transfer</span>
+              </button>
+              <button
+                type="button"
+                onClick={openCreateAccount}
+                className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Cash / Bank Account</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Add / Edit Cash & Bank Form */}
+      {/* ── 1. CASH & BANK PASSBOOK SUB-TAB ── */}
+      {activeSubTab === 'CASH_BANK' && (
+        <div className="space-y-4">
+          {/* Add / Edit Cash & Bank Form */}
       {showAccModal && (
         <form onSubmit={handleSaveAccount} className="bg-[#0B132B] border border-sky-500/40 rounded-xl p-4 space-y-3 text-xs">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
@@ -501,6 +620,154 @@ export function AccountingCashBankSection({ onDataChanged }: AccountingCashBankS
           </div>
         </div>
       </div>
+    </div>
+  )}
+
+  {/* ── 2. PARTY TO PARTY SETTLEMENTS SUB-TAB ── */}
+  {activeSubTab === 'PARTY_TO_PARTY' && (
+    <div className="space-y-4">
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="p-3 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Total Settlement Volume</div>
+          <div className="text-base font-black font-mono text-emerald-400 mt-0.5">{fmt(totalP2pAmount)}</div>
+          <div className="text-[10px] text-slate-400">{p2pList.length} Total Settlements</div>
+        </div>
+        <div className="p-3 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Direct Bank &amp; UPI</div>
+          <div className="text-base font-black font-mono text-sky-400 mt-0.5">{fmt(bankUpiAmount)}</div>
+          <div className="text-[10px] text-slate-400">Direct Customer → Supplier</div>
+        </div>
+        <div className="p-3 rounded-xl bg-[#0B132B] border border-slate-800">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Book &amp; Cash Adjustments</div>
+          <div className="text-base font-black font-mono text-amber-300 mt-0.5">{fmt(contraBookAmount)}</div>
+          <div className="text-[10px] text-slate-400">Contra &amp; Direct Adjustments</div>
+        </div>
+        <div className="p-3 rounded-xl bg-[#0B132B] border border-slate-800 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] uppercase font-bold text-slate-400">Contra Integrity</div>
+            <div className="text-sm font-bold text-emerald-300 mt-0.5 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Double-Entry Safe</span>
+            </div>
+            <div className="text-[10px] text-slate-400">Zero Bank Leakage</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowP2PModal(true)}
+            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
+          >
+            + Record
+          </button>
+        </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-[#0B132B] p-3 rounded-xl border border-slate-800">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <input
+            value={p2pSearch}
+            onChange={(e) => setP2pSearch(e.target.value)}
+            placeholder="Search by Voucher #, Paying Party, Receiving Party, or Notes..."
+            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs placeholder:text-slate-500"
+          />
+        </div>
+        <span className="text-xs text-slate-400">
+          Showing {filteredP2p.length} of {p2pList.length} settlements
+        </span>
+      </div>
+
+      {/* Table */}
+      <div className="bg-[#0B132B] border border-slate-800 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-[#070D1E] text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                <th className="p-3">Voucher #</th>
+                <th className="p-3">Date</th>
+                <th className="p-3">From Party (Paying / Cr)</th>
+                <th className="p-3">To Party (Receiving / Dr)</th>
+                <th className="p-3 text-right">Settlement (₹)</th>
+                <th className="p-3">Mode</th>
+                <th className="p-3">Reference #</th>
+                <th className="p-3">Narration / Notes</th>
+                <th className="p-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/70">
+              {filteredP2p.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center text-slate-500">
+                    <Users className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                    <div>No Party to Party payments recorded yet.</div>
+                    <button
+                      type="button"
+                      onClick={() => setShowP2PModal(true)}
+                      className="mt-2 text-xs font-bold text-sky-400 hover:text-sky-300 underline cursor-pointer"
+                    >
+                      + Record First Party to Party Payment
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                filteredP2p.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-900/50">
+                    <td className="p-3 font-mono font-bold text-sky-400 whitespace-nowrap">{p.voucherNumber}</td>
+                    <td className="p-3 text-slate-300 whitespace-nowrap">{p.date}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span className="font-bold text-rose-300">{p.fromPartyName}</span>
+                      <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+                        {p.fromPartyType}
+                      </span>
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span className="font-bold text-emerald-300">{p.toPartyName}</span>
+                      <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+                        {p.toPartyType}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right font-mono font-black text-amber-300 whitespace-nowrap">
+                      {fmt(p.amount)}
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-slate-300">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-[11px] font-semibold text-slate-300">
+                        {p.paymentMode.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className="p-3 font-mono text-slate-400 whitespace-nowrap">{p.referenceNumber || '-'}</td>
+                    <td className="p-3 text-slate-300 max-w-xs truncate" title={p.narration}>
+                      {p.narration || '-'}
+                    </td>
+                    <td className="p-3 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteP2P(p.id, p.voucherNumber)}
+                        className="p-1 rounded bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 cursor-pointer transition"
+                        title="Delete Payment & Reverse Journal"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )}
+
+      {/* Party to Party Modal */}
+      <PartyToPartyPaymentModal
+        isOpen={showP2PModal}
+        onClose={() => setShowP2PModal(false)}
+        onSuccess={() => {
+          loadCashBank(selectedAccountId);
+          onDataChanged();
+        }}
+      />
     </div>
   );
 }

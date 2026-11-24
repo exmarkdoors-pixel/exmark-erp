@@ -83,6 +83,9 @@ export function AccountingSalesSection({
   const [pinMode, setPinMode] = useState<AccountingPaymentMode>('UPI');
   const [pinRef, setPinRef] = useState('');
   const [pinNotes, setPinNotes] = useState('');
+  const [pinSalespersonId, setPinSalespersonId] = useState('');
+  const [salesStaffList, setSalesStaffList] = useState<Array<{ id: string; name: string; employeeCode: string }>>([]);
+  const [salespersonFilter, setSalespersonFilter] = useState('ALL');
 
   // Credit Note form
   const [cnCustomer, setCnCustomer] = useState('');
@@ -113,10 +116,11 @@ export function AccountingSalesSection({
   const loadSalesData = useCallback(async () => {
     setLoading(true);
     try {
-      const [salesRes, custRes, pendingRes] = await Promise.all([
+      const [salesRes, custRes, pendingRes, empRes] = await Promise.all([
         apiFetch('/api/accounting/sales').then((r) => r.json()),
         apiFetch('/api/customers').then((r) => (r.ok ? r.json() : null)).catch(() => null),
         apiFetch('/api/accounting/auto-bill-deliveries').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        apiFetch('/api/employees').then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
       if (salesRes?.success && salesRes.data) {
         setInvoices(salesRes.data.salesInvoices || []);
@@ -126,6 +130,15 @@ export function AccountingSalesSection({
       }
       if (custRes?.success && Array.isArray(custRes.data)) {
         setCustomers(custRes.data);
+      }
+      if (empRes?.success && Array.isArray(empRes.data)) {
+        setSalesStaffList(
+          empRes.data.map((e: any) => ({
+            id: e.id,
+            name: e.name,
+            employeeCode: e.employeeCode || e.code || 'EMP',
+          }))
+        );
       }
       if (pendingRes?.success && pendingRes.data) {
         setAutoBillOnDelivery(pendingRes.data.autoBillOnDelivery !== false);
@@ -191,6 +204,7 @@ export function AccountingSalesSection({
     e.preventDefault();
     setBusy(true);
     try {
+      const selectedStaff = salesStaffList.find((s) => s.id === pinSalespersonId);
       const res = await apiFetch('/api/accounting/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -204,6 +218,10 @@ export function AccountingSalesSection({
           amount: Number(pinAmount),
           referenceNumber: pinRef,
           notes: pinNotes,
+          salespersonId: selectedStaff?.id || undefined,
+          salespersonName: selectedStaff?.name || undefined,
+          salespersonCode: selectedStaff?.employeeCode || undefined,
+          collectionType: pinMode === 'CASH' ? 'CASH_IN_HAND' : 'DIRECT_BANK',
         }),
       });
       const json = await res.json();
@@ -213,6 +231,7 @@ export function AccountingSalesSection({
       setPinAmount('');
       setPinRef('');
       setPinNotes('');
+      setPinSalespersonId('');
       await loadSalesData();
       onDataChanged();
     } catch (err: unknown) {
@@ -747,7 +766,35 @@ export function AccountingSalesSection({
             </div>
             <div>
               <label className="text-slate-400 block mb-1">Customer Name *</label>
-              <input required list="acc-sales-customers" value={pinCustomer} onChange={(e) => setPinCustomer(e.target.value)} className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+              <input
+                required
+                list="acc-sales-customers"
+                value={pinCustomer}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPinCustomer(val);
+                  const matched = customers.find((c: any) => c.name?.toLowerCase() === val.trim().toLowerCase());
+                  if (matched && (matched as any).salespersonId) {
+                    setPinSalespersonId((matched as any).salespersonId);
+                  }
+                }}
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white"
+              />
+            </div>
+            <div>
+              <label className="text-slate-400 block mb-1">Collected By (Sales Executive)</label>
+              <select
+                value={pinSalespersonId}
+                onChange={(e) => setPinSalespersonId(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-medium"
+              >
+                <option value="">-- Direct / House (Unassigned) --</option>
+                {salesStaffList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.employeeCode || 'Sales'})
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="text-slate-400 block mb-1">Receipt Date</label>
@@ -775,12 +822,12 @@ export function AccountingSalesSection({
               <label className="text-slate-400 block mb-1">UTR / Cheque / Reference #</label>
               <input value={pinRef} onChange={(e) => setPinRef(e.target.value)} placeholder="UPI Ref / Cheque #" className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
             </div>
-            <div className="md:col-span-2 flex items-end gap-2">
-              <div className="flex-1">
-                <label className="text-slate-400 block mb-1">Notes</label>
-                <input value={pinNotes} onChange={(e) => setPinNotes(e.target.value)} placeholder="Optional notes" className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
-              </div>
-              <button type="submit" disabled={busy} className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer">
+            <div>
+              <label className="text-slate-400 block mb-1">Notes</label>
+              <input value={pinNotes} onChange={(e) => setPinNotes(e.target.value)} placeholder="Optional notes" className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white" />
+            </div>
+            <div className="flex items-end">
+              <button type="submit" disabled={busy} className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer transition">
                 {busy ? 'Saving...' : 'Save Payment In'}
               </button>
             </div>
@@ -989,64 +1036,140 @@ export function AccountingSalesSection({
             </tbody>
           </table>
         ) : subTab === 'PAYMENT_IN' ? (
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-[#070D1E] text-slate-400 uppercase text-[10px] border-b border-slate-800">
-                <th className="p-3">Receipt #</th>
-                <th className="p-3">Date</th>
-                <th className="p-3">Customer</th>
-                <th className="p-3">Invoice</th>
-                <th className="p-3">Cash / Bank</th>
-                <th className="p-3">Mode / Ref</th>
-                <th className="p-3 text-right">Amount</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/70">
-              {paymentsIn.length === 0 ? (
-                <tr><td colSpan={8} className="p-8 text-center text-slate-500">No Payment In receipts recorded yet.</td></tr>
-              ) : (
-                paymentsIn.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-900/50">
-                    <td className="p-3 font-mono font-bold text-emerald-400">{p.receiptNumber}</td>
-                    <td className="p-3 text-slate-300">{p.date}</td>
-                    <td className="p-3 font-semibold text-white">{p.customerName}</td>
-                    <td className="p-3 font-mono text-slate-400">{p.invoiceNumber || 'On-Account'}</td>
-                    <td className="p-3 text-sky-300">{p.cashBankAccountName}</td>
-                    <td className="p-3 text-slate-300">{p.paymentMode}{p.referenceNumber ? ` • ${p.referenceNumber}` : ''}</td>
-                    <td className="p-3 text-right font-mono font-bold text-emerald-400">{fmt(p.amount)}</td>
-                    <td className="p-3 text-right space-x-1">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPrintVoucher({
-                            title: 'PAYMENT RECEIPT (PAYMENT IN)',
-                            number: p.receiptNumber,
-                            date: p.date,
-                            party: p.customerName,
-                            rows: [
-                              ['Against Invoice', p.invoiceNumber || 'On-Account'],
-                              ['Deposited Into', p.cashBankAccountName],
-                              ['Payment Mode', p.paymentMode],
-                              ['Reference #', p.referenceNumber || '-'],
-                            ],
-                            total: p.amount,
-                            notes: p.notes,
-                          })
-                        }
-                        className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                      </button>
-                      <button type="button" onClick={() => handleDelete('PAYMENT_IN', p.id)} className="p-1.5 rounded bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 cursor-pointer">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          <div>
+            {/* Salesman Filter & KPI Summary Strip */}
+            <div className="bg-[#0B132B] p-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-slate-400 font-semibold">Filter by Sales Executive:</span>
+                <select
+                  value={salespersonFilter}
+                  onChange={(e) => setSalespersonFilter(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-semibold text-white"
+                >
+                  <option value="ALL">All Sales Executives</option>
+                  <option value="DIRECT">Direct / House (Unassigned)</option>
+                  {salesStaffList.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.employeeCode || 'Sales'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="text-xs text-slate-300 font-mono">
+                Receipts: <strong className="text-white">{paymentsIn.filter((p) => salespersonFilter === 'ALL' ? true : salespersonFilter === 'DIRECT' ? !p.salespersonId : p.salespersonId === salespersonFilter).length}</strong> | Total Collection:{' '}
+                <strong className="text-emerald-400 font-bold">
+                  {fmt(
+                    paymentsIn
+                      .filter((p) => salespersonFilter === 'ALL' ? true : salespersonFilter === 'DIRECT' ? !p.salespersonId : p.salespersonId === salespersonFilter)
+                      .reduce((s, p) => s + p.amount, 0)
+                  )}
+                </strong>
+              </div>
+            </div>
+
+            {/* Salesman Collection Chips */}
+            <div className="bg-[#070D1E] px-3 py-2 border-b border-slate-800 flex items-center gap-1.5 flex-wrap">
+              {salesStaffList.map((s) => {
+                const staffTotal = paymentsIn
+                  .filter((p) => p.salespersonId === s.id)
+                  .reduce((sum, p) => sum + p.amount, 0);
+                const staffCount = paymentsIn.filter((p) => p.salespersonId === s.id).length;
+                if (staffCount === 0) return null;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setSalespersonFilter(s.id === salespersonFilter ? 'ALL' : s.id)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
+                      salespersonFilter === s.id
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                        : 'bg-slate-900/60 text-slate-300 border-slate-700/60 hover:border-slate-500'
+                    }`}
+                  >
+                    <span>{s.name}:</span>
+                    <span className="font-mono text-emerald-400">{fmt(staffTotal)}</span>
+                    <span className="text-slate-400 font-normal">({staffCount})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-[#070D1E] text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                  <th className="p-3">Receipt #</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Customer</th>
+                  <th className="p-3">Sales Executive</th>
+                  <th className="p-3">Invoice</th>
+                  <th className="p-3">Cash / Bank</th>
+                  <th className="p-3">Mode / Ref</th>
+                  <th className="p-3 text-right">Amount</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/70">
+                {paymentsIn.filter((p) => salespersonFilter === 'ALL' ? true : salespersonFilter === 'DIRECT' ? !p.salespersonId : p.salespersonId === salespersonFilter).length === 0 ? (
+                  <tr><td colSpan={9} className="p-8 text-center text-slate-500">No Payment In receipts recorded yet.</td></tr>
+                ) : (
+                  paymentsIn
+                    .filter((p) => salespersonFilter === 'ALL' ? true : salespersonFilter === 'DIRECT' ? !p.salespersonId : p.salespersonId === salespersonFilter)
+                    .map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-900/50">
+                        <td className="p-3 font-mono font-bold text-emerald-400">{p.receiptNumber}</td>
+                        <td className="p-3 text-slate-300">{p.date}</td>
+                        <td className="p-3 font-semibold text-white">{p.customerName}</td>
+                        <td className="p-3">
+                          {p.salespersonName ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400">
+                              <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-[9px] font-bold">
+                                {p.salespersonName.charAt(0)}
+                              </span>
+                              <span>{p.salespersonName}</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 text-[11px] italic">Direct</span>
+                          )}
+                        </td>
+                        <td className="p-3 font-mono text-slate-400">{p.invoiceNumber || 'On-Account'}</td>
+                        <td className="p-3 text-sky-300">{p.cashBankAccountName}</td>
+                        <td className="p-3 text-slate-300">{p.paymentMode}{p.referenceNumber ? ` • ${p.referenceNumber}` : ''}</td>
+                        <td className="p-3 text-right font-mono font-bold text-emerald-400">{fmt(p.amount)}</td>
+                        <td className="p-3 text-right space-x-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPrintVoucher({
+                                title: 'PAYMENT RECEIPT (PAYMENT IN)',
+                                number: p.receiptNumber,
+                                date: p.date,
+                                party: p.customerName,
+                                rows: [
+                                  ['Against Invoice', p.invoiceNumber || 'On-Account'],
+                                  ['Collected By', p.salespersonName || 'Direct / House'],
+                                  ['Deposited Into', p.cashBankAccountName],
+                                  ['Payment Mode', p.paymentMode],
+                                  ['Reference #', p.referenceNumber || '-'],
+                                ],
+                                total: p.amount,
+                                notes: p.notes,
+                              })
+                            }
+                            className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                          <button type="button" onClick={() => handleDelete('PAYMENT_IN', p.id)} className="p-1.5 rounded bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 cursor-pointer">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </div>
         ) : subTab === 'CREDIT_NOTE' ? (
           <table className="w-full text-left text-xs border-collapse">
             <thead>
