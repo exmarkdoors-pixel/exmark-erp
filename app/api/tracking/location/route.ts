@@ -1,45 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-import { getDataDir } from '@/lib/utils/dataPaths';
+import {
+  getAllActiveLiveLocations,
+  getIstDateString,
+  getStaffDailyRouteLog,
+  recordGpsBreadcrumb,
+} from '@/lib/services/fieldTrackingService';
 
-interface LocationPing {
-  staffId: string;
-  staffName: string;
-  role: string;
-  latitude: number;
-  longitude: number;
-  accuracy?: number;
-  speed?: number;
-  heading?: number;
-  batteryLevel?: number;
-  timestamp: string;
-}
-
-function getTrackingFilePath(): string {
-  return path.join(getDataDir(), 'gps-tracking-store.json');
-}
-
-function loadTrackingData(): Record<string, LocationPing[]> {
-  try {
-    const file = getTrackingFilePath();
-    if (fs.existsSync(file)) {
-      return JSON.parse(fs.readFileSync(file, 'utf8'));
-    }
-  } catch (err) {
-    console.error('Error reading GPS tracking file:', err);
-  }
-  return {};
-}
-
-function saveTrackingData(data: Record<string, LocationPing[]>): void {
-  try {
-    const file = getTrackingFilePath();
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Error saving GPS tracking file:', err);
-  }
-}
+export const dynamic = 'force-dynamic';
 
 // POST: Record GPS Ping
 export async function POST(req: NextRequest) {
@@ -61,7 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Valid latitude and longitude required' }, { status: 400 });
     }
 
-    const ping: LocationPing = {
+    const ping = recordGpsBreadcrumb({
       staffId,
       staffName,
       role,
@@ -72,43 +39,31 @@ export async function POST(req: NextRequest) {
       heading,
       batteryLevel,
       timestamp: new Date().toISOString(),
-    };
-
-    const store = loadTrackingData();
-    if (!store[staffId]) {
-      store[staffId] = [];
-    }
-    // Keep last 100 breadcrumbs per staff member
-    store[staffId].push(ping);
-    if (store[staffId].length > 100) {
-      store[staffId] = store[staffId].slice(-100);
-    }
-    saveTrackingData(store);
+    });
 
     return NextResponse.json({ success: true, recordedAt: ping.timestamp });
-  } catch (err: any) {
-    return NextResponse.json({ error: 'Failed to record location', details: err?.message }, { status: 500 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Failed to record location';
+    return NextResponse.json({ error: 'Failed to record location', details: msg }, { status: 500 });
   }
 }
 
-// GET: Fetch current location of all active staff
+// GET: Fetch current live location of all active staff, or route history for a specific staff & date
 export async function GET(req: NextRequest) {
   try {
-    const store = loadTrackingData();
-    const activeStaff = Object.keys(store).map((staffId) => {
-      const pings = store[staffId];
-      const latest = pings[pings.length - 1];
-      return {
-        staffId,
-        staffName: latest?.staffName || staffId,
-        role: latest?.role || 'FIELD',
-        latestPing: latest,
-        breadcrumbCount: pings.length,
-      };
-    });
+    const { searchParams } = new URL(req.url);
+    const staffId = searchParams.get('staffId');
+    const date = searchParams.get('date') || getIstDateString();
 
-    return NextResponse.json({ success: true, activeStaff });
-  } catch (err: any) {
-    return NextResponse.json({ error: 'Failed to fetch tracking data', details: err?.message }, { status: 500 });
+    if (staffId) {
+      const routeLog = getStaffDailyRouteLog(staffId, date);
+      return NextResponse.json({ success: true, routeLog });
+    }
+
+    const activeStaff = getAllActiveLiveLocations();
+    return NextResponse.json({ success: true, date, activeStaff });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Failed to fetch tracking data';
+    return NextResponse.json({ error: 'Failed to fetch tracking data', details: msg }, { status: 500 });
   }
 }

@@ -60,6 +60,8 @@ export interface SalarySlipRecord {
   earnedBasicPay: number;
   overtimeHourlyRate: number;
   earnedOvertimePay: number;
+  travelBataAllowance?: number;
+  distanceTraveledKm?: number;
   foodAllowance: number;
   conveyanceAllowance: number;
   performanceBonus: number;
@@ -67,6 +69,7 @@ export interface SalarySlipRecord {
 
   // Deductions
   advanceDeduction: number;
+  latePenaltyDeduction?: number;
   canteenFoodDeduction: number;
   pfDeduction: number;
   esiDeduction: number;
@@ -113,4 +116,98 @@ export interface MonthlyPayrollOverview {
   pendingCount: number;
   attendanceLoggedCount: number;
   slips: SalarySlipRecord[];
+}
+
+// ── TotalX-Style Attendance, Selfie Punch-In, Shifts & Leave Types ─────────
+
+export type PunchPolicyMode = 'GEOFENCED_FACTORY' | 'ANY_LOCATION';
+
+export type OvertimeCalculationType = 'HOURLY_FIXED' | 'MULTIPLIER_1_5X' | 'MULTIPLIER_2_0X' | 'MULTIPLIER_1_0X';
+
+export interface ShiftConfiguration {
+  shiftName: string;
+  startTime: string; // "08:30" (24h)
+  endTime: string;   // "17:30" (24h)
+  standardHours: number; // e.g. 9
+  graceMinutesLate: number; // e.g. 15
+  halfDayThresholdHours: number; // e.g. 4.5
+  overtimeCalculationType: OvertimeCalculationType;
+  customOvertimeHourlyRate?: number; // e.g. ₹120/hr when HOURLY_FIXED
+  latePenaltyPerInstance?: number; // e.g. ₹100 or 0
+}
+
+export interface EmployeeAttendancePolicy {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  punchMode: PunchPolicyMode;
+  enableLiveLocationTracking: boolean;
+  travelRatePerKm: number; // e.g. ₹5/km for bike or ₹0 if salaried inside factory
+  shift: ShiftConfiguration;
+}
+
+export interface FactoryGeofenceConfig {
+  factoryName: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number; // e.g. 150
+  address: string;
+  googleMapsApiKey?: string;
+}
+
+export interface PayrollSystemConfig {
+  geofence: FactoryGeofenceConfig;
+  defaultShift: ShiftConfiguration;
+  employeePolicies: Record<string, EmployeeAttendancePolicy>;
+}
+
+export interface PunchLocationSnapshot {
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+  address: string;
+  distanceFromFactoryMeters?: number;
+  withinGeofence: boolean;
+}
+
+export interface DailyPunchEvent {
+  id: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  department: string;
+  role: string;
+  date: string; // YYYY-MM-DD
+  policyMode: PunchPolicyMode;
+  punchInTime?: string; // ISO
+  punchInLocation?: PunchLocationSnapshot;
+  punchInSelfie?: string; // Watermarked JPEG data URL
+  punchInDevice?: string; // "MOBILE_FIELD" | "DESKTOP_EXE"
+  punchOutTime?: string; // ISO
+  punchOutLocation?: PunchLocationSnapshot;
+  punchOutSelfie?: string;
+  lateMinutes: number;
+  workedMinutes: number;
+  overtimeMinutes: number;
+  overtimeHoursCalculated: number; // Decimal hours e.g. 1.75
+  status: 'IN' | 'OUT' | 'LATE' | 'ABSENT' | 'LEAVE';
+  notes?: string;
+  updatedAt: string;
+}
+
+export interface LeaveRequestRecord {
+  id: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  department: string;
+  fromDate: string; // YYYY-MM-DD
+  toDate: string;   // YYYY-MM-DD
+  leaveDaysCount: number;
+  leaveType: 'CASUAL' | 'SICK' | 'PAID' | 'HALF_DAY' | 'EMERGENCY';
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewedBy?: string;
+  reviewedAt?: string;
+  appliedAt: string;
 }

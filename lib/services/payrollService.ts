@@ -18,6 +18,8 @@ import {
   SalarySlipRecord,
 } from '@/types/payroll';
 import { createManualJournal, SYSTEM_ACCOUNT_IDS } from './accountingService';
+import { resolveEmployeePolicy } from './payrollPolicyStore';
+import { getMonthPunches, getStaffMonthlyDistanceKm } from './fieldTrackingService';
 
 const PAYROLL_STORE_FILE = 'payroll-store.json';
 
@@ -207,32 +209,69 @@ export async function calculateMonthlySalaries(month: string): Promise<MonthlyPa
     existingSlipMap.set(slip.employeeId, slip);
   }
 
+  const monthPunches = getMonthPunches(month);
   const slips: SalarySlipRecord[] = [];
 
   for (const att of attendanceList) {
     const emp = empMap.get(att.employeeId);
     const existing = existingSlipMap.get(att.employeeId);
+    const policy = resolveEmployeePolicy(att.employeeId, emp);
 
     const baseMonthlySalary = Number(emp?.salary || 22000);
     const perDaySalary = Math.round(baseMonthlySalary / daysInMonth);
     const earnedBasicPay = Math.round(perDaySalary * att.payableDays);
 
-    const overtimeHours = Number(att.totalOvertimeHours || 0);
-    const overtimeHourlyRate = Math.round((perDaySalary / 8) * 1.5); // 1.5x regular hourly wage
+    // Hourly Overtime (OT) calculation per employee shift policy
+    const shiftHours = Math.max(1, Number(policy.shift.standardHours || 8));
+    const regularHourlyRate = perDaySalary / shiftHours;
+    let overtimeHourlyRate = Math.round(regularHourlyRate * 1.5);
+    if (policy.shift.overtimeCalculationType === 'HOURLY_FIXED' && policy.shift.customOvertimeHourlyRate) {
+      overtimeHourlyRate = Math.round(policy.shift.customOvertimeHourlyRate);
+    } else if (policy.shift.overtimeCalculationType === 'MULTIPLIER_2_0X') {
+      overtimeHourlyRate = Math.round(regularHourlyRate * 2.0);
+    } else if (policy.shift.overtimeCalculationType === 'MULTIPLIER_1_0X') {
+      overtimeHourlyRate = Math.round(regularHourlyRate);
+    }
+
+    const empMonthPunches = monthPunches.filter((p) => p.employeeId === att.employeeId);
+    const punchOtHours = empMonthPunches.reduce((sum, p) => sum + (Number(p.overtimeHoursCalculated) || 0), 0);
+    const overtimeHours = Number(Math.max(Number(att.totalOvertimeHours || 0), punchOtHours).toFixed(2));
     const earnedOvertimePay = Math.round(overtimeHours * overtimeHourlyRate);
+
+    // GPS Route Distance Travel Bata calculation
+    const distanceTraveledKm = getStaffMonthlyDistanceKm(att.employeeId, month);
+    const autoTravelBata = Math.round(distanceTraveledKm * (policy.travelRatePerKm || 0));
+    const travelBataAllowance = existing?.travelBataAllowance ?? autoTravelBata;
 
     const foodAllowance = existing?.foodAllowance ?? 1500;
     const conveyanceAllowance = existing?.conveyanceAllowance ?? 1000;
     const performanceBonus = existing?.performanceBonus ?? 0;
-    const grossSalary = earnedBasicPay + earnedOvertimePay + foodAllowance + conveyanceAllowance + performanceBonus;
+    const grossSalary =
+      earnedBasicPay +
+      earnedOvertimePay +
+      travelBataAllowance +
+      foodAllowance +
+      conveyanceAllowance +
+      performanceBonus;
+
+    // Late penalty auto-compute if configured
+    const lateCount = empMonthPunches.filter((p) => p.lateMinutes > 0).length;
+    const autoLatePenalty = lateCount * Number(policy.shift.latePenaltyPerInstance || 0);
 
     // Deductions
     const advanceDeduction = existing?.advanceDeduction ?? 0;
+    const latePenaltyDeduction = existing?.latePenaltyDeduction ?? autoLatePenalty;
     const canteenFoodDeduction = existing?.canteenFoodDeduction ?? 0;
     const pfDeduction = existing?.pfDeduction ?? 0;
     const esiDeduction = existing?.esiDeduction ?? 0;
     const otherDeductions = existing?.otherDeductions ?? 0;
-    const totalDeductions = advanceDeduction + canteenFoodDeduction + pfDeduction + esiDeduction + otherDeductions;
+    const totalDeductions =
+      advanceDeduction +
+      latePenaltyDeduction +
+      canteenFoodDeduction +
+      pfDeduction +
+      esiDeduction +
+      otherDeductions;
 
     const netPayableRupees = Math.max(0, grossSalary - totalDeductions);
     const netPayableInWords = numberToWordsInr(netPayableRupees);
@@ -257,11 +296,14 @@ export async function calculateMonthlySalaries(month: string): Promise<MonthlyPa
       earnedBasicPay,
       overtimeHourlyRate,
       earnedOvertimePay,
+      travelBataAllowance,
+      distanceTraveledKm,
       foodAllowance,
       conveyanceAllowance,
       performanceBonus,
       grossSalary,
       advanceDeduction,
+      latePenaltyDeduction,
       canteenFoodDeduction,
       pfDeduction,
       esiDeduction,
@@ -396,4 +438,63 @@ export function generateBankNeftWorkbook(month: string, slips: SalarySlipRecord[
 
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   return buf;
+}
+
+/**
+ * Updates individual salary slip earnings/deductions (TotalX inline adjustment) and recomputes net pay.
+ */
+export async function updateSalarySlipAdjustment(
+  month: string,
+  employeeId: string,
+  patch: Partial<
+    Pick<
+      SalarySlipRecord,
+      | 'travelBataAllowance'
+      | 'foodAllowance'
+      | 'conveyanceAllowance'
+      | 'performanceBonus'
+      | 'advanceDeduction'
+      | 'latePenaltyDeduction'
+      | 'canteenFoodDeduction'
+      | 'pfDeduction'
+      | 'esiDeduction'
+      | 'otherDeductions'
+      | 'overtimeHours'
+      | 'overtimeHourlyRate'
+    >
+  >
+): Promise<SalarySlipRecord | null> {
+  const store = readPayrollStore();
+  const slips = store.salarySlips[month] || [];
+  const idx = slips.findIndex((s) => s.employeeId === employeeId);
+  if (idx === -1) return null;
+
+  const s = { ...slips[idx], ...patch };
+  if (patch.overtimeHours !== undefined || patch.overtimeHourlyRate !== undefined) {
+    s.earnedOvertimePay = Math.round(Number(s.overtimeHours || 0) * Number(s.overtimeHourlyRate || 0));
+  }
+
+  s.grossSalary =
+    Number(s.earnedBasicPay || 0) +
+    Number(s.earnedOvertimePay || 0) +
+    Number(s.travelBataAllowance || 0) +
+    Number(s.foodAllowance || 0) +
+    Number(s.conveyanceAllowance || 0) +
+    Number(s.performanceBonus || 0);
+
+  s.totalDeductions =
+    Number(s.advanceDeduction || 0) +
+    Number(s.latePenaltyDeduction || 0) +
+    Number(s.canteenFoodDeduction || 0) +
+    Number(s.pfDeduction || 0) +
+    Number(s.esiDeduction || 0) +
+    Number(s.otherDeductions || 0);
+
+  s.netPayableRupees = Math.max(0, s.grossSalary - s.totalDeductions);
+  s.netPayableInWords = numberToWordsInr(s.netPayableRupees);
+
+  slips[idx] = s;
+  store.salarySlips[month] = slips;
+  writePayrollStore(store);
+  return s;
 }

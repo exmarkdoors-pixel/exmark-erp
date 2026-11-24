@@ -51,6 +51,9 @@ import type { MobileStaffRole } from '@/lib/auth/operationalStaffTypes';
 import { MobileStoreBoqPanel } from './MobileStoreBoqPanel';
 import { MobileCrmLeadsPanel } from './MobileCrmLeadsPanel';
 import { MobileCustomerModal } from './MobileCustomerModal';
+import { MobileSelfiePunchPanel } from './MobileSelfiePunchPanel';
+import { MobileCustomerVisitModal } from './MobileCustomerVisitModal';
+import type { CustomerVisitRecord } from '@/types/fieldVisits';
 import { computeDoorTolerances, FloorCondition } from '@/lib/services/toleranceCalculation';
 import type { Customer } from '@/lib/services/customerService';
 
@@ -143,6 +146,30 @@ export function MobileFieldOperationsHub({
   const [gpsStatus, setGpsStatus] = useState<string>('GPS Idle');
   const [lastCoords, setLastCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // TotalX Selfie Punch & Customer Visit states (Available to ALL staff roles)
+  const [showAttendanceWorkspace, setShowAttendanceWorkspace] = useState<boolean>(false);
+  const [isVisitModalOpen, setIsVisitModalOpen] = useState<boolean>(false);
+  const [todayVisits, setTodayVisits] = useState<CustomerVisitRecord[]>([]);
+
+  const loadMyTodayVisits = async () => {
+    try {
+      const sid = authenticatedUser?.id || 'STAFF-MOBILE-01';
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      const res = await fetch(`/api/field-service/visits?staffId=${encodeURIComponent(sid)}&date=${today}`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setTodayVisits(json.data);
+      }
+    } catch {
+      // ignore non-fatal
+    }
+  };
+
+  useEffect(() => {
+    loadMyTodayVisits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticatedUser?.id]);
 
   // In-app mobile update state
   const [mobileUpdate, setMobileUpdate] = useState<{
@@ -410,9 +437,9 @@ export function MobileFieldOperationsHub({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                staffId: 'STAFF-MOBILE-01',
-                staffName: 'Nazer Field Unit',
-                role: activeRole,
+                staffId: authenticatedUser?.id || 'STAFF-MOBILE-01',
+                staffName: authenticatedUser?.name || 'Field Unit',
+                role: authenticatedUser?.role || activeRole,
                 latitude: lat,
                 longitude: lng,
                 accuracy: position.coords.accuracy,
@@ -656,8 +683,32 @@ export function MobileFieldOperationsHub({
         </div>
       )}
 
+      {/* Universal Selfie Attendance & Field Visit Quick Strip */}
+      <div className="bg-[#0b1324] border-b border-slate-800 px-3 py-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setShowAttendanceWorkspace(!showAttendanceWorkspace)}
+          className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition cursor-pointer ${
+            showAttendanceWorkspace
+              ? 'bg-emerald-600 text-white border-emerald-400 shadow'
+              : 'bg-slate-900 text-emerald-300 border-emerald-500/40 hover:bg-slate-800'
+          }`}
+        >
+          <Camera className="w-3.5 h-3.5" />
+          <span>{showAttendanceWorkspace ? '← Back to Work Modules' : 'Selfie Punch-In / Attendance'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsVisitModalOpen(true)}
+          className="py-1.5 px-3 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-black flex items-center gap-1.5 shadow cursor-pointer shrink-0"
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          <span>+ Visit Selfie</span>
+        </button>
+      </div>
+
       {/* Role Switcher Tab Navigation (VISIBLE ONLY TO MANAGERS & SUPERVISORS) */}
-      {isManager && (
+      {!showAttendanceWorkspace && isManager && (
         <div className="bg-[#0b1324] border-b border-slate-800 flex overflow-x-auto p-1 gap-1 text-xs font-bold scrollbar-none">
           {[
             { id: 'MEASUREMENT', label: '📏 Site Measurement', icon: Ruler },
@@ -689,6 +740,20 @@ export function MobileFieldOperationsHub({
 
       {/* Main Content Area */}
       <main className="flex-1 p-3 space-y-3 max-w-lg mx-auto w-full">
+        {showAttendanceWorkspace ? (
+          <MobileSelfiePunchPanel
+            employeeId={authenticatedUser?.id || 'STAFF-MOBILE-01'}
+            employeeCode={authenticatedUser?.employeeCode || 'FLD-01'}
+            employeeName={authenticatedUser?.name || 'Field Staff'}
+            department={authenticatedUser?.department}
+            onOpenCustomerVisitModal={() => setIsVisitModalOpen(true)}
+            isLiveTrackingActive={isGpsActive}
+            onLiveTrackingToggle={(active) => setIsGpsActive(active)}
+            recentVisits={todayVisits}
+            onRefreshVisits={loadMyTodayVisits}
+          />
+        ) : (
+        <>
         {/* ========================================================================= */}
         {/* 0. UNIVERSAL SITE MEASUREMENT MODULE (ACCESSIBLE TO ALL ROLES)             */}
         {/* ========================================================================= */}
@@ -2260,7 +2325,23 @@ ${includeGst ? `*GST (18%):* ₹${gstAmount.toLocaleString('en-IN')}\n` : ''}*ES
             )}
           </div>
         )}
+        </>
+        )}
       </main>
+
+      {/* Mobile Customer Visit with Geo-Tagged Selfie Modal */}
+      <MobileCustomerVisitModal
+        isOpen={isVisitModalOpen}
+        onClose={() => setIsVisitModalOpen(false)}
+        staffId={authenticatedUser?.id || 'STAFF-MOBILE-01'}
+        staffCode={authenticatedUser?.employeeCode || 'FLD-01'}
+        staffName={authenticatedUser?.name || 'Field Staff'}
+        staffRole={authenticatedUser?.role || activeRole}
+        onVisitLogged={(visit) => {
+          setTodayVisits((prev) => [visit, ...prev]);
+          showToast(`✓ Logged visit for ${visit.customerName} with Geo-Selfie!`);
+        }}
+      />
 
       {/* Mobile Customer Registration Modal */}
       <MobileCustomerModal

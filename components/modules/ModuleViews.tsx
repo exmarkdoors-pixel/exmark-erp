@@ -2079,7 +2079,12 @@ export function EmployeesView({
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-  const [activeStaffTab, setActiveStaffTab] = useState<'ROSTER' | 'PAYROLL_ATTENDANCE'>('ROSTER');
+  const [activeStaffTab, setActiveStaffTab] = useState<'ROSTER' | 'PAYROLL_ATTENDANCE'>(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('subtab=payroll')) {
+      return 'PAYROLL_ATTENDANCE';
+    }
+    return 'ROSTER';
+  });
 
   // Add / Edit Employee Modal
   const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
@@ -2333,7 +2338,7 @@ export function EmployeesView({
           }`}
         >
           <Calendar className="w-3.5 h-3.5" />
-          <span>📅 Monthly Attendance &amp; Payroll Hub (PagarBook/Biometric)</span>
+          <span>📸 TotalX Selfie Attendance, GMap Route &amp; Hourly OT Payroll</span>
         </button>
       </div>
 

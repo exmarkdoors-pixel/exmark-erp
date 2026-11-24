@@ -377,6 +377,17 @@ async function startEmbeddedStandaloneServer(options = {}) {
       });
     }
   } else {
+    if (!forceRestart) {
+      const existingBaseUrl = `http://127.0.0.1:${config.port}`;
+      if (await checkHealthUrl(existingBaseUrl, 1200)) {
+        activeLocalPort = config.port;
+        activeBaseUrl = existingBaseUrl;
+        loadAppUrl(existingBaseUrl);
+        buildApplicationMenu();
+        return true;
+      }
+    }
+
     if (!fs.existsSync(paths.serverJs)) {
       const msg = `Embedded server bundle not found at ${paths.serverJs}`;
       console.error(`[Desktop Main] ${msg}`);
@@ -677,6 +688,10 @@ function buildApplicationMenu() {
           label: 'Accounts, Profit P&L, Break-Even & Vyapar',
           accelerator: 'CmdOrCtrl+I',
           click: () => navigateToTab('accounts'),
+        },
+        {
+          label: 'TotalX Attendance, Geo-Selfie & GMap Payroll',
+          click: () => loadAppUrl(`${getNavigationBaseUrl()}/?tab=employees&subtab=payroll`),
         },
         { label: 'Executive Reports & PDF Export', click: () => navigateToTab('reports') },
         { type: 'separator' },
